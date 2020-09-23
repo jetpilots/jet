@@ -339,6 +339,7 @@ STATIC void jet_Pool_free(jet_Pool* self)
     for (int i = 0; i < self->ptrs.used; i++) free(self->ptrs.ref[i]);
 }
 
+// FIXME: this should go into jet_runtime.h
 jet_Pool jet_gPool[1] = {};
 jet_Pool jet_sPool[1] = {};
 

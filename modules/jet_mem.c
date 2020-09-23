@@ -1,93 +1,10 @@
-#include <stdlib.h>
-#include <string.h>
-#include <assert.h>
-#include <stdio.h>
-#include <stdint.h>
+#define JET_MEM_NOMEMPOOL
+#include "jet_mem.h"
 
-#include "jet_base.h"
-#include "hash.h"
+#ifndef JET_MEM_DISABLED
 
-// tODO: this is a heap checker that reports whether what is allocated is
-// freed. also need a mem profiler that will report what the mem usage is at
-// any given location as a % of the total mem AT THE POINT IN TIME just
-// after it is allocated.
-
-static int EL = 0;
-static const char* spc = "                ";
-#ifdef TRACE
-#define EP                                                                     \
-    printf("%.*s%s -> %s:%d\n", 2 * EL++, spc, __func__, __FILE__, __LINE__);
-#define EX EL--;
-#else
-#define EP
-#define EX
-#endif
-MKSTAT(jet_mem__SizeClassInfo)
-
-typedef struct jet_mem__SizeClassInfo {
-    jet_PtrArray arr; // init with null
-    // jet_PtrList* list;
-    // int count;
-} jet_mem__SizeClassInfo;
-// size -> jet_mem__SizeClassInfo* map
-static jet_Dict(UInt64, Ptr) jet_mem__sizeDict[1] = {};
-
-#define STR(X) #X
-#define SPOT(x, fn, fil, lin) fil ":" STR(lin) ": " x
-
-// TODO: jet_mem_alloc should not be affected: disabling jet_heap_alloc merely
-// makes jet_heap_alloc, jet_mem_heapfree identical to malloc,free.
-// TODO: need 2 switches, one to turn off heap checker and one to just make
-// everything fall back to malloc/free (no pool).
-
-// API:
-// jet_mem_alloc(str, size) -> str is usually var name. file/line/func are added
-// jet_mem_dealloc(ptr, nelem) -> drop ptr with n elems (of size sizeof(*ptr))
-// jet_mem_realloc(ptr, newsize) -> realloc the buf for ptr to a new size
-// jet_mem_stats()
-// jet_mem__alloc(size,rawstr) -> rawstr a string, file/line/func are not added
-// jet_mem__dealloc(ptr, nbytes, rawstr) -> drop ptr with nbytes size
-
-// #define FP_POOL_DISABLED
-// #define NOHEAPTRACKER
-#ifdef FP_POOL_DISABLED // --------------------------------------------------
-#define jet_mem_alloc(nam, sz) jet_mem__alloc(sz, "")
-void* jet_mem__heapmalloc(UInt64 size, const char* desc)
-{
-    return malloc(size);
-}
-#define jet_mem_heapfree free
-void* jet_mem__alloc(UInt64 size, const char* desc)
-{
-    return jet_mem__heapmalloc(size, "");
-}
-UInt64 jet_mem_stats(bool heap) { return 0; }
-#define jet_mem__dealloc(ptr, size, desc) jet_mem_heapfree(ptr)
-#define jet_mem_dealloc(ptr, size) free(ptr)
-#else // FP_POOL_DISABLED ---------------------------------------------------//
-      // TODO: the compiler will call jet_mem__alloc directly with a custom
-      // built string.
-#define jet_mem_alloc(nam, sz)                                                 \
-    jet_mem__alloc(sz, SPOT(nam, __func__, __FILE__, __LINE__))
-
-static UInt64 jet_mem__heapTotal = 0;
-
-typedef struct jet_mem__PtrInfo {
-    UInt64 size : 63, heap : 1;
-    const char* desc;
-} jet_mem__PtrInfo;
-MAKE_DICT(Ptr, jet_mem__PtrInfo)
-// void* -> jet_mem__PtrInfo map
-static jet_Dict(Ptr, jet_mem__PtrInfo) jet_mem__ptrDict[1];
-
-// TODO: rename
-typedef struct {
-    UInt64 count, sum;
-} jet_mem__Stat;
-
-MAKE_DICT(CString, jet_mem__Stat)
-
-// TODO: rename
+jet_Dict(Ptr, jet_mem__PtrInfo) jet_mem__ptrDict[1];
+UInt64 jet_mem__heapTotal = 0;
 jet_Dict(CString, jet_mem__Stat) jet_mem__allocStats[1];
 
 int jet_mem__cmpsum(const void* a, const void* b)
@@ -99,26 +16,6 @@ int jet_mem__cmpsum(const void* a, const void* b)
     UInt64 vb = jet_Dict_val(jet_mem__allocStats, ib).sum;
     return va > vb ? -1 : va == vb ? 0 : 1;
 }
-
-// void* jet_mem__heapmalloc(UInt64 size, const char* desc)
-// {
-//     EP;
-//     void* ret = malloc(size);
-//     // if (ret) {
-//     //     int stat[1];
-//     //     jet_mem__PtrInfo inf = { //
-//     //         .size = size,
-//     //         .heap = true,
-//     //         .desc = desc
-//     //     };
-//     //     UInt32 p = jet_Dict_put(Ptr, jet_mem__PtrInfo)(jet_mem__ptrDict,
-//     ret, stat);
-//     //     jet_Dict_val(jet_mem__ptrDict, p) = inf;
-//     //     jet_mem__heapTotal += size;
-//     // }
-//     EX;
-//     return ret;
-// }
 
 void jet_mem__heapfree(void* ptr, const char* desc)
 {
@@ -134,32 +31,16 @@ void jet_mem__heapfree(void* ptr, const char* desc)
         if (not jet_Dict_val(jet_mem__ptrDict, d).heap) {
             printf("free non-heap pointer at %s\n", desc);
         } else {
-            free(ptr);
+            LIBC_FREE(ptr);
             jet_mem__heapTotal -= jet_Dict_val(jet_mem__ptrDict, d).size;
             jet_Dict_delete(Ptr, jet_mem__PtrInfo)(jet_mem__ptrDict, d);
         }
     } else {
-        printf("double free attempted at %s\n", desc);
+        printf("calling free on unknown pointer at %s\n", desc);
     }
     EX
 }
-
-#define jet_mem_dealloc(x, n)                                                  \
-    jet_mem__dealloc(                                                          \
-        x, (n) * sizeof(*(x)), SPOT(#x, __func__, __FILE__, __LINE__))
-#define jet_mem_heapfree(x)                                                    \
-    jet_mem__heapfree(x, SPOT(#x, __func__, __FILE__, __LINE__))
-
-// just put into freelist. why need desc?
-// f+ in module fp.mem
-// var sizeDict[UInt64] as SizeClassInfo = {} -- can be modif within module
-// function dealloc(ptr as Ptr, size as UInt64, desc as CCharPtr)
-//    var inf as SizeClassInfo =
-//        getOrSet(sizeDict, key = size, value = SizeClassInfo())
-//    insert(&inf.list, item = ptr)
-//    inf.count += 1
-// end function
-static void jet_mem__dealloc(void* ptr, UInt64 size, const char* desc)
+void jet_mem__dealloc(void* ptr, UInt64 size, const char* desc)
 {
     EP;
     int stat[1] = {};
@@ -180,23 +61,18 @@ static void jet_mem__dealloc(void* ptr, UInt64 size, const char* desc)
     jet_PtrArray_push(&inf->arr, ptr);
 
     // inf->count++;
-#ifndef NOHEAPTRACKER
+#ifndef JET_MEM_NOHEAPTRACKER
     jet_Dict_deleteByKey(Ptr, jet_mem__PtrInfo)(jet_mem__ptrDict, ptr);
 #endif
 
     EX
 }
 
-// TODO: this func is not so great for strings, as it is "exact-fit". Freed
-// pointers are reused only for objects of exactly the same size as the
-// pointer's previous data. This is nearly useless for strings. They have their
-// own string pool, you should probably have a jet_alloc_str that is best-fit.
-// f+ fp.mem._alloc
 void* jet_mem__alloc(UInt64 size, const char* desc)
 // alloc from freelist, or pool or heap, in that order of preference
 {
     EP;
-#ifndef NOMEMPOOL
+#ifndef JET_MEM_NOMEMPOOL
     int d = jet_Dict_get(UInt64, Ptr)(jet_mem__sizeDict, size);
     if (d < jet_Dict_end(jet_mem__sizeDict)) {
         jet_mem__SizeClassInfo* inf = jet_Dict_val(jet_mem__sizeDict, d);
@@ -216,16 +92,17 @@ void* jet_mem__alloc(UInt64 size, const char* desc)
     void* ret = fromPool //
         ? jet_Pool_alloc(jet_gPool, size)
         // else fall back to the heap allocator.
-        : malloc(size); // jet_mem__heapmalloc(size, desc);
+        : LIBC_MALLOC(size); // jet_mem__heapmalloc(size, desc);
     if (not fromPool) jet_mem__heapTotal += size;
 #else
-    void* ret = malloc(size);
+    bool fromPool = false;
+    void* ret = LIBC_MALLOC(size);
 #ifndef NOHEAPTOTAL
     jet_mem__heapTotal += size;
 #endif
 #endif
 
-#ifndef NOHEAPTRACKER
+#ifndef JET_MEM_NOHEAPTRACKER
     if (ret) {
         int stat[1];
         jet_mem__PtrInfo inf = { //
@@ -242,6 +119,8 @@ void* jet_mem__alloc(UInt64 size, const char* desc)
     EX;
     return ret;
 }
+
+#endif
 
 // f+ fp.mem.stats()
 UInt64 jet_mem_stats(bool heap)
@@ -266,7 +145,8 @@ UInt64 jet_mem_stats(bool heap)
         });
 
         if (jet_mem__allocStats->size) {
-            int i = 0, *indxs = malloc(jet_mem__allocStats->size * sizeof(int));
+            int i = 0,
+                *indxs = LIBC_MALLOC(jet_mem__allocStats->size * sizeof(int));
             jet_Dict_foreach(jet_mem__allocStats, CString key,
                 jet_mem__Stat val, { indxs[i++] = _i_; });
             qsort(
@@ -293,6 +173,7 @@ UInt64 jet_mem_stats(bool heap)
                 sum, sum * 100.0 / rss, heap ? "heap" : "pool", rss);
             // }
             jet_Dict_clear(CString, jet_mem__Stat)(jet_mem__allocStats);
+            LIBC_FREE(indxs);
         } else {
             puts("-- no leaks.");
         }
@@ -302,9 +183,42 @@ UInt64 jet_mem_stats(bool heap)
     return sum;
 }
 
-#endif // FP_POOL_DISABLED --------------------------------------------------
+void user(double* b)
+{
+    (void)b;
+    // return b;
+    // free(b);
+}
 
-int main()
+double* func();
+
+int main(int argc, char* argv[])
+{
+    char* bufc = malloc(sizeof(char) * 51200);
+    free(bufc);
+
+    // 1. heap buffer not freed
+    for (int i = 0; i < 10; i++) {
+        double* buf = malloc(sizeof(double) * 1024);
+        user(buf);
+        if (i % 2) free(buf);
+    }
+
+    double* external = func();
+
+    // 2. heap buffer freed more than once
+    // free(bufc);
+
+    // 3. attempt to free non-heap buffer
+    char stbuf[512];
+    // free(stbuf);
+
+    jet_mem_stats(true);
+
+    return 0;
+}
+/*
+int msain()
 {
     EP;
     double* d = jet_mem_alloc("d", 8 * sizeof(double));
@@ -314,7 +228,7 @@ int main()
     double* d2 = jet_mem_alloc("d2", 32 * sizeof(double));
     double *e, *ex;
     double sum = 0.0;
-    for (int i = 0; i < 10000000; i++) {
+    for (int i = 0; i < 100000; i++) {
         // TODO: in such a tight and long loop, if the subpool is close to the
         // end around the start of the loop, most of the allocations will go to
         // the heap -> a new subpool will not be created at all if size > 256,
@@ -324,7 +238,7 @@ int main()
         // remainder, and alloc a new subpool anyway. direct fallthrough to
         // malloc should be only for requests that are really large.
         // to see the difference, change 256 to 257 below and see the effect.
-        e = jet_mem_alloc("e", 32 * sizeof(double));
+        e = jet_mem_alloc("e", 320 * sizeof(double));
         ex = jet_mem_alloc("ex", 32 * sizeof(double));
         for (int j = 0; j < 32; j++) sum += e[j] + ex[j];
         // really large requests would be those larger than the next upcoming
@@ -341,7 +255,7 @@ int main()
         // pool: 2 , 4.10
         // tracker: 3 , 1m45s
     }
-    printf("%f", sum);
+    printf("sum = %g\n", sum);
 
     // no pool -> 5.845s O3 S, 4.550 L
     // pool + tracking -> 3.415 O3 S, 4.624 L
@@ -378,5 +292,5 @@ int main()
     printf("%d x %zu B -> %zu B jet_PtrList\n", jet_PtrList_allocTotal,
         sizeof(jet_PtrList), jet_PtrList_allocTotal * sizeof(jet_PtrList));
 
-    EX
-}
+    EX return 0;
+}*/
