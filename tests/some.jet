@@ -1,4 +1,4 @@
-function unsetPrinted(expr as ASTExpr)
+function unsetPrinted(expr::ASTExpr)
     match expr.kind
     case .identResolved, .varAssign
         expr.var.flags.printed = no
@@ -15,14 +15,14 @@ function unsetPrinted(expr as ASTExpr)
     end match
 end function
 
-function genPrintVars(expr[String] as ASTExpr, level[:,:] as Number)
-    let spc as String = repeat("    ", times = level)
+function genPrintVars(expr::ASTExpr[String], level::Number[:,:])
+    let spc::String = repeat("    ", times = level)
     match expr.kind
     case .identResolved, .varAssign
         if expr.var.flags.printed then return
         let name = expr.var.name
-        let fmt as String = format(expr.var.init.typeType, quoted = yes)
-        print("{{spc}}printf('    {{name}} = {{fmt}}\\n', {{name}});")
+        let fmt::String = format(expr.var.init.typeType, quoted = yes)
+        print("${spc}printf('    $name = $fmt\\n', $name);")
         expr.var.flags.printed = yes
     case .funcCallResolved, .funcCall,
          .subscriptResolved, .subscript,
@@ -37,12 +37,12 @@ function genPrintVars(expr[String] as ASTExpr, level[:,:] as Number)
     end match
 end function
 
-function promotionCandidate(expr as ASTExpr) result (ret as ASTExpr)
+function promotionCandidate(expr::ASTExpr) result (ret::ASTExpr)
     match expr.kind
     case .funcCallResolved
         try
             ret = promotionCandidate(expr.left)
-        catch Error.notFound
+        catch Errors.notFound
             if mustPromote(expr.func.selector) then ret = expr
         end try
     case .subscriptResolved, .subscript,
@@ -54,20 +54,20 @@ function promotionCandidate(expr as ASTExpr) result (ret as ASTExpr)
         if expr.prec
             try
                 ret = promotionCandidate(expr.right)
-            catch Error.notFound
+            catch Errors.notFound
                 if not expr.unary
                     ret = promotionCandidate(expr.right) or throw
                 end if
             end try
         end if
     end match
-    throw Error.notFound
+    throw Errors.notFound
 end function
 
 let prom = promotionCandidate(stmt) or skip/break/return
 prom.left = ... # this should work since there is a skip above
 
-function promotionCandidate(expr as ASTExpr) result (ret as ASTExpr)
+function promotionCandidate(expr::ASTExpr) result (ret::ASTExpr)
     match expr.kind
     case .funcCallResolved
         ret = promotionCandidate(expr.left)
@@ -82,7 +82,7 @@ function promotionCandidate(expr as ASTExpr) result (ret as ASTExpr)
         ret = promotionCandidate(expr.left)
     case else
         if expr.prec
-            ret = promotionCandidate(expr.right)
+            ret = promotionCandidate(&expr.right)
             if ret == nil and not expr.unary
                 ret = promotionCandidate(expr.right)
             end if

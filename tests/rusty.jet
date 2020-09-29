@@ -20,7 +20,7 @@ type Colours
 end type
 
 #[derive(Clone Copy Debug Default PartialEq)]
-type FileKinds {
+type FileKinds
     var normal as Style
     var directory as Style
     var symlink as Style
@@ -95,7 +95,7 @@ impl Colours {
     colourful(var scale as YesOrNo) :=
         Colours {
             colourful = yes,
-            filekinds = FileKinds{
+            filekinds = FileKinds {
                 normal = Style::default(),
                 directory = Blue.bold(),
                 symlink = Cyan.normal(),

@@ -1,27 +1,38 @@
 
-type DateTime
-    var month as Whole in [1:12]
-    get dayOfWeek as Whole := dayOfYear % 7 + dayOf1Jan
-    set dayOfWeek(value as Whole)
+value type DateTime
+    var month:Int<1:12> = 1
+    # only primitives for set/get!!
+    get dayOfWeek:Int<1:7> := dayOfYear % 7 + dayOf1Jan
+    set dayOfWeek(value:Int<1:7>)
 
     end set
     get dayOfWeek
 
     end get
+    var myRange:RealRange = R<1:12, 15:18k, 33:70M> # this seems to be least problematic syntax for range literals R<> and I<>
+end type
+
+max(R<1:7>) < min(R<7:9>)
+
+value type Colour
+    var r:Int[3D]<0:255>|kg.s/m3 = 0
+    var g:Int<0:255> = 0
+    var b:Int<0:255> = 0
+    var a:Int<0:255> = 0
 end type
 
 # this is without bells and whistles. blocking call, returns raw text.
 # no way to get info about response, headers, status, etc. On error
 # you get a blank string.
 
-    var postData as Text[Text] = {
+    var postData:Text[Text] = {
         "Accept" = "*/*",
         "Referer" = "base43.net",
         "Keep-alive" = "none"
     }
 
 
-    var mdat as Text = download("https://wafers.com/next?ios=87",
+    var mdat:Text = download("https://wafers.com/next?ios=87",
                                 post = {
                                     "Accept" = "*/*",
                                     "Referer" = "base43.net",
@@ -31,7 +42,7 @@ end type
 function loadFile()
 
     var file = File("~/.visz/slurp.dat")
-    var ffg as Text = read(file)
+    var ffg:Text = read(file)
 
     catch .resourceNotFound
         print("Can't find file: $file")
@@ -41,7 +52,7 @@ function loadFile()
         return
     end catch
 
-    var accel = 89.86|kg.m2/s2
+    var accel = 89.86|kg.m2/s2 + sum(1:end:, 1:end)
 
 end function
 

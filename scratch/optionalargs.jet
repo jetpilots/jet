@@ -1,0 +1,37 @@
+
+var dat = read(.csv "data.csv", .options { .sep ";", .skip 10, .headers no })
+
+var dat = read( .csv "data.csv",
+                   .options CSVOptions {
+                        .sep ";",
+                        .skip 10,
+                        .headers ["x", "y", "z", "color"]
+                    })
+
+var dat = read(csv "data.csv", options { sep ";", skip 10, headers no })
+
+dat readfile(csv "data.csv",
+            options CSVOptions {
+                sep ";",
+                skip 10,
+                headers ["x", "y", "z", "color"]
+            })
+
+var z = zeros(d2 = [7 9])
+var z = zeros(like = mMatrix3D)
+
+var dl = httpGet("https", header = {"X-Type" = 65})
+
+var eMsg::EmailMessage = imapFetch("imaps://tytu", id = 673, auth = {user = "him"})
+
+var dat = read(csv = "data.csv", options = { .sep = ";", .skip = 10, .headers = no })
+
+var dat = read(csv = "data.csv",
+                   options = CSVOptions {
+                        .sep = ";",
+                        .skipLines = 10,
+                        .headers = ["x", "y", "z", "color"]
+                    })
+
+
+plot(xM, axis = xgrid, colors = cols)

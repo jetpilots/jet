@@ -1,0 +1,33 @@
+func ping(ip::IPAddr) := ping(ip, times=4)
+func ping(ip::IPAddr, times::Int) := ping(ip, times=times, timeout=3)
+func ping(ip::IPAddr, times::Int, timeout::Int) -> Number[]
+
+# if the definition of the main ping func is more than N lines away, the statement
+# func return type should be annotated. How about using this rule also for vars etc.
+# if the ref var or whatever it is the RHS comes from is defined within N lines
+# then don't annotate. or within the same scope.
+
+
+
+
+
+# how about a type Any that is basically a uintptr_t
+# you can stuff a voidptr, double, int, char*, anything in it
+# then you can define funcs on it to get template free generics
+# Any[] is an array, Any[Any] is a hashmap, etc.
+# btw you realize that Type[] (as long as [1D]) can be generated
+# as an array (if iterating), list (if pushing?), set (if querying), but also Dict indexed by int, if appropriate (sparsely accessing).
+# what about a multi-dim dict?
+# Int[2D Text]
+# or is sparse matrix handled fully behind the scenes?
+
+func push(a!::Any[], a2::Any[])
+    if a.size+a2.size >= a.space then grow(a!, by=a2.size)
+    a[end-a2.size:end] = a2[1:end]
+end func
+
+a = a!.trim().split() # this a = f(a!) should not be allowed, so funcs must
+# not be able to return the mutated arg
+
+push(&a::Any[], item::Any) := push(a!, a2=[item])
+

@@ -2,34 +2,40 @@
 #include "fp_sys_time.h"
 
 type XMLAttr
-    key as TextRef
-    val as TextRef
+    key::TextRef
+    val::TextRef
 end
 
 declare type XMLNode
-    tag as TextRef
+    tag::TextRef
     XMLAttr[]   attributes
-        text as TextRef
+        text::TextRef
         XMLNode[]   children
 end
 
-type XMLParser {
-    filename as TextRef
-    line as int col
-    data as Text
-    pos as TextRef
-    end as TextRef
-}
+type XMLParser
+    filename::Text
+    line::Number in [0:50M]
+    # check 0 <= line <= 50k # redundant invariant caught at comptime
+    col::Number in [0:132]
+    # check 0 <= col <= 132
+    # data::Text
+    data::Byte[]
+    # pos::TextRef
+    # ends::TextRef
+end type
 
+var size = 12.4|MB
+var nonDimButScaled = 50|k or 50k
 
-  XMLNode  new(tag as TextRef
+  XMLNode  new(tag::TextRef
 {
     XMLNode ret = fp_new(XMLNode)
     ret.tag = tag
     return ret
 }
 
-  XMLNode XMLNode_newText(text as TextRef
+  XMLNode XMLNode_newText(text::TextRef
 {
     XMLNode ret = fp_new(XMLNode)
     ret.tag = NULL
@@ -37,7 +43,7 @@ type XMLParser {
     return ret
 }
 
-  XMLAttr  XMLAttr_new(key as TextRef, val as TextRef
+  XMLAttr  XMLAttr_new(key::TextRef, val::TextRef
 {
     XMLAttr  ret = fp_new(XMLAttr)
     ret.key = key
@@ -55,33 +61,70 @@ type XMLParser {
     return par
 }
 
-function fromFile(filename as Text) result (ret as XMLParser)
+function fromFile(filename::Text) result ret::XMLParser
+
+# function fromFile(filename::Text) result ret::XMLParser
+
 
     if not fileExists(filename)
-        write("F+: file "$filename" not found.", to=stderr)
+        write("F+: file '$filename' not found.", to = stderr)
         return
     else if isFolder(filename)
-        write("F+: "$filename" is a folder  only files are accepted.", to=stderr)
+        write("F+: '$filename' is a folder  only files are accepted.", to = stderr)
         return
     else if not filePermissions(filename).read
-        write("F+: no permission to read file "$filename".", to=stderr)
+        write("F+: no permission to read file '$filename'.", to = stderr)
         return
     end if
 
-    ret = XMLParser() with
-        .file = filename,
-        .data = read(.file),
-        .pos = .data,
-        .end = .pos + len(.data)
+    ret = [
+        {
+            .file = filename,
+            .data = read(.file, encoding=.shiftJis),
+            .pos = .data,
+            .end = .pos + len(.data)
+        },
+        {
+            .file = filename,
+            .data = read(.file) #encode(read(.file), from=.ascii, to=.utf8),
+            .pos = .data,
+            .end = .pos + len(.data)
+        }]
+
+# Text is mutable which means raw strings will have to be pstrdup'd at runtime.
+# you can access bytes (chars) of a text using [] -> no need for memoryblock.
+# if encoding is ASCII/CP12xx/ISO8859 then [] is O(1), for UTF8 it is O(N).
+# if you don't want to edit text in place, use explicit copy().
+# -------- THIS IS WHAT I WOULD LOVE TO HAVE.
+# -------- BUT FOR A SIMPLE AND "SAFE" LANGUAGE THIS IS A PROBLEM
+
+# -- SOOOOOOO text should APPEAR TO BE IMMUTABLE on the Jet side but funcs
+# should be implemented in a mutable way in C and Jet calls should be translated
+# to mutating an existing string IF they are inplaceable.
+var txt::Text = read(file, encoding=TextEncodings.ascii)
+#    -> this func just does {t=read(file);t.encoding=.ascii;ret t;}
+var bytes::Byte[] = read(file)
+# do whatever with bytes
+var tyt = Text(bytes, encoding=.ascii) # this is a copy if byt is used later else move
+# var by::Byte[] = bytes(txt) # this is a copy if you use txt later, but otherwise a move
+
+# var by::Byte[] = read(file) # this is a move
+
+# if Text is immutable but byte array is mutable then it incurs an implicit copy
+# unless the var is not used later then it can be made a move
 
 end function
 
-function parseAttrs(&parser as XMLParser) result (list as XMLAttr[])
-    var pos as Int = 1 #parser.data[pos]
-    while parser.data[pos] not in ">/?"
-        let name as TextRef = pos
-        while parser.data[pos] != "=" do pos += 1
-        parser.data[pos] = 0 # trample =
+function parseAttrs(&parser::XMLParser) result list::XMLAttr[]
+    alias data::Text = parser.data
+    alias pos::Number = parser.pos
+    alias c::Text = data[pos] # all this assumes mutable Text
+    # GET RID OF THIS ALIAS/MACRO BUSINESS!
+
+    while c not in ">/?"
+        let name::TextRef = pos
+        while c != "=" do pos += 1
+        c = 0 # trample =
         pos += 1
 
         var markers = ""
@@ -92,77 +135,91 @@ function parseAttrs(&parser as XMLParser) result (list as XMLAttr[])
             markers = " >/?\t\n"
         end if
 
-        var val as TextRef = pos
+        var val::TextRef = pos
 
-        while pos not in markers do pos += 1
-        if pos not in "/?>"
-             parser.data[pos] = 0
+        while c not in markers do pos += 1
+        if c not in "/?>"
+             c = 0
              pos += 1
         end if
 
-        while pos in " \t\n"
-            parser.data[pos] = 0
+ # this ALIAS business is a terrible idea, I lose track of what is happening
+ # when im focused in a local block. how is c related to pos?
+        while c in " \t\n"
+            c = 0
             pos += 1
         end while
 
-        list[end+1] = XMLAttr() with .key = name, .val = val
+        list[end+1] = { .key = name, .val = val }
 
     end while
 end function
 
-function parseTags(&parser as XMLParser) result (list as XMLNode[])
+# Trample the character at the current position to null, and advance.
+function trample(&parser::XMLParser)
+    parser.data[parser.pos] = "\0"
+    parser.pos += 1
+end function
 
-    alias pos as Int = parser.pos
-    alias data as Text = parser.data
+skipws(&parser::XMLParser) :=
+    while parser.data[parser.pos] == " " do parser.pos += 1
+
+function parseTags(&parser::XMLParser) result list::XMLNode[]
+
+    alias pos::Number = parser.pos
+    alias data::Text = parser.data
+    alias c::Text = data[pos]
+# fortran equivalence
 
     while pos < parser.ends
-        match data[pos]
+        match c
         case " ","\t","\n"
-            data[pos]+=1
+            pos += 1
 
         case "<"
-            data[pos] = 0
+            c = 0
             pos += 1
             var noChild = no
 
-            if data[pos] == "/"  # closing tag here means empty content
-                data[pos] = 0
-                pos += 1   # note that will be past </
+            if c == "/"  # closing tag here means empty content
+                trample(&parser)
+                # c = 0
+                # pos += 1   # note that will be past </
                 return    # null if no elements were found at this level
 
              else if data[pos:pos+6] == "[CDATA["   # cdata
 
              else
-                var node = XMLNode() with .tag = data[pos]
+                var node::XMLNode = { .tag = c }
 
-                while data[pos] not in " />\n\t" do pos += 1  # SSE?
+                while c not in " />\n\t" do pos += 1  # SSE?
 
-                if data[pos] == " "
-                    data[pos] = 0
-                    pos += 1
-                    while data[pos] == " " do pos += 1
+                if c == " "
+                    trample(&parser)
+                    # c = 0
+                    # pos += 1
+                    skipws(&parser)
                     node.attributes = parseAttrs(parser)
                 end if
 
-                while data[pos] == " " do pos += 1
+                skipws(&parser)
 
-                match data[pos]
-                case "/", "?"
-                    data[pos] = 0
-                    pos += 1
-                    check data[pos] == ">"
+                match c
+                case `[/?]` #"/", "?"
+                   trample(&parser)
+                    check starts(parser.data[parser.pos], with= ">")
                     noChild = yes
                     fall
 
                 case ">"
-                    data[pos] = 0
+                    c = 0
                     pos += 1
                     if not noChild
                         node.children = parseTags(parser)
 
-                        var closingTag as Text = data[pos]
-                        while data[pos] != ">" do pos += 1
-                        data[pos] = 0
+                        var closingTag::TextRef = c
+                        while c != ">" do pos += 1
+                        c = 0
                         pos += 1
 
                         if not closingTag
@@ -175,7 +232,7 @@ function parseTags(&parser as XMLParser) result (list as XMLNode[])
                     end if
 
                 case else
-                    let char as TextRef = data[pos]
+                    let char::TextRef = c
                     write("oops1: unexpected '$char'", to=stderr)
 
                 end match
@@ -184,9 +241,9 @@ function parseTags(&parser as XMLParser) result (list as XMLNode[])
              end if
 
         case else
-            var text as TextRef = pos
-            while data[pos] != "<" and pos < parser.ends do data[pos]+=1
-            list[end+1] = XMLNodeWithText(text)
+            var text::TextRef = pos
+            while c != "<" and pos < parser.ends do c+=1
+            list[end+1] = XMLNode(withText=text)
 
         end match
     end while
@@ -194,20 +251,24 @@ function parseTags(&parser as XMLParser) result (list as XMLNode[])
     if (pos < parser.ends) then write("error: data unparsed")
 end function
 
-  void XMLAttr_print(XMLAttr  attr, indent as int
+function parse(p::Parser)::Node[]
+    var b::Byte[] = bytes(p.text.len)
+end function
+
+  void XMLAttr_print(XMLAttr  attr, indent::int
 {
     write(" %s=\"%s\"", attr.key, attr.val)
 }
 
-  void XMLNode_print(node as XMLNode, indent as int)
-  void XMLNodeList_print(XMLNode[]   nodeList, indent as int)
+  void XMLNode_print(node::XMLNode, indent::int)
+  void XMLNodeList_print(XMLNode[]   nodeList, indent::int)
 {
     fp_foreach(XMLNode, childNode, nodeList) XMLNode_print(childNode, indent)
 }
 
   TextRef const spaces
     = "                                                 "
-  void XMLNode_print(node as XMLNode, indent as int)
+  void XMLNode_print(node::XMLNode, indent::int)
 {
     if (node.tag) {
         write("%. s<%s%s", indent, spaces, node.tag,
@@ -222,7 +283,7 @@ end function
     }
 }
 
-int main(argc as int, char  argv[])
+int main(argc::int, char  argv[])
 {
     char  xmlstr = "" #
                    "<xml>" #
@@ -283,9 +344,9 @@ int main(argc as int, char  argv[])
         exit(1)
     }
 
-    t0 as fp_sys_time_Time  # = fp_sys_time_getTime()
+    t0::fp_sys_time_Time  # = fp_sys_time_getTime()
     XMLParser  par = XMLParser_fromFile(argv[1])
-    tms as double  # = fp_sys_time_clockSpanMicro(t0) / 1.0e3
+    tms::double  # = fp_sys_time_clockSpanMicro(t0) / 1.0e3
     # eprintf("\e[1mread time:\e[0m %.1f ms (%.2f GB/s)\n", tms,
     #     1 / ((tms / 1e3)   1e9 / (par.end - par.data)))  # sw.print()
 

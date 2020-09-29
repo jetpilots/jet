@@ -90,7 +90,7 @@ function main(args as Strings) as Number
     # json(sd)
     # describe(po.o.we.exp.bx)
     # var win = Window(1024x768, offset = 100x100)
-    # -- lists heterogenous, allowing subtypes of a base type
+    # # lists heterogenous, allowing subtypes of a base type
     # var controls[] = [
     #     Label("The quick:"),
     #     Label("Bright"),
@@ -199,8 +199,8 @@ function main(args as Strings) as Number
     #     </html>
     # ')
 
-    # -- Collection API
-    # -- 1. mutators.
+    # # Collection API
+    # # 1. mutators.
     # function insert(anItem as Type, into[] as Type, after as Type) as (ret[] as Type)
     # function insert(anItem as Type, into[] as Type, before as Type) as (ret[] as Type)
     # function insert(anItem as Type, into[] as Type, at as Integer) as (ret[] as Type)
@@ -225,10 +225,10 @@ function main(args as Strings) as Number
     #     print("p")
     # end match
 
-    # -- Real_insert_into_after(3, list, 4);
-    # -- if (err) goto skip_c;
-    # -- //if (err==TRACE) BTRACE; // since 'or' expr cannot throw
-    # -- //elif (err) goto err;
+    # # Real_insert_into_after(3, list, 4);
+    # # if (err) goto skip_c;
+    # # //if (err==TRACE) BTRACE; // since 'or' expr cannot throw
+    # # //elif (err) goto err;
 
     # throw .fileNotFound # if catch is present, great, no BT.
     # #if not, then this is a BT.
@@ -239,20 +239,20 @@ function main(args as Strings) as Number
     # # and the trace flag may be set for each err kind.
 
 
-    # --| 2. don't look like mutators, and don't act like them unless the
-    # --| variable is being overwritten or moved. So for example
-    # --|     m = shuffle(m) -- shuffle works in place on m
-    # --|     g = shuffle(m) -- shuffle works in place on m only if m
-    # --|                    -- is unused later (m is "moved" to g)
-    # --|     var l = max(m) -- technically g should be inplaced since
-    # --|                    -- max is unaffected by shuffle.
-    # --| Inside the function, the first thing is:
-    # --|     ret = list
-    # --| i.e. the return value is set to one of the arguments.
-    # --| this is not a copy: if inplacing is not possible, either
-    # --| because the called function has dependencies on the input or
-    # --| the target variable is used later in the caller, the *caller*
-    # --| should have sent a clone of the object.
+    # #| 2. don't look like mutators, and don't act like them unless the
+    # #| variable is being overwritten or moved. So for example
+    # #|     m = shuffle(m) # shuffle works in place on m
+    # #|     g = shuffle(m) # shuffle works in place on m only if m
+    # #|                    # is unused later (m is "moved" to g)
+    # #|     var l = max(m) # technically g should be inplaced since
+    # #|                    # max is unaffected by shuffle.
+    # #| Inside the function, the first thing is:
+    # #|     ret = list
+    # #| i.e. the return value is set to one of the arguments.
+    # #| this is not a copy: if inplacing is not possible, either
+    # #| because the called function has dependencies on the input or
+    # #| the target variable is used later in the caller, the *caller*
+    # #| should have sent a clone of the object.
     # function clear(list[] as Type) as (ret[] as Type)
     # function resize(list[] as Type) as (ret[] as Type)
     # function shuffle(list[] as Type) as (ret[] as Type)
@@ -270,11 +270,11 @@ function main(args as Strings) as Number
     #     }
     # '
 
-    # var rgx = `
-    #     ^\s+ -- beginning spaces
-    #     (\w+3)dsde -- actual pattern
-    #     $ -- end of line
-    # `
+    var rgx = `
+        ^\s+ # beginning spaces
+        (\w+3)dsde # actual pattern
+        $ # end of line
+    `
 
     # json(po.o)
     describe(mk)

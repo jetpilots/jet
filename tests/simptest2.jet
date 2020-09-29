@@ -1,17 +1,17 @@
 declare type Strings
 declare type Range
-declare function print(wf as Number)
-declare function print(ws as Strings, filter as Number)
-declare function random(wr as Range)
+declare function print(wf::Number)
+declare function print(ws::Strings, filter::Number)
+declare function random(wr::Range)
 
-function start(args as Text[]) result (x as Number)
+function start(args::Text[]) result (x::Number)
     x = 6
-    var arr as Number[] = [1, 2, 3, 4, 5]
+    var arr::Number[] = [1, 2, 3, 4, 5]
     print(arr[3])
     print(arr)
     arr += 3
     print(arr)
-    var mx as Number[] = arr[1:3]
+    var mx::Number[] = arr[1:3]
     # create lets by ref and vars by copy. SIMPLE!
     # random (int) takes a range;
     # float is always no args -> 0 to 1
@@ -19,14 +19,14 @@ function start(args as Text[]) result (x as Number)
     # over entire range and dividing it by max int
 
     if print(args, filter=5) + random(1:2) == 1
-        mx[mx<=2] = 12 # btw cgen will treat unchanged vars as const
-        mx[3:5] += 36 # btw cgen will treat unchanged vars as const
-        mx[3] = 36 # btw cgen will treat unchanged vars as const
-        mx["3"] /= 36 # btw cgen will treat unchanged vars as const
-        var gh = mx[mx<=2] # btw cgen will treat unchanged vars as const
-        gh = mx[3:mx] # btw cgen will treat unchanged vars as const
-        gh = mx[3] # btw cgen will treat unchanged vars as const
-        gh = mx["3"] # btw cgen will treat unchanged vars as const
+        mx[mx<=2] = 12 # btw cgen will treat unchanged vars::const
+        mx[3:5] += 36 # btw cgen will treat unchanged vars::const
+        mx[3] = 36 # btw cgen will treat unchanged vars::const
+        mx["3"] /= 36 # btw cgen will treat unchanged vars::const
+        var gh = mx[mx<=2] # btw cgen will treat unchanged vars::const
+        gh = mx[3:mx] # btw cgen will treat unchanged vars::const
+        gh = mx[3] # btw cgen will treat unchanged vars::const
+        gh = mx["3"] # btw cgen will treat unchanged vars::const
     else
         if print(args, filter=2) == 5
             mx = 5

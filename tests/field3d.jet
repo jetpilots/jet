@@ -6,8 +6,8 @@ value type Point
 end type
 
 type Outer
-    var point as Point
-    var inner as Inner
+    var point Point
+    var inner Inner
 end type
 
 # // generated binary writer func
@@ -86,30 +86,41 @@ Integer_Array_writefbin(Integer_Array* self, FILE* file, size_t* currpos) {
 
 
 type Inner
-    var state as Text = ""
-    var counts[] as Integer
+    var state Text = ""
+    var counts Integer[]
+end type
+
+type Mesh3D
+  # name          type       range     units      init
+    points        Real[3D]             |m       = []
+    cellIDs       Intg[3D]    <0:inf>            = []
+    volume        Real[3D]             |m3      = []
+    totalVolume   Real       <0:inf>   |m3      = 0
 end type
 
 type Field3D
-    var values[:] as Number
-    var mesh as Mesh3D
+    var values Real[3D] <0:1> |kg.m3/s3 = []
+    var mesh = Mesh3D()
 end type
 
 type VectorField3D
-    var values[:,:] as Number
-    var mesh as Mesh3D
+    var values Real[]
+    var mesh Mesh3D
 end type
 
-function mean(field as Field3D) result (ans as Number)
+function mean(field Field3D) -> ans Real
     # volume weighted average of the scalar field's values on the mesh
     ans = sum(field.mesh.volumes * field.values) ...
          / sum(field.mesh.volumes)
 end function
 
-function map(source as Field3D, dest as Mesh3D) as Field3D
+function map(source Field3D, dest Mesh3D) Field3D
     map = Field3D(mesh=dest)
     map.values[:] = interp(source, atPoints=map.mesh.points[:])
 end function
 
-map(source as Field3D, dest as Mesh3D) :=
-    Field3D(values=interp(source, atPoints=ans.mesh.points), mesh=dest)
+map(source Field3D, dest Mesh3D) :=
+    Field3D {
+        .values = interp(source, at = ans.mesh.points),
+        .mesh = dest
+    }

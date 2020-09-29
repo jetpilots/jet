@@ -26,3 +26,36 @@ MainWindow:
         Label:
             width = 400
             text = "The quick brown fox"
+
+
+wma:MainWindow
+    lbk:OutlineView
+        # actually this is just a constructor or initfn being defined
+        pos 0x0
+        size mkSize(w=sin(800), h=600)
+        style .sidebar
+        bgColor 3edfe1
+
+        func draw(c:Canvas) := lbkDraw(lbk, c)
+        func click(c:Canvas) := lbkClick(lbk, c)
+
+        func mouseDown!(self:OutlineView, p:Point) -> r:YesOrNo
+            kmMouseDown()
+        end
+
+        let st = join(split!(strip!(st), sep=';'), ';')
+        # you could have both strip!(s) and strip(s) versions, where
+        # strip(s) is basically strip!(clone(s)). strip! returns its arg1.
+        # assuming of course the function is inplaceable.
+        # but this just makes it unnecessarily explicit. performance
+        # should be high by default, not require the user to add !.
+        # in this sense auto-detect inplaceable funcs is better
+        let st = join(split(strip(st), sep=`[,; \t:.]`))
+    HStack
+        VStack
+            Button
+                text "Now!"
+                onClick ...
+        Label
+            width 400 + 56
+            text "The quick brown fox"
