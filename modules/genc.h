@@ -1254,6 +1254,10 @@ static const char* lineProfileFunc[] = {
 };
 ///////////////////////////////////////////////////////////////////////////
 // TODO: why do you need to pass level here?
+
+void ASTType_genTypeInfoDecls(ASTType* type);
+void ASTType_genTypeInfoDefs(ASTType* type);
+
 static void ASTModule_genc(ASTModule* module, int level)
 {
     // puts("");
@@ -1262,10 +1266,18 @@ static void ASTModule_genc(ASTModule* module, int level)
 
     puts("");
 
-    jet_foreach(ASTType*, type, module->types) ASTType_genh(type, level);
+    jet_foreach(ASTType*, type, module->types)
+    {
+        ASTType_genh(type, level);
+        ASTType_genTypeInfoDecls(type);
+    }
     jet_foreach(ASTFunc*, func, module->funcs) ASTFunc_genh(func, level);
 
-    jet_foreach(ASTType*, type, module->types) ASTType_genc(type, level);
+    jet_foreach(ASTType*, type, module->types)
+    {
+        ASTType_genc(type, level);
+        ASTType_genTypeInfoDefs(type);
+    }
     jet_foreach(ASTFunc*, func, module->funcs) ASTFunc_genc(func, level);
     jet_foreach(ASTImport*, import, module->imports) ASTImport_undefc(import);
 
@@ -1282,4 +1294,28 @@ static void ASTModule_genTests(ASTModule* module, int level)
     jet_foreach(ASTTest*, test, module->tests)
         printf("    test_%s();\n", test->name);
     puts("}");
+}
+
+void ASTType_genTypeInfoDecls(ASTType* type)
+{
+    printf("static const char* const %s__memberNames[] = {\n", type->name);
+    jet_foreachn(ASTVar*, var, varn, type->body->locals)
+    {
+        if (not var) continue;
+        printf("\"%s\",\n", var->name);
+        // ASTVar_genc(var, level + STEP, false);
+        printf("}; \\\n");
+    }
+}
+
+void ASTType_genTypeInfoDefs(ASTType* type)
+{
+    // printf("static const char* const %s__memberNames[] = {\n", type->name);
+    // jet_foreachn(ASTVar*, var, varn, type->body->locals)
+    // {
+    //     if (not var) continue;
+    //     printf("\"%s\",\n", var->name);
+    //     // ASTVar_genc(var, level + STEP, false);
+    //     printf("}; \\\n");
+    // }
 }

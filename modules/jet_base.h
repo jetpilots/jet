@@ -237,6 +237,32 @@ typedef double Real64;
     }
 
 MAKE_Array(Ptr);
+
+// display first "digits" many digits of number plus unit (kilo-exabytes)
+static int human_readable(char* buf, double num)
+{
+    size_t snap = 0;
+    size_t orig = num;
+    int unit = 0;
+    while (num >= 1000) {
+        num /= 1024;
+        unit++;
+    }
+    int len;
+    if (unit && num < 100.0)
+        len = snprintf(buf, 8, "%.3g", num);
+    else
+        len = snprintf(buf, 8, "%d", (int)num);
+
+    unit = "\0kMGTPEZY"[unit];
+
+    if (unit) buf[len++] = unit;
+    buf[len++] = 'B';
+    buf[len] = 0;
+
+    return len;
+}
+
 // MAKE_Array(UInt32);
 // MAKE_Array(uint64_t);
 // MAKE_Array(int64_t);

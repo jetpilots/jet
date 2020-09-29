@@ -26,6 +26,7 @@ static const char* spc = "                ";
 #define EP
 #define EX
 #endif
+
 MKSTAT(jet_mem__SizeClassInfo)
 
 typedef struct jet_mem__SizeClassInfo {

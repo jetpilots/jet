@@ -1,6 +1,7 @@
 /* The MIT License
 
    Copyright (c) 2008, 2009, 2011 by Attractive Chaos <attractor@live.co.uk>
+   (c) 2019, 2020 The Jet Language Team <sushpa@jetpilots.dev>
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the
@@ -81,8 +82,6 @@ static const double jet_Dict_HASH_UPPER = 0.77;
 #define jet_Set_del(K) jet_Dict_delete(K, char)
 #define jet_Set_delk(K) jet_Dict_deleteByKey(K, char)
 
-// TODO: do it without any templating at all, void* keys, values, etc.
-
 #define __DICT_TYPE(K, V)                                                      \
     typedef struct jet_Dict(K, V)                                              \
     {                                                                          \
@@ -104,6 +103,7 @@ static const double jet_Dict_HASH_UPPER = 0.77;
 //     UInt32 jet_Dict_put(K, V)(jet_Dict(K, V) * h, K key, int* ret);                \
 //     void jet_Dict_delete(K, V)(jet_Dict(K, V) * h, UInt32 x);
 
+// TODO: move the implementation into jet_runtime.h
 #define __DICT_IMPL(Scope, K, V, IsMap, hash, equal)                           \
     Scope jet_Dict(K, V) * jet_Dict_init(K, V)()                               \
     {                                                                          \
@@ -399,7 +399,7 @@ static inline UInt32 __ac_X31_hash_string(const char* s)
 // for CStrings, assuming they MUST end in \0, you can check for
 // pointer equality to mean string equality. For Strings with lengths,
 // this does not hold since the same buffer can hold a string and any of
-// its prefixes.
+// its prefixes, especially in Jet where not all strings end with '\0'.
 
 static inline UInt32 __ac_Wang_hash(UInt32 key)
 {
@@ -459,45 +459,28 @@ static inline UInt32 __ac_Wang_hash(UInt32 key)
 #define MAKE_SET(T) DICT_INIT(T, char, false, T##_hash, T##_equal)
 #define MAKE_DICT(K, V) DICT_INIT(K, V, true, K##_hash, K##_equal)
 
-MAKE_SET(UInt32)
-// MAKE_SET(Real64)
-MAKE_SET(CString)
-// MAKE_SET(Ptr)
+// No predefined instantiations. MAKE_DICT calls will be inserted by the
+// Jet compiler in every compilation unit depending on what types are found
+// to have been used in dicts.
+// Better yet, get rid of the macro templating and define ONLY a single
+// Dict type void* -> void*; means you cannot embed structs but this is
+// not too bad. void* to/from any type* needs no explicit cast in C.
+// Besides you can still embed things up to 8B...
 
-MAKE_DICT(UInt32, UInt32)
-MAKE_DICT(CString, UInt32)
-// MAKE_DICT(UInt32, Real64)
-// MAKE_DICT(CString, Real64)
-MAKE_DICT(UInt32, Ptr)
-MAKE_DICT(CString, Ptr)
-MAKE_DICT(UInt32, CString)
-MAKE_DICT(CString, CString)
-MAKE_DICT(UInt64, Ptr)
-MAKE_DICT(Ptr, UInt64)
-MAKE_DICT(Ptr, Ptr)
-// OH COME ON. JUST KEEP the 4 combinations of Int64/32, intptr_t, CString.
-// evrything else is the same.
+// MAKE_SET(UInt32)
+// // MAKE_SET(Real64)
+// MAKE_SET(CString)
+// // MAKE_SET(Ptr)
 
-// MAKE_DICT(Ptr, CString)
+// MAKE_DICT(UInt32, UInt32)
+// MAKE_DICT(CString, UInt32)
 
-// #define MAKE_SET_INT                                                       \
-//     DICT_INIT(UInt32, char, false, jet_Dict_UInt32_hash, jet_Dict_UInt32_equal)
-
-// #define MAKE_MAP_INT(V)                                                    \
-//     DICT_INIT(UInt32, V, true, jet_Dict_UInt32_hash, jet_Dict_UInt32_equal)
-
-// #define MAKE_SET_INT64                                                     \
-//     DICT_INIT(UInt64, char, false, jet_Dict_UInt64_hash, jet_Dict_UInt64_equal)
-
-// #define MAKE_MAP_INT64(V)                                                  \
-//     DICT_INIT(UInt64, V, true, jet_Dict_UInt64_hash, jet_Dict_UInt64_equal)
-
-// typedef const char* CString;
-
-// #define MAKE_SET_STR                                                       \
-//     DICT_INIT(CString, char, false, jet_Dict_CString_hash, jet_Dict_CString_equal)
-
-// #define MAKE_MAP_STR(V)                                                    \
-//     DICT_INIT(CString, V, true, jet_Dict_CString_hash, jet_Dict_CString_equal)
+// MAKE_DICT(UInt32, Ptr)
+// MAKE_DICT(CString, Ptr)
+// MAKE_DICT(UInt32, CString)
+// MAKE_DICT(CString, CString)
+// MAKE_DICT(UInt64, Ptr)
+// MAKE_DICT(Ptr, UInt64)
+// MAKE_DICT(Ptr, Ptr)
 
 #endif /* HAVE_DICT */
