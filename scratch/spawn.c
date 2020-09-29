@@ -89,44 +89,56 @@ typedef enum {
     JET_PIPE_WRITE = 2,
     JET_PIPE_READERR = 4
 } jet_PipedProcessCapture;
+
 jet_PipedProcess jet_pipe(char* args[], int capture)
 {
-    // jet_PipedProcess pproc = {};
-    int p_from[2] = { -1, -1 }, p_to[2] = { -1, -1 },
-        p_errfrom[2] = { -1, -1 }; //   from parent to child
+    int p_from[2] = { -1, -1 };
+    int p_to[2] = { -1, -1 };
+    int p_errfrom[2] = { -1, -1 }; // from parent to child
 
     if (capture & JET_PIPE_READ) pipe(p_from);
     if (capture & JET_PIPE_WRITE) pipe(p_to);
     if (capture & JET_PIPE_READERR) pipe(p_errfrom);
 
     pid_t pid = fork();
-    if (pid == -1) printf("error in fork()\n");
-    if (!pid) {
-        if (capture & JET_PIPE_READ) dup2(p_from[1], STDOUT_FILENO);
-        // parent will get it on p_from[0]
-        if (capture & JET_PIPE_WRITE) dup2(p_to[0], STDIN_FILENO);
-        // parent will send it to p_to[1]
-        if (capture & JET_PIPE_READERR) dup2(p_errfrom[1], STDERR_FILENO);
-        // parent will get it on p_errfrom[0]
-
-        if (execvp(args[0], args)) { // doesn't return, unless error
-            printf("error spawning '%s'\n", args[0]);
+    if (pid == -1) {
+        printf("error in fork()\n");
+    } else if (pid == 0) {
+        if (capture & JET_PIPE_READ) {
+            dup2(p_from[1], STDOUT_FILENO);
             close(p_from[1]);
-            close(p_errfrom[1]);
-            close(p_to[0]);
-            _exit(99);
         }
+        // parent will get it on p_from[0]
+        if (capture & JET_PIPE_WRITE) {
+            dup2(p_to[0], STDIN_FILENO);
+            close(p_to[0]);
+        }
+        // parent will send it to p_to[1]
+        if (capture & JET_PIPE_READERR) {
+            dup2(p_errfrom[1], STDERR_FILENO);
+            close(p_errfrom[1]);
+        }
+
+        close(p_from[0]);
+        close(p_errfrom[0]);
+        close(p_to[1]);
+
+        execvp(args[0], args);
+        close(p_from[1]);
+        close(p_errfrom[1]);
+        close(p_to[0]);
+        _exit(99);
     }
 
-    jet_PipedProcess pproc = {
-        //
+    close(p_from[1]);
+    close(p_errfrom[1]);
+    close(p_to[0]);
+
+    jet_PipedProcess pproc = { //
         .proc = (jet_Process) { .pid = pid },
         .p_read = p_from[0],
         .p_err = p_errfrom[0],
-        .p_write = p_to[1],
-        // .a = p_from[1],
-        // .b = p_to[0],
-        // .c = p_errfrom[1]
+        .p_write = p_to[1]
     };
 
     return pproc;
@@ -142,6 +154,7 @@ void jet_pwrite(jet_PipedProcess proc, void* data, ssize_t size)
         ssize_t sz = size > maxsz ? maxsz : size;
         if (write(proc.p_write, data, sz) != sz) {
             // deal with errro
+            printf("err: write\n");
         }
         size -= sz;
     } while (size > 0);
@@ -152,9 +165,6 @@ void jet_close(jet_PipedProcess* proc)
     close(proc->p_read);
     close(proc->p_write);
     close(proc->p_err);
-    // close(proc->a);
-    // close(proc->b);
-    // close(proc->c);
     proc->p_read = proc->p_write = proc->p_err = -1;
 }
 
@@ -196,22 +206,19 @@ jet_Process jet_awaitAny()
 void jet_awaitAll()
 {
     int status = 0;
-    while (wait(&status) > 0)
-        ;
+    while (wait(&status) > 0) continue;
 }
 
 void jet_update(jet_Process* proc)
 {
     int status = 0;
     waitpid(proc->pid, &status, WNOHANG);
-    // return
     proc->code = WEXITSTATUS(status);
     proc->exited = WIFEXITED(status);
 }
 
 void test_posix_spawn(void)
 {
-
 #define TOT 2000
 #define PROCS 4
 
@@ -223,20 +230,18 @@ void test_posix_spawn(void)
     // for launching a typical gcc session it shouldn't matter...
 
     jet_Process proc[4];
-    // char* cmd = "true";
     char* cmd[] = { "true", "nantag.c",
         // "/Users/sushant/Downloads/sqlite-amalgamation-3330000/shell.c "
         // "/Users/sushant/Downloads/sqlite-amalgamation-3330000/sqlite3.c",
         NULL };
 
     for (int j = 0; j < TOT / PROCS; j++) {
-
-        for (int i = 0; i < PROCS; i++) proc[i] = jet_launch(cmd);
+        for (int i = 0; i < PROCS; i++) //
+            proc[i] = jet_launch(cmd);
 
         // here count the actual number of valid pids
-
-        for (int i = 0; i < PROCS;
-             i++) { // this will be while proclist has more
+        for (int i = 0; i < PROCS; i++) {
+            // this will be while (proclist has more)
             jet_Process proc = jet_awaitAny();
             if (proc.exited && proc.code)
                 printf("Child exited with status %i\n", proc.code);
@@ -253,7 +258,7 @@ int main(void)
     char* cmds[] = { "cat", NULL };
     // jet_Process p = jet_launch(cmds);
     jet_PipedProcess p = jet_pipe(cmds, JET_PIPE_WRITE);
-    jet_pwrite(p, "jimba\n", 6);
+    jet_pwrite(p, "jimbalego", 9);
     jet_close(&p);
     jet_awaitAll();
     return EXIT_SUCCESS;

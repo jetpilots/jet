@@ -89,6 +89,14 @@ typedef struct ASTVar {
                                          // print(YAML(xyz)) can be optim to
                                          // print_YAML(xyz) (i.e. not generating
                                          // an actual YAML tree just for print)
+            usedAsIndex : 1, // if ys, should be converted to  a pointer rather
+                             // than offset, and arr[b] should be converted to
+                             // *b to avoid a + op.
+                             // someone has to pay the price somewhere: if you
+                             // e.g. print the loop variable user expects to see
+                             // the offset, so there you have to -.
+                             // generated loops can be done w/ ptrs
+                             // e.g. a[:,:] = random()
             returned : 1; // is a return variable ie. b in
         // function asd(x as Anc) returns (b as Whatever)
         // all args (in/out) are in the same list in func -> args.
