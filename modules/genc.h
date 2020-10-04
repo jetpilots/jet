@@ -1296,6 +1296,31 @@ static void ASTModule_genTests(ASTModule* module, int level)
     puts("}");
 }
 
+void ASTType_genNameAccessors(ASTType* type)
+{
+    // TODO: instead of a linear search over all members this should generate
+    // a switch for checking using a prefix tree -> see genrec.c
+    printf("static void* %s__memberNamed(%s* self, const char* name) {\n",
+        type->name, type->name);
+    // TODO: skip bitfield members in this loop or it wont compile
+    jet_foreach(ASTVar*, var, type->body->locals) //
+        printf("    if (str_equals(name, \"%s\")) return &(self->%s);\n",
+            var->name, var->name);
+    printf("}\n");
+
+    // this func sets bools or ints that may be part of bitfields
+    printf("static void %s__setMemberNamed(%s* self, const char* name, Int64 "
+           "value) {\n",
+        type->name, type->name);
+    jet_foreach(ASTVar*, var, type->body->locals) //
+        if (var->typeSpec->typeType >= TYBool
+            and var->typeSpec->typeType <= TYReal64)
+            printf("    if (str_equals(name, \"%s\"))  {self->%s = *(%s*) "
+                   "&value;return;}\n",
+                var->name, var->name, ASTTypeSpec_cname(var->typeSpec));
+    printf("}\n");
+}
+
 void ASTType_genTypeInfoDecls(ASTType* type)
 {
     printf("static const char* const %s__memberNames[] = {\n", type->name);
