@@ -1,6 +1,6 @@
-#/bin/sh
+#/bin/bash
 
-# set -x
+ set -x
 # if [ "$1" == "d" ]
 # then
 #     DIAG="d"
@@ -17,69 +17,78 @@
 # jet_run <TGT> <DIAG>
 jet_run() {
     # [ -f "$1" ] || exit 6
-    make -s -r -j DIAG=$2 -f Makerunner $1 && [ -f "$1" ] && ./$1 $*
+    DN=`dirname $1` # rename to TGTDIR
+    if [ -n "$DN" ]
+    then
+        TGT=`basename $1`
+    else
+        DN="."
+        TGT="$1"
+    fi
+
+    make -C $DN -s -r -j DIAG=$2 JETHOME="$JETHOME" -f $JETHOME/Makerunner "$TGT" && [ -f "$DN/$TGT" ] && $DN/$TGT $*
 }
 
-# f+ <FILE> [d]
+# jet <FILE> [d]
 jet_run_debug() {
-    TGT=${1%%.jet}-d.bin
+    TGT=${1%%.jet}-d.run
     jet_run $TGT $2
 }
 
-# f+ -r <FILE> [d]
+# jet -r <FILE> [d]
 jet_run_release() {
-    TGT=${2%%.jet}.bin
+    TGT=${2%%.jet}.run
     jet_run $TGT $3
 }
 
-# f+ -f <FILE> [d]
+# jet -f <FILE> [d]
 jet_run_fast() {
-    TGT=${2%%.jet}-f.bin
+    TGT=${2%%.jet}-f.run
     jet_run $TGT $3
 }
 
-# f+ -c <FILE> [d]
+# jet -c <FILE> [d]
 # This is only for private use and debugging the compiler.
 jet_gen_c() {
     FILE=${2%%.jet}.jet
-    make -j -s -r checkc.bin && ./checkc.bin $FILE $3
+    make -C $JETHOME -j -s -r jetc && $JETHOME/jetc $FILE $3
 }
 
-# f+ -l <FILE> [d]
+# jet -l <FILE> [d]
 jet_gen_jet() {
-    # the l flag to checkc.bin indicates linting mode.
+    # the l flag to jetc indicates linting mode.
     FILE=${2%%.jet}.jet
-    make -j -s -r checkc.bin && ./checkc.bin $FILE $3 l
+    make -C $JETHOME -j -s -r jetc && $JETHOME/jetc $FILE $3 l
 }
 
-# f+ -? <FILE> [d]
+# jet -? <FILE> [d]
 # Debugging use, same as jet_lint > /dev/null
 jet_parse() {
-    jet_gen-jet $* > /dev/null
+    jet_gen_jet $* > /dev/null
 }
 
-# f+ -t [module] [test-desc] [issue-no]
+# jet -t [module] [test-desc] [issue-no]
 jet_run_tests() {
     # need a Maketester file. Tests will be run through
     # makefiles, only repeated if source has changed.
     echo "Testing not yet implemented"
 }
 
-# f+ -a
+# jet -a
 # More comprehensive analysis, interval analysis,
 # abstract interpretation, fact checking, etc.
 jet_check() {
     echo "Separate analysis not yet implemented"
-    # need a flag to checkc.bin
+    # need a flag to jetc
 }
 
-# f+ -p
+# jet -p
 jet_purge() {
     make clean
 }
 
 jet_usage() {
-    echo "usage: f+ [options] <filename> [d]
+    echo "usage: jet [options] <filename> [d]
 Runs the given program in debug mode.
 options:
     -l    Lint the file
@@ -92,6 +101,10 @@ options:
 'd' after the file prints compiler diagnostics."
 }
 
+JETHOME=`dirname $0`
+[ "." == "$JETHOME" ] && JETHOME="$PWD"
+[ -z "$JETHOME" ] && JETHOME=`which jet` && JETHOME=`dirname "$JETHOME"` # noooo get it from PATH
+# echo $JETHOME
 if [ "$1" == "-l" ]; then jet_gen_jet $*;
 elif [ "$1" == "-c" ]; then jet_gen_c $*;
 elif [ "$1" == "-r" ]; then jet_run_release $*;
