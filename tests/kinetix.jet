@@ -19,7 +19,7 @@ function processReaction(&f as File) as Reaction
     line = readline(&f)
     let aAbE = num(line)
     let rev = (aAbE[0] == 0)
-    reaction = Reaction(rev, coeffDictLHS, coeffDictRHS, AbE, aAbE)
+    reac = Reaction(rev, coeffDictLHS, coeffDictRHS, AbE, aAbE)
 end function
 
 function processThermo(&f as File) as JanafThermo
@@ -149,21 +149,17 @@ function printReactionLine(rxn as Reaction)
 end function
 
 function printReactions(reactions as Reaction[Text])
-    for (rkey, reaction) = reactions
-        #ireac=num(rkey)
-        #ireac>2232 and ireac<2242 or skip
+    for (rkey, reac) = reactions
         print("\nReaction: $rkey")
-        printReactionLine(reaction)
-        #print("products: ", reaction.products)
-        #print("reactants: ", reaction.reactants)
-        if reaction.Other.active then print("Low/High: ", reaction.Other)
-        if reaction.Troe.active then print("Troe coeffs: ", reaction.Troe)
-        if reaction.M.active then print("M: ", reaction.M.alpha)
+        printReactionLine(reac)
+        if reac.other.active then print("Low/High: ", reac.other)
+        if reac.troe.active then print("troe coeffs: ", reac.troe)
+        if reac.M.active then print("M: ", reac.M.alpha)
 
-        mechanism.checkAtomBalance(reaction, species, elements)
+        check mech.balanced(reac, species, elements)
 
-        if reaction.kf.active then print("kf: ", reaction.kf) #print("$(reaction.A)  $(reaction.b)  $(reaction.E)")
-        if reaction.kr.active then print("kr: ", reaction.kr) #print("$(reaction.A_) $(reaction.b_) $(reaction.E_)")
+        if reac.kf.active then print("kf: ", reac.kf) #print("$(reac.A)  $(reac.b)  $(reac.E)")
+        if reac.kr.active then print("kr: ", reac.kr) #print("$(reac.A_) $(reac.b_) $(reac.E_)")
     end for
 end function
 
@@ -228,11 +224,11 @@ function readreactions(&f as File)
 
             else if words[1] == "LOW" or words[1] == "HIGH"
                 let AbE[] as Number = num(words[2:4])
-                reactions[lastrxn].Other = RateConst(AbE[0], AbE[1], AbE[2])
+                reactions[lastrxn].other = RateConst(AbE[0], AbE[1], AbE[2])
 
             else if words[1] == "TROE"
                 let nums[] as Number = num(words[2:end])
-                reactions[lastrxn].Troe = TroeCoeffs(nums)
+                reactions[lastrxn].troe = TroeCoeffs(nums)
 
             else if words[1] == "SRI"
                 reactions[lastrxn].SRI = num(words[2:end])
@@ -291,10 +287,10 @@ function readreactions(&f as File)
             p[spec] = coeff + get(p, spec, 0)
         end for
 
-        let reaction = Reaction(yes, mode == "rev", p, r, RateConst(A, b, E))
-        units.scale(&reaction)
+        let reac = Reaction(yes, mode == "rev", p, r, RateConst(A, b, E))
+        units.scale(&reac)
         ir += 1
-        reactions["$ir"] = reaction
+        reactions["$ir"] = reac
         lastrxn = "$ir"
     end while
 end function

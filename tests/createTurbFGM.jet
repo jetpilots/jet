@@ -22,35 +22,35 @@ from scipy.interpolate import interp1d, interp2d, RectBivariateSpline
 import FGM.IO
 from FGM import integrate
 
-function main(args[] @String)
+function main()
 
-    let dirName = os.dirname(args["file"])
-    let file = os.basename(args["file"])
-    let scalePVfile =
+    var dirName = os.dirname(args["file"])
+    var file = os.basename(args["file"])
+    var scalePVfile =
         os.basename(args["scalePVfile"]) or
         replace(file, this = "FGM_", with = "ScalePV_")
 
-    let timeStamp = DateTime(format = "%Y%m%d%H%M")
-    let pdfFGMfile = replace(file, what = ".dat", with = "_PDF_{{timeStamp}}.dat")
-    let pdfScalePVfile = replace(scalePVfile, ".dat", with = "_PDF_{{timeStamp}}.dat")
+    var timeStamp = DateTime("%Y%m%d%H%M")
+    var pdfFGMfile = replace(file, what = ".dat", with = "_PDF_{{timeStamp}}.dat")
+    var pdfScalePVfile = replace(scalePVfile, ".dat", with = "_PDF_{{timeStamp}}.dat")
 
-    let scalePVdata = fgm.io.read2DScalePV(os.join(dirName, scalePVfile))
-    let fGM = fgm.io.load2DFGM(os.join(dirName, file), table = yes)
+    var scalePVdata = fgm.io.read2DScalePV(os.join(dirName, scalePVfile))
+    var fGM = fgm.io.load2DFGM(os.join(dirName, file), table = yes)
 
-    let cCV1lam = fFGM.data[ :, 0, fFGM.names.index("Z") ]
-    let cCV2lam = fFGM.data[ 0, :, fFGM.names.index("PV") ]
-    let cCV1 = integrate.CV("Z", CV1lam) #, nVar=21, varCluster=4.0)
-    let cCV2 = integrate.CV("PV", CV2lam, = 10, cluster = 1.0)
+    var cCV1lam = fFGM.data[ :, 0, fFGM.names.index("Z") ]
+    var cCV2lam = fFGM.data[ 0, :, fFGM.names.index("PV") ]
+    var cCV1 = integrate.cv("Z", cv1lam) #, nVar=21, varCluster=4.0)
+    var cCV2 = integrate.cv("PV", cv2lam, = 10, cluster = 1.0)
 
     rhoIndex, intType = integrate.setIntType(fFGM.names[2:])
 
-    sI = zeros([cCV1.nMean, cCV1.nVar, 5])
-    yI = zeros([cCV1.nMean, cCV2.nMean, cCV2.nVar, len(intType)])
+    var sI = zeros([cCV1.nMean, cCV1.nVar, 5])
+    var yI = zeros([cCV1.nMean, cCV2.nMean, cCV2.nVar, len(intType)])
 
-    ScalePVinterp = interp1d(cCV1.mean, scalePVdata[:,1:3],axis=0)
+    sScalePVinterp = interp1d(cCV1.mean, scalePVdata[:,1:3],axis=0)
 
     if (cCV1.nVar == 1):
-        Qinterp = interp1d(cCV2.mean, fFGM.data[:,:,2:],axis=1)
+        qQinterp = interp1d(cCV2.mean, fFGM.data[:,:,2:],axis=1)
     else:
         cprint("\nERROR: Only 1D interpolation implemented at present","red")
 
@@ -60,7 +60,7 @@ function main(args[] @String)
         x, pdf = integ.createBetaPDF(cCV2.mean[m], cCV2.var[m,:], cCV2.grid)
 
         # Interpolate and integrate un-scaled Progress Variable
-        S = ScalePVinterp(x)
+        cS = ScalePVinterp(x)
         # sI[m,:,0] = (S[:,:,0]*pdf).sum(axis=1)
         # sI[m,:,1] = (S[:,:,1]*pdf).sum(axis=1)
         # sI[m,:,2] = (S[:,:,0]*S[:,:,0]*pdf).sum(axis=1)
@@ -68,11 +68,11 @@ function main(args[] @String)
         # sI[m,:,4] = (S[:,:,1]*S[:,:,1]*pdf).sum(axis=1)
 
         # Interpolate and integrate tabulate quantities
-        Q = qQinterp(x)
+        qQ = qQinterp(x)
         for l = 1:cCV1.nMean # TODO: Replace loop by meshgrid for pdf
-            let zxzz[:,:] = (1/Q[l,:,:,rhoIndex])*pdf[:]
-            let sSum[:] = sum(zxzz, axis = 1)
-            let rRho[:] = 1 / sSum[:]
+            var zxzz[:,:] = (1/Q[l,:,:,rhoIndex])*pdf[:]
+            var sSum[:] = sum(zxzz, axis = 1)
+            var rRho[:] = 1 / sSum[:]
             for k = 1:len(intType)
                 if intType[k] == 0
                     yI[l,m,:,k] =
@@ -113,11 +113,11 @@ function main(args[] @String)
         data[:, 4:] = yI.reshape(dim, yI.shape[-1])
         fgm.io.write4DFGM(os.join(dirName, pdfFGMfile), names, parameter, data)
 
-        let sparameter = [cCV1.nMean, cCV1.nVar, cCV1.varCluster, cCV1.varScaling]
-        let snames = [cCV1.meanName, cCV1.varName, "MinPV", "MaxPV", "Yu2I", "YuYbI", "Yb2I"]
-        let sdim = cCV1.nMean*cCV1.nVar
+        var sparameter = [cCV1.nMean, cCV1.nVar, cCV1.varCluster, cCV1.varScaling]
+        var snames = [cCV1.meanName, cCV1.varName, "MinPV", "MaxPV", "Yu2I", "YuYbI", "Yb2I"]
+        var sdim = cCV1.nMean*cCV1.nVar
 
-        let sPVdata[:,:] = zeros([sdim, 7])
+        var sPVdata[:,:] = zeros([sdim, 7])
         sPVdata[:,0] = hstack([cCV1.mean.reshape(-1,1)]*cCV1.nVar).reshape(-1)
         sPVdata[:,1] = reshape(cCV1.var, -1)
         sPVdata[:,2:] = reshape(sI, sdim, sI.shape[-1])

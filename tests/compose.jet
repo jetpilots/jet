@@ -1,0 +1,91 @@
+
+
+type Field3DIncompressibleFlow extends Field3D
+    var u[] as Real|m/s
+    var v[] as Real|m/s
+    var w[] as Real|m/s
+    var p[] as Real|Pa
+end type
+
+type Field3DCompressibleFlow extends Field3DIncompressibleFlow
+    var r[] as Real|kg/m3
+end type
+
+type Field3DTurbulentCompressibleFlow extends Field3DCompressibleFlow
+    var k[] as Real|m2/s
+    var e[] as Real|m2/s3
+    var ut[] as Real|s/m2 nosave # no output in serialisation
+end type
+
+type Field3DTurbulentIncompressibleFlow extends Field3DIncompressibleFlow
+    var k[] as Real|m2/s
+    var e[] as Real|m2/s3
+    var ut[] as Real|s/m2 nosave # no output in serialisation
+end type
+
+
+type Field3D
+    var y[2D] as Real|1
+    var mesh as Mesh3D
+end type
+
+*******
+THIS IS OVERKILL FOR ALL COMBINATIONS!!! SEE COMPOSITION INSTEAD
+********
+
+
+# dot notation on types means subtypes that are useful for composition.
+type Field3D.Flow
+    var u[] as Real|m/s
+    var v[] as Real|m/s
+    var w[] as Real|m/s
+    var p[] as Real|Pa
+end type
+
+type Field3D.Compressible
+    var r[] as Real|kg/m3
+end type
+
+type Field3D.Turbulent
+    var k[] as Real|m2/s
+    var e[] as Real|m2/s3
+    var ut[] as Real|s/m2 nosave # no output in serialisation
+end type
+
+type Field3D.Multicomponent
+    var y[2D] as Real|1
+end type
+
+type Field3D.LagrangianMultiphase
+    var particles[] as LagrangianParticle
+end type
+
+type Field3D
+    var mesh as Mesh3D
+end type
+
+type Solution
+    # this kind of naming implies Mesh, Flow, Compressible etc. are parts that are related to Field3D and can be composed.
+    var mesh as fx.Field3D.Mesh
+    embed fx.Field3D.Flow # can you not detect whether something should be embedded or ref? what if nowhere is it being *referenced*? i.e. anything done that would update refcount, e.g. assigned, pushed, passed
+    # ***** actually you dont have to worry about taking the ref of something embedded. its perfectly fine. all that matters is whether the field is being itself assigned to?
+    # **** if not then generate it as Type v[1]; instead of Type* v;. access will always be with ->. (primitives are always by value ie 'embedded' duh)
+    # **** also an exception if it is being inplaced: s.turb = update(s.turb) and update() can inplace (depends on its defn) and s.turb can be inplaced (yes in this case)
+    # btw when funcs cannot inplace it means they need a temp var. parent doesnt always hav to alloc this var, callee can do it (caller doesnt need access to the temp after all)
+    # it can even be on callee's stack (even static IF callee is not on any recursive path). then caller CAN pass an inplaceable var without cloning regardless of whether the func can inplace
+    # *****************
+    # *** in other words caller clones ONLY if var cannot be inplaced. Callee deals with temp allocs when func cannot inplace. caller is resp. for var's, callee for func's inplaceability.
+    # *****************
+    # func should expose how many levels deep the retval is modified (e.g. ret.x.y.z = arg.x.y.y+3 ) so that caller can call a clone() func that only goes to those many levels. there should
+    # be separate funcs that clone on heap, stack etc. to avoid multiple dead store just pass oldvar or clone(oldvar) directly to the func's ret arg, dont do newvar = oldvar first. the func
+    # will return ret and newvar will be filled.
+    embed fx.Field3D.Compressible
+    embed var turb as Field3D.Turbulent
+    var time as Real|s
+    var timeStep as Real|s
+
+end type
+
+# you see how they really are the same thing at the low level. as long as there
+# are no methods, inheritance or (unnamed) composition yields the same thing
+type Solution embeds fx.Field3D.Mesh, fx.Field3D.Flow, ...

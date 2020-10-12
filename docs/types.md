@@ -14,10 +14,10 @@ Type | C Type | Description
 
  Other numeric types can be initialized with numeric literals as long as the type is explicitly added by the programmer:
 
- ```
+ ```typescript
  var vec as Integer = [2, 3, 4]
- var vecc as Complex = [2, 3, 4] -- this is really 2+0i, 3+0i, 4+0i
- var vrng as IntRange = 3 -- this is really [3:3]
+ var vecc as Complex = [2, 3, 4] // this is really 2+0i, 3+0i, 4+0i
+ var vrng as IntRange = 3 // this is really [3:3]
  ```
 
  There are some special `Real` literals:

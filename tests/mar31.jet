@@ -3,12 +3,10 @@ type Complex
     var im = 0
 end type
 
-function Complex(re as Number, im as Number) as Complex
-    var c = Complex()
+export function init(&c as Complex, re as Number, im as Number)
     c.re = re
     c.im = im
-    return c
-    check conjugate(c) == 4
+    check conjugate(c) == 7 + 4i
 end function
 
 test complexItem1
@@ -25,11 +23,11 @@ end test
 
 Complex(re as Number) := Complex(re, 0)
 
-enum CollType
+enum CollType as BaseObject
     none
     array
     list
-    tensor2D
+    tensor2D = 8
     tensor3D
     tensor4D
     orderedSet
@@ -38,8 +36,8 @@ end enum
 
 # main returns nothing, since the error handling mechanism will report
 # any issues to the caller of main.
-declare type Strings
-function main(args[] as Text) as Number
+# declare type Strings
+function main()
     # constructor call must have all named args
     var c = Complex() # disallow this
     var c2 = 4 + 3i # this should be used
@@ -57,12 +55,12 @@ function main(args[] as Text) as Number
 end function
 
 # disallow func name used as arg or ret name
-function sum(x[] as Number) as Number
-    for elem in x[:] do sum += elem
-end function
+# function sum(x[:] as Number) as Number
+#     for elem in x[:] do sum += elem
+# end function
 
-function sum(x as Number[]) as Number
-    for elem in x do s += elem
+function sum as Number (x as Number[])
+    for elem in x[:] do s += elem
 end function
 
 function doarr()

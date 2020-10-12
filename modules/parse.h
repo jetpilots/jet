@@ -8,6 +8,12 @@ static ASTExpr* parseExpr(Parser* self)
     // stack, collapsing the stack when you find nonterminals (ops, func
     // calls, array index, ...)
 
+    // I guess if you want to parse something like if x == 3 x = 4 -- NO WAY
+    // NEVER then you have to fold the rpn as soon as you have two consecutive
+    // non-ops on the stack and are pushing a third. (x 3) opstack (==) pushing
+    // x -> fold. but dont allow this monstrosity! this is why `if x == 3 then x
+    // = 4` is needed
+
     static jet_PtrArray rpn, ops, result;
     int prec_top = 0;
     ASTExpr* p = NULL;

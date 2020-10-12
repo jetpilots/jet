@@ -6,7 +6,7 @@ type DiskItem
 end type
 
 type DateTime extends DiskItem
-    var hour = 0
+    var hour = 0 # = now().hour # not possible it is a cycle since new calls DateTime()
     var minute = 0
     var second = 0
     var day = 1
@@ -23,9 +23,22 @@ end type
 function ASTExpr.gen()
 end function
 
-function start(a as String[] or None)
-    var currentTime = DateTime()
-    var currentFolder as String = os.pwd()
+# Instead of overloading constructors, how about class methods that can only
+# return a constructed instance?
+# Instead of
+#     var d1 = DateTime() -- how can the default ctor return time now? unless you init everything with repeated call to now()
+#     var d2 = DateTime(str="yy-dd-MM") -- thing is , overloading makes it seem like it is the same func that takes different args. not very good
+#     var d3 = DateTime(y=2017, m=11, d=21)
+# do
+#     var d1 = DateTime.now()
+#     var d2 = DateTime.fromString("yy-dd-MM")
+#     var d3 = DateTime.year(1971)
+#     var d4 = DateTime.after(d3) -- meh opens it up to abuse from all sides
+
+
+function start(a as Text[] or None)
+    var startTime as DateTime = now()
+    var currentFolder as Text = os.pwd()
     var ss as Number = sys.stackSize()
 
     print(d.year)
@@ -38,4 +51,5 @@ function start(a as String[] or None)
     print(f.fileName, " in ", d.year)
     print(Timer.elapsed())
     print(timer.elapsed())
+    print(now() - startTime)
 end function

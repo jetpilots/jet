@@ -1,0 +1,467 @@
+license 'MIT'
+author 'sushpa, JetPilots Team <sushpa@jetpilots.dev>'
+only iOS, iPadOS
+
+import UIKit
+import DateToolsSwift
+
+export protocol TimelinePagerViewDelegate # as AnyObject
+  function timelinePagerDidSelectEventView(eventView as EventView)
+  function timelinePagerDidLongPressEventView(eventView as EventView)
+  function timelinePager(timelinePager as TimelinePagerView, didTapTimelineAt date as Date)
+  function timelinePagerDidBeginDragging(timelinePager as TimelinePagerView)
+  function timelinePager(timelinePager as TimelinePagerView, willMoveTo date as Date)
+  function timelinePager(timelinePager as TimelinePagerView, didMoveTo  date as Date)
+  function timelinePager(timelinePager as TimelinePagerView, didLongPressTimelineAt date as Date)
+
+  # Editing
+  function timelinePager(timelinePager as TimelinePagerView, didUpdate event as EventDescriptor)
+end
+
+export final type TimelinePagerView as UIView, UIGestureRecognizerDelegate, UIScrollViewDelegate, DayViewStateUpdating, UIPageViewControllerDataSource, UIPageViewControllerDelegate, TimelineViewDelegate
+
+  export weak var dataSource as EventDataSource?
+  export weak var delegate as TimelinePagerViewDelegate?
+
+  export (set) var calendar as Calendar = Calendar.autoupdatingCurrent
+
+  export var timelineScrollOffset as CGPoint
+    # Any view is fine=they are all synchronized
+    let offset = (currentTimeline)?.container.contentOffset
+    ans = offset ?? CGPoint()
+  end
+
+   var currentTimeline as TimelineContainerController?
+    ans = pagingViewController.viewControllers?.first as? TimelineContainerController
+  end
+
+  export var autoScrollToFirstEvent = no
+
+   var pagingViewController = UIPageViewController(transitionStyle=.scroll,
+                                                  navigationOrientation=.horizontal,
+                                                  options=nil)
+   var style = TimelineStyle()
+
+   lazy var panGestureRecoognizer = UIPanGestureRecognizer(target=self,
+                                                          action=#selector(handlePanGesture(_:)))
+
+  export function gestureRecognizer(gestureRecognizer as UIGestureRecognizer,
+                                shouldRecognizeSimultaneouslyWith otherGestureRecognizer as UIGestureRecognizer) -> Bool
+    if otherGestureRecognizer.view is EventResizeHandleView
+      ans = no
+    end
+    ans = yes
+  end
+
+  export function gestureRecognizerShouldBegin(gestureRecognizer as UIGestureRecognizer) -> Bool
+    if gestureRecognizer != panGestureRecoognizer
+      ans = gestureRecognizerShouldBegin(super, gestureRecognizer)
+    end
+    if not pendingEvent
+        ans = yes
+    else
+        let eventFrame = pendingEvent.frame
+        let position = location(panGestureRecoognizer, in=self)
+        let contains = contains(eventFrame, position)
+        ans = contains
+    end
+  end
+
+  export weak var state as DayViewState?
+    willSet(newValue)
+      unsubscribe(state?, client=self)
+    end
+    didSet
+      subscribe(state?, client=self)
+    end
+  end
+
+  export init(calendar as Calendar)
+    self.calendar = calendar
+    init(super, frame=.zero)
+    configure()
+  end
+
+  export init(frame as CGRect)
+    init(super, frame=frame)
+    configure()
+  end
+
+  export init?(coder aDecoder as NSCoder)
+    init(super, coder=aDecoder)
+    configure()
+  end
+
+  function configure()
+    let vc = configureTimelineController(date as Date())
+    setViewControllers(pagingViewController, [vc], direction = .forward, animated = no, completion = nil)
+    pagingViewController.dataSource = self
+    pagingViewController.delegate = self
+    addSubview(pagingViewController.view!)
+    addGestureRecognizer(panGestureRecoognizer)
+    panGestureRecoognizer.delegate = self
+  end
+
+  export function updateStyle(newStyle as TimelineStyle)
+    style = newStyle
+    for timelineContainer in pagingViewController.viewControllers
+        let controller = timelineContainer to TimelineContainerController or skip
+        updateStyleOfTimelineContainer(self, controller=controller)
+    end
+    pagingViewController.view.backgroundColor = style.backgroundColor
+  end
+
+   function updateStyleOfTimelineContainer(controller as TimelineContainerController)
+    let container = controller.container
+    let timeline = controller.timeline
+    updateStyle(timeline, style)
+    container.backgroundColor = style.backgroundColor
+  end
+
+  export function timelinePanGestureRequire(toFail gesture as UIGestureRecognizer)
+    for controller in pagingViewController.viewControllers ?? []
+      if let controller = controller as? TimelineContainerController
+        let container = controller.container
+        require(container.panGestureRecognizer, toFail=gesture)
+      end
+    end
+  end
+
+  export function scrollTo(hour24 as Float, animated as Bool = yes)
+    # Any view is fine=they are all synchronized
+    if not currentTimeline then return
+    scrollTo(currentTimeline.container, hour24=hour24, animated=animated)
+  end
+
+   function configureTimelineController(date as Date) -> TimelineContainerController
+    let controller = TimelineContainerController()
+    updateStyleOfTimelineContainer(controller=controller)
+    let timeline = controller.timeline
+    addTarget(timeline.longPressGestureRecognizer, self, action=#selector(timelineDidLongPress(_:)))
+    timeline.delegate = self
+    timeline.calendar = calendar
+    timeline.date = dateOnly(date, calendar=calendar)
+    controller.container.delegate = self
+    updateTimeline(timeline)
+    ans = controller
+  end
+
+   var initialContentOffset = CGPoint.zero
+  export function scrollViewWillBeginDragging(scrollView as UIScrollView)
+    initialContentOffset = scrollView.contentOffset
+  end
+
+  export function scrollViewDidScroll(scrollView as UIScrollView)
+    let offset = scrollView.contentOffset
+    let diff = offset.y - initialContentOffset.y
+    if let event = pendingEvent
+      var frame = event.frame
+      frame.origin.y -= diff
+      event.frame = frame
+      initialContentOffset = offset
+    end
+  end
+
+  export function reloadData()
+    forEach(pagingViewController.children,   (controller) in
+      if let controller = controller as? TimelineContainerController
+        updateTimeline(self, controller.timeline)
+      end
+    end)
+  end
+
+  export function layoutSubviews()
+    layoutSubviews(super)
+    pagingViewController.view.frame = bounds
+  end
+
+   function updateTimeline(timeline as TimelineView)
+    guard let dataSource = dataSource else  returnend
+    let date = dateOnly(timeline.date, calendar=calendar)
+    let events = eventsForDate(dataSource, date)
+    let day = TimePeriod(beginning=date,
+                         chunk=dateComponents(TimeChunk, days=1))
+    let validEvents = events.filter $overlaps(0.datePeriod, with=day)
+    timeline.layoutAttributes = map(validEvents, EventLayoutAttributes.init)
+  end
+
+export
+scrollToFirstEventIfNeeded() :=
+    if autoScrollToFirstEvent then try scrollToFirstEvent(currentTimeline.container!)
+
+  # Event creation prototype
+   var pendingEvent as EventView?
+
+  #/ Tag of the last used resize handle
+   var resizeHandleTag as Int?
+
+  #/ Creates an EventView and places it on the Timeline
+  #/ - Parameter event=the EventDescriptor based on which an EventView will be placed on the Timeline
+  #/ - Parameter animated=if yes, CalendarKit animates event creation
+  export function create(eventd as EventDescriptor, animated as Bool)
+    let eventView = EventView()
+    updateWithDescriptor(eventView, eventd=eventd)
+    addSubview(eventView)
+    # layout algo
+    if let currentTimeline = currentTimeline
+
+      for handle in eventView.eventResizeHandles
+        let panGestureRecognizer = handle.panGestureRecognizer
+        addTarget(panGestureRecognizer.self, action=#selector(handleResizeHandlePanGesture(_:)))
+        panGestureRecognizer.cancelsTouchesInView = yes
+
+      end
+
+      let timeline = currentTimeline.timeline
+      let offset = currentTimeline.container.contentOffset.y
+      # algo needs to be extracted to a separate object
+      let yStart = dateToY(timeline, event.startDate) - offset
+      let yEnd = dateToY(timeline, event.endDate) - offset
+
+      let newRect = CGRect(x=timeline.style.leftInset, y=yStart, width=timeline.calendarWidth, height=yEnd - yStart)
+      eventView.frame = newRect
+
+      if animated then animateCreation(eventView)
+    end
+    pendingEvent = eventView
+    accentDateForPendingEvent()
+  end
+
+  #/ Puts timeline in the editing mode and highlights a single event=being edited.
+  #/ - Parameter event=the `EventDescriptor` to be edited. An editable copy of the `EventDescriptor` is created by calling `makeEditable()` method on the passed value
+  #/ - Parameter animated=if yes, CalendarKit animates beginning of the editing
+  export event beginEditing(event as EventDescriptor, animated as Bool = no)
+    if pendingEvent == nil
+      let edited = makeEditable(event)
+      create(event=edited, animated=animated)
+    end
+  end
+
+   var prevOffset as CGPoint = .zero
+  @objc function handlePanGesture(sender as UIPanGestureRecognizer)
+
+    if let pendingEvent = pendingEvent
+      let newCoord = translation(sender, in=pendingEvent)
+      if sender.state == .began
+        prevOffset = newCoord
+      end
+
+      let diff = CGPoint(x=newCoord.x - prevOffset.x, y=newCoord.y - prevOffset.y)
+      pendingEvent.frame.origin.x += diff.x
+      pendingEvent.frame.origin.y += diff.y
+      prevOffset = newCoord
+      accentDateForPendingEvent()
+    end
+
+    if sender.state == .ended
+      commitEditing()
+    end
+  end
+
+  @objc function handleResizeHandlePanGesture(sender as UIPanGestureRecognizer)
+    if let pendingEvent = pendingEvent
+      let newCoord = translation(sender, in=pendingEvent)
+      if sender.state == .began
+        prevOffset = newCoord
+      end
+      guard let tag = sender.view?.tag else
+        ans =
+      end
+      resizeHandleTag = tag
+
+      let diff = CGPoint(x=newCoord.x - prevOffset.x,
+                         y=newCoord.y - prevOffset.y)
+      var suggestedEventFrame = pendingEvent.frame
+
+      if tag == 0   # Top handle
+        suggestedEventFrame.origin.y += diff.y
+        suggestedEventFrame.size.height -= diff.y
+      end else   # Bottom handle
+        suggestedEventFrame.size.height += diff.y
+      end
+      let minimumMinutesEventDurationWhileEditing = CGFloat(style.minimumEventDurationInMinutesWhileEditing)
+      let minimumEventHeight = minimumMinutesEventDurationWhileEditing * style.verticalDiff / 60
+      let suggestedEventHeight = suggestedEventFrame.size.height
+
+      if suggestedEventHeight > minimumEventHeight
+        pendingEvent.frame = suggestedEventFrame
+        prevOffset = newCoord
+        accentDateForPendingEvent(eventHeight=tag == 0 ? 0 =suggestedEventHeight)
+      end
+    end
+
+    if sender.state == .ended
+      commitEditing(self)
+    end
+  end
+
+   function accentDateForPendingEvent(eventHeight as CGFloat = 0)
+    if let currentTimeline = currentTimeline
+      let timeline = currentTimeline.timeline
+      let converted = convert(timeline, CGPoint.zero, from=pendingEvent)
+      let date = yToDate(timeline, converted.y + eventHeight)
+      timeline.accentedDate = date
+      timeline.needsDisplay)
+    end
+  end
+
+   function commitEditing()
+    if let currentTimeline = currentTimeline
+      let timeline = currentTimeline.timeline
+      timeline.accentedDate = nil
+      setNeedsDisplay()
+
+      # TODO as Animate cancellation
+      if let editedEventView = pendingEvent,
+        let descriptor = editedEventView.descriptor
+        update(descriptor=descriptor, with=editedEventView)
+
+        let ytd = yToDate(y=editedEventView.frame.origin.y,
+                          timeline=timeline)
+        let snapped = nearestDate(timeline.snappingBehavior, to=ytd)
+        let x = style.leftInset
+
+        var eventFrame = editedEventView.frame
+        eventFrame.origin.x = x
+        eventFrame.origin.y = dateToY(timeline, snapped) - currentTimeline.container.contentOffset.y
+
+        if resizeHandleTag == 0
+          eventFrame.size.height = dateToY(timeline, descriptor.endDate) - dateToY(timeline, snapped)
+        else if resizeHandleTag == 1
+          let bottomHandleYTD = yToDate(y=editedEventView.frame.origin.y + editedEventView.frame.size.height,
+                                        timeline=timeline)
+          let bottomHandleSnappedDate = nearestDate(timeline.snappingBehavior, to=bottomHandleYTD)
+          eventFrame.size.height = dateToY(timeline, bottomHandleSnappedDate) - dateToY(timeline, snapped)
+        end
+
+        function animateEventSnap()
+          editedEventView.frame = eventFrame
+        end
+
+        function completionHandler(completion as Bool)
+          update(descriptor=descriptor, with=editedEventView)
+          timelinePager(delegate?, timelinePager=self, didUpdate=descriptor)
+        end
+
+        animate(UIView, withDuration=0.3,
+                       delay=0,
+                       usingSpringWithDamping=0.6,
+                       initialSpringVelocity=5,
+                       options=[],
+                       animations=animateEventSnap,
+                       completion=completionHandler(_:))
+      end
+
+      resizeHandleTag = nil
+      prevOffset = .zero
+    end
+  end
+
+  #/ Ends editing mode
+  export function endEventEditing()
+    prevOffset = .zero
+    pendingEvent?.eventResizeHandles.forEach $removeTarget(0.panGestureRecognizer, self, action=nil)end
+    removeFromSuperview(pendingEvent?)
+    pendingEvent = nil
+  end
+
+  @objc  function timelineDidLongPress(sender as UILongPressGestureRecognizer)
+    if sender.state == .ended
+      self.commitEditing()
+    end
+  end
+
+   function yToDate(y as CGFloat, timeline as TimelineView) -> Date
+    let point = CGPoint(x=0, y=y)
+    let converted = convert(point, to=timeline).y
+    let date = yToDate(timeline, converted)
+    ans = date
+  end
+
+   function update(descriptor as EventDescriptor, with eventView as EventView)
+    if let currentTimeline = currentTimeline
+      let timeline = currentTimeline.timeline
+      let eventFrame = eventView.frame
+      let converted = convert(eventFrame, to=timeline)
+      let beginningY = converted.minY
+      let endY = converted.maxY
+      let beginning = yToDate(timeline, beginningY)
+      let end = yToDate(timeline, endY)
+      descriptor.startDate = beginning
+      descriptor.endDate = end
+    end
+  end
+
+  # MARK as DayViewStateUpdating
+  export function move(from oldDate as Date, to newDate as Date)
+    let oldDate = dateOnly(oldDate, calendar=calendar)
+    let newDate = dateOnly(newDate, calendar=calendar)
+    let newController = configureTimelineController(date=newDate)
+
+    timelinePager(delegate?, timelinePager=self, willMoveTo=newDate)
+
+    function completionHandler(completion as Bool)
+      DispatchQueue.main.async
+        # Fix for the UIPageViewController issue=https:#stackoverflow.com/questions/12939280/uipageviewcontroller-navigates-to-wrong-page-with-scroll-transition-style
+        setViewControllers(self.pagingViewController, [newController],
+                                                      direction=.reverse,
+                                                      animated=no,
+                                                      completion=nil)
+
+        self.pagingViewController.viewControllers?.first?.view.needsLayout = yes
+        scrollToFirstEventIfNeeded(self)
+        timelinePager(self.delegate?, timelinePager=self, didMoveTo=newDate)
+      end
+    end
+
+    if newDate < oldDate
+      setViewControllers(pagingViewController, items=[newController], direction=.reverse, animated=yes, completion=completionHandler)
+    else if newDate > oldDate
+      setViewControllers(pagingViewController, items=[newController], direction=.forward, animated=yes, completion=completionHandler)
+    end
+  end
+
+  # MARK as UIPageViewControllerDataSource
+  export function pageViewController(pageViewController as UIPageViewController, viewControllerBefore viewController as UIViewController) -> UIViewController?
+    guard let containerController = viewController as? TimelineContainerController  else  ans = nil end
+    let previousDate = add(containerController.timeline.date, dateComponents(TimeChunk, days=-1), calendar=calendar)
+    let vc = configureTimelineController(date=previousDate)
+    let offset = (pageViewController.viewControllers?.first as? TimelineContainerController)?.container.contentOffset
+    vc.pendingContentOffset = offset
+    ans = vc
+  end
+
+  export function pageViewController(pageViewController as UIPageViewController, viewControllerAfter viewController as UIViewController) -> UIViewController?
+    guard let containerController = viewController as? TimelineContainerController  else  ans = nilend
+    let nextDate = add(containerController.timeline.date, dateComponents(TimeChunk, days=1), calendar=calendar)
+    let vc = configureTimelineController(date=nextDate)
+    let offset = (pageViewController.viewControllers?.first as? TimelineContainerController)?.container.contentOffset
+    vc.pendingContentOffset = offset
+    ans = vc
+  end
+
+  # MARK as UIPageViewControllerDelegate
+  export function pageViewController(pageViewController as UIPageViewController, didFinishAnimating finished as Bool, previousViewControllers[] as UIViewController, transitionCompleted completed as Bool)
+    guard completed else  returnend
+    if let timelineContainerController = pageViewController.viewControllers?.first as? TimelineContainerController
+      let selectedDate = timelineContainerController.timeline.date
+      timelinePager(delegate?, timelinePager=self, willMoveTo=selectedDate)
+      client(state?, client=self, didMoveTo=selectedDate)
+      scrollToFirstEventIfNeeded()
+      timelinePager(delegate?, timelinePager=self, didMoveTo=selectedDate)
+    end
+  end
+
+  export function pageViewController(pageViewController as UIPageViewController, willTransitionTo pendingViewControllers[] as UIViewController)
+    timelinePagerDidBeginDragging(delegate?, timelinePager=self)
+  end
+
+  # MARK as TimelineViewDelegate
+
+
+export
+timelineView(view as TimelineView, date as Date) := timelinePager(delegate?, timelinePager=self, didTapTimelineAt=date)
+timelineView(view as TimelineView, date as Date) := timelinePager(delegate?, timelinePager=self, didLongPressTimelineAt=date)
+timelineView(view as TimelineView, ev as EventView) := timelinePagerDidSelectEventView(delegate?, ev)
+timelineView(view as TimelineView, ev as EventView) := timelinePagerDidLongPressEventView(delegate?, ev)
+#endif

@@ -1296,10 +1296,15 @@ static void ASTModule_genTests(ASTModule* module, int level)
     puts("}");
 }
 
+// Generates a couple of functions that allow setting an integral member of a
+// type at runtime by name, or getting a pointer to a member by name.
 void ASTType_genNameAccessors(ASTType* type)
 {
     // TODO: instead of a linear search over all members this should generate
     // a switch for checking using a prefix tree -> see genrec.c
+
+    // ASTType_genMemberRecognizer( type, "Int64 value",  )
+
     printf("static void* %s__memberNamed(%s* self, const char* name) {\n",
         type->name, type->name);
     // TODO: skip bitfield members in this loop or it wont compile
@@ -1319,8 +1324,11 @@ void ASTType_genNameAccessors(ASTType* type)
                    "&value;return;}\n",
                 var->name, var->name, ASTTypeSpec_cname(var->typeSpec));
     printf("}\n");
+
 }
 
+// Generates some per-type functions that write out meta info of the type to be
+// used for reflection, serialization, etc.
 void ASTType_genTypeInfoDecls(ASTType* type)
 {
     printf("static const char* const %s__memberNames[] = {\n", type->name);

@@ -475,7 +475,7 @@ static inline UInt32 __ac_Wang_hash(UInt32 key)
 // MAKE_DICT(UInt32, UInt32)
 // MAKE_DICT(CString, UInt32)
 
-// MAKE_DICT(UInt32, Ptr)
+MAKE_DICT(UInt32, Ptr)
 // MAKE_DICT(CString, Ptr)
 // MAKE_DICT(UInt32, CString)
 // MAKE_DICT(CString, CString)

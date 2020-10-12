@@ -53,21 +53,32 @@ Function | Arguments | Returns | Optional arguments
 **add** | base as DateTime, diff as Duration | DateTime
 **convert** | base as DateTime, zone as TimeZone | DateTime
 
-Property | Type | Notes
+Property | Type | Notes| 
 -- | -- | --| --
-year |Integer | 32-bit signed
-month |Integer |
-day |Integer |
-hour |Integer |
-minute |Integer |
-second |Integer |
-dayOfWeek [**get**] |Integer |
-dayOfYear [**get**] |Integer |
-zone | Integer/TimeZone? | -24 to +24 (30min increments from UTC)
-isDST |YN |
-unix  [**get**]|Integer | Seconds since epoch
+year |Integer | 32-bit signed| 
+month |Integer || 
+day |Integer || 
+hour |Integer || 
+minute |Integer || 
+second |Integer || 
+dayOfWeek [**get**] |Integer (**GET**) || 
+dayOfYear [**get**] |Integer (**GET**) || 
+zone | Integer/TimeZone? | -24 to +24 (30min increments from UTC)| 
+isDST |YN || 
+unixTime  [**get**]|Integer (**GET**) | Seconds since epoch| 
+monthName|String (**GET**) | locale-dependent month name. you can take substrings if you want short names e.g. `monthName[1:3]` or `monthName[1]` | 
+weekOfYear|Integer | | 
+| | | 
+| | | 
+| | | 
+| | | 
+| | | 
+| | | 
+
+
 
 ### TimeZone
+
 Function | Arguments | Returns | Optional arguments
 -- | -- | --| --
 **TimeZone** | label as Text | TimeZone
@@ -86,3 +97,30 @@ repr | Text |  e.g. +0530 or -0600
 
 
 ### Resource?
+
+###Random Numbers
+
+Optional arg for all functions: `gen`
+
+```swift
+gen as RandomGenerator = {
+  .mersenneTwister,
+  .superRNG,
+  .blahRNG,
+  .garbage
+}
+```
+
+
+
+| Function       | Arguments                         | Returns  | Notes                                                        |
+| -------------- | --------------------------------- | -------- | ------------------------------------------------------------ |
+| **random**     | array as T[]                      | T        | This appears templated, but under the hood it has only 4 defs: for `void*`, `int`, `short`, `char`. This might be extended to `B16`, `B32` later for dealing with larger value types. |
+| **random**     | range as Range                    | Number   | Specify the step of the range if you only want integral values (`1:1:100` gives you integers, `1:100` gives you reals) |
+| **randomSeed** | seed as Number                    | -        | Seeds the random generator.                                  |
+| **random**     | range as Range, shape as Number[] | Number[] | Returns an array of given shape filled with randoms in the given range. Specify the step if you want only ints (see above). |
+| **random**     | array as T[], shape as Number[]   | T[]      | Returns an array of given shape of type T filled with elements of `array` picked at random. |
+|                |                                   |          |                                                              |
+
+​	
+

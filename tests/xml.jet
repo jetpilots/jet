@@ -1,95 +1,56 @@
-#include "fp_base.h"
-#include "fp_sys_time.h"
+#include "jetbase.h"
+#include "jetsys_time.h"
 
-type XMLAttr
-    key::TextRef
-    val::TextRef
-end
-
-declare type XMLNode
-    tag::TextRef
-    XMLAttr[]   attributes
-        text::TextRef
-        XMLNode[]   children
-end
-
-type XMLParser
-    filename::Text
-    line::Number in [0:50M]
-    # check 0 <= line <= 50k # redundant invariant caught at comptime
-    col::Number in [0:132]
-    # check 0 <= col <= 132
-    # data::Text
-    data::Byte[]
-    # pos::TextRef
-    # ends::TextRef
+declare type XMLAttr
+    var key as TextRef
+    var val as TextRef
 end type
 
-var size = 12.4|MB
+declare type XMLNode
+    var tag as TextRef
+    var attributes as XMLAttr[]
+    var text as TextRef
+    var children as XMLNode[]
+end type
+
+declare type XMLParser
+    var filename as Text
+    var line as Number in [0:50M]    # check 0 <= line <= 50k # redundant invariant caught at comptime
+    var col as Number in [0:132]     # check 0 <= col <= 132    # data as Text
+    var data as Byte[]     # pos as TextRef     # ends as TextRef
+end type
+
+var size[4D] in [6:78] = 12.4|MB
 var nonDimButScaled = 50|k or 50k
 
-  XMLNode  new(tag::TextRef
-{
-    XMLNode ret = fp_new(XMLNode)
-    ret.tag = tag
-    return ret
-}
+XMLParser(fromText as Text) :=
+    XMLParser {
+        .data = clone(fromText),
+        .pos = 1,
+        .ends = len(fromText)}
 
-  XMLNode XMLNode_newText(text::TextRef
-{
-    XMLNode ret = fp_new(XMLNode)
-    ret.tag = NULL
-    ret.text = text
-    return ret
-}
+function XMLParser(file as Text)
 
-  XMLAttr  XMLAttr_new(key::TextRef, val::TextRef
-{
-    XMLAttr  ret = fp_new(XMLAttr)
-    ret.key = key
-    ret.val = val
-    return ret
-}
+    var f = FileInfo(file)
+    # like this and DateTime, a lot of types need to be instantiated
+    # with something and the non-overridable default ctor doesn't make
+    # sense. how about allowing it to be overridden?
 
-  XMLParser  XMLParser_fromStringClone(TextRef str)
-{
-    XMLParser  par = fp_new(XMLParser)
-    size_t len = strlen(str)
-    par.data = pstrndup(str, len)
-    par.pos = par.data
-    par.end = par.data + len
-    return par
-}
-
-function fromFile(filename::Text) result ret::XMLParser
-
-# function fromFile(filename::Text) result ret::XMLParser
-
-
-    if not fileExists(filename)
-        write("F+: file '$filename' not found.", to = stderr)
-        return
-    else if isFolder(filename)
-        write("F+: '$filename' is a folder  only files are accepted.", to = stderr)
-        return
-    else if not filePermissions(filename).read
-        write("F+: no permission to read file '$filename'.", to = stderr)
-        return
+    if not f.exists
+        panic("F+: file '$file' not found.")
+    else if f.directory
+        panic("F+: '$file' is a folder; only files are accepted.")
+    else if not f.permissions.read
+        panic("F+: no permission to read file '$file'.")
     end if
+    # panic(...) := write(..., to=stderr) and stop
 
-    ret = [
-        {
-            .file = filename,
-            .data = read(.file, encoding=.shiftJis),
+    ans = {
+            .file = file,
+            .data = read(file, encoding=.shiftJis),
             .pos = .data,
             .end = .pos + len(.data)
-        },
-        {
-            .file = filename,
-            .data = read(.file) #encode(read(.file), from=.ascii, to=.utf8),
-            .pos = .data,
-            .end = .pos + len(.data)
-        }]
+        }
 
 # Text is mutable which means raw strings will have to be pstrdup'd at runtime.
 # you can access bytes (chars) of a text using [] -> no need for memoryblock.
@@ -101,139 +62,131 @@ function fromFile(filename::Text) result ret::XMLParser
 # -- SOOOOOOO text should APPEAR TO BE IMMUTABLE on the Jet side but funcs
 # should be implemented in a mutable way in C and Jet calls should be translated
 # to mutating an existing string IF they are inplaceable.
-var txt::Text = read(file, encoding=TextEncodings.ascii)
+var txt as Text = read(file, encoding=TextEncodings.ascii)
 #    -> this func just does {t=read(file);t.encoding=.ascii;ret t;}
-var bytes::Byte[] = read(file)
+var bytes as Byte[] = read(file)
 # do whatever with bytes
 var tyt = Text(bytes, encoding=.ascii) # this is a copy if byt is used later else move
-# var by::Byte[] = bytes(txt) # this is a copy if you use txt later, but otherwise a move
+# var by as Byte[] = bytes(txt) # this is a copy if you use txt later, but otherwise a move
 
-# var by::Byte[] = read(file) # this is a move
+# var by as Byte[] = read(file) # this is a move
 
 # if Text is immutable but byte array is mutable then it incurs an implicit copy
 # unless the var is not used later then it can be made a move
 
 end function
 
-function parseAttrs(&parser::XMLParser) result list::XMLAttr[]
-    alias data::Text = parser.data
-    alias pos::Number = parser.pos
-    alias c::Text = data[pos] # all this assumes mutable Text
-    # GET RID OF THIS ALIAS/MACRO BUSINESS!
+function parseAttrs(var par as XMLParser) result (list as XMLAttr[])
+    # GET RID OF ALIAS/MACRO BUSINESS!
 
-    while c not in ">/?"
-        let name::TextRef = pos
-        while c != "=" do pos += 1
-        c = 0 # trample =
-        pos += 1
+    while char(par) not in ">/?"
+        let name as TextRef = pos
+        advance(&par, toFirst='=')
+        trample(&par)
 
-        var markers = ""
-        if pos in "'/"
-            markers =  "\'"
-            pos += 1
+        var markers as Regex = ``
+        if char(par) in ['"', "'"]
+            markers = char(par)
+            advance(&par)
         else
             markers = " >/?\t\n"
         end if
 
-        var val::TextRef = pos
+        var val as TextRef = pos
 
-        while c not in markers do pos += 1
-        if c not in "/?>"
-             c = 0
-             pos += 1
-        end if
+        advance(&par, past=markers)
+        trample(&par, toFirst="[?>")
 
- # this ALIAS business is a terrible idea, I lose track of what is happening
- # when im focused in a local block. how is c related to pos?
-        while c in " \t\n"
-            c = 0
-            pos += 1
-        end while
-
-        list[end+1] = { .key = name, .val = val }
-
+        # this ALIAS business is a terrible idea, you lose track of what is happening
+        # when focused in a local block. how is c related to pos again?
+        trample(&par, ifCharIs=' ')
+        advance(&par, past="\s")
+        list[end+1] =
+            XMLAttr {
+                .key = name,
+                .val = val
+            }
     end while
 end function
 
 # Trample the character at the current position to null, and advance.
-function trample(&parser::XMLParser)
-    parser.data[parser.pos] = "\0"
-    parser.pos += 1
+function trample(&par as XMLParser)
+    par.data[par.pos] = "\0"
+    par.pos += 1
 end function
 
-skipws(&parser::XMLParser) :=
-    while parser.data[parser.pos] == " " do parser.pos += 1
+# skipws(&par as XMLParser) :=
+#     while par.data[par.pos] == " " do par.pos += 1
 
-function parseTags(&parser::XMLParser) result list::XMLNode[]
+function parseTags(&par as XMLParser) result list as XMLNode[]
 
-    alias pos::Number = parser.pos
-    alias data::Text = parser.data
-    alias c::Text = data[pos]
+    # ref pos as Number = par.pos
+    # --> pos is generated as *pos in C, works on lhs/rhs. refs have a
+    # property `index` and a private var that is *Type. accessing/setting a
+    # ref acts on *pos. incr/dec works by setting pos.index += -= 1. this is
+    # a setter that actually moves the pointer. the index is not stored, it is
+    # computed by subtracting origpos from pos.
+    # yeah well this is becoming a slice with 1 index
+
+    # ref data as Text = par.data
+    # ref c as Text = data[pos]
 # fortran equivalence
 
-    while pos < parser.ends
-        match c
+    while not eof(par) #par.pos < par.ends
+        match char(par) #par.data[par.pos]
         case " ","\t","\n"
-            pos += 1
+            advance(&par)
 
         case "<"
-            c = 0
-            pos += 1
+            trample(&par)
             var noChild = no
 
-            if c == "/"  # closing tag here means empty content
-                trample(&parser)
-                # c = 0
-                # pos += 1   # note that will be past </
+            if matches(&par, str='/')  # closing tag here means empty content
+                trample(&par)
                 return    # null if no elements were found at this level
 
-             else if data[pos:pos+6] == "[CDATA["   # cdata
+             else if matches(par, str="[CDATA[")   # cdata
 
              else
-                var node::XMLNode = { .tag = c }
+                var node as XMLNode = { .tag = str(par) }
 
-                while c not in " />\n\t" do pos += 1  # SSE?
-
-                if c == " "
-                    trample(&parser)
-                    # c = 0
-                    # pos += 1
-                    skipws(&parser)
-                    node.attributes = parseAttrs(parser)
+                advance(&par, toLast=`[ />\n\t]`)
+                if char(par) == ' '
+                    trample(&par)
+                    advance(&par, past=" \t\n")
+                    node.attributes = parseAttrs(par)
                 end if
 
-                skipws(&parser)
+                advance(&par, past=" \t\n")
 
                 match c
-                case `[/?]` #"/", "?"
-                   trample(&parser)
-                    check starts(parser.data[parser.pos], with= ">")
+                case `[/?]`
+                    trample(&par)
+                    check matches(par, ">")
                     noChild = yes
                     fall
 
                 case ">"
-                    c = 0
-                    pos += 1
+                    trample(&par)
                     if not noChild
-                        node.children = parseTags(parser)
+                        node.children = parseTags(&par)
 
-                        var closingTag::TextRef = c
-                        while c != ">" do pos += 1
-                        c = 0
-                        pos += 1
+                        var closingTag = str(par)
+                        advance(&par, toFirst='>') # other variants advance_past and advance_by
+                        # i guess instead of advance_past going past the last match, it should
+                        # stop at the last match. also be named differently then.
+                        trample(&par)
 
                         if not closingTag
-                            write("error: found end of file, expected </$node.tag>")
-                            exit(1)
+                            panic("error: found end of file, expected '</$node.tag>'")
                         else if closingTag != node.tag
-                            write("error: found </$closingTag>, expected </$node.tag>")
-                            exit(1)
+                            panic("error: found '</$closingTag>', expected '</$node.tag>'")
                         end if
                     end if
 
                 case else
-                    let char::TextRef = c
-                    write("oops1: unexpected '$char'", to=stderr)
+                    let char as TextRef = c
+                    panic("oops1: unexpected '$char'")
 
                 end match
 
@@ -241,160 +194,217 @@ function parseTags(&parser::XMLParser) result list::XMLNode[]
              end if
 
         case else
-            var text::TextRef = pos
-            while c != "<" and pos < parser.ends do c+=1
-            list[end+1] = XMLNode(withText=text)
+            var text as TextRef = str(par) # still need to eliminate TextRef
+            advance(&par, toFirst='<')
+            list[end+1] = XMLNode { .text = text }
 
         end match
     end while
 
-    if (pos < parser.ends) then write("error: data unparsed")
+    if not eof(par) then write("error: data unparsed")
 end function
 
-function parse(p::Parser)::Node[]
-    var b::Byte[] = bytes(p.text.len)
+
+# In Jet, you don't define the write() function on the basis of the str() func
+# but the other way around (actually you can think of this as the same in C, if
+# you know how to printf you can use the same for sprintf, but it can be both
+# ways in C). In Jet, if have defined the write() method, the string() method
+# is automatically available. In general the string() method cannot be defined
+# like a normal func at all, for any type in Jet.
+# this is because I don't want to have a constructed string as the basis for
+# output. print(string(x)) should get rid of the middleman for one thing. another
+# is that ehhhh ---- noo
+# actually it can work the other way around, you just have to look at the
+# str() definition and glean what the write() should be. str() will mostly
+# just have string interps. it's easier for the user to define it like that
+# although more work for me to write such a general inference routine.
+
+# string interps make it quite easy, dont u think
+str(x as XMLAttr) => "$x.key='$x.value'"
+# compare that to the write defn
+write(x as XMLAttr) => write("$x.key='$x.value'")
+# ok, you have explicit 1-on-1 map of write() to printf() for genc. or is it?
+# you still do the same string interp. in the same sense you also have a 1on1
+# of the string itself (w/ interps) to snprintf.
+
+# if you aren't following along, what I'm trying to avoid is:
+write(x) = write(str(x))
+# which is the easiest but stupidest solution. this is after all the best
+# programming language in the history of human civilisation.
+
+# I guess you cannot prevent someone from defining write() and not doing anything
+# in it that resembles writing, and then you have abotched str() too, but if
+# you do it the other way around you can complain if a string isn't returned.
+
+# BTW how about this: if you define 1 you get the other free, unless you
+# define both (if you REALLY need different str vs write)
+
+# BTW I guess repr is a better name than str/string.
+
+#---
+# how about basic polymorphism? structs keep a field with a few bits that
+# says which subclass of a particular base class they are. so not a global ID,
+# just a subclass ID which can fit in 3-4 bits. Then there is a dispatch func
+# that runs for these. this allows keeping a subclass item in a base class var
+# but dispatching to the subclass impl instead of baseclass impl
+# 1 thing is it is implicit, you can have
+var fx as FXBase
+if ask()=='y' # -- btw temporaries/rvalues that allocate must be discarded
+# immediately after use! ask() retval is an owned var not assigned to
+# any ref so you cant track it. if you promote ALL funcs then it can be tracked.
+    fx = FXSubClassA("test")
+else
+    fx = FXSubClassB()
+end if
+var d = funcy(fx) <-- not clear to the user what func will be called, not even decidable statically.
+# just stick with composition over ineritance.
+# the reason for getting into this was you could then have ASTExpr and subtypes
+# and have jet autogenerate dispatch switch that is handwritten in C now.
+# also it would help in automatic structure packing since you would know what
+# goes where.
+
+function parse(p as Parser) as Node[]
+    var b as Byte[] = bytes(p.text.len)
 end function
 
-  void XMLAttr_print(XMLAttr  attr, indent::int
-{
-    write(" %s=\"%s\"", attr.key, attr.val)
-}
+write(attr as XMLAttr) := write(" $attr.key='$attr.val'")
+write(node as XMLNode) := write(node, indent=0)
 
-  void XMLNode_print(node::XMLNode, indent::int)
-  void XMLNodeList_print(XMLNode[]   nodeList, indent::int)
-{
-    fp_foreach(XMLNode, childNode, nodeList) XMLNode_print(childNode, indent)
-}
+write(nodeList as XMLNode[], indent as Int) :=
+    for xn as XMLNode = nodeList[1:end] do write(child, indent=indent)
 
-  TextRef const spaces
+
+TextRef const spaces
     = "                                                 "
-  void XMLNode_print(node::XMLNode, indent::int)
-{
-    if (node.tag) {
+
+function write(node as XMLNode, indent as Int)
+    if node.tag != ""
         write("%. s<%s%s", indent, spaces, node.tag,
             node.attributes ? "" : node.children ? ">\n" : "/>\n")
-        fp_foreach(XMLAttr , attr, node.attributes)
-            XMLAttr_print(attr, indent)
-        if (node.attributes) write("%s\n", node.children ? ">" : " />")
-        XMLNodeList_print(node.children, indent + 2)
-        if (node.children) write("%. s</%s>\n", indent, spaces, node.tag)
-    } else {
-        write("%. s%s\n", indent, spaces, node.text)
-    }
-}
+        write(node.attributes, indent=indent)
+        if len(node.attributes)>0 then write("%s\n", node.children ? ">" : " />")
 
-int main(argc::int, char  argv[])
-{
-    char  xmlstr = "" #
-                   "<xml>" #
-                   "  <head>" #
-                   "    <title attr=value attr2=\"value2 what>\">" #
-                   "    </title>" #
-                   "    <meta name=content-type content=utf-8/>" #
-                   "  </head>" #
-                   "</xml>"  #
-    "<foot>" #
-    "</foot>"
-    #     xmlstr = "<meta name=content-type content=utf-8/><meta name=keywords
-    #     content="rail,train,goods"/>"  xmlstr = "<a>"  xmlstr = "<a></a>"
+        write(node.children, indent=indent+2)
+        if len(node.children)>0 then write(" " * indent, node.tag)
+    else
+        write(" " * indent, node.text)
+    end if
+end function
 
-    xmlstr = "<?xml version="1.0"?>"
-             "<Tests xmlns="http:#www.adatum.com">"
-             "<Test TestId="0001" TestType="CMD">"
-             "<Name>Convert number to string</Name>"
-             "<CommandLine>Examp1.EXE</CommandLine>"
-             "<Input>1</Input>"
-             "<Output>One</Output>"
-             "</Test>"
-             "<Test TestId="0002" TestType="CMD">"
-             "<Name>Find succeeding characters</Name>"
-             "<CommandLine>Examp2.EXE</CommandLine>"
-             "<Input>abc</Input>"
-             "<Output>def</Output>"
-             "</Test>"
-             "<Test TestId="0003" TestType="GUI">"
-             "<Name>Convert multiple numbers to strings</Name>"
-             "<CommandLine>Examp2.EXE /Verbose</CommandLine>"
-             "<Input>123</Input>"
-             "<Output>One Two Three</Output>"
-             "</Test>"
-             "<Test TestId="0004" TestType="GUI">"
-             "<Name>Find correlated key</Name>"
-             "<CommandLine>Examp3.EXE</CommandLine>"
-             "<Input>a1</Input>"
-             "<Output>b1</Output>"
-             "</Test>"
-             "<Test TestId="0005" TestType="GUI">"
-             "<Name>Count characters</Name>"
-             "<CommandLine>FinalExamp.EXE</CommandLine>"
-             "<Input>This is a test</Input>"
-             "<Output>14</Output>"
-             "</Test>"
-             "<Test TestId="0006" TestType="GUI">"
-             "<Name>Another Test</Name>"
-             "<CommandLine>Examp2.EXE</CommandLine>"
-             "<Input>Test Input</Input>"
-             "<Output>10</Output>"
-             "</Test>"
-             "</Tests>"
+var xmlstr =
+    '<?xml version="1.0"?>
+        <Tests xmlns="http://www.adatum.com">
+        <Test TestId="0001" TestType="CMD">
+            <Name>Convert number to string</Name>
+            <CommandLine>Examp1.EXE</CommandLine>
+            <Input>1</Input>
+            <Output>One</Output>
+        </Test>
+        <Test TestId="0002" TestType="CMD">
+            <Name>Find succeeding characters</Name>
+            <CommandLine>Examp2.EXE</CommandLine>
+            <Input>abc</Input>
+            <Output>def</Output>
+        </Test>
+        <Test TestId="0003" TestType="GUI">
+            <Name>Convert multiple numbers to strings</Name>
+            <CommandLine>Examp2.EXE /Verbose</CommandLine>
+            <Input>123</Input>
+            <output>One Two Three</Output>
+        </Test>
+        <Test TestId="0004" TestType="GUI">
+            <Name>Find correlated key</Name>
+            <CommandLine>Examp3.EXE</CommandLine>
+            <Input>a1</Input>
+            <Output>b1</Output>
+        </Test>
+        <Test TestId="0005" TestType="GUI">
+            <Name>Count characters</Name>
+            <CommandLine>FinalExamp.EXE</CommandLine>
+            <Input>This is a test</Input>
+            <Output>14</Output>
+        </Test>
+        <Test TestId="0006" TestType="GUI">
+            <Name>Another Test</Name>
+            <CommandLine>Examp2.EXE</CommandLine>
+            <Input>Test Input</Input>
+            <Output>10</Output>
+        </Test>
+    </Tests>'
 
-    # XMLParser  par = XMLParser_fromStringClone(xmlstr)
-    if (argc < 2) {
-        write("usage: %s <filename>\n", argv[0])
-        exit(1)
-    }
+function start()
 
-    t0::fp_sys_time_Time  # = fp_sys_time_getTime()
-    XMLParser  par = XMLParser_fromFile(argv[1])
-    tms::double  # = fp_sys_time_clockSpanMicro(t0) / 1.0e3
-    # eprintf("\e[1mread time:\e[0m %.1f ms (%.2f GB/s)\n", tms,
-    #     1 / ((tms / 1e3)   1e9 / (par.end - par.data)))  # sw.print()
+    if len(os.args) == 0 then panic("usage: $os.cmd <filename>")
 
-    t0 = fp_sys_time_getTime()
-    XMLNode[]  parsed = XMLParser_parseTags(par)
-    if (argc > 2 &&  argv[2] == "d") XMLNodeList_print(parsed, 0)
+    var t0 = clock()
+    var myxml = readxml(os.args[1])
+    # var myxml = read(os.args[1]) to XMLDoc # this is then just a conversion of string to XMLDoc
+    # var mydat = read(os.args[1]) to Table with { .sep = ';', .skip = 3} # this works as well!
+    # # basically `as` is an operator that is implemented by types taking some other type to convert from
+    # # but what about
+    # var mystr = read(os.args[1])
+    # var myxml = mystr to XML to JSON to Webpage
+    # if mystr is used elsewhere afterwards, WHOA it should also not have refs that
+    # are used afterwrds -- this affects the whole inplacing strategy. then we have
+    # to disallow refs completely.
+    # so if mystr isn't used elsewhere, this is XML__from(mystr) else it is
+    # XML__from(clone(mystr). i.e. _from (impl of as) is always written inplace.
+    # BTW you also clone if it is a `let` (module global, function arg, etc)
 
-    tms = fp_sys_time_clockSpanMicro(t0) / 1.0e3
+    if os.args has "-d" then write(myxml)
+    var tms = clock(t0)
 
-    eputs("-------------------------------------------------------"
-          "\n")
-    allocstat(XMLAttr)
-    allocstat(XMLParser)
-    allocstat(XMLNode)
-    allocstat(fp_PtrList)
-    eputs("-------------------------------------------------------"
-          "\n")
-    eprintf("    Total size of nodes                     = %7d B\n",
-        fp_gPool.usedTotal)
-    eprintf("    Space allocated for nodes               = %7d B\n",
-        fp_gPool.capTotal)
-    eprintf("    Node space utilisation                  = %7.1f %%\n",
-        fp_gPool.usedTotal   100.0 / fp_gPool.capTotal)
-    eputs("-------------------------------------------------------"
-          "\n")
-    eprintf("    File size                               = %7lu B\n",
-        par.end - par.data)
-    eprintf("    Node size to file size ratio            = %7.1f x\n",
-        fp_gPool.usedTotal   1.0 / (par.end - par.data))
-    eputs("-------------------------------------------------------"
-          "\n")
-    eprintf("    Space used for strings                  = %7u B\n",
-        fp_sPool.usedTotal)
-    eprintf("    Allocated for strings                   = %7u B\n",
-        fp_sPool.capTotal)
-    eprintf("    Space utilisation                       = %7.1f %%\n",
-        fp_sPool.usedTotal   100.0 / fp_sPool.capTotal)
-    eputs("-------------------------------------------------------"
-          "\n")
-    eputs("\e[1mMemory-related calls\e[0m\n")
-    eprintf("  calloc: %-7d | malloc: %-7d | realloc: %-7d\n",
-        fp_globals__callocCount, fp_globals__mallocCount,
-        fp_globals__reallocCount)
-    eprintf("  strlen: %-7d | strdup: %-7d |\n", fp_globals__strlenCount,
-        fp_globals__strdupCount)
+    "\e[1mTime elapsed:\e[0m %.1f ms (%.2f GB/s)\n", tms|ms,
+        1 / ((tms / 1e3)   1e9 / (par.end - par.data)), file=stdout)  # sw.write()
 
-    eprintf("\e[1mTime elapsed:\e[0m %.1f ms (%.2f GB/s)\n", tms,
-        1 / ((tms / 1e3)   1e9 / (par.end - par.data)))  # sw.print()
+end function
 
-    return 0
-}
+function stats(fileSize as Number|B within <0:2^24>,
+      fileModified as YesOrNo,
+      fileRange as Number[3D] within <2:29>) result (ret as Number[2D])
+
+    # var sret as Number[3D] = clone(inArg)
+    # let fileSize|B
+    # let fileModified::YesOrNo
+    # let fileRange as Number[3D] in <2:1:29> # <2:29> is RealRange, <2:1:29> is IntRange
+    check fileRange within <2:29>
+
+    var pctUsed = jet.gPool.usedTotal * 100 / jet.gPool.capTotal
+    var nodeToFileRatio = jet.gPool.usedTotal / fileSize
+    var strSpaceUtil = jet.sPool.usedTotal * 100 / jet.sPool.capTotal
+
+    write(
+    "-------------------------------------------------------
+        Total size of nodes                     = $(jet.gPool.usedTotal)(7) B
+        Space allocated for nodes               = $(jet.gPool.capTotal)(7) B
+        Node space utilisation                  = $(pctUsed)(7.1) %
+    -------------------------------------------------------
+        File size                               = $(fileSize)(7) B
+        Node size to file size ratio            = $(nodeToFileRatio)(7.1) x
+    -------------------------------------------------------
+        Space used for strings                  = $(jet.sPool.usedTotal)(7) B
+        Allocated for strings                   = $(jet.sPool.capTotal)(7) B
+        Space utilisation                       = $(strSpaceUtil)(7.1) %%
+    -------------------------------------------------------", to=stdout)
+
+end function
+
+
+    # if try os.argv[2] == "d" then write(xml)
+
+    # # try has nothing to do with catch
+    # # it takes a bool expr and if the expr can be eval'd it returns it
+    # # or else it returns false
+    # if os.argv[2] == "d" then write(xml)
+    # ignore .outOfBounds
+
+    # if os.argv[2] == "d" then write(xml)
+    # catch .outOfBounds ignore
+
+    # try if os.argv[2] == "d" then write(xml)
+    # try takes single statements only, and only statements that can throw
+
+    # yeah why not just design it differently?
+    # if os.args has "-d" then write(xml)
+    # if "-d" in os.args then write(xml)
+    # write(xml) if "-d" in os.args

@@ -35,9 +35,9 @@ let x = XYZ {
     [a-z] [A-Z]+
 ```
 
-func some(&mainWindow:Window, order:Int, relativeTo:View)
+function some(&mainWindow as Window, order as Int, relativeTo as View)
 
-end func
+end function
 
 # x.f() is sugar for f(x) as long as x is not a literal.
 func main()

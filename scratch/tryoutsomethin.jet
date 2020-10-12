@@ -1,0 +1,22 @@
+function ASTType.genNameAccessors(typ as ASTType)
+    var tyn as Text = typ.name
+
+    write("static void* $tyn__memberNamed($tyn* self, const char* name) {")
+    # TODO: skip bitfield members in this loop or it wont compile
+    for va as ASTVar in typ.body.locals #
+        write("if (str_equals(name, \"$va.name\")) return &(self->$va.name);")
+    end for
+    write("}")
+
+    # this func sets bools or ints that may be part of bitfields
+    write("static void* $tyn__setMemberNamed($tyn* self, const char* name, Int64 value) {")
+    for va as ASTVar in typ.body.locals
+        if var.typeSpec.typeType in [Types.bool:Types.real64]
+            var ctype = cname(var.typeSpec)
+            var ctype as Text = ASTTypeSpec.cname(var.typeSpec)
+            write("if (str_equals(name, \"$va.name\")) {self->$va.name = *($ctype*)&value; return;}")
+        end if
+    end for
+    write("}")
+end function
+

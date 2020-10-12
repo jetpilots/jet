@@ -338,6 +338,7 @@ static const char* ASTTypeSpec_name(ASTTypeSpec* self)
     // what about collectiontype???
 }
 
+// The name of this type spec as it will appear in the generated C code.
 static const char* ASTTypeSpec_cname(ASTTypeSpec* self)
 {
     switch (self->typeType) {

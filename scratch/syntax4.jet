@@ -1,0 +1,76 @@
+MyType :=
+    Number: x, y[], z[3D]
+    String: name, size, rfcSize
+    MsgHeader: first, last
+
+
+@MyType =
+    #x, #y[], #z[3D],
+    $name, $size, $rfcSize,
+    MsgHeader @first, @last
+
+@MyType(#items[:], #count)
+
+
+Number: myfunc(Number: x; String: y, z; MsgHeader: f, l)
+
+
+#[3D] myfunc(#x, $y, $z, MsgHeader @f, #l)
+
+myfunc#[3D] (x#, y$, z$, f@MsgHeader, l#) =
+    ! len(x) == 3
+    ! DateTime() - 3|d < DateTime()
+    // if
+    x == 5 ?
+        x = 4
+    x == 2 ?
+        x = 1
+    ?
+        x = 0
+    --
+
+    // for
+    \/ x = xt[:]
+        print(x)
+        x > 6 ? >> // break
+    --
+
+    // while
+    ? x == 4
+        check(s)
+        <<  // continue
+    --
+
+
+
+
+
+:x = { # linter will make it String; x[String] = ...
+    "keyname" = "value",
+    "key2" = "value"
+}
+
+x["sd"] = 3
+:m = 3
+:v = "stri"
+:dttm = @"2020-05-12 10:30:44.323421+0530"
+:dttod = @now - 1|day - 1|mo
+
+# becomes
+Number: m = 3
+String: v = "stri"
+DateTime: dttm = @"2020-05-12 10:30:44.323421+0530"
+DateTime: dttod = @now - 1|day - 1|mo
+
+#m = 3
+$v = "StringContents"
+@dttm = @now
+
+#z[2D]
+:z = [ # linter will make it Number: z[2D] = ...
+    sin(x), cos(x), 0;
+    cos(x), -sin(x), 0;
+    0, 0, 0
+]
+
+v[2:3] = random()

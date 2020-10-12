@@ -7,9 +7,9 @@ type Import
 end type
 
 type Units
-    var powers[7] = 0
+    var powers[] = zeros(7)
     var factor = 0
-    var factors[7] = 1
+    var factors[] = zeros(7)
     var label = ""
 end type
 
@@ -45,7 +45,7 @@ type Var
     var returned = no
 end type
 
-type Expr
+declare type Expr
     var line = 0
     var typeType = Types.unresolved
     var collectionType = Collections.none
@@ -112,12 +112,12 @@ type Test
 end type
 
 type Module
-    var funcs[] as Func
-    var tests[] as Test
-    var exprs[] as Expr
-    var types[] as Type
-    var globals[] as Var
-    var imports[] as Import
+    var funcs as Func[]
+    var tests as Test[]
+    var exprs as Expr[]
+    var types as Type[]
+    var globals as Var[]
+    var imports as Import[]
     var name = ""
     var moduleName = ""
 end type

@@ -1,4 +1,4 @@
-function unsetPrinted(expr::ASTExpr)
+function unsetPrinted(expr as ASTExpr)
     match expr.kind
     case .identResolved, .varAssign
         expr.var.flags.printed = no
@@ -15,13 +15,13 @@ function unsetPrinted(expr::ASTExpr)
     end match
 end function
 
-function genPrintVars(expr::ASTExpr[String], level::Number[:,:])
-    let spc::String = repeat("    ", times = level)
+function genPrintVars(expr as ASTExpr[String], level as Number[:,:])
+    let spc as String = repeat("    ", times = level)
     match expr.kind
     case .identResolved, .varAssign
         if expr.var.flags.printed then return
         let name = expr.var.name
-        let fmt::String = format(expr.var.init.typeType, quoted = yes)
+        let fmt as String = format(expr.var.init.typeType, quoted = yes)
         print("${spc}printf('    $name = $fmt\\n', $name);")
         expr.var.flags.printed = yes
     case .funcCallResolved, .funcCall,
@@ -37,7 +37,7 @@ function genPrintVars(expr::ASTExpr[String], level::Number[:,:])
     end match
 end function
 
-function promotionCandidate(expr::ASTExpr) result (ret::ASTExpr)
+function promotionCandidate(expr as ASTExpr) as ASTExpr
     match expr.kind
     case .funcCallResolved
         try
@@ -67,7 +67,7 @@ end function
 let prom = promotionCandidate(stmt) or skip/break/return
 prom.left = ... # this should work since there is a skip above
 
-function promotionCandidate(expr::ASTExpr) result (ret::ASTExpr)
+function promotionCandidate(expr as ASTExpr) result (ret as ASTExpr)
     match expr.kind
     case .funcCallResolved
         ret = promotionCandidate(expr.left)
