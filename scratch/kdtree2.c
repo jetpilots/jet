@@ -2,99 +2,127 @@
 #include <string.h>
 #include <stdio.h>
 
-const int POINTS_PER_LEAF = 8;
-const int DIMS = 3;
+#define for_to(i, n) for (int(i) = 0; (i) < (n); (i)++)
 
-typedef struct Node {
-    double threshold; // [D] // leaves dont hav thresholds!
+#define POW2(n) (1 << n)
+#define MIN(a, b) (a) < (b) ? (a) : (b)
+
+#define DIMS 3
+const int POINTS_PER_LEAF = MIN(POW2(DIMS), 8);
+
+typedef struct KDTreeNode {
+    double threshold[DIMS]; // [D] // leaves dont hav thresholds!
     int npoints, isleaf; // GET THIS OUT HOWEVER
     union {
-        struct Node* child[2]; // [2^D]
-        struct MPoint* points[POINTS_PER_LEAF];
+        struct KDTreeNode* child[POW2(DIMS)]; // [2^D]
+        struct KDTreePoint* points[POINTS_PER_LEAF];
     };
-} Node;
+} KDTreeNode;
 
-typedef struct MPoint {
-    double x, y, z; // [D]
-} MPoint;
+typedef struct KDTreePoint {
+    double x[DIMS]; // [D]
+} KDTreePoint;
 
 double squared(double x) { return x * x; }
-double distanceFunction(MPoint* p, MPoint* p2)
+double distanceFunction(KDTreePoint* p, KDTreePoint* p2)
 {
-    return squared(p->x - p2->x);
-    //+ squared(p->y - p2->y) + squared(p->z - p2->z);
+    double sum = 0;
+    for_to(i, DIMS) sum += squared(p->x[i] - p2->x[i]);
+    return sum;
 }
 
-void addPoint(Node* node, MPoint* point)
+void addPoint(KDTreeNode* node, KDTreePoint* point)
 {
-    int direction = (point->x >= node->threshold); // [D] -> * (1<<(dim0based))
-    Node* parent = NULL;
-    // for (int i=0;i<DIMS;i++) direction |= dird[i];
+    int dird[DIMS], direction = 0;
+    for_to(i, DIMS) dird[i] = (point->x[i] >= node->threshold[i]) << i;
+    // dird[i] tells you whether the ith-coordinate of the point is below or
+    // above (or if you prefer, to the left or right of) the ith-coordinate of
+    // the node's threshold. You need to check all dimensions and find out how
+    // the comparison goes (individually). In a simple binary tree this is like
+    // deciding whether the new value should go to the left or to the right
+    // child, but to avoid branching here it goes to child[0] or child[1], and
+    // the 0 or 1 comes from the comparison result. node->child is actually
+    // effectively node->child[][][] ... i.e. as many []s as the dimensionality.
+    // However writing it explicitly as a multi-dim array makes things difficult
+    // for a truly generic version, so I'm going to write it as a normal array
+    // and calculate the overall (flat) index. this N-dimensional access of the
+    // form arr[l1][l2][l3] is effectively l1*4 + l2*2 + l3 ... and so on for
+    // higher dimensions, where l's are either 0 or 1. so it can be reduced to
+    // bitwise ops: the *s can be done with << and adding them together is a |.
+    for_to(i, DIMS) direction |= dird[i]; // JUST PUT THIS IN THE ABOVE LOOP
+    // direction is now the overall index of the "correct" child to follow.
 
-    // TODO: this ND access of the form arr[l1][l2][l3] ... is actually just
-    // l1*4 + l2*2 + l3 ... where l's are either 0 or 1. so it can be reduced
-    // to bitwise ops << and |. in fact direction can be defined with * (1 <<
-    // (dim-1)) so you can write an ND-generic code unlike with [][][] form.
-
-    // now 3 things can happen: (1) the Node doesn't exist, (2) it does and is a
-    // Node, (3) it does and is a leaf.
-
+    // now 3 things can happen: (1) the child doesn't exist, (2) it does
+    // and is a KDTreeNode, (3) it does and is a leaf (it has KDTreePoint[]).
     // Descend until just before you hit a leaf or NULL.
+    KDTreeNode* parent = NULL;
     while (node->child[direction] && !node->child[direction]->isleaf) {
         parent = node;
         node = node->child[direction];
-        direction = (point->x >= node->threshold);
+        // direction = (point->x >= node->threshold);
+        direction = 0;
+        for_to(i, DIMS) dird[i] = (point->x[i] >= node->threshold[i]) << i;
+        for_to(i, DIMS) direction |= dird[i];
     }
 
     // now the child is either NULL or a leaf (i.e. has points)
     if (!node->child[direction]) {
-        node->child[direction] = calloc(1, sizeof(Node));
+        node->child[direction] = calloc(1, sizeof(KDTreeNode));
         node->child[direction]->isleaf = 1;
     }
 
     // now the child must be a leaf
-    Node* child = node->child[direction];
+    KDTreeNode* child = node->child[direction];
 
     if (child->npoints == POINTS_PER_LEAF) {
         // the array of points in this leaf is full. the leaf should now be
         // converted into a node and the POINTS_PER_LEAF points of this ex-leaf
         // should be re-added into this node so so they can go one level deeper
         // in the tree at the right spots.
-        MPoint* points[POINTS_PER_LEAF] = {};
-        memcpy(points, child->points, sizeof(MPoint*) * POINTS_PER_LEAF);
+        KDTreePoint* points[POINTS_PER_LEAF] = {};
+        memcpy(points, child->points, sizeof(KDTreePoint*) * POINTS_PER_LEAF);
         child->isleaf = 0; // no longer a leaf.
         child->npoints = 0; // don't need it here, its not a leaf
+        bzero(child->points, sizeof(KDTreePoint*) * POINTS_PER_LEAF);
+        // wipe the points, the space will be used
+        // for child node ptrs now
+
         // and you know that there are POINTS_PER_LEAF points anyway.
 
         // you have to add 2 grandchildren here (actually 2^NDIMS). Don't leave
         // them at NULL. Set them as leaves.
-        for (int i = 0; i < 2; i++) {
-            child->child[i] = calloc(1, sizeof(Node));
+        // TODO: figure out how to only create child->child[direction] and not
+        // all 2^DIMS children here
+        for (int i = direction; i == direction /*POW2(DIMS)*/; i++) {
+            // for (int i = 0; i < POW2(DIMS); i++) {
+            child->child[i] = calloc(1, sizeof(KDTreeNode));
             child->child[i]->isleaf = 1;
         }
 
-        // you need the midpoints of the new grandkids.
-        // they depend on the midpoint of the child, and the midpoint of the
-        // parent (i.e. two levels up the ancestry). For these you first need
-        // 3 (!) "limits", the lo/mid/hi limits.
-        double th_mid = node->threshold;
-        double th_lo, th_hi;
-        if (node->threshold >= parent->threshold) {
-            // child is increasing, i.e. going to the right
-            // Lower bound is the parent's threshold.
-            th_lo = parent->threshold;
-            th_hi = 2 * node->threshold - parent->threshold;
-        } else {
-            // child is decreasing, i.e. going to the left.
-            // Higher bound is the parent's threshold.
-            th_lo = 2 * node->threshold - parent->threshold;
-            th_hi = parent->threshold;
-        }
+        for_to(i, DIMS)
+        { // you need the midpoints of the new grandkids.
+            // they depend on the midpoint of the child, and the midpoint of the
+            // parent (i.e. two levels up the ancestry). For these you first
+            // need 3 (!) "limits", the lo/mid/hi limits.
+            double th_mid = node->threshold[i];
+            double th_lo, th_hi;
+            if (node->threshold[i] >= parent->threshold[i]) {
+                // child is increasing, i.e. going to the right
+                // Lower bound is the parent's threshold.
+                th_lo = parent->threshold[i];
+                th_hi = 2 * node->threshold[i] - parent->threshold[i];
+            } else {
+                // child is decreasing, i.e. going to the left.
+                // Higher bound is the parent's threshold.
+                th_lo = 2 * node->threshold[i] - parent->threshold[i];
+                th_hi = parent->threshold[i];
+            }
 
-        if (!direction)
-            child->threshold = (th_mid + th_lo) / 2;
-        else
-            child->threshold = (th_hi + th_mid) / 2;
+            if (!dird[i])
+                child->threshold[i] = (th_mid + th_lo) / 2;
+            else
+                child->threshold[i] = (th_hi + th_mid) / 2;
+        }
 
         // Now you see if the grandkid is increasing or decreasing compared to
         // the child (the grandkid's parent). Again you have to do this for all
@@ -113,7 +141,7 @@ void addPoint(Node* node, MPoint* point)
         // now that the thresholds are set, add the cached points
         for (int ip = 0; ip < POINTS_PER_LEAF; ip++)
             addPoint(child, points[ip]);
-        
+
         child = child->child[direction];
 
     } // TODO: what to do if npoints was somehow set to > POINTS_PER_LEAF?
@@ -132,21 +160,27 @@ void addPoint(Node* node, MPoint* point)
         }
 }
 
-void removePoint(Node* node, MPoint* point) { }
+void removePoint(KDTreeNode* node, KDTreePoint* point) { }
 
 // always init  with this func with a known number of levels and a bounding box
 // this way you have a node hierarchy ready and your add calls will not thrash
 // adding subnodes and moving points down over and over.
-// Node* init(int levels, MPoint* boundBox[2]) { }
+// KDTreeNode* init(int levels, KDTreePoint* boundBox[2]) { }
 
 // BTW for jet do you want to allow function xyz(arr[2]) etc. and then check
 // at callsites if passed array has exactly 2 (or 2 or more) provably?
 
-MPoint* getNearestPoint(Node* node, MPoint* point)
+KDTreePoint* getNearestPoint(KDTreeNode* node, KDTreePoint* point)
 {
+    // TODO: PROBLEM!!! HERE you descend into the finest octant/quadrnt and
+    // check only those points. The actual nearest point may be in an adjacent
+    // quadrant! So you should go up 1 level than the finest, or 2?
+
     // here as opposed to add, you descend all the way down to the leaf.
     while (node && !node->isleaf) {
-        int direction = point->x >= node->threshold; // [D]
+        int direction = 0, dird[DIMS];
+        for_to(i, DIMS) dird[i] = (point->x[i] >= node->threshold[i]) << i;
+        for_to(i, DIMS) direction |= dird[i];
         node = node->child[direction];
     }
     // actually you shouldn't expect to find a NULL leaf here.
@@ -154,7 +188,11 @@ MPoint* getNearestPoint(Node* node, MPoint* point)
     double mindist = 1e300;
     if (!node) return NULL;
     for (int i = 0; i < node->npoints; i++) {
-        if (distanceFunction(node->points[i], point) < mindist) minIndex = i;
+        double dist = distanceFunction(node->points[i], point);
+        if (dist < mindist) {
+            minIndex = i;
+            mindist = dist;
+        }
     }
     // a point is always returned. you asked for the near*est* point, and there
     // is always one, regardless of how near or far it is exactly.
@@ -163,45 +201,97 @@ MPoint* getNearestPoint(Node* node, MPoint* point)
     // distanceFunction call.
     return node->points[minIndex];
 }
-// static MPoint points[] = { { 1 }, { 3 }, { -5 } };
+// static KDTreePoint points[] = { { 1 }, { 3 }, { -5 } };
 
 #define countof(x) (sizeof(x) / sizeof(x[0]))
 static const char* const spc = "                                            ";
-void printPoint(MPoint* p, int lev)
+const int levStep = 2;
+void printPoint(KDTreePoint* p, int lev)
 {
-    printf("%.*sPoint (%g)\n", lev, spc, p->x); //, p->y, p->z);
+    printf("%.*s(", lev, spc);
+    for_to(i, DIMS) { printf("%s%g", i ? ", " : "", p->x[i]); }
+    puts(")");
 }
 
-void printNode(Node* node, int lev)
+void printNode(KDTreeNode* node, int lev)
 {
-    // printPoint(node, lev);
-    if (node->isleaf)
-        for (int j = 0; j < node->npoints; j++)
-            printPoint(node->points[j], lev);
-    else {
-        printf("%.*sNode (%g)\n", lev, spc,
-            node->threshold); //, node->p.y, node->p.z);
-        for (int i = 0; i < 2; i++)
-            // for (int j = 0; j < 2; j++)
-            //     for (int k = 0; k < 2; k++) //
-            if (node->child[i])
-            //[j][k])
-            {
-                printf("%.*s-%c-\n", lev, spc,"<>"[i]);
-
-                printNode(node->child[i], lev + 4);
+    if (node->isleaf) {
+        printf("[\n"); //,node->npoints );
+        for_to(j, node->npoints) { printPoint(node->points[j], lev + levStep); }
+        printf("%.*s]\n", lev, spc);
+    } else {
+        printf("%.*s<", 0 * lev, spc);
+        for_to(i, DIMS) { printf("%s%g", i ? ", " : "", node->threshold[i]); }
+        printf("> {\n");
+        for_to(i, POW2(DIMS))
+        {
+            if (node->child[i]) {
+                printf("%.*s%d: ", lev + levStep, spc, i);
+                printNode(node->child[i], lev + levStep);
+            } else {
+                // printf("%.*schild[%d] NULL\n", lev, spc,i);
             }
-
-            else
-                printf("%.*s---\n", lev, spc);
+        }
+        printf("%.*s}\n", lev, spc);
     }
 }
-static MPoint gPoints[] = { { -5 }, { -4 }, { -3 }, { -2 }, { 6 }, { -5.35 },
-    { -4.35 }, { -3.35 }, { -2.4545 }, { 1.45 }, { -5.3578 }, { -4.6789 },
-    { -3.8679 }, { -2.5557 }, { -1.6767 }, { -5.10354225 }, { -4.035 }, { -3.3335 },
-    { -2.45 }, { -1.04455 } };
 
-static MPoint g__Points[] = {
+void printDotRec(FILE* f, KDTreeNode* node)
+{
+    for_to(i, POW2(DIMS))
+    {
+        int dird[DIMS];
+        for_to(j, DIMS) dird[j] = i & (1 << j);
+
+        if (node->child[i]) {
+            if (node->child[i]->isleaf) {
+                fprintf(f,
+                    "\"Node\\n<%g, %g, %g>\" -> \"Points[%d]\\n____________\\n",
+                    node->threshold[0], node->threshold[1], node->threshold[2],
+                    node->child[i]->npoints);
+                for_to(j, node->child[i]->npoints)
+                {
+                    KDTreePoint* point = node->child[i]->points[j];
+                    fprintf(f, "(%g, %g, %g)\\n", point->x[0], point->x[1],
+                        point->x[2]);
+                }
+                fprintf(f, "\" [label=\"[%d]\\n", i);
+                for_to(j, DIMS) fprintf(f, "%c", dird[j] ? '>' : '<');
+                fprintf(f, "\"]\n");
+            } else {
+                fprintf(f,
+                    "\"Node\\n<%g, %g, %g>\" -> \"Node\\n<%g, %g, %g>\" "
+                    "[label=\"[%d]\\n",
+                    node->threshold[0], node->threshold[1], node->threshold[2],
+                    node->child[i]->threshold[0], node->child[i]->threshold[1],
+                    node->child[i]->threshold[2], i);
+                for_to(j, DIMS) fprintf(f, "%c", dird[j] ? '>' : '<');
+                fprintf(f, "\"]\n");
+
+                printDotRec(f, node->child[i]);
+            }
+        }
+    }
+}
+
+void printDot(KDTreeNode* node)
+{
+    FILE* f = fopen("kdt.dot", "w");
+    fputs(
+        "digraph {\nnode [fontname=\"Miriam Libre\"]; edge [fontname=\"Miriam "
+        "Libre\"];\n",
+        f);
+    printDotRec(f, node);
+    fputs("}\n", f);
+    fclose(f);
+}
+
+static KDTreePoint g_Points[] = { { -5 }, { -4 }, { -3 }, { -2 }, { 6 },
+    { -5.35 }, { -4.35 }, { -3.35 }, { -2.4545 }, { 1.45 }, { -5.3578 },
+    { -4.6789 }, { -3.8679 }, { -2.5557 }, { -1.6767 }, { -5.10354225 },
+    { -4.035 }, { -3.3335 }, { -2.45 }, { -1.04455 } };
+
+static KDTreePoint gPoints[] = {
     { -0, -2, 3 }, //
     { -0, 1, 4 }, //
     { -0, 2, -4 }, //
@@ -302,18 +392,53 @@ static MPoint g__Points[] = {
     { 5, 4, -4 } //
 };
 
+KDTreePoint* linsearch(KDTreePoint* points, int npoints, KDTreePoint* point)
+{
+    int minIndex = 0;
+    double mindist = 1e300;
+    for_to(i, npoints)
+    {
+        double dist = distanceFunction(points + i, point);
+        if (dist < mindist) {
+            minIndex = i;
+            mindist = dist;
+        }
+    }
+    return points + minIndex;
+}
+
 int main()
 {
-    Node root[] = { { .threshold = 0 } };
-    Node rc1[] = { { .threshold = -3 } };
-    Node rc2[] = { { .threshold = 3 } };
+    KDTreeNode root[] = { { .threshold = { 0 } } };
+    KDTreeNode rc1[] = { { .threshold = { -3, -3, -3 } } };
+    KDTreeNode rc2[] = { { .threshold = { 3, -3, -3 } } };
+    KDTreeNode rc3[] = { { .threshold = { -3, 3, -3 } } };
+    KDTreeNode rc4[] = { { .threshold = {} } };
+    KDTreeNode rc5[] = { { .threshold = { -3, -3, 3 } } };
+    KDTreeNode rc6[] = { { .threshold = { 3, -3, 3 } } };
+    KDTreeNode rc7[] = { { .threshold = { -3, 3, 3 } } };
+    KDTreeNode rc8[] = { { .threshold = { 3, 3, 3 } } };
 
     root->child[0] = rc1;
     root->child[1] = rc2;
-    for (int i = 0; i < countof(gPoints); i++) addPoint(root, gPoints + i);
+    root->child[2] = rc3;
+    root->child[3] = rc4;
+    root->child[4] = rc5;
+    root->child[5] = rc6;
+    root->child[6] = rc7;
+    root->child[7] = rc8;
+
+    for (int i = 0; i < countof(gPoints); i++) { addPoint(root, gPoints + i); }
     printNode(root, 0);
-    
-    MPoint ptest[] = {{-3.14159}};
-    MPoint* nea = getNearestPoint(root, ptest);
-    if (nea) printPoint(nea, 0);
+    printDot(root);
+    KDTreePoint ptest[] = { { -3.14159 } };
+    KDTreePoint* nea = getNearestPoint(root, ptest);
+    if (nea)
+        printPoint(nea, 0);
+    else {
+        printf("no match for: ");
+        printPoint(ptest, 0);
+        printf("expected: ");
+        printPoint(linsearch(gPoints, countof(gPoints), ptest), 0);
+    }
 }
