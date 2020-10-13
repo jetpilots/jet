@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <math.h>
 
 #define for_to(i, n) for (int(i) = 0; (i) < (n); (i)++)
 
@@ -74,7 +75,7 @@ void addPoint(KDTreeNode* node, KDTreePoint* point)
     // now the child must be a leaf
     KDTreeNode* child = node->child[direction];
 
-    if (child->npoints == POINTS_PER_LEAF) {
+    while (child->npoints == POINTS_PER_LEAF) {
         // the array of points in this leaf is full. the leaf should now be
         // converted into a node and the POINTS_PER_LEAF points of this ex-leaf
         // should be re-added into this node so so they can go one level deeper
@@ -142,16 +143,27 @@ void addPoint(KDTreeNode* node, KDTreePoint* point)
         for (int ip = 0; ip < POINTS_PER_LEAF; ip++)
             addPoint(child, points[ip]);
 
+        addPoint(node, point); // need 1 level to compute the new
+        //        centroids in case all 8 points from previous clustered into
+        //        the same grandchild
+        return;
+        parent = node;
+        node = child;
         child = child->child[direction];
+        direction = 0;
+        for_to(i, DIMS) dird[i] = (point->x[i] >= node->threshold[i]) << i;
+        for_to(i, DIMS) direction |= dird[i];
 
+        //        if (child->npoints==8)
+        //        return;
     } // TODO: what to do if npoints was somehow set to > POINTS_PER_LEAF?
-
+    // else
     // NOW finally add the point.
     // you have a static array of POINTS_PER_LEAF items, but deleting leaves
     // holes. So add will have to loop and find an open hole to plug the new
     // point in. its probably better than rearranging the array on delete,
-    // because when POINTS_PER_LEAF is small the array is in cache anyway, but
-    // writing to it will access DRAM.
+    // because when POINTS_PER_LEAF is small the array is in cache anyway,
+    // but writing to it will access DRAM.
     for (int i = 0; i < POINTS_PER_LEAF; i++)
         if (!child->points[i]) {
             child->points[i] = point;
@@ -299,15 +311,15 @@ static KDTreePoint gPoints[] = {
     { -1, -2, -3 }, //
     { -1, -3, 4 }, //
     { -1, -5, -2 }, //
-    { -1, 0, 5 }, //
-    { -1, 1, 1 }, //
-    { -1, 3, 0 }, //
-    { -1, 3, 2 }, //
+    { -1, 3, 3.5 }, //
+    { -1, 3, 3.9 }, //
+    { -1, 3, 3.6 }, //
+    { -1, 3, 4.18 }, //
     { -1, 3, 4 }, //
-    { -1, 4, -2 }, //
-    { -1, 4, 3 }, //
-    { -1, 4, 4 }, //
-    { -1, 5, 4 }, //
+    { -1, 3, 4.3 }, //
+    { -1, 3, 3 }, //
+    { -1, 3, 4.27 }, //
+    { -1, 3, 4 }, //
     { -2, -1, -3 }, //
     { -2, -3, -4 }, //
     { -2, -3, 1 }, //
@@ -392,53 +404,173 @@ static KDTreePoint gPoints[] = {
     { 5, 4, -4 } //
 };
 
-KDTreePoint* linsearch(KDTreePoint* points, int npoints, KDTreePoint* point)
+KDTreePoint* linsearch(KDTreePoint* points[], int npoints, KDTreePoint* point)
 {
     int minIndex = 0;
     double mindist = 1e300;
     for_to(i, npoints)
     {
-        double dist = distanceFunction(points + i, point);
+        double dist = distanceFunction(points[i], point);
         if (dist < mindist) {
             minIndex = i;
             mindist = dist;
         }
     }
-    return points + minIndex;
+    return points[minIndex];
+}
+// random in the range of -6 to 6
+double rndf() { return ((int)(random() / (0.0012 * 0x7fffffff))) / 100.0 - 6; }
+KDTreePoint* newPoint(double x, double y, double z)
+{
+    KDTreePoint* p = malloc(sizeof(KDTreePoint));
+    *p = (KDTreePoint) { { x, y, z } };
+    return p;
+}
+#include "../modules/jet_sys_time.h"
+
+// addLevels can only be called on a node which has 1 further level below it
+// already. This is because you need 1 node above the current level in order to
+// compute the threshold for the new nodes to be added at a new level.
+void addLevels(KDTreeNode* parent, int levels)
+{
+    for_to(k, POW2(DIMS))
+    {
+        KDTreeNode* root = parent->child[k];
+        for_to(i, POW2(DIMS)) if (!root->child[i])
+        {
+            root->child[i] = calloc(1, sizeof(KDTreeNode));
+            KDTreeNode* child = root->child[i];
+
+            int dird[DIMS];
+            for_to(j, DIMS) dird[j] = i & (1 << j);
+            for_to(j, DIMS)
+            {
+                // KDTreeNode* parent = parentL;
+                double th_mid = root->threshold[j];
+                double th_lo, th_hi;
+                if (root->threshold[j] >= parent->threshold[j]) {
+                    th_lo = parent->threshold[j];
+                    th_hi = 2 * root->threshold[j] - parent->threshold[j];
+                } else {
+                    th_lo = 2 * root->threshold[j] - parent->threshold[j];
+                    th_hi = parent->threshold[j];
+                }
+
+                if (!dird[j])
+                    child->threshold[j] = (th_mid + th_lo) / 2;
+                else
+                    child->threshold[j] = (th_hi + th_mid) / 2;
+            }
+        }
+        if (levels) addLevels(root, levels - 1);
+    }
 }
 
-int main()
+KDTreeNode* init(KDTreePoint boundBox[2], int sizeGuess)
 {
-    KDTreeNode root[] = { { .threshold = { 0 } } };
-    KDTreeNode rc1[] = { { .threshold = { -3, -3, -3 } } };
-    KDTreeNode rc2[] = { { .threshold = { 3, -3, -3 } } };
-    KDTreeNode rc3[] = { { .threshold = { -3, 3, -3 } } };
-    KDTreeNode rc4[] = { { .threshold = {} } };
-    KDTreeNode rc5[] = { { .threshold = { -3, -3, 3 } } };
-    KDTreeNode rc6[] = { { .threshold = { 3, -3, 3 } } };
-    KDTreeNode rc7[] = { { .threshold = { -3, 3, 3 } } };
-    KDTreeNode rc8[] = { { .threshold = { 3, 3, 3 } } };
+    // create a fake parent (PARENT OF ROOT, TEMPORARY) with threshold at
+    // one of the corners of the bounding box.
+    KDTreeNode parentL[] = { {} };
+    for_to(j, DIMS) parentL->threshold[j] = boundBox[0].x[j];
+    KDTreeNode parentR[] = { {} };
+    for_to(j, DIMS) parentR->threshold[j] = boundBox[1].x[j];
 
-    root->child[0] = rc1;
-    root->child[1] = rc2;
-    root->child[2] = rc3;
-    root->child[3] = rc4;
-    root->child[4] = rc5;
-    root->child[5] = rc6;
-    root->child[6] = rc7;
-    root->child[7] = rc8;
+    // The actual root node that will be returned.
+    KDTreeNode* root = calloc(1, sizeof(KDTreeNode));
+    int levels = log2(sizeGuess);
+    if (levels < 1) levels = 1;
+    for_to(j, DIMS) root->threshold[j]
+        = (boundBox[0].x[j] + boundBox[1].x[j]) / 2.0;
+    for_to(i, POW2(DIMS))
+    {
+        root->child[i] = calloc(1, sizeof(KDTreeNode));
+        KDTreeNode* child = root->child[i];
 
-    for (int i = 0; i < countof(gPoints); i++) { addPoint(root, gPoints + i); }
-    printNode(root, 0);
+        int dird[DIMS];
+        for_to(j, DIMS) dird[j] = i & (1 << j);
+        for_to(j, DIMS)
+        {
+            KDTreeNode* parent = parentL;
+            double th_mid = root->threshold[j];
+            double th_lo, th_hi;
+            if (root->threshold[j] >= parent->threshold[j]) {
+                th_lo = parent->threshold[j];
+                th_hi = 2 * root->threshold[j] - parent->threshold[j];
+            } else {
+                th_lo = 2 * root->threshold[j] - parent->threshold[j];
+                th_hi = parent->threshold[j];
+            }
+
+            if (!dird[j])
+                child->threshold[j] = (th_mid + th_lo) / 2;
+            else
+                child->threshold[j] = (th_hi + th_mid) / 2;
+        }
+
+        // KDTreePoint mid;
+        // for_to(j, DIMS) mid[j] = ...;
+        // for_to(j, DIMS) root->child[i]->threshold[j] = mid.x[j];
+    }
+    // if (levels > 1) addLevels(root, levels - 2);
+    return root;
+}
+
+int main(int argc, char* argv[])
+{
+    // KDTreeNode root[] = { { .threshold = { 0 } } };
+    // KDTreeNode rc1[] = { { .threshold = { -3, -3, -3 } } };
+    // KDTreeNode rc2[] = { { .threshold = { 3, -3, -3 } } };
+    // KDTreeNode rc3[] = { { .threshold = { -3, 3, -3 } } };
+    // KDTreeNode rc4[] = { { .threshold = { 3, 3, -3 } } };
+    // KDTreeNode rc5[] = { { .threshold = { -3, -3, 3 } } };
+    // KDTreeNode rc6[] = { { .threshold = { 3, -3, 3 } } };
+    // KDTreeNode rc7[] = { { .threshold = { -3, 3, 3 } } };
+    // KDTreeNode rc8[] = { { .threshold = { 3, 3, 3 } } };
+
+    // root->child[0] = rc1;
+    // root->child[1] = rc2;
+    // root->child[2] = rc3;
+    // root->child[3] = rc4;
+    // root->child[4] = rc5;
+    // root->child[5] = rc6;
+    // root->child[6] = rc7;
+    // root->child[7] = rc8;
+
+    KDTreePoint boundBox[2] = { { { -6, -6, -6 } }, { { 6, 6, 6 } } };
+    // for (int i = 0; i < countof(gPoints); i++) { addPoint(root, gPoints +
+    // i);
+    // }
+    const int NPTS = argc > 1 ? atoi(argv[1]) : 1000;
+    KDTreeNode* root = init(boundBox, NPTS);
+    // printDot(root);
+    // return 0;
+
+    KDTreePoint** pt = malloc(sizeof(KDTreePoint*) * NPTS);
+    jet_sys_time_Time t0 = jet_sys_time_getTime();
+    for_to(i, NPTS) pt[i] = newPoint(rndf(), rndf(), rndf());
+    printf("%d rndgen+mallocs etc: %f ms\n", NPTS,
+        jet_sys_time_clockSpanMicro(t0) / 1e3);
+    t0 = jet_sys_time_getTime();
+
+    // TODO: preallocate log2(NPTS/POINTS_PER_LEAF) nodes, assuming
+    // uniformly distributed points that should be OK
+    for_to(i, NPTS) addPoint(root, pt[i]);
+    printf("add %d pts: %f ms\n", NPTS, jet_sys_time_clockSpanMicro(t0) / 1e3);
+
+    // printNode(root, 0);
     printDot(root);
     KDTreePoint ptest[] = { { -3.14159 } };
+    t0 = jet_sys_time_getTime();
     KDTreePoint* nea = getNearestPoint(root, ptest);
+    printf("lookup: %f us\n", jet_sys_time_clockSpanNano(t0) / 1e3);
+
     if (nea)
         printPoint(nea, 0);
     else {
         printf("no match for: ");
         printPoint(ptest, 0);
-        printf("expected: ");
-        printPoint(linsearch(gPoints, countof(gPoints), ptest), 0);
     }
+    t0 = jet_sys_time_getTime();
+    printPoint(linsearch(pt, NPTS, ptest), 0);
+    printf("linsearch: %f us\n", jet_sys_time_clockSpanNano(t0) / 1e3);
 }
