@@ -57,23 +57,26 @@ static double distanceFunction(KDTreePoint* p, KDTreePoint* p2)
 // #define HAS_DIR(dir, which) dir << which
 static void addPoint(KDTreeNode* node, KDTreePoint* point)
 {
-    int dird[DIMS], direction = 0;
-    for_to(i, DIMS) dird[i] = (point->x[i] >= node->threshold[i]) << i;
-    // dird[i] tells you whether the ith-coordinate of the point is below or
-    // above (or if you prefer, to the left or right of) the ith-coordinate of
-    // the node's threshold. You need to check all dimensions and find out how
-    // the comparison goes (individually). In a simple binary tree this is like
-    // deciding whether the new value should go to the left or to the right
-    // child, but to avoid branching here it goes to child[0] or child[1], and
-    // the 0 or 1 comes from the comparison result. node->child is actually
-    // effectively node->child[][][] ... i.e. as many []s as the dimensionality.
-    // However writing it explicitly as a multi-dim array makes things difficult
-    // for a truly generic version, so I'm going to write it as a normal array
-    // and calculate the overall (flat) index. this N-dimensional access of the
-    // form arr[l1][l2][l3] is effectively l1*4 + l2*2 + l3 ... and so on for
-    // higher dimensions, where l's are either 0 or 1. so it can be reduced to
-    // bitwise ops: the *s can be done with << and adding them together is a |.
-    for_to(i, DIMS) direction |= dird[i]; // JUST PUT THIS IN THE ABOVE LOOP
+    int directionInDim[DIMS], direction = 0;
+    for_to(i, DIMS) directionInDim[i] = //
+        (point->x[i] >= node->threshold[i]) << i;
+    // directionInDim[i] tells you whether the ith-coordinate of the point is
+    // below or above (or if you prefer, to the left or right of) the
+    // ith-coordinate of the node's threshold. You need to check all dimensions
+    // and find out how the comparison goes (individually). In a simple binary
+    // tree this is like deciding whether the new value should go to the left or
+    // to the right child, but to avoid branching here it goes to child[0] or
+    // child[1], and the 0 or 1 comes from the comparison result. node->child is
+    // actually effectively node->child[][][] ... i.e. as many []s as the
+    // dimensionality. However writing it explicitly as a multi-dim array makes
+    // things difficult for a truly generic version, so I'm going to write it as
+    // a normal array and calculate the overall (flat) index. this N-dimensional
+    // access of the form arr[l1][l2][l3] is effectively l1*4 + l2*2 + l3 ...
+    // and so on for higher dimensions, where l's are either 0 or 1. so it can
+    // be reduced to bitwise ops: the *s can be done with << and adding them
+    // together is a |.
+    for_to(i, DIMS) direction
+        |= directionInDim[i]; // JUST PUT THIS IN THE ABOVE LOOP
     // direction is now the overall index of the "correct" child to follow.
 
     // now 3 things can happen: (1) the child doesn't exist, (2) it does
@@ -85,8 +88,9 @@ static void addPoint(KDTreeNode* node, KDTreePoint* point)
         node = node->child[direction];
         // direction = (point->x >= node->threshold);
         direction = 0;
-        for_to(i, DIMS) dird[i] = (point->x[i] >= node->threshold[i]) << i;
-        for_to(i, DIMS) direction |= dird[i];
+        for_to(i, DIMS) directionInDim[i] = (point->x[i] >= node->threshold[i])
+            << i;
+        for_to(i, DIMS) direction |= directionInDim[i];
     }
 
     // now the child is either NULL or a leaf (i.e. has points)
@@ -155,7 +159,7 @@ static void addPoint(KDTreeNode* node, KDTreePoint* point)
                 th_hi = parent->threshold[i];
             }
 
-            if (!dird[i])
+            if (!directionInDim[i])
                 newChild->threshold[i] = (th_mid + th_lo) / 2;
             else
                 newChild->threshold[i] = (th_hi + th_mid) / 2;
@@ -187,8 +191,9 @@ static void addPoint(KDTreeNode* node, KDTreePoint* point)
         // node = child;
         // child = child->child[direction];
         // direction = 0;
-        // for_to(i, DIMS) dird[i] = (point->x[i] >= node->threshold[i]) << i;
-        // for_to(i, DIMS) direction |= dird[i];
+        // for_to(i, DIMS) directionInDim[i] = (point->x[i] >=
+        // node->threshold[i]) << i; for_to(i, DIMS) direction |=
+        // directionInDim[i];
 
         //        if (child->npoints==8)
         //        return;
@@ -229,9 +234,10 @@ static KDTreePoint* getNearestPoint(KDTreeNode* node, KDTreePoint* point)
 
     // here as opposed to add, you descend all the way down to the leaf.
     while (node && !node->isleaf) {
-        int direction = 0, dird[DIMS];
-        for_to(i, DIMS) dird[i] = (point->x[i] >= node->threshold[i]) << i;
-        for_to(i, DIMS) direction |= dird[i];
+        int direction = 0, directionInDim[DIMS];
+        for_to(i, DIMS) directionInDim[i] = (point->x[i] >= node->threshold[i])
+            << i;
+        for_to(i, DIMS) direction |= directionInDim[i];
         node = node->child[direction];
     }
     // actually you shouldn't expect to find a NULL leaf here.
@@ -297,8 +303,8 @@ static void printDotRec(FILE* f, KDTreeNode* node)
 {
     for_to(i, POW2(DIMS))
     {
-        int dird[DIMS];
-        for_to(j, DIMS) dird[j] = i & (1 << j);
+        int directionInDim[DIMS];
+        for_to(j, DIMS) directionInDim[j] = i & (1 << j);
 
         if (node->child[i]) {
             if (node->child[i]->isleaf) {
@@ -315,7 +321,7 @@ static void printDotRec(FILE* f, KDTreeNode* node)
                         point->x[2]);
                 }
                 fprintf(f, "\" [label=\"[%d]\\n", i);
-                for_to(j, DIMS) fprintf(f, "%c", dird[j] ? '>' : '<');
+                for_to(j, DIMS) fprintf(f, "%c", directionInDim[j] ? '>' : '<');
                 fprintf(f, "\"]\n");
             } else {
                 fprintf(f,
@@ -324,7 +330,7 @@ static void printDotRec(FILE* f, KDTreeNode* node)
                     node->threshold[0], node->threshold[1], node->threshold[2],
                     node->child[i]->threshold[0], node->child[i]->threshold[1],
                     node->child[i]->threshold[2], i);
-                for_to(j, DIMS) fprintf(f, "%c", dird[j] ? '>' : '<');
+                for_to(j, DIMS) fprintf(f, "%c", directionInDim[j] ? '>' : '<');
                 fprintf(f, "\"]\n");
 
                 printDotRec(f, node->child[i]);
@@ -492,8 +498,8 @@ static void addLevels(KDTreeNode* parent, int levels)
             root->child[i] = calloc(1, sizeof(KDTreeNode));
             KDTreeNode* child = root->child[i];
 
-            int dird[DIMS];
-            for_to(j, DIMS) dird[j] = i & (1 << j);
+            int directionInDim[DIMS];
+            for_to(j, DIMS) directionInDim[j] = i & (1 << j);
             for_to(j, DIMS)
             {
                 // KDTreeNode* parent = parentL;
@@ -507,7 +513,7 @@ static void addLevels(KDTreeNode* parent, int levels)
                     th_hi = parent->threshold[j];
                 }
 
-                if (!dird[j])
+                if (!directionInDim[j])
                     child->threshold[j] = (th_mid + th_lo) / 2;
                 else
                     child->threshold[j] = (th_hi + th_mid) / 2;
@@ -521,27 +527,36 @@ static KDTreeNode* init(KDTreePoint boundBox[2], int sizeGuess)
 {
     // create a fake parent (PARENT OF ROOT, TEMPORARY) with threshold at
     // one of the corners of the bounding box.
-    KDTreeNode parentL[] = { {} };
-    for_to(j, DIMS) parentL->threshold[j] = boundBox[0].x[j];
-    KDTreeNode parentR[] = { {} };
-    for_to(j, DIMS) parentR->threshold[j] = boundBox[1].x[j];
+    // KDTreeNode parentL[] = { {} };
+    // for_to(j, DIMS) parentL->threshold[j] = boundBox[0].x[j];
+    // KDTreeNode parentR[] = { {} };
+    // for_to(j, DIMS) parentR->threshold[j] = boundBox[1].x[j];
 
     // The actual root node that will be returned.
+    KDTreeNode* parent = jet_new(KDTreeNode); // calloc(1, sizeof(KDTreeNode));
+    for_to(j, DIMS) parent->threshold[j] = boundBox[0].x[j];
+
     KDTreeNode* root = jet_new(KDTreeNode); // calloc(1, sizeof(KDTreeNode));
-    int levels = log2(sizeGuess);
-    if (levels < 1) levels = 1;
+    // int levels = log2(sizeGuess);
+    // if (levels < 1) levels = 1;
     for_to(j, DIMS) root->threshold[j]
         = (boundBox[0].x[j] + boundBox[1].x[j]) / 2.0;
+
+    parent->child[7] = root;
+    // here's the key: boundBox[0].x[i] MUST BE < root.threshold[i] for all i
+
+    return parent;
+
     for_to(i, POW2(DIMS))
     {
         root->child[i] = jet_new(KDTreeNode); // calloc(1, sizeof(KDTreeNode));
         KDTreeNode* child = root->child[i];
 
-        int dird[DIMS];
-        for_to(j, DIMS) dird[j] = i & (1 << j);
+        int directionInDim[DIMS];
+        for_to(j, DIMS) directionInDim[j] = i & (1 << j);
         for_to(j, DIMS)
         {
-            KDTreeNode* parent = parentL;
+            // KDTreeNode* parent = parentL;
             double th_mid = root->threshold[j];
             double th_lo, th_hi;
             if (root->threshold[j] >= parent->threshold[j]) {
@@ -552,7 +567,7 @@ static KDTreeNode* init(KDTreePoint boundBox[2], int sizeGuess)
                 th_hi = parent->threshold[j];
             }
 
-            if (!dird[j])
+            if (!directionInDim[j])
                 child->threshold[j] = (th_mid + th_lo) / 2;
             else
                 child->threshold[j] = (th_hi + th_mid) / 2;
@@ -613,7 +628,7 @@ int main(int argc, char* argv[])
     printf("add %d pts: %g ms\n", NPTS, jet_sys_time_clockSpanMicro(t0) / 1e3);
 
     // printNode(root, 0);
-    // printDot(root);
+    printDot(root);
     KDTreePoint ptest[] = { { -3.14159 } };
     t0 = jet_sys_time_getTime();
     KDTreePoint* nea = getNearestPoint(root, ptest);
