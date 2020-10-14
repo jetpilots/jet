@@ -71,8 +71,8 @@ typedef struct ASTVar {
                             // stack allocated. it will be passed around by
                             // reference as usual.
             isTarget : 1, // x = f(x,y)
-            visited : 1, // for checks, used to avoid printing this var more
-                         // than once.
+            visited : 1, // for generating checks, used to avoid printing this
+                         // var more than once.
             escapes : 1, // does it escape the owning SCOPE?
             canInplace : 1,
             hasRefs : 1, // there are other vars/lets that reference this var or
@@ -80,6 +80,10 @@ typedef struct ASTVar {
                          // refer to this var, or slices or filters taken if
                          // this is an array/dataframe etc, or StringRefs, etc.
                          // useful for understanding aliasing patterns
+                         // I think you rather need refCount which can be kept
+                         // at compile time because inplacing decisions etc.
+                         // need surety of var having no other refs outside the
+                         // scope
             obtainedBySerialization : 1, // this is a JSON/XML/YAML obj obtained
                                          // by serializing something. If it is
                                          // passed to functions, warn and
@@ -97,6 +101,13 @@ typedef struct ASTVar {
                              // the offset, so there you have to -.
                              // generated loops can be done w/ ptrs
                              // e.g. a[:,:] = random()
+            reassigned : 1, // this var was reassigned after init. If it is a
+                            // non-primitive type, it generally implies this
+                            // should be generated as a pointer.
+            resized : 1, // this collection var was resized after init (due to
+                         // resize(), push() etc.) and means that it cannot be
+                         // generated as a fixed size array (static if size is
+                         // known at compile time).
             returned : 1; // is a return variable ie. b in
         // function asd(x as Anc) returns (b as Whatever)
         // all args (in/out) are in the same list in func -> args.
@@ -144,7 +155,9 @@ typedef struct ASTExpr {
         bool promote : 1, // should this expr be promoted, e.g.
                           // count(arr[arr<34]) or sum{arr[3:9]}. does not
                           // propagate.
-            canEval : 1, didEval : 1;
+            canEval : 1, // the value is known (computable) at compile time,
+                         // either by jetc or by backend cc.
+            didEval : 1;
         uint8_t prec : 6, // operator precedence for this expr
             unary : 1, // for an operator, is it unary (negation, not,
                        // return, check, array literal, ...)
