@@ -20,7 +20,7 @@
 #define DIMS 3
 static size_t __totCallocB, __totMallocB;
 static int __totCalloc, __totMalloc;
-const int POINTS_PER_LEAF = MIN(POW2(DIMS), 8);
+const int POINTS_PER_LEAF = 24; // MIN(POW2(DIMS), 8);
 
 typedef struct KDTreeNode {
     double threshold[DIMS]; // [D] // leaves dont hav thresholds!
@@ -178,12 +178,13 @@ static void addPoint(KDTreeNode* node, KDTreePoint* point)
     // because when POINTS_PER_LEAF is small the array is in cache anyway,
     // but writing to it will access DRAM.
     // child->points[child->npoints++] = point;
-    for (int i = 0; i < POINTS_PER_LEAF; i++)
+    for (int i = 0; i < POINTS_PER_LEAF; i++) {
         if (!child->points[i]) {
             child->points[i] = point;
             child->npoints++;
             break;
         }
+    }
 }
 
 static void removePoint(KDTreeNode* node, KDTreePoint* point) { }
@@ -419,24 +420,24 @@ static KDTreePoint gPoints[] = {
 };
 
 static KDTreePoint* linsearch(
-    KDTreePoint* points[], int npoints, KDTreePoint* point)
+    KDTreePoint points[], int npoints, KDTreePoint* point)
 {
     int minIndex = 0;
     double mindist = 1e300;
     for_to(i, npoints)
     {
-        double dist = distanceFunction(points[i], point);
+        double dist = distanceFunction(points + i, point);
         if (dist < mindist) {
             minIndex = i;
             mindist = dist;
         }
     }
-    return points[minIndex];
+    return points + minIndex;
 }
 // random in the range of -6 to 6
 static double rndf()
 {
-    return ((int)(random() / (0.0012 * 0x7fffffff))) / 100.0 - 6;
+    return ((int)(rand() / (0.0012 * RAND_MAX))) / 100.0 - 6;
 }
 static KDTreePoint* newPoint(double x, double y, double z)
 {
@@ -529,12 +530,14 @@ static KDTreeNode* init(KDTreePoint boundBox[2], int sizeGuess)
         // for_to(j, DIMS) mid[j] = ...;
         // for_to(j, DIMS) root->child[i]->threshold[j] = mid.x[j];
     }
-    // if (levels > 1) addLevels(root, levels - 2);
+    // if (levels > 1)
+    // addLevels(root, 3); // benchmarked; this doesn't help
     return root;
 }
 
 int main(int argc, char* argv[])
 {
+    srand(time(0));
     // KDTreeNode root[] = { { .threshold = { 0 } } };
     // KDTreeNode rc1[] = { { .threshold = { -3, -3, -3 } } };
     // KDTreeNode rc2[] = { { .threshold = { 3, -3, -3 } } };
@@ -559,20 +562,22 @@ int main(int argc, char* argv[])
     // i);
     // }
     const int NPTS = argc > 1 ? atoi(argv[1]) : 10000000;
+    jet_sys_time_Time t0 = jet_sys_time_getTime();
     KDTreeNode* root = init(boundBox, NPTS);
     // printDot(root);
     // return 0;
+    printf("init: %g ms\n", jet_sys_time_clockSpanMicro(t0) / 1e3);
 
-    KDTreePoint** pt = malloc(sizeof(KDTreePoint*) * NPTS);
-    jet_sys_time_Time t0 = jet_sys_time_getTime();
-    for_to(i, NPTS) pt[i] = newPoint(rndf(), rndf(), rndf());
+    KDTreePoint* pt = malloc(sizeof(KDTreePoint) * NPTS);
+    t0 = jet_sys_time_getTime();
+    for_to(i, NPTS) pt[i] = (KDTreePoint) { { rndf(), rndf(), rndf() } };
     printf("%d rndgen+mallocs etc: %g ms\n", NPTS,
         jet_sys_time_clockSpanMicro(t0) / 1e3);
     t0 = jet_sys_time_getTime();
 
     // TODO: preallocate log2(NPTS/POINTS_PER_LEAF) nodes, assuming
     // uniformly distributed points that should be OK
-    for_to(i, NPTS) addPoint(root, pt[i]);
+    for_to(i, NPTS) addPoint(root, pt + i);
     printf("add %d pts: %g ms\n", NPTS, jet_sys_time_clockSpanMicro(t0) / 1e3);
 
     // printNode(root, 0);
