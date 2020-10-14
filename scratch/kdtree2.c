@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <math.h>
 
+#include "../modules/jet_base.h"
+
 #define for_to(i, n) for (int(i) = 0; (i) < (n); (i)++)
 
 #define POW2(n) (1 << n)
@@ -23,17 +25,26 @@ static int __totCalloc, __totMalloc;
 const int POINTS_PER_LEAF = 24; // MIN(POW2(DIMS), 8);
 
 typedef struct KDTreeNode {
+    int isleaf; // GET THIS OUT HOWEVER
     double threshold[DIMS]; // [D] // leaves dont hav thresholds!
-    int npoints, isleaf; // GET THIS OUT HOWEVER
-    union {
-        struct KDTreeNode* child[POW2(DIMS)]; // [2^D]
-        struct KDTreePoint* points[POINTS_PER_LEAF];
-    };
+    // union {
+    struct KDTreeNode* child[POW2(DIMS)]; // [2^D]
+    // struct KDTreePoint* points[POINTS_PER_LEAF];
+    // };
 } KDTreeNode;
+
+typedef struct KDTreePointsHolder {
+    int isleaf, npoints; // GET THIS OUT HOWEVER
+    struct KDTreePoint* points[POINTS_PER_LEAF];
+} KDTreePointsHolder;
 
 typedef struct KDTreePoint {
     double x[DIMS]; // [D]
 } KDTreePoint;
+
+MKSTAT(KDTreeNode);
+MKSTAT(KDTreePoint);
+MKSTAT(KDTreePointsHolder);
 
 static double squared(double x) { return x * x; }
 static double distanceFunction(KDTreePoint* p, KDTreePoint* p2)
@@ -43,6 +54,7 @@ static double distanceFunction(KDTreePoint* p, KDTreePoint* p2)
     return sum;
 }
 
+// #define HAS_DIR(dir, which) dir << which
 static void addPoint(KDTreeNode* node, KDTreePoint* point)
 {
     int dird[DIMS], direction = 0;
@@ -79,24 +91,31 @@ static void addPoint(KDTreeNode* node, KDTreePoint* point)
 
     // now the child is either NULL or a leaf (i.e. has points)
     if (!node->child[direction]) {
-        node->child[direction] = calloc(1, sizeof(KDTreeNode));
+        node->child[direction] = jet_new(KDTreePointsHolder);
+        // calloc(1, sizeof(KDTreePointsHolder));
         node->child[direction]->isleaf = 1;
     }
 
     // now the child must be a leaf
-    KDTreeNode* child = node->child[direction];
+    KDTreePointsHolder* child = node->child[direction];
 
-    while (child->npoints == POINTS_PER_LEAF) {
+    if (child->npoints == POINTS_PER_LEAF) {
         // the array of points in this leaf is full. the leaf should now be
         // converted into a node and the POINTS_PER_LEAF points of this ex-leaf
         // should be re-added into this node so so they can go one level deeper
         // in the tree at the right spots.
+        // KDTreePointsHolder* tmpPoints = child;
         KDTreePoint* points[POINTS_PER_LEAF];
         memcpy(points, child->points, sizeof(KDTreePoint*) * POINTS_PER_LEAF);
+
         //        child->isleaf = 0; // no longer a leaf.
         //        child->npoints = 0; // don't need it here, its not a leaf
         //        bzero(child->points, sizeof(KDTreePoint*) * POINTS_PER_LEAF);
-        *child = (KDTreeNode) {};
+        // *child = (KDTreeNode) {};
+        KDTreeNode* newChild
+            = jet_new(KDTreeNode); // calloc(1, sizeof(KDTreeNode));
+        node->child[direction] = newChild;
+        // NOT A LEAF! A NEW NODE
         // wipe the points, the space will be used
         // for child node ptrs now
 
@@ -109,8 +128,12 @@ static void addPoint(KDTreeNode* node, KDTreePoint* point)
         // for (
         // int i = direction;// i == direction /*POW2(DIMS)*/; i++) {
         // for (int i = 0; i < POW2(DIMS); i++) {
-        child->child[direction] = calloc(1, sizeof(KDTreeNode));
-        child->child[direction]->isleaf = 1;
+        // THIS BUSINESS IS TO AVOID FREEING THE OLD POINTSHOLDER SO IT CAN
+        // BE REUSED
+        *child = (KDTreePointsHolder) {};
+        newChild->child[direction] = child;
+        // calloc(1, sizeof(KDTreeNode));
+        newChild->child[direction]->isleaf = 1; // already set
         // }
 
         for_to(i, DIMS)
@@ -133,9 +156,9 @@ static void addPoint(KDTreeNode* node, KDTreePoint* point)
             }
 
             if (!dird[i])
-                child->threshold[i] = (th_mid + th_lo) / 2;
+                newChild->threshold[i] = (th_mid + th_lo) / 2;
             else
-                child->threshold[i] = (th_hi + th_mid) / 2;
+                newChild->threshold[i] = (th_hi + th_mid) / 2;
         }
 
         // Now you see if the grandkid is increasing or decreasing compared to
@@ -154,18 +177,18 @@ static void addPoint(KDTreeNode* node, KDTreePoint* point)
 
         // now that the thresholds are set, add the cached points
         for (int ip = 0; ip < POINTS_PER_LEAF; ip++)
-            addPoint(child, points[ip]);
+            addPoint(newChild, points[ip]);
 
         addPoint(node, point); // need 1 level to compute the new
         //        centroids in case all 8 points from previous clustered into
         //        the same grandchild
         return;
-        parent = node;
-        node = child;
-        child = child->child[direction];
-        direction = 0;
-        for_to(i, DIMS) dird[i] = (point->x[i] >= node->threshold[i]) << i;
-        for_to(i, DIMS) direction |= dird[i];
+        // parent = node;
+        // node = child;
+        // child = child->child[direction];
+        // direction = 0;
+        // for_to(i, DIMS) dird[i] = (point->x[i] >= node->threshold[i]) << i;
+        // for_to(i, DIMS) direction |= dird[i];
 
         //        if (child->npoints==8)
         //        return;
@@ -178,6 +201,7 @@ static void addPoint(KDTreeNode* node, KDTreePoint* point)
     // because when POINTS_PER_LEAF is small the array is in cache anyway,
     // but writing to it will access DRAM.
     // child->points[child->npoints++] = point;
+
     for (int i = 0; i < POINTS_PER_LEAF; i++) {
         if (!child->points[i]) {
             child->points[i] = point;
@@ -214,8 +238,9 @@ static KDTreePoint* getNearestPoint(KDTreeNode* node, KDTreePoint* point)
     int minIndex = 0;
     double mindist = 1e300;
     if (!node) return NULL;
-    for (int i = 0; i < node->npoints; i++) {
-        double dist = distanceFunction(node->points[i], point);
+    KDTreePointsHolder* holder = node;
+    for (int i = 0; i < holder->npoints; i++) {
+        double dist = distanceFunction(holder->points[i], point);
         if (dist < mindist) {
             minIndex = i;
             mindist = dist;
@@ -226,7 +251,7 @@ static KDTreePoint* getNearestPoint(KDTreeNode* node, KDTreePoint* point)
     // THATS NOT TRUE!!!!!
     // MAYBE: pass mindist back to the caller to save a repeated
     // distanceFunction call.
-    return node->points[minIndex];
+    return holder->points[minIndex];
 }
 // static KDTreePoint points[] = { { 1 }, { 3 }, { -5 } };
 
@@ -244,7 +269,12 @@ static void printNode(KDTreeNode* node, int lev)
 {
     if (node->isleaf) {
         printf("[\n"); //,node->npoints );
-        for_to(j, node->npoints) { printPoint(node->points[j], lev + levStep); }
+        KDTreePointsHolder* holder = node;
+
+        for_to(j, holder->npoints)
+        {
+            printPoint(holder->points[j], lev + levStep);
+        }
         printf("%.*s]\n", lev, spc);
     } else {
         printf("%.*s<", 0 * lev, spc);
@@ -272,13 +302,15 @@ static void printDotRec(FILE* f, KDTreeNode* node)
 
         if (node->child[i]) {
             if (node->child[i]->isleaf) {
+                KDTreePointsHolder* holder = node->child[i];
+
                 fprintf(f,
                     "\"Node\\n<%g, %g, %g>\" -> \"Points[%d]\\n____________\\n",
                     node->threshold[0], node->threshold[1], node->threshold[2],
-                    node->child[i]->npoints);
-                for_to(j, node->child[i]->npoints)
+                    holder->npoints);
+                for_to(j, holder->npoints)
                 {
-                    KDTreePoint* point = node->child[i]->points[j];
+                    KDTreePoint* point = holder->points[j];
                     fprintf(f, "(%g, %g, %g)\\n", point->x[0], point->x[1],
                         point->x[2]);
                 }
@@ -495,14 +527,14 @@ static KDTreeNode* init(KDTreePoint boundBox[2], int sizeGuess)
     for_to(j, DIMS) parentR->threshold[j] = boundBox[1].x[j];
 
     // The actual root node that will be returned.
-    KDTreeNode* root = calloc(1, sizeof(KDTreeNode));
+    KDTreeNode* root = jet_new(KDTreeNode); // calloc(1, sizeof(KDTreeNode));
     int levels = log2(sizeGuess);
     if (levels < 1) levels = 1;
     for_to(j, DIMS) root->threshold[j]
         = (boundBox[0].x[j] + boundBox[1].x[j]) / 2.0;
     for_to(i, POW2(DIMS))
     {
-        root->child[i] = calloc(1, sizeof(KDTreeNode));
+        root->child[i] = jet_new(KDTreeNode); // calloc(1, sizeof(KDTreeNode));
         KDTreeNode* child = root->child[i];
 
         int dird[DIMS];
