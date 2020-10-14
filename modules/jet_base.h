@@ -308,7 +308,7 @@ STATIC void* jet_Pool_alloc(jet_Pool* self, size_t reqd)
     if (self->used + reqd > self->cap) {
         if (self->ref) jet_Array_push(Ptr)(&self->ptrs, self->ref);
         self->cap
-            = (self->cap ? (self->cap > 1 MB ? 1 MB : self->cap * 2) : 4 KB);
+            = (self->cap ? (self->cap > 2 MB ? 2 MB : self->cap * 2) : 4 KB);
         self->capTotal += self->cap;
         self->ref = calloc(1, self->cap);
         assert(self->ref != NULL);
