@@ -1,6 +1,6 @@
 // TODO make sempassModule -> same as analyseModule now
 static void analyseType(Parser* parser, ASTType* type, ASTModule* mod);
-static void analyseFunc(Parser* parser, ASTFunc* func, ASTModule* mod);
+static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod);
 
 ///////////////////////////////////////////////////////////////////////////
 static bool isCmpOp(ASTExpr* expr)
@@ -82,7 +82,7 @@ static void analyseExpr(
         if (found) {
             expr->kind = tkFunctionCallResolved;
             expr->func = found;
-            analyseFunc(parser, found, mod);
+            ASTFunc_analyse(parser, found, mod);
             analyseExpr(parser, expr, mod, inFuncArgs);
             return;
         }
@@ -388,10 +388,10 @@ static void analyseType(Parser* parser, ASTType* type, ASTModule* mod)
         jet_foreach(ASTExpr*, stmt, type->body->stmts)
             analyseExpr(parser, stmt, mod, false);
 }
-static void ASTFunc_hashExprs(Parser* parser, ASTFunc* func);
+static void ASTFunc_hashExprs(/* Parser* parser,  */ ASTFunc* func);
 
 ///////////////////////////////////////////////////////////////////////////
-static void analyseFunc(Parser* parser, ASTFunc* func, ASTModule* mod)
+static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod)
 {
     if (func->analysed) return;
     // eprintf("analyseExpr: %s at ./%s:%d\n", func->selector, parser->filename,
@@ -468,7 +468,7 @@ static void analyseFunc(Parser* parser, ASTFunc* func, ASTModule* mod)
     if (not parser->errCount and parser->mode != PMLint) {
 
         // do (try) CSE
-        ASTFunc_hashExprs(parser, func);
+        ASTFunc_hashExprs(/* parser, */ func);
 
         // Handle elemental operations like arr[4:50] = mx[14:60] + 3
         ASTScope_lowerElementalOps(func->body);
@@ -506,177 +506,4 @@ static void analyseTest(Parser* parser, ASTTest* test, ASTModule* mod)
     }
 }
 
-#include "hash.h"
-
-static void hashExpr(
-    Parser* parser, ASTExpr* expr, jet_Dict(UInt32, Ptr) * cseDict)
-{
-    if (not expr) unreachable("%s", "expr is NULL");
-    switch (expr->kind) {
-    case tkString:
-    case tkRegex:
-        expr->hash = CString_hash(expr->string);
-        break;
-    case tkNumber: {
-        char* c = strpbrk(expr->string, "e.");
-        if (c) {
-            expr->hash = Real64_hash(atof(expr->string));
-        } else {
-            expr->hash = Int64_hash(atoll(expr->string));
-        }
-    } break;
-    case tkVarAssign:
-        hashExpr(parser, expr->var->init, cseDict);
-        //        expr->hash = expr->var->init->hash;
-        break;
-    case tkFunctionCallResolved:
-    case tkIdentifierResolved:
-    case tkSubscriptResolved: {
-        union {
-            // char buf[9];
-            UInt64 h64;
-            UInt32 hash[2];
-        } str = { .h64 = 0 }; //.buf = { 1, 1, 1, 1, 1, 1, 1, 1, 0 } };
-        str.hash[0] = UInt64_hash((UInt64)expr->right); //->name);
-        // TODO: hash the right ptr instead
-        // here we exploit the fact that name is at the same offset within
-        // ASTFunc and ASTVar, so the deref will get the right thing
-        if (expr->left) {
-            hashExpr(parser, expr->left, cseDict);
-            str.hash[1] = expr->left->hash;
-        }
-        expr->hash = UInt64_hash(str.h64); // CString_hash(str.buf);
-    } break;
-    default:
-        if (expr->prec) {
-            union {
-                char buf[13];
-                UInt64 h64;
-                UInt32 hash[2];
-            } str = { .h64 = 0 }; //.buf = {1,1,1,1,1,1,1,1,1,1,1,1,0} };
-
-//            UInt32 kind = expr->kind;
-            str.hash[0] = UInt32_hash(expr->kind);
-
-            hashExpr(parser, expr->right, cseDict);
-            str.hash[1] = expr->right->hash;
-            UInt32 tmphash = UInt64_hash(str.h64);
-
-            if (not expr->unary) {
-                hashExpr(parser, expr->left, cseDict);
-                str.hash[0] = expr->left->hash;
-                str.hash[1] = tmphash;
-                tmphash = UInt64_hash(str.h64);
-            }
-
-            expr->hash = tmphash; // CString_hash(str.buf);
-
-            // just hashing the kind for now, maybe we need
-            // the typeinfo as well
-        }
-    }
-    //    printf("./%s:%02d:%02d: %-24s hash: %u\n",parser->filename,
-    //    expr->line, expr->col,
-    //        TokenKind_str[expr->kind], expr->hash);
-
-    if (expr->kind != tkNumber and expr->kind != tkIdentifierResolved
-        and expr->kind != tkVarAssign) {
-        // we don't want to put every small thing in the table, esp not literals
-        // and idents. We'll put strings, so that they are effectively uniq'd
-        // within the func. Also regexes. What we really want are binops, calls,
-        // subscripts, etc.
-        int status = 0;
-        UInt32 idx = jet_Dict_put(UInt32, Ptr)(cseDict, expr->hash, &status);
-        if (status == 1) jet_Dict_val(cseDict, idx) = expr;
-    }
-}
-
-// This function checks the hashes, going DOWN the tree. It happens after the
-// hashes have been generated in hashExpr (which is bottom-up, so checking
-// cannot happen inline).
-static void ASTExpr_checkHashes(
-    Parser* parser, ASTExpr* expr, jet_Dict(UInt32, Ptr) * cseDict)
-{
-
-    UInt32 idx = jet_Dict_get(UInt32, Ptr)(cseDict, expr->hash);
-
-    if (idx < jet_Dict_end(cseDict)) {
-        ASTExpr* orig = jet_Dict_val(cseDict, idx);
-        if (orig != expr
-            and orig->kind == expr->kind) // unfortunately there ARE collisions,
-                                          // so check again
-        {
-            eprintf("\n-- found same exprs at\n./%s:%02d:%02d hash %d and\n",
-                parser->filename, expr->line, expr->col, expr->hash);
-            // TODO: make gen print to stderr
-            // ASTExpr_gen(expr, 4, true, false);
-            eprintf("\n./%s:%02d:%02d hash %d\n", parser->filename, orig->line,
-                orig->col, orig->hash);
-            // ASTExpr_gen(orig, 4, true, false);
-            eputs("");
-            return;
-        }
-    }
-    // this expr isn't a candidate for CSE. Check subexprs.
-    switch (expr->kind) {
-        //        case tkKeyword_if: ...
-    case tkVarAssign:
-        ASTExpr_checkHashes(parser, expr->var->init, cseDict);
-        break;
-
-    case tkFunctionCallResolved:
-    case tkSubscriptResolved:
-        if (expr->left) ASTExpr_checkHashes(parser, expr->left, cseDict);
-        break;
-    default:
-        if (expr->prec) {
-            if (not expr->unary)
-                ASTExpr_checkHashes(parser, expr->left, cseDict);
-            ASTExpr_checkHashes(parser, expr->right, cseDict);
-        }
-    }
-}
-
-static void ASTFunc_hashExprs(Parser* parser, ASTFunc* func)
-{
-    static jet_Dict(UInt32, Ptr)* cseDict = NULL; // FIXME: will leak
-    if (not cseDict) cseDict = jet_Dict_init(UInt32, Ptr)();
-    jet_Dict_clear(UInt32, Ptr)(cseDict);
-
-    jet_foreach(ASTExpr*, stmt, func->body->stmts)
-    {
-        hashExpr(parser, stmt, cseDict);
-        ASTExpr_checkHashes(parser, stmt, cseDict);
-
-        //        int status = 0;
-        //        UInt32 idx = Dict_put(UInt32, Ptr)(cseDict, stmt->hash,
-        //        &status);
-        //        // Dict_get(UInt32, Ptr)(cseDict, stmt->hash);
-        //        if (status != 1) { // idx < Dict_end(cseDict)) {
-        //            ASTExpr* orig = Dict_val(cseDict, idx);
-        //            printf("found same exprs at %02d:%02d (%d) and %d:%d
-        //            (%d)\n",
-        //                stmt->line, stmt->col, stmt->hash, orig->line,
-        //                orig->col, orig->hash);
-        //            ;
-        //        } else
-        //            //        idx =
-        //            Dict_val(cseDict, idx) = stmt;
-    }
-    //    jet_foreach (ASTExpr*, stmt, func->body->stmts) {
-    //        int status = 0;
-    //        UInt32 idx = Dict_put(UInt32, Ptr)(cseDict, stmt->hash, &status);
-    //        // Dict_get(UInt32, Ptr)(cseDict, stmt->hash);
-    //        if (status != 1) { // idx < Dict_end(cseDict)) {
-    //            ASTExpr* orig = Dict_val(cseDict, idx);
-    //            printf("found same exprs at %02d:%02d (%d) and %d:%d (%d)\n",
-    //                stmt->line, stmt->col, stmt->hash, orig->line, orig->col,
-    //                orig->hash);
-    //            ;
-    //        } else
-    //            //        idx =
-    //            Dict_val(cseDict, idx) = stmt;
-    //    }
-
-    // exit(8);
-}
+#include "cse.h"
