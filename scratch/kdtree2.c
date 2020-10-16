@@ -277,14 +277,12 @@ static void printNode(KDTreeNode* node, int lev)
         printf("[\n"); //,node->npoints );
         KDTreePointsHolder* holder = node;
 
-        for_to(j, holder->npoints)
-        {
-            printPoint(holder->points[j], lev + levStep);
-        }
+        for_to(j, holder->npoints) printPoint(holder->points[j], lev + levStep);
+
         printf("%.*s]\n", lev, spc);
     } else {
         printf("%.*s<", 0 * lev, spc);
-        for_to(i, DIMS) { printf("%s%g", i ? ", " : "", node->threshold[i]); }
+        for_to(i, DIMS) printf("%s%g", i ? ", " : "", node->threshold[i]);
         printf("> {\n");
         for_to(i, POW2(DIMS))
         {
@@ -545,6 +543,16 @@ static KDTreeNode* init(KDTreePoint boundBox[2], int sizeGuess)
     parent->child[7] = root;
     // here's the key: boundBox[0].x[i] MUST BE < root.threshold[i] for all i
 
+    // here's a bad trick: I'm going to set all children of the parent to root.
+    // so if you do send in a point for add or get that happens to be outside
+    // the bounding box, it won't crash but it will pass on to the midpoint of
+    // the BB and from then on it will be placed / looked up as usual.
+    // for_to(j, POW2(DIMS)) parent->child[j] = root;
+
+    // Be warned that if you send in lots of points that are outside the BB,
+    // they will cluster in the same node. REALLY, make sure you get the BB
+    // right.
+
     return parent;
 
     for_to(i, POW2(DIMS))
@@ -628,7 +636,7 @@ int main(int argc, char* argv[])
     printf("add %d pts: %g ms\n", NPTS, jet_sys_time_clockSpanMicro(t0) / 1e3);
 
     // printNode(root, 0);
-    printDot(root);
+    if (NPTS < 1000) printDot(root);
     KDTreePoint ptest[] = { { -3.14159 } };
     t0 = jet_sys_time_getTime();
     KDTreePoint* nea = getNearestPoint(root, ptest);
