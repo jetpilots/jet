@@ -23,11 +23,12 @@ static void Parser_errorExpectedToken(
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorParsingExpr(Parser* const parser)
+static void Parser_errorParsingExpr(Parser* const parser, ASTExpr* expr)
 {
-    eprintf("\n(%d) \e[31merror:\e[0m syntax error at %s%s:%d/%d\n",
+    eprintf("\n(%d) \e[31merror:\e[0m syntax error at %s%s:%d/%d\n"
+            "    probably around %d:%d\n",
         parser->errCount + 1, RELF(parser->filename), parser->token.line - 1,
-        parser->token.line);
+        parser->token.line, expr->line, expr->col);
     Parser_errorIncrement(parser);
 }
 

@@ -5,7 +5,7 @@ function levenstein(s as Text, t as Text) -> dist as Int
     var m = len(s)
     var n = len(t)
     var d[m,n] = 0 # this line looks like you are setting 1 elem at [m,n] to 0
-    var d as Int[2D] in 'kg.s3/m2' = zeros2D([m, n]) # this is better regarding var decl
+    var d as Int[2D]|kg.s3/m2 = zeros2D([m, n]) # this is better regarding var decl
     # but zeros2D/3D/4D is a pain
     var myJunesData as Int[] = zeros([m, n]) # dynamic tensor
     var myJunesData as Int[Text] = zeros([m, n])

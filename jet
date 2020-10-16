@@ -1,6 +1,6 @@
 #/bin/bash
 
- set -x
+ # set -x
 # if [ "$1" == "d" ]
 # then
 #     DIAG="d"
@@ -26,7 +26,7 @@ jet_run() {
         TGT="$1"
     fi
 
-    make -C $DN -s -r -j DIAG=$2 JETHOME="$JETHOME" -f $JETHOME/Makerunner "$TGT" && [ -f "$DN/$TGT" ] && $DN/$TGT $*
+    make -C $DN -d -s -r -j DIAG=$2 JETHOME="$JETHOME" -f $JETHOME/Makerunner "$TGT" && [ -f "$DN/$TGT" ] && $DN/$TGT $*
 }
 
 # jet <FILE> [d]

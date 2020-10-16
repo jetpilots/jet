@@ -7,15 +7,23 @@ type Type2 extends Type1
     var m = 32
     var g = "StringValue"
     var fg = "StringInterp works: $m"
-    var garr = [3, 4, 5, 6]
-    var gmap = {
-        "first" = 42,
-        "second" = 43,
-        "third" = 44
-    }
+    var garr = [ # ~5ef4ed5e
+         3 , # ~ed4
+    4, 5, 6 ]
+    var b = unhex("5e43efc2")
+    var gmap = { # comment allez-vous
+         "first" = 42,
+        "second" = 67i,
+        "third" = 44 }
+
+    # var t1 = Type1 { f = 33 , g = 45 }
+    # var t2 = Type1(f=33, g=45)
 end type
 
-function func1(arg1 as String) as Number
+declare type Byte
+declare function unhex(s as String) as Byte[:,:]
+
+function main(arg1 as String) as Number
     print(arg1)
     return 0
     var t1 = Type1()
@@ -28,11 +36,14 @@ enum Enum1
     enumVal3
 end enum
 
+function maisn()
+end function
+
 test "basics"
     let x = 34
     print(x)
     let m = "my name is Antonio"
     let n = "thirty-five Jackdaws"
-    check m != n
+    check m == n
     check 3 < x < 99
 end test

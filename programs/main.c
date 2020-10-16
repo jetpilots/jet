@@ -942,6 +942,8 @@ int main(int argc, char* argv[])
     if (argc > 3 && *argv[3] == 't') parser->mode = PMGenTests;
     if (argc > 2 && *argv[2] == 't') parser->mode = PMGenTests;
 
+ parser->generateCommentExprs=(parser->mode==PMLint);
+    
     modules = parseModule(parser);
 
     if (not(parser->errCount)) {

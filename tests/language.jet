@@ -4,13 +4,14 @@
 "the quick brown fox", 'what happens in vegas' # string
 `\.?[a-z][a-zA-Z0-9]*` # regular expression w/ compile-time error checking
 6.6032e-27, 1, 0, 42 # (real) number
+~deadbeef # (hexadecimal) number
 3.5+41.2i, 1i # (complex) number
 350x200 # size (for 2D use)
 yes, no # logical. true/false are read but linted to yes/no.
 
 # Builtin types
 ... as Text "abcdefg"
-... as Number 233.54e3 42 1.0
+... as Number 233.54e3 42 1.0 ~04ed42fe7fff
 ... as YesOrNo yes no # 1 bit
 ... as Complex 1i 3+4i
 ... as Size 233x52 720x480
@@ -18,9 +19,9 @@ yes, no # logical. true/false are read but linted to yes/no.
 ... as DateTime("2007-20-01 10:33:43 +0530") # parsed at compile time
 
 # anything can be null if explicitly allowed
-... as Text or None
-... as YesOrNo or None # 2 bits
-... as Number or None
+... as Text
+... as YesOrNo # 2 bits
+... as Number
 
 # Variables
 # only one way: with keyword "var". names cannot start with caps.
@@ -46,7 +47,8 @@ var mp as Number[Text] # implies = {}. maps are never nil nor nilable.
 # second and higher arguments must be named at call sites (linter can do it)
 function myfunc(parm as Text, parm2 as Number) as Text
     ans = "empty"
-end function # basic function definition
+end function
+# basic function definition
 
 myfunc(parm as Text, parm2 as Number) := "empty" # statement function
 
@@ -60,7 +62,7 @@ function pop(&array as Number[]) as Number
 end function
 
 var array = [3, 4, 5, 6]
-var last = pop(&array) # callsite must be !-annotated (linter can do it)
+var last = pop(array!) # callsite must be !-annotated (linter can do it)
 
 # Types
 # type names start with caps.
@@ -110,7 +112,7 @@ var test4|m/s = speed + dspeed # explicit unit conversion to that of the second
 var test5|ft/min = speed + dspeed # explicit unit conversion to something else
 
 ## automatic conversion where possible when passing to funcs etc.
-function flux(&rate as Complex[:,:]|kg/s, speed as Number|m/s) as Number|kg.m3/s
+function flux(rate! as Complex[:,:]|kg/s, speed as Number|m/s) as Number|kg.m3/s
 end function
 
 # Syntax specials

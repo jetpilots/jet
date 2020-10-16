@@ -8,7 +8,7 @@
 # So, arrays cannot be declared with the size in brackets. For vars, you will
 # use zeros() or something anyway. For func args, add a check if you must.
 
-function central2d(vQ:Real[3D], by:Real[2D], axis:Real) result dQ:Real[4D]
+function central2d(vQ as Real[3D], by as Real[2D], axis as Real) result (dQ as Real[4D])
     check 1 <= axis <= vQ.dims
     check vQ.shape[axis] == by.size
 
@@ -49,7 +49,7 @@ end type
 # func is generated to take Array:well:Slice.
 
 # finding the central diff of an array along its axis (there is only one axis)
-function central1d(vQ:Real[1D], by:Real[]) result dQ:Real[]
+function central1d(vQ as Real[1D], by as Real[]) result dQ as Real[]
 # var has a ASTVar* dimsFrom[8or16] field showing if one or more dims are the same
 #:another var
 # result are local vars, not args in C
@@ -86,7 +86,7 @@ function central1d(vQ:Real[1D], by:Real[]) result dQ:Real[]
     # deep.
 end function
 
-function boundary2d(mq:Real[2D], zero:YesOrNo) result (mQnew:Real[2D])
+function boundary2d(mq as Real[2D], zero:YesOrNo) result (mQnew as Real[2D])
     # check size(vQ, along = 1) > 1 THESE ARE IMPLIED SINCE YOU USED -2 as index!
     # check size(vQ, along = 2) > 1
 
@@ -102,17 +102,17 @@ function boundary2d(mq:Real[2D], zero:YesOrNo) result (mQnew:Real[2D])
     # target, should clone the var before sending it in. when possible, that
     # clone can be on the callers stack frame etc.
     if not zero
-        mQnew[1, :] = mQnew[2, :] # this causes mQnew to be same:mq since no dep
-        mQnew[:, 1] = mQnew[:, 2]
+        mQnew[1,  :] = mQnew[ 2, :] # this causes mQnew to be same:mq since no dep
+        mQnew[:,  1] = mQnew[:,  2]
         mQnew[-1, :] = mQnew[-2, :]
         mQnew[:, -1] = mQnew[:, -2]
-        mQnew[1, :] = mq[2, :] # this is a dep on mq, so the copy really happens
-        mQnew[:, 1] = mq[:, 2]
+        mQnew[1,  :] = mq[2,  :] # this is a dep on mq, so the copy really happens
+        mQnew[:,  1] = mq[:,  2]
         mQnew[-1, :] = mq[-2, :]
         mQnew[:, -1] = mq[:, -2]
     else
-        mQnew[1, :] = 0  # again no dep of mQnew pn vQ
-        mQnew[:, 1] = 0
+        mQnew[1,  :] = 0  # again no dep of mQnew pn vQ
+        mQnew[:,  1] = 0
         mQnew[-1, :] = 0
         mQnew[:, -1] = 0
     end if

@@ -193,6 +193,7 @@ static void jet_lineprofile_report();
 static void jet_lineprofile_begin();
 int main(int argc, char* argv[])
 {
+    srand(time(0));
     ticks t0 = getticks();
 
     // _scStart_ = (char*)&argc;

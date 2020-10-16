@@ -244,14 +244,19 @@ static void printDot(KDDict* dict)
 }
 
 #include "../modules/jet_sys_time.h"
-
-static KDDict* initDict(uint64_t hashfn(void*), uint64_t equalfn(void*, void*))
+// When you know the hash bounds, use this function to init. This is the case
+// when you are creating a sparse matrix with known shape and the hash function
+// for ints is a no-op. By the way in that case you don't need to compare keys
+// at all -- lookup should succeed as soon as hashes match.
+static KDDict* initDictWithLimits(uint64_t hashfn(void*),
+    uint64_t equalfn(void*, void*), uint64_t lowLim[DIMS],
+    uint64_t highLim[DIMS])
 {
     KDDict* dict = jet_new(KDDict);
     for_to(j, DIMS)
     {
-        dict->root[0].threshold[j] = 0;
-        dict->root[1].threshold[j] = UINT64_MAX / 2;
+        dict->root[0].threshold[j] = lowLim[j];
+        dict->root[1].threshold[j] = (lowLim[j] + highLim[j]) / 2;
     }
     dict->root[0].child[POW2(DIMS) - 1] = &dict->root[1];
     // here's the key: boundBox[0].x[i] MUST BE < root.threshold[i] for all i
@@ -260,7 +265,12 @@ static KDDict* initDict(uint64_t hashfn(void*), uint64_t equalfn(void*, void*))
 
     return dict;
 }
-
+static KDDict* initDict(uint64_t hashfn(void*), uint64_t equalfn(void*, void*))
+{
+    uint64_t lowl[DIMS] = {};
+    uint64_t highl[DIMS] = { UINT64_MAX, UINT64_MAX, UINT64_MAX };
+    return initDictWithLimits(hashfn, equalfn, lowl, highl);
+}
 /*
 fashhash64 (license: MIT)
 Copyright (C) 2012 Zilong Tan (eric.zltan@gmail.com)

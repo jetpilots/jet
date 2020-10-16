@@ -22,6 +22,18 @@ static bool isBoolOp(ASTExpr* expr)
 }
 
 ///////////////////////////////////////////////////////////////////////////
+static void analyseDictLiteral(Parser* parser, ASTExpr* expr, ASTModule* mod)
+{
+    // check that
+    // - dict keys in the dict literal are of the same type.
+    // - values are of the same type.
+    // - all exprs within the commas are tkOpAssign.
+    // assign the typeSpec pair somehow to the tkBraceOpen expr.
+    // maybe alloc twice the size and set the pointer so you can access
+    // spec[0] and spec[1].
+}
+
+///////////////////////////////////////////////////////////////////////////
 static void analyseExpr(
     Parser* parser, ASTExpr* expr, ASTModule* mod, bool inFuncArgs)
 {
@@ -92,12 +104,20 @@ static void analyseExpr(
             Parser_errorUnrecognizedFunc(parser, expr, buf);
 
             if (*buf != '<') // not invalid type
-                jet_foreach(ASTFunc*, func,
-                    mod->funcs) if (not strcasecmp(expr->string, func->name))
-                    eprintf("\e[;2m ./%s:%d: \e[;1;2m%s\e[0;2m with %d "
-                            "arguments is not viable.\e[0m\n",
-                        parser->filename, func->line, func->selector,
-                        func->argCount);
+                jet_foreach(ASTFunc*, func, mod->funcs)
+                {
+                    if (not strcasecmp(expr->string, func->name))
+                        eprintf("\e[;2m ./%s:%d: \e[;1;2m%s\e[0;2m with %d "
+                                "arguments is not viable.\e[0m\n",
+                            parser->filename, func->line, func->selector,
+                            func->argCount);
+                    if (leven(expr->string, func->name) < 3
+                        and func->argCount == jet_PtrList_count(func->args))
+                        eprintf(" Did you mean: \e[;1m%s\e[0m (%s at "
+                                "./%s:%d)\n",
+                            func->name, func->selector, parser->filename,
+                            func->line);
+                }
         }
     } break;
 
@@ -221,6 +241,19 @@ static void analyseExpr(
             = expr->right->kind == tkOpSemiColon ? CTYTensor : CTYArray;
         break;
 
+    case tkBraceOpen:
+        analyseExpr(parser, expr->right, mod, true);
+        // TODO: you told analyseExpr to not care about what's on the LHS of
+        // tkOpAssign exprs. Now you handle it yourself. Ensure that they're
+        // all of the same type and set that type to the expr somehow.
+        analyseDictLiteral(parser, expr->right, mod);
+        expr->typeType = expr->right->typeType;
+        expr->collectionType = CTYDictS;
+        // these are only Dicts! Sets are normal [] when you detect they are
+        // only used for querying membership.
+        // TODO: what were the gazillion Dict subtypes for?
+        break;
+
     case tkPeriod: {
         assert(expr->left->kind == tkIdentifierResolved
             or expr->left->kind == tkIdentifier);
@@ -267,6 +300,8 @@ static void analyseExpr(
         expr->elemental = expr->right->elemental;
     } break;
 
+    case tkLineComment:
+        break;
         // -------------------------------------------------- //
     default:
         if (expr->prec) {
@@ -323,10 +358,11 @@ static void analyseExpr(
                     expr->typeType = TYErrorType;
                 } else if (leftType == TYString
                     and (expr->kind == tkOpAssign or expr->kind == tkOpEQ
-                        or expr->kind == tkPlusEq)) {
-                    // Allow assignment, equality test and += for strings.
+                        or expr->kind == tkOpNE)) {
+                    // Allow assignment, equality test and != for strings.
                     // TODO: might even allow comparison operators, and perhaps
-                    // disallow +=
+                    // allow +=, or better .= or something. Or perhaps
+                    // append(x!) is clearer
                     ;
                 } else if (leftType == TYBool
                     and (expr->kind == tkOpAssign //

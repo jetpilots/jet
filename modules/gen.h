@@ -6,6 +6,8 @@ static void ASTImport_gen(ASTImport* import, int level)
         import->hasAlias ? import->importFile + import->aliasOffset : "");
 }
 
+ 
+
 static void ASTTypeSpec_gen(ASTTypeSpec* spec, int level)
 {
     switch (spec->typeType) {
@@ -19,7 +21,22 @@ static void ASTTypeSpec_gen(ASTTypeSpec* spec, int level)
         printf("%s", TypeType_name(spec->typeType));
         break;
     }
-    if (spec->dims) printf("%s", "[]");
+    if (spec->dims) {
+        static const char* dimsstr = ":,:,:,:,:,:,:,:,:,:,:,:,:,:,:,:,:,:,:";
+//        char str[32];
+//        str[31]=0;
+//        int sz= 2 + dims + (dims ? (dims-1) : 0) + 1;
+//        str[0] = '[';
+//        str[sz-2] = ']';
+//        str[sz-1] = 0;
+//        for (i=0; i<sz; i++) {
+//            str[i*2+1]=':';
+//            str[i*2+2]=',';
+//        }
+        printf("[%.*s]", 2*spec->dims-1,dimsstr);
+
+    }
+
 }
 
 static void ASTExpr_gen(
@@ -147,7 +164,7 @@ static void ASTFunc_gen(ASTFunc* func, int level)
 
 static void ASTTest_gen(ASTTest* test, int level)
 {
-    printf("%s %s\n", "test ", test->name);
+    printf("test '%s'\n",  test->name);
     ASTScope_gen(test->body, level + STEP);
     puts("end test\n");
 }
@@ -204,6 +221,10 @@ static void ASTExpr_gen(
         if (expr->left) ASTExpr_gen(expr->left, 0, false, escapeStrings);
         printf("]");
     } break;
+
+    case tkObjectInit:
+    case tkObjectInitResolved:
+        break;
 
     case tkVarAssign:
         // var x as XYZ = abc... -> becomes an ASTVar and an ASTExpr
@@ -289,6 +310,7 @@ static void ASTExpr_gen(
 
         if (expr->kind == tkPower and not spacing) putc(')', stdout);
         if (expr->kind == tkArrayOpen) putc(']', stdout);
+        if (expr->kind == tkBraceOpen) putc('}', stdout);
     }
 }
 

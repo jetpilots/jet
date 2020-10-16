@@ -1,22 +1,22 @@
 
-let nPointsPerLeaf = 24  # MIN(2^nDIMS, 8)
-let nDIMS = 3
+let nPointsPerLeaf = 24  # MIN(2^nDims, 8)
+let nDims = 3
 
 type KDTreeNode
     Int isleaf  # GET THIS OUT HOWEVER
-    Real threshold[nDIMS]  # [D] # leaves dont hav thresholdsnot
+    Real threshold[nDims]  # [D] # leaves dont hav thresholdsnot
     # union {
     # assuming constant n
     var child[n] as KDTreeNode # means KDTreeNode child[n]; impossible in C
-    ref child[] as ref KDTreeNode # means KDTreeNode** child;
-    var child[n] as ref KDTreeNode # means KDTreeNode* child[n];
+    ref child[] as ref KDTreeNode # means KDTreeNode* child;
+    var child[n] as ref KDTreeNode # means KDTreeNode child[n];
     # but I want
-    ref child[n] as KDTreeNode # to mean KDTreeNode* child[n];
+    ref child[n] as KDTreeNode # to mean KDTreeNode child[n];
     var child[n] as KDTreeNode
     # if you are referencing an array, the size must be known at the time of referencing the array. Need not be ctconst but it should be known
     # so var means, create a variable that is STORED "HERE".
     # ref means create a reference (that is stored here, but that is inconsequential) and points to something STORED ELSEWHERE
-    # struct KDTreePoint* points[nPointsPerLeaf]
+    # struct KDTreePoint points[nPointsPerLeaf]
     # }
 end
 
@@ -58,9 +58,9 @@ type KDTreePointsHolder
 end
 
 type KDTreePoint
-    # Real x[nDIMS]  # [D]
-    var x[] as Real = zeros(nDIMS) # if size can be determined at compile time, AND array has not been resized or reassigned, generate it as array
-    # embed x[] as Real = zeros(nDIMS) # now nDims must be compile time known
+    # Real x[nDims]  # [D]
+    var x[] as Real = zeros(nDims) # if size can be determined at compile time, AND array has not been resized or reassigned, generate it as array
+    # embed x[] as Real = zeros(nDims) # now nDims must be compile time known
 end
 
 # for cases where the dims is really not known at compile time, there is no way but to generate the stuff as T** intead of *T[N]. So the current system works if you don't set a size using zeros() or resize() or similar, then the type must come out as T**. Besides, the user will have to assign to this var in his init routines, which means the var will be marked as assigeed and will generate to T** anyway. The user can make things go faster by specifying the size at compile time, in this respect we are close to C then.
@@ -72,18 +72,18 @@ MKSTAT(KDTreePoint)
 MKSTAT(KDTreePointsHolder)
 
 # Real squared(Real x) { return x * x  }
-Real distanceFunction(KDTreePoint* p, KDTreePoint* p2)
+Real distanceFunction(KDTreePoint p, KDTreePoint p2)
 {
     Real sum = 0
-    for i = 1:nDIMS do sum += (p.x[i] - p2.x[i])^2
+    for i = 1:nDims do sum += (p.x[i] - p2.x[i])^2
     return sum
 }
 
 # #define HASDIR(dir, which) dir << which
-void addPoint(KDTreeNode* node, KDTreePoint* point)
+function addPoint(KDTreeNode node, KDTreePoint point)
 {
-    Int dird[nDIMS], direction = 0
-    for i = 1:nDIMS do dird[i] = (point.x[i] >= node.threshold[i])*2^i # << i
+    Int dird[nDims], direction = 0
+    for i = 1:nDims do dird[i] = (point.x[i] >= node.threshold[i])*2^i # << i
     # boolean to pow of 2 means [0 or 1] to pow of 2 --> can  be replaced by
     # (v) << n where v is the boolean and n is the power
 
@@ -101,20 +101,20 @@ void addPoint(KDTreeNode* node, KDTreePoint* point)
     # form arr[l1][l2][l3] is effectively l1*4 + l2*2 + l3 ... and so on for
     # higher dimensions, where l's are either 0 or 1. so it can be reduced to
     # bitwise ops: the *s can be done with << and adding them together is a |.
-    for i = 1:nDIMS do direction += dird[i]  # JUST PUT THIS IN THE ABOVE LOOP
+    for i = 1:nDims do direction += dird[i]  # JUST PUT THIS IN THE ABOVE LOOP
     # direction is now the overall index of the "correct" child to follow.
 
     # now 3 things can happen: (1) the child doesn't exist, (2) it does
     # and is a KDTreeNode, (3) it does and is a leaf (it has KDTreePoint[]).
     # Descend until just before you hit a leaf or NULL.
-    KDTreeNode* parent = NULL
+    KDTreeNode parent = NULL
     while (node.child[direction] and not node.child[direction].isleaf) {
         parent = node
         node = node.child[direction]
         # direction = (point.x >= node.threshold)
         direction = 0
-        for i = 1:nDIMS do dird[i] = (point.x[i] >= node.threshold[i]) *2^i
-        for i = 1:nDIMS do direction += dird[i]
+        for i = 1:nDims do dird[i] = (point.x[i] >= node.threshold[i]) *2^i
+        for i = 1:nDims do direction += dird[i]
     }
 
     # now the child is either NULL or a leaf (i.e. has points)
@@ -125,7 +125,7 @@ void addPoint(KDTreeNode* node, KDTreePoint* point)
     }
 
     # now the child must be a leaf
-    KDTreePointsHolder*
+    KDTreePointsHolder
     ref child => node.child[direction]
 
     if (child.npoints == nPointsPerLeaf) {
@@ -133,13 +133,13 @@ void addPoint(KDTreeNode* node, KDTreePoint* point)
         # converted into a node and the nPointsPerLeaf points of this ex-leaf
         # should be re-added into this node so so they can go one level deeper
         # in the tree at the right spots.
-        # KDTreePointsHolder* tmpPoints = child
+        # KDTreePointsHolder tmpPoints = child
         var points[] as KDTreePoint = copy(child.points)
-        # memcpy(points, child.points, sizeof(KDTreePoint*) * nPointsPerLeaf)
+        # memcpy(points, child.points, sizeof(KDTreePoint) * nPointsPerLeaf)
 
         #        child.isleaf = 0  # no longer a leaf.
         #        child.npoints = 0  # don't need it here, its not a leaf
-        #        bzero(child.points, sizeof(KDTreePoint*) * nPointsPerLeaf)
+        #        bzero(child.points, sizeof(KDTreePoint) * nPointsPerLeaf)
         # *child = (KDTreeNode) {}
         var newChild = KDTreeNode()  # calloc(1, sizeof(KDTreeNode))
         node.child[direction] = newChild
@@ -152,10 +152,10 @@ void addPoint(KDTreeNode* node, KDTreePoint* point)
         # you have to add 2 grandchildren here (actually 2^NDIMS). Don't leave
         # them at NULL. Set them as leaves.
         # TODO: figure out how to only create child.child[direction] and not
-        # all 2^nDIMS children here
+        # all 2^nDims children here
         # for (
-        # Int i = direction # i == direction /*2^nDIMS*/  i++) {
-        # for (Int i = 0  i < 2^nDIMS  i++) {
+        # Int i = direction # i == direction /*2^nDims*/  i++) {
+        # for (Int i = 0  i < 2^nDims  i++) {
         # THIS BUSINESS IS TO AVOID FREEING THE OLD POINTSHOLDER SO IT CAN
         # BE REUSED
         # *child = (KDTreePointsHolder) {}
@@ -165,7 +165,7 @@ void addPoint(KDTreeNode* node, KDTreePoint* point)
         newChild.child[direction].isleaf = yes  # already set
         # }
 
-        for i = 1:nDIMS # you need the midpoints of the new grandkids.
+        for i = 1:nDims # you need the midpoints of the new grandkids.
             # they depend on the midpoint of the child, and the midpoint of the
             # parent (i.e. two levels up the ancestry). For these you first
             # need 3 (not ) "limits", the lo/mid/hi limits.
@@ -211,8 +211,8 @@ void addPoint(KDTreeNode* node, KDTreePoint* point)
         # node = child
         # child = child.child[direction]
         # direction = 0
-        # for i = 1:nDIMS do dird[i] = (point.x[i] >= node.threshold[i]) << i
-        # for i = 1:nDIMS do direction |= dird[i]
+        # for i = 1:nDims do dird[i] = (point.x[i] >= node.threshold[i]) << i
+        # for i = 1:nDims do direction |= dird[i]
 
         #        if (child.npoints==8)
         #        return
@@ -235,17 +235,17 @@ void addPoint(KDTreeNode* node, KDTreePoint* point)
     end
 end
 
-void removePoint(KDTreeNode* node, KDTreePoint* point) { }
+function removePoint(KDTreeNode node, point as KDTreePoint) { }
 
 # always init  with this func with a known number of levels and a bounding box
 # this way you have a node hierarchy ready and your add calls will not thrash
 # adding subnodes and moving points down over and over.
-# KDTreeNode* init(Int levels, KDTreePoint* boundBox[2]) { }
+# KDTreeNode init(Int levels, KDTreePoint boundBox[2]) { }
 
 # BTW for jet do you want to allow function xyz(arr[2]) etc. and then check
 # at callsites if passed array has exactly 2 (or 2 or more) provably?
 
-KDTreePoint* getNearestPoint(KDTreeNode* node, KDTreePoint* point)
+KDTreePoint getNearestPoint(node as KDTreeNode, point as KDTreePoint)
 {
     # TODO: PROBLEMnot not not  HERE you descend into the finest octant/quadrnt and
     # check only those points. The actual nearest point may be in an adjacent
@@ -253,16 +253,16 @@ KDTreePoint* getNearestPoint(KDTreeNode* node, KDTreePoint* point)
 
     # here as opposed to add, you descend all the way down to the leaf.
     while (node and not node.isleaf) {
-        Int direction = 0, dird[nDIMS]
-        for i = 1:nDIMS do dird[i] = (point.x[i] >= node.threshold[i]) << i
-        for i = 1:nDIMS do direction |= dird[i]
+        Int direction = 0, dird[nDims]
+        for i = 1:nDims do dird[i] = (point.x[i] >= node.threshold[i]) << i
+        for i = 1:nDims do direction |= dird[i]
         node = node.child[direction]
     }
     # actually you shouldn't expect to find a NULL leaf here.
     Int minIndex = 0
     Real mindist = 1e300
     if (not node) return NULL
-    KDTreePointsHolder* holder = node
+    KDTreePointsHolder holder = node
     for (Int i = 0  i < holder.npoints  i++) {
         Real dist = distanceFunction(holder.points[i], point)
         if (dist < mindist) {
@@ -282,29 +282,29 @@ KDTreePoint* getNearestPoint(KDTreeNode* node, KDTreePoint* point)
 #define countof(x) (sizeof(x) / sizeof(x[0]))
 const char* const spc = "                                            "
 const Int levStep = 2
-void printPoint(KDTreePoint* p, Int lev)
+function printPoint(KDTreePoint p, Int lev)
 {
     printf("%.*s(", lev, spc)
-    for i = 1:nDIMS do { printf("%s%g", i ? ", " : "", p.x[i])  }
+    for i = 1:nDims do  printf("%s%g", i ? ", " : "", p.x[i])
     puts(")")
 }
 
-void printNode(KDTreeNode* node, Int lev)
+function printNode(KDTreeNode node, Int lev)
 {
     if (node.isleaf) {
         printf("[\n")  #,node.npoints )
-        KDTreePointsHolder* holder = node
+        KDTreePointsHolder holder = node
 
-        forto(j, holder.npoints)
+        for j = 1:holder.npoints)
         {
             printPoint(holder.points[j], lev + levStep)
         }
         printf("%.*s]\n", lev, spc)
     } else {
         printf("%.*s<", 0 * lev, spc)
-        for i = 1:nDIMS do { printf("%s%g", i ? ", " : "", node.threshold[i])  }
+        for i = 1:nDims do { printf("%s%g", i ? ", " : "", node.threshold[i])  }
         printf("> {\n")
-        forto(i, 2^nDIMS)
+        for i = 1:2^nDims)
         {
             if (node.child[i]) {
                 printf("%.*s%d: ", lev + levStep, spc, i)
@@ -317,29 +317,29 @@ void printNode(KDTreeNode* node, Int lev)
     }
 }
 
-void printDotRec(FILE* f, KDTreeNode* node)
+function printDotRec(FILE* f, KDTreeNode node)
 {
-    forto(i, 2^nDIMS)
+    for i = 1:2^nDims)
     {
-        Int dird[nDIMS]
-        forto(j, nDIMS) dird[j] = i & (1 << j)
+        Int dird[nDims]
+        for j = 1:nDims) dird[j] = i & (1 << j)
 
         if (node.child[i]) {
             if (node.child[i].isleaf) {
-                KDTreePointsHolder* holder = node.child[i]
+                KDTreePointsHolder holder = node.child[i]
 
                 fprintf(f,
                     "\"Node\\n<%g, %g, %g>\" . \"Points[%d]\\n\\n",
                     node.threshold[0], node.threshold[1], node.threshold[2],
                     holder.npoints)
-                forto(j, holder.npoints)
+                for j = 1:holder.npoints)
                 {
-                    KDTreePoint* point = holder.points[j]
+                    KDTreePoint point = holder.points[j]
                     fprintf(f, "(%g, %g, %g)\\n", point.x[0], point.x[1],
                         point.x[2])
                 }
                 fprintf(f, "\" [label=\"[%d]\\n", i)
-                forto(j, nDIMS) fprintf(f, "%c", dird[j] ? '>' : '<')
+                for j = 1:nDims do fprintf(f, "%c", dird[j] ? '>' : '<')
                 fprintf(f, "\"]\n")
             } else {
                 fprintf(f,
@@ -348,7 +348,7 @@ void printDotRec(FILE* f, KDTreeNode* node)
                     node.threshold[0], node.threshold[1], node.threshold[2],
                     node.child[i].threshold[0], node.child[i].threshold[1],
                     node.child[i].threshold[2], i)
-                forto(j, nDIMS) fprintf(f, "%c", dird[j] ? '>' : '<')
+                for j = 1:nDims) fprintf(f, "%c", dird[j] ? '>' : '<')
                 fprintf(f, "\"]\n")
 
                 printDotRec(f, node.child[i])
@@ -357,7 +357,7 @@ void printDotRec(FILE* f, KDTreeNode* node)
     }
 }
 
-void printDot(KDTreeNode* node)
+function printDot(KDTreeNode node)
 {
     FILE* f = fopen("kdt.dot", "w")
     fputs(
@@ -475,124 +475,120 @@ KDTreePoint gPoints[] = {
     { 5, 4, -4 } #
 }
 
-KDTreePoint* linsearch(KDTreePoint points[], KDTreePoint* point)
-{
-    Int minIndex = 0
-    Real mindist = 1e300
+function linsearch(points[] as KDTreePoint, point as KDTreePoint) as KDTreePoint
+    var minIndex = 0
+    var mindist = 1e300
     for i = 1:len(points)
-    {
-        Real dist = distanceFunction(points[i], point)
-        if (dist < mindist) {
+        var dist = distanceFunction(points[i], point)
+        if (dist < mindist)
             minIndex = i
             mindist = dist
-        }
-    }
+        end
+    end
     return points[minIndex]
-}
+end
+
 # random in the range of -6 to 6
-Real rndf()
-{
-    return ((Int)(rand() / (0.0012 * RANDMAX))) / 100.0 - 6
-}
-KDTreePoint* newPoint(Real x, Real y, Real z)
-{
-    KDTreePoint* p = malloc(sizeof(KDTreePoint))
-    *p = (KDTreePoint) { { x, y, z } }
-    return p
-}
+# Real rndf()
+# {
+#     return ((Int)(rand() / (0.0012 * RANDMAX))) / 100.0 - 6
+# }
+# KDTreePoint newPoint(Real x, Real y, Real z)
+# {
+#     KDTreePoint p = malloc(sizeof(KDTreePoint))
+#     *p = (KDTreePoint) { { x, y, z } }
+#     return p
+# }
 #include "../modules/jetsystime.h"
 
 # addLevels can only be called on a node which has 1 further level below it
 # already. This is because you need 1 node above the current level in order to
 # compute the threshold for the new nodes to be added at a new level.
-void addLevels(KDTreeNode* parent, Int levels)
-{
-    forto(k, 2^nDIMS)
-    {
-        KDTreeNode* root = parent.child[k]
-        forto(i, 2^nDIMS) if (not root.child[i])
-        {
-            root.child[i] = calloc(1, sizeof(KDTreeNode))
-            KDTreeNode* child = root.child[i]
+# function addLevels(KDTreeNode parent, Int levels)
+# {
+#     for k = 1:2^nDims)
+#     {
+#         KDTreeNode root = parent.child[k]
+#         for i = 1:2^nDims) if (not root.child[i])
+#         {
+#             root.child[i] = calloc(1, sizeof(KDTreeNode))
+#             KDTreeNode child = root.child[i]
 
-            Int dird[nDIMS]
-            forto(j, nDIMS) dird[j] = i & (1 << j)
-            forto(j, nDIMS)
-            {
-                # KDTreeNode* parent = parentL
-                Real thmid = root.threshold[j]
-                Real thlo, thhi
-                if (root.threshold[j] >= parent.threshold[j]) {
-                    thlo = parent.threshold[j]
-                    thhi = 2 * root.threshold[j] - parent.threshold[j]
-                } else {
-                    thlo = 2 * root.threshold[j] - parent.threshold[j]
-                    thhi = parent.threshold[j]
-                }
+#             Int dird[nDims]
+#             for j = 1:nDims) dird[j] = i & (1 << j)
+#             for j = 1:nDims)
+#             {
+#                 # KDTreeNode parent = parentL
+#                 Real thmid = root.threshold[j]
+#                 Real thlo, thhi
+#                 if (root.threshold[j] >= parent.threshold[j]) {
+#                     thlo = parent.threshold[j]
+#                     thhi = 2 * root.threshold[j] - parent.threshold[j]
+#                 } else {
+#                     thlo = 2 * root.threshold[j] - parent.threshold[j]
+#                     thhi = parent.threshold[j]
+#                 }
 
-                if (not dird[j])
-                    child.threshold[j] = (thmid + thlo) / 2
-                else
-                    child.threshold[j] = (thhi + thmid) / 2
-            }
-        }
-        if (levels) addLevels(root, levels - 1)
-    }
-}
+#                 if (not dird[j])
+#                     child.threshold[j] = (thmid + thlo) / 2
+#                 else
+#                     child.threshold[j] = (thhi + thmid) / 2
+#             }
+#         }
+#         if (levels) addLevels(root, levels - 1)
+#     }
+# }
 
-KDTreeNode* init(KDTreePoint boundBox[2], Int sizeGuess)
+KDTreeNode init(KDTreePoint boundBox[2], Int sizeGuess)
 {
     # create a fake parent (PARENT OF ROOT, TEMPORARY) with threshold at
     # one of the corners of the bounding box.
-    KDTreeNode parentL[] = { {} }
-    forto(j, nDIMS) parentL.threshold[j] = boundBox[0].x[j]
-    KDTreeNode parentR[] = { {} }
-    forto(j, nDIMS) parentR.threshold[j] = boundBox[1].x[j]
+    var parentL = KDTreeNode()
+    var parentR = KDTreeNode()
+    for j = 1:nDims do parentL.threshold[j] = boundBox[0].x[j]
+    for j = 1:nDims do parentR.threshold[j] = boundBox[1].x[j]
 
     # The actual root node that will be returned.
-    KDTreeNode* root = KDTreeNode()  # calloc(1, sizeof(KDTreeNode))
-    Int levels = log2(sizeGuess)
+    var root = KDTreeNode()  # calloc(1, sizeof(KDTreeNode))
+    var levels = log(sizeGuess, base=2)
     if (levels < 1) levels = 1
-    forto(j, nDIMS) root.threshold[j]
-        = (boundBox[0].x[j] + boundBox[1].x[j]) / 2.0
-    forto(i, 2^nDIMS)
-    {
+    for j = 1:nDims do root.threshold[j] = (boundBox[0].x[j] + boundBox[1].x[j]) / 2
+    for i = 1:2^nDims
         root.child[i] = KDTreeNode()  # calloc(1, sizeof(KDTreeNode))
-        KDTreeNode* child = root.child[i]
+        var child as KDTreeNode = root.child[i]
 
-        Int dird[nDIMS]
-        forto(j, nDIMS) dird[j] = i & (1 << j)
-        forto(j, nDIMS)
-        {
-            KDTreeNode* parent = parentL
+        Int dird[nDims]
+        for j = 1:nDims do dird[j] = i & (1 << j)
+        for j = 1:nDims
+            var parent as KDTreeNode = parentL
             Real thmid = root.threshold[j]
             Real thlo, thhi
-            if (root.threshold[j] >= parent.threshold[j]) {
+            if root.threshold[j] >= parent.threshold[j]
                 thlo = parent.threshold[j]
                 thhi = 2 * root.threshold[j] - parent.threshold[j]
-            } else {
+            else
                 thlo = 2 * root.threshold[j] - parent.threshold[j]
                 thhi = parent.threshold[j]
-            }
+            end
 
             if (not dird[j])
                 child.threshold[j] = (thmid + thlo) / 2
             else
                 child.threshold[j] = (thhi + thmid) / 2
-        }
+            end
+        end
 
         # KDTreePoint mid
-        # forto(j, nDIMS) mid[j] = ...
-        # forto(j, nDIMS) root.child[i].threshold[j] = mid.x[j]
+        # for j = 1:nDims) mid[j] = ...
+        # for j = 1:nDims) root.child[i].threshold[j] = mid.x[j]
     }
     # if (levels > 1)
     # addLevels(root, 3)  # benchmarked  this doesn't help
     return root
 }
 
-Int main(Int argc, char* argv[])
-{
-    srand(time(0))
+function main()
+    # srand(time(0))
     # KDTreeNode root[] = { { .threshold = { 0 } } }
     # KDTreeNode rc1[] = { { .threshold = { -3, -3, -3 } } }
     # KDTreeNode rc2[] = { { .threshold = { 3, -3, -3 } } }
@@ -620,42 +616,42 @@ Int main(Int argc, char* argv[])
     # for (Int i = 0  i < countof(gPoints)  i++) { addPoint(root, gPoints +
     # i)
     # }
-    const Int NPTS = argc > 1 ? atoi(argv[1]) : 10000000
-    jetsystimeTime t0 = jetsystimegetTime()
-    KDTreeNode* root = init(boundBox, NPTS)
+    var nPts = argc > 1 ? atoi(argv[1]) : 10000000
+    # jetsystimeTime t0 = jetsystimegetTime()
+    KDTreeNode root = init(boundBox, nPts)
     # printDot(root)
     # return 0
-    printf("init: %g ms\n", jetsystimeclockSpanMicro(t0) / 1e3)
+    # printf("init: %g ms\n", jetsystimeclockSpanMicro(t0) / 1e3)
 
-    # KDTreePoint* pt = malloc(sizeof(KDTreePoint) * NPTS)
+    # KDTreePoint pt = malloc(sizeof(KDTreePoint) * nPts)
     var pt[] as KDTreePoint # starts with zero
     resize(pt!, to=nPTS)
 
     # t0 = jetsystimegetTime()
     var tt|ms = Stopwatch()
     for i = 1:nPTS
-        for j = 1:nDIMS
+        for j = 1:nDims
             pt[i].x[j] = random(-6, 6)
         end
     end
 
-    # forto(i, NPTS) pt[i] = (KDTreePoint) { { rndf(), rndf(), rndf() } }
+    # for i = 1:nPts) pt[i] = (KDTreePoint) { { rndf(), rndf(), rndf() } }
 
-    printf("%d rndgen+mallocs etc: %g ms\n", NPTS,
-        jetsystimeclockSpanMicro(t0) / 1e3)
-    t0 = jetsystimegetTime()
+    # printf("%d rndgen+mallocs etc: %g ms\n", nPts,
+    #     jetsystimeclockSpanMicro(t0) / 1e3)
+    # t0 = jetsystimegetTime()
 
-    # TODO: preallocate log2(NPTS/nPointsPerLeaf) nodes, assuming
+    # TODO: preallocate log2(nPts/nPointsPerLeaf) nodes, assuming
     # uniformly distributed points that should be OK
     var t0|ms = Stopwatch()
     for i = 1:nPTS do add(root!, point=pt[i])
     print('add $nPTS pts: $t0 ms')
-    # printf("add %d pts: %g ms\n", NPTS, jetsystimeclockSpanMicro(t0) / 1e3)
+    # printf("add %d pts: %g ms\n", nPts, jetsystimeclockSpanMicro(t0) / 1e3)
 
     # printNode(root, 0)
     # printDot(root)
-    KDTreePoint ptest[] = { { -3.14159 } }
-    t0 = jetsystimegetTime()
+    var ptest as KDTreePoint = { .x = [ -3.14159, 0, 0 ] }
+    # t0 = jetsystimegetTime()
 
 
     var st|us = Stopwatch()
@@ -669,9 +665,9 @@ Int main(Int argc, char* argv[])
         print(ptest)
     end
 
-    t0 = jetsystimegetTime()
-    printPoint(linsearch(pt, NPTS, ptest), 0)
-    printf("linsearch: %g us\n", jetsystimeclockSpanNano(t0) / 1e3)
-    printf("total calloc %zu B (%d), malloc %zu B (%d)\n", totCallocB,
-        totCalloc, totMallocB, totMalloc)
+    # t0 = jetsystimegetTime()
+    # printPoint(linsearch(pt, nPts, ptest), 0)
+    # printf("linsearch: %g us\n", jetsystimeclockSpanNano(t0) / 1e3)
+    # printf("total calloc %zu B (%d), malloc %zu B (%d)\n", totCallocB,
+    #     totCalloc, totMallocB, totMalloc)
 }

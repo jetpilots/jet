@@ -182,9 +182,9 @@ static void resolveVars(
             if (pos[-1] != '\\') {
                 if (pos[1] == '(') pos++;
                 size_t len = strspn(pos + 1,
-                    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ123456"
-                    "789"
-                    "0");
+                    "abcdefghijklmnopqrstuvwxyz"
+                    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                    "1234567890");
                 if (len) {
                     if (len > 31) len = 31;
                     char buf[32];
@@ -235,6 +235,7 @@ static void resolveVars(
                     // function, using an & op or whatever, check for those
                     // mutations here BTW this marks entire arrays as used
                     var->changed = true;
+                    if (expr->kind == tkOpAssign) var->reassigned = true;
                     if (not var->isVar)
                         Parser_errorReadOnlyVar(parser, expr->left);
                 }

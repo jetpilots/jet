@@ -37,9 +37,10 @@ static bool TokenKind_isUnary(TokenKind kind)
 {
     return kind == tkKeyword_not or kind == tkUnaryMinus
         or kind == tkKeyword_return or kind == tkArrayOpen
-        or kind == tkKeyword_check;
+        or kind == tkKeyword_check or kind==tkBraceOpen;
     // tkArrayOpen is "unary" because it's EXPR is unary i.e.
     // it has one field `->right`, a list/dict literal expr
+    // same goes for tkBraceOpen
 }
 
 static bool TokenKind_isRightAssociative(TokenKind kind)
@@ -103,6 +104,7 @@ static uint8_t TokenKind_getPrecedence(TokenKind kind)
     case tkKeyword_do:
         return 5;
     case tkArrayOpen:
+    case tkBraceOpen:
         return 1;
     default:
         return 0;

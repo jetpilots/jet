@@ -3,63 +3,62 @@
 #define genLineProfile 1
 
 
-function ASTImport_genc(import as ASTImport, level as Integer)
+function ASTImportGenc(import as ASTImport, level as Integer)
 {
-    str_tr_ip(import.importFile, '.', '_', 0)
+    strTrIp(import.importFile, '.', '', 0)
     print("\n#include \"%s.h\"\n", import.importFile)
     if import.hasAlias)
         print("#define %s %s\n", import.importFile + import.aliasOffset,
             import.importFile)
-    str_tr_ip(import.importFile, '_', '.', 0)
+    strTrIp(import.importFile, '', '.', 0)
 end
 
 
-function ASTImport_undefc(import as ASTImport)
+function ASTImportUndefc(import as ASTImport)
 {
     if import.hasAlias)
         print("#undef %s\n", import.importFile + import.aliasOffset)
 end
 
 
-function ASTTypeSpec_genc(typeSpec as ASTTypeSpec, level as Integer, isconst as YesOrNo)
+function ASTTypeSpecGenc(typeSpec as ASTTypeSpec, level as Integer, isconst as YesOrNo)
 {
-    if isconst) print("const ")
+    if isconst then print("const ")
     # TODO: actually this depends on the collectionType. In general
     # Array is the default, but in other cases it may be SArray, Array64,
     # whatever
-    if typeSpec.dims) {
-        if typeSpec.dims > 1)
-            # TODO: this should be TensorND, without typ params?
+    if typeSpec.dims > 0
+        if typeSpec.dims > 1
+            # TODO: this should be TensorND, without tType params?
             # well actually there isn't a TensorND, since its not always
             # double thats in a tensor but can be Complex, Range,
             # Reciprocal, Rational, whatever
             # -- sure, but double (and float) should be enough since
             # the other types are rarely needed in a tensor form
-            print("SArray%dD(", typeSpec.dims)
+            print("SArray$(typeSpec.dims)D(")
         else
             print("SArray(")
     end
 
-    switch (typeSpec.typeType) {
-    case .object:
+    match typeSpec.typeType
+    case .object
         # objects are always T* const, if meant to be r/o they are
         # const T* const. Later we may have a byval flag to embed structs
         # or pass around by value.
         # leaving it as is for now
-        print("%s", typeSpec.typ.name)
-        break
-    case .unresolved:
-        unreachable("unresolved: '%s' at %d:%d", typeSpec.name, typeSpec.line,
-            typeSpec.col)
-        print("%s", typeSpec.name)
-        break
-    default:
-        print("%s", TypeType_name(typeSpec.typeType))
-        break
+        print(typeSpec.tType.name)
+
+    case .unresolved
+        unreachable("unresolved: '$typeSpec.name' at $typeSpec.line:$typeSpec.col")
+        print(typeSpec.name)
+
+    else
+        print(name(typeSpec.typeType))
+
     end
 
-    #     if isconst ) print(" const") # only if a ptr typ
-    if typeSpec.dims /*or typeSpec.typeType == .object*/) print("%s", ")")
+    #     if isconst ) print(" const") # only if a ptr tType
+    if typeSpec.dims > 0 then print(")")
     #        if status == TSDimensionedNumber) {
     #            generate(units, level)
     #        end
@@ -72,13 +71,13 @@ function generate(
 function generate(var as ASTVar, level as Integer, isconst as YesOrNo)
 {
     # for C the variables go at the top of the block, without init
-    print("%.*s", level, spaces)
-    if var.typeSpec) ASTTypeSpec_genc(var.typeSpec, level + STEP, isconst)
-    print(" %s", var.name)
+    print("$space{level}")
+    if var.typeSpec then generate(var.typeSpec, level=level+lStep, isconst)
+    print(" $var.name")
 end
 
 
-# Functions like Array_any_filter, Array_count_filter etc.
+# Functions like ArrayAnyFilter, ArrayCountFilter etc.
 # are macros and don't out = a value but may set one. For these
 # and other such funcs, the call must be moved to before the
 # containing statement, and in place of the original call you
@@ -88,35 +87,27 @@ function YesOrNo mustPromote(const char* name)
 {
     # TODO: at some point these should go into a dict or trie or MPH
     # whatever
-    if not strcmp(name, "Array_any_filter")) out = true
-    if not strcmp(name, "Array_all_filter")) out = true
-    if not strcmp(name, "Array_count_filter")) out = true
-    if not strcmp(name, "Array_write_filter")) out = true
-    if not strcmp(name, "Strs_print_filter")) out = true
+    if not strcmp(name, "ArrayAnyFilter")) out = true
+    if not strcmp(name, "ArrayAllFilter")) out = true
+    if not strcmp(name, "ArrayCountFilter")) out = true
+    if not strcmp(name, "ArrayWriteFilter")) out = true
+    if not strcmp(name, "StrsPrintFilter")) out = true
     out = no
 end
 
 
 function unmarkVisited(expr as ASTExpr)
-{
-    switch (expr.kind) {
-    case .identifierResolved:
-    case .varAssign:
+    match expr.kind
+    case .identifierResolved, .varAssign:
         expr.var.visited = no
-        break
-    case .functionCallResolved:
-    case .functionCall: # shouldnt happen
-    case .subscriptResolved:
-    case .subscript:
-    case .keyword_if:
-    case .keyword_for:
-    case .keyword_else:
-    case .keyword_while:
+
+    case .functionCallResolved, .functionCall, .subscriptResolved, .subscript,
+        .keywordIf, .keywordFor, .keywordElse, .keywordWhile
         unmarkVisited(expr.left)
-        break
-    default:
-        if expr.prec) {
-            if not expr.unary) unmarkVisited(expr.left)
+
+    else
+        if expr.prec > 0
+            if not expr.unary then unmarkVisited(expr.left)
             unmarkVisited(expr.right)
         end
     end
@@ -133,13 +124,12 @@ end
 function genPrintVars(expr as ASTExpr, level as Integer)
 {
     assert(expr)
-    # what about func args?
+    # what about fFunc args?
     switch (expr.kind) {
-    case .identifierResolved:
-    case .varAssign:
+    case .identifierResolved, .varAssign:
         if expr.var.visited) break
         print("%.*sprintf(\"    %s = %s\\n\", %s)\n", level, spaces,
-            expr.var.name, TypeType_format(expr.typeType, true),
+            expr.var.name, TypeTypeFormat(expr.typeType, true),
             expr.var.name)
         expr.var.visited = true
         break
@@ -151,19 +141,13 @@ function genPrintVars(expr as ASTExpr, level as Integer)
         ##            if e.var.visited) break
         #            print("%.*sprintf(\"    %s = %s\\n\", %s)\n", level,
         #            spaces,
-        #                   expr.var.name, TypeType_format(e.typeType,
+        #                   expr.var.name, TypeTypeFormat(e.typeType,
         #                   true), expr.var.name)
         #        end
         break
 
-    case .functionCallResolved:
-    case .functionCall: # shouldnt happen
-    case .subscriptResolved:
-    case .subscript:
-    case .keyword_if:
-    case .keyword_else:
-    case .keyword_for:
-    case .keyword_while:
+    case .functionCallResolved, .functionCall: # shouldnt happen
+    case .subscriptResolved, .subscript, .keywordIf, .keywordElse, .keywordFor, .keywordWhile:
         genPrintVars(expr.left, level)
         break
 
@@ -178,17 +162,16 @@ end
 
 # Promotion scan & promotion happens AFTER resolving functions!
 function promotionCandidate(expr as ASTExpr) result (out as ASTExpr)
-{
-    assert(expr)
     var ret as ASTExpr
 
-    # what about func args?
+    # what about fFunc args?
     match expr.kind
     case .functionCallResolved:
         # promote innermost first, so check args
-        if expr.left and (ret = promotionCandidate(expr.left)))
+        ret = promotionCandidate(expr.left)
+        if expr.left and ret
             out = ret
-        else if mustPromote(expr.func.selector))
+        else if mustPromote(expr.fFunc.selector)
             out = expr
         break
 
@@ -199,48 +182,46 @@ function promotionCandidate(expr as ASTExpr) result (out as ASTExpr)
     case .subscript:
         out = promotionCandidate(expr.left)
 
-    case .keyword_if:
-    case .keyword_for:
-    case .keyword_else:
-    case .keyword_elif:
-    case .keyword_while:
-        if expr.left) out = promotionCandidate(expr.left)
+    case .keywordIf, .keywordFor, .keywordElse, .keywordElif, .keywordWhile:
+        if expr.left then out = promotionCandidate(expr.left)
         # body will be handled by parent scope
 
     case .varAssign:
-        if (ret = promotionCandidate(expr.var.init))) out = ret
-        break
+        ret = promotionCandidate(expr.var.init)
+        if ret then out = ret
 
     case .functionCall: # unresolved
         # assert(0)
-        unreachable("unresolved call %s\n", expr.string)
-        if (ret = promotionCandidate(expr.left))) out = ret
-        break
+        unreachable("unresolved call $expr.string")
+        ret = promotionCandidate(expr.left)
+        if ret then out = ret
 
-    else:
-        if expr.prec) {
-            if (ret = promotionCandidate(expr.right))) out = ret
-            if not expr.unary)
-                if (ret = promotionCandidate(expr.left))) out = ret
+    else
+        if expr.prec
+            ret = promotionCandidate(expr.right)
+            if ret
+                out = ret
+            else if not expr.unary
+                ret = promotionCandidate(expr.left)
+                if ret then out = ret
+            end
         end
     end
-    out = missing
 end
 
 function char* newTmpVarName(num as Integer, char c)
-{
     char buf[8]
-    var l as Integer = snprintf(buf, 8, "_%c%d", c, num)
+    var l as Integer = snprintf(buf, 8, "%c%d", c, num)
     out = pstrndup(buf, l)
 end
 
 
 function  isCtrlExpr(expr as ASTExpr) as YesOrNo
 {
-    out = expr.kind == .keyword_if #
-        or expr.kind == .keyword_for #
-        or expr.kind == .keyword_while #
-        or expr.kind == .keyword_else
+    out = expr.kind  == .keywordIf #
+        or expr.kind == .keywordFor #
+        or expr.kind == .keywordWhile #
+        or expr.kind == .keywordElse
 end
 
 function  isLiteralExpr(expr as ASTExpr) as YesOrNo { out = no
@@ -251,15 +232,15 @@ end
 
 function lowerElementalOps(scope as ASTScope)
 {
-    for stmt = scope.stmts # fp_foreach(ASTExpr*, stmt, scope.stmts)
+    for stmt = scope.stmts # for ASTExpr*, stmt, scope.stmts)
 
-        if isCtrlExpr(stmt) and stmt.body) then lowerElementalOps(stmt.body)
+        if isCtrlExpr(stmt) and stmt.body then lowerElementalOps(stmt.body)
 
         if not stmt.elemental) then skip
 
         # wrap it in an empty block (or use if true)
         var ifblk = ASTExpr() with {
-            .kind = .keyword_if
+            .kind = .keywordIf
             .left = ASTExpr() with {
                 .kind = .number
             }
@@ -269,47 +250,47 @@ function lowerElementalOps(scope as ASTScope)
         # look top-down for subscripts. if you encounter a node with
         # elemental=no, don't process it further even if it may have
         # ranges inside. e.g.
-        # vec[7:9] = arr2[6:8] + sin(arr2[-6:-1:-4]) + test[[8,6,5]]
+        # vec[7:9] = arr2[6:8] + sin(arr2[-6:-1:-4]) + tTest[[8,6,5]]
         # + 3 + count(vec[vec < 5]) + M ** x[-8:-1:-4]
         # the matmul above is not
         # elemental, but the range inside it is.
-        # the Array_count_filter will be promoted and isnt elemental
+        # the ArrayCountFilter will be promoted and isnt elemental
         # (unless you plan to set elemental op on boolean subscripts.)
         # Even so, count is a reduce op and will unset elemental.
         # --
         # as you find each subscript, add 2 local vars to the ifblk body
         # so then you might have for the above example :
-        # T* vec_p1 = vec.start + 7
-        # # ^ this func could be membptr(a,i) . i<0 ? a.end-i :
-        # a.start+i #define vec_1 *vec_p1 # these could be ASTVars with
-        # an isCMacro flag T2* arr2_p1 = membptr(arr2, 6) #define arr2_1
-        # *arr2_p1 T3* arr2_p2 = membptr(arr2, -6) #define arr2_2 *arr2_p2
+        # T* vecP1 = vec.start + 7
+        # # ^ this fFunc could be membptr(a,i) . i<0 ? a.end-i :
+        # a.start+i #define vec1 *vecP1 # these could be ASTVars with
+        # an isCMacro flag T2* arr2P1 = membptr(arr2, 6) #define arr21
+        # *arr2P1 T3* arr2P2 = membptr(arr2, -6) #define arr22 *arr2P2
         # ...
         # # now add vars for each slice end and delta
-        # const T* const vec_e1 = vec.start + 9 # use membptr
-        # const T2* const arr2_e1 = arr2.start + 8 # membptr
-        # const T3* const arr2_e2 = membptr(arr2, -4)
-        # what about test[[8,6,5]]?
-        # const T* const vec_d1 = 1
-        # const T2* const arr2_d1 = 1
-        # const T3* const arr2_d2 = -1
+        # const T* const vecE1 = vec.start + 9 # use membptr
+        # const T2* const arr2E1 = arr2.start + 8 # membptr
+        # const T3* const arr2E2 = membptr(arr2, -4)
+        # what about tTest[[8,6,5]]?
+        # const T* const vecD1 = 1
+        # const T2* const arr2D1 = 1
+        # const T3* const arr2D2 = -1
         # ...
         # # the ends (and starts) could be used for BC.
         # ...
         # # now add a check / separate checks for count match and bounds
-        # check_span1deq(vec_e1,vec_p1,arr2_e1,arr2_p1,col1,col2,"vec[7:9]","arr2[6:8]",__FILE__,__LINE__)
-        # check_span1deq(arr2_e1,arr2_p1,arr2_e2,arr2_p2,col1,col2,"arr2[6:8]","arr2[-6:-4]",__FILE__,__LINE__)
-        # check_inbounds1d(vec, vec_p1, vec_e1,col1,
-        # "vec[7:9]",__FILE__,__LINE__) check_inbounds1d(arr2, arr2_p1,
-        # arr2_e1,col1, "arr2[6:8]",__FILE__,__LINE__) now change the
+        # checkSpan1deq(vecE1,vecP1,arr2E1,arr2P1,col1,col2,"vec[7:9]","arr2[6:8]",_FILE_,_LINE_)
+        # checkSpan1deq(arr2E1,arr2P1,arr2E2,arr2P2,col1,col2,"arr2[6:8]","arr2[-6:-4]",_FILE_,_LINE_)
+        # checkInbounds1d(vec, vecP1, vecE1,col1,
+        # "vec[7:9]",_FILE_,_LINE_) checkInbounds1d(arr2, arr2P1,
+        # arr2E1,col1, "arr2[6:8]",_FILE_,_LINE_) now change the
         # subscripts in the stmt to unresolved idents, and change the ident
-        # by appending _1, _2 etc. based on their position. so when they
+        # by appending 1, 2 etc. based on their position. so when they
         # are generated they will refer to the current item of that array.
         # then wrap the stmt in a for expr 'forblk'. put the for expr in
         # ifblk. the active scope is now the for's body. generate the stmt.
         # it should come out in Number form if all went well.. add
-        # increments for each ptr. vec_p1 += vec_d1 arr2_p1 += arr2_d1
-        # arr2_p2 += arr2_d2
+        # increments for each ptr. vecP1 += vecD1 arr2P1 += arr2D1
+        # arr2P2 += arr2D2
         # ...
         # all done, at the end put the ifblk at the spot of stmt in the
         # original scope. stmt is already inside ifblk inside forblk.
@@ -323,12 +304,13 @@ function promoteCandidates(scope as ASTScope)
     var pc as ASTExpr = missing
     var prev[] as ASTExpr
     # List(ASTExpr)* prev = missing
-    for stmt = scope.stmts #fp_foreachn(ASTExpr*, stmt, stmts, scope.stmts)
+    for stmt as ASTExpr in scope.stmts
+    #fpForeachn(ASTExpr*, stmt, stmts, scope.stmts)
     # {
         # TODO:
         # if not stmt.promote) {prev=stmtscontinueend
 
-        if isCtrlExpr(stmt) and stmt.body) then promoteCandidates(stmt.body)
+        if isCtrlExpr(stmt) and stmt.body then promoteCandidates(stmt.body)
 
     startloop:
         pc = promotionCandidate(stmt)
@@ -347,9 +329,9 @@ function promoteCandidates(scope as ASTScope)
 
         # 1. add a temp var to the scope
         tmpCount += 1
-        var tmpvar as ASTVar = ASTVar() with {
-            .name = "_1p$tmpCount" #newTmpVarName(tmpCount, 'p')
-            .typeSpec = ASTTypeSpec()
+        var tmpvar = ASTVar {
+            .name = "1p$tmpCount" #newTmpVarName(tmpCount, 'p')
+            .typeSpec = ASTTypeSpec {}
         }
         #        tmpvar.typeSpec.typeType = .real64 # FIXME
         # TODO: setup tmpvar.typeSpec
@@ -367,7 +349,7 @@ function promoteCandidates(scope as ASTScope)
             pcClone.left = pc
         else if pcClone.left.kind != .opComma
             # single arg
-            pcClone.left = ASTExpr() with {
+            pcClone.left = ASTExpr {
             # TODO: really should have an astexpr ctor
                 .kind = TokenKinds.opComma
                 .prec = precedence(TokenKinds.opComma)
@@ -380,7 +362,7 @@ function promoteCandidates(scope as ASTScope)
             while argn.kind == .opComma and argn.right.kind == .opComma
                 argn = argn.right
             end while
-            argn.right = ASTExpr() with {
+            argn.right = ASTExpr {
             # TODO: really should have an astexpr ctor
                 .kind = TokenKinds.opComma
                 .prec = precedence(TokenKinds.opComma)
@@ -391,15 +373,15 @@ function promoteCandidates(scope as ASTScope)
         end
 
         # 4. insert the promoted expr BEFORE the current stmt
-        #        PtrList_append(prev ? &prev : &self.stmts, pcClone)
+        #        PtrListAppend(prev ? &prev : &self.stmts, pcClone)
         #        PtrList* tmp = prev.next
         # THIS SHOULD BE in PtrList as insertAfter method
         if not prev
-            scope.stmts = fp_PtrList_with(pcClone)
+            scope.stmts = fpPtrListWith(pcClone)
             scope.stmts.next = stmts
             prev = scope.stmts
         else
-            prev.next = fp_PtrList_with(pcClone)
+            prev.next = fpPtrListWith(pcClone)
             prev.next.next = stmts
             prev = prev.next
         end # List(ASTExpr)* insertionPos = prev ? prev.next : self.stmts
@@ -415,111 +397,109 @@ end
 
 function generate(scope as ASTScope, level as Integer)
 {
-    for local = scope.locals #fp_foreach(ASTVar*, local, scope.locals)
+    for local = scope.locals #for ASTVar*, local, scope.locals)
     if local.used
         generate(local, level = level, static = no)
         print()
     end if # these will be declared at top and defined within the expr list
 
-    for stmt in scope.stmts #fp_foreach(ASTExpr*, stmt, scope.stmts)
+    for stmt in scope.stmts #for ASTExpr*, stmt, scope.stmts)
     #{
         if stmt.kind == .lineComment then skip
 
-        if genLineNumbers then print("#line %d\n", stmt.line)
-        if genCoverage then print("_cov_[%d]++\n", stmt.line - 1)
-        if genLineProfile
-            print("_lprof_tmp_ = getticks()\n")
-            print("_lprof_[%d] += (_lprof_tmp_-_lprof_last_)/100\n",
-                stmt.line - 1)
-            print("_lprof_last_ = _lprof_tmp_\n")
+        if genLineNumbers then print("#line $stmt.line")
+        var lineIndex = stmt.line - 1
+        if genCoverage then print("Cov[$lineIndex]++")
+        if genLineProfile then print("
+            LprofTmp = getticks();
+            Lprof[$lineIndex] += (LprofTmp-LprofLast)/100;
+            LprofLast = LprofTmp;")
         end
         generate(stmt, level, true, no, no)
-        if not isCtrlExpr(stmt) and stmt.kind != .keyword_return)
+        if not isCtrlExpr(stmt) and stmt.kind != .keywordReturn)
             print("")
         else
             print("")
         # convert this into a flag which is set in the resolution pass
         if throws(stmt)
-            print("    if _err_ == ERROR_TRACE) goto backtrace")
+            print("    if Err == ERRORTRACE) goto backtrace")
         end if
     end
 end
 
 
-function genJson(typ as ASTType)
+function genJson(tType as ASTType)
 {
-    print("function %s_json_(const %s self, Integer nspc) {\n", typ.name,
-        typ.name)
+    print('
+        void $tType.nameJson(const $tType.name self, Integer nspc) {
+            printf("{\n");
+        ')
+    # print("    print(\"\\\"Type\\\": \\\"%s\\\"\")\n", tType.name)
+    # if tType.body.locals) print("    print(\",\\n\")\n")
 
-    print("    print(\"{\\n\")\n")
-    # print("    print(\"\\\"_type_\\\": \\\"%s\\\"\")\n", typ.name)
-    # if typ.body.locals) print("    print(\",\\n\")\n")
-
-    # TODO: move this part into its own func so that subclasses can ask the
+    # TODO: move this part into its own fFunc so that subclasses can ask the
     # superclass to add in their fields inline
-    fp_foreachn(ASTVar*, var, vars, typ.body.locals)
-    {
-        if not var then skip
-        print("    print(\"%%.*s\\\"%s\\\": \", nspc+4, _spaces_)\n",
-            var.name)
+    for local as ASTVar in tType.body.locals
+        if not local then skip
+        print('    printf("%.*s\"$var.name\": ", nspc+4, Spaces)')
         var valueType as Text = typeName(var.init)
-        print("    %s_json_(self.%s, nspc+4)\n    print(\"", valueType,
-            var.name)
-        if vars.next) print(",")
-        print("\\n\")\n")
+        print('
+            $valueTypeJson(self.$var.name, nspc+4);
+            printf(\"')
+        if vars.next then print(",")
     end
-    print("    print(\"%%.*send\", nspc, _spaces_)\n")
-    print("end\nMAKE_json_wrap_(%s)\n#MAKE_json_file(%s)\n", typ.name,
-        typ.name)
-    # print("#define %s_json(x) { print(\"\\\"%%s\\\": \",#x) "
-    #        "%s_json_wrap_(x)
+    print("    print(\"%%.*send\", nspc, Spaces)\n")
+    print("end\nMAKEJsonWrap(%s)\n#MAKEJsonFile(%s)\n", tType.name,
+        tType.name)
+    # print("#define %sJson(x) { print(\"\\\"%%s\\\": \",#x) "
+    #        "%sJsonWrap(x)
     # end\n\n",
-    #     typ.name, typ.name)
+    #     tType.name, tType.name)
 end
 
 
-function genJsonReader(typ as ASTType)
- end function
+function genJsonReader(tType as ASTType)
+end function
 
-let functionEntryStuff_UNESCAPED = '
+let functionEntryStuffUNESCAPED = '
     #ifndef NOSTACKCHECK
-        STACKDEPTH_UP
-        // print("%8lu %8lu\n",_scUsage_, _scSize_)
-        if _scUsage_ >= _scSize_) {
+        STACKDEPTHUP
+        // printf("%8lu %8lu\n",ScUsage, ScSize)
+        if ScUsage >= ScSize) {
     #ifdef DEBUG
-        _scPrintAbove_ = _scDepth_ - _btLimit_;
-        print("\e[31mfatal: stack overflow at call depth %lu.\n    in %s\e[0m\n", _scDepth_, sig_);
+        ScPrintAbove = ScDepth - BtLimit;
+        print("\e[31mfatal: stack overflow at call depth %lu.\n    in %s\e[0m\n", ScDepth, sig);
         print("\e[90mBacktrace (innermost first):\n");
-        if _scDepth_ > 2*_btLimit_)
-            print("    limited to %d outer and %d inner entries.\n", _btLimit_, _btLimit_);
-            print("[%lu] \e[36m%s\n", _scDepth_, callsite_);
+        if ScDepth > 2*BtLimit)
+            print("    limited to %d outer and %d inner entries.\n", BtLimit, BtLimit);
+            print("[%lu] \e[36m%s\n", ScDepth, callsite);
     #else
-            print("\e[31mfatal: stack  overflow at call depth %lu.\e[0m\n", _scDepth_);
+            print("\e[31mfatal: stack  overflow at call depth %lu.\e[0m\n", ScDepth);
     #endif
             DONE
         }
     #endif
     '
 
-let functionExitStuff_UNESCAPED = '
-    out = DEFAULT_VALUE;
+let functionExitStuffUNESCAPED = '
+    out = DEFAULTVALUE;
     assert(0);
     error:
     #ifdef DEBUG
-        eprintf("error: %s\n",_err_);
+        eprintf("error: %s\n",Err);
     #endif
     backtrace:
     #ifdef DEBUG
-        if _scDepth_ <= _btLimit_ || _scDepth_ > _scPrintAbove_)
-            print("\e[90m[%lu] \e[36m%s\n", _scDepth_, callsite_);
-        else if _scDepth_ == _scPrintAbove_)
+        if ScDepth <= BtLimit || ScDepth > ScPrintAbove)
+            print("\e[90m[%lu] \e[36m%s\n", ScDepth, callsite);
+        else if ScDepth == ScPrintAbove)
             print("\e[90m... truncated ...\e[0m\n");
     #endif
     done:
     #ifndef NOSTACKCHECK
-        STACKDEPTH_DOWN
+        STACKDEPTHDOWN
     #endif
-        out = DEFAULT_VALUE;
+        out = DEFAULTVALUE;
     '
 
 function printStackUsageDef(stackUsage as Integer)
@@ -532,188 +512,236 @@ function printStackUsageDef(stackUsage as Integer)
         ')
 end function
 
-
-function generate(typ as ASTType, level as Integer)
-{
-    if not typ.body or not typ.analysed then return
-    var name as Text = typ.name
-    print('#define FIELDS_$name')
-    for local = typ.body.locals # fp_foreach(ASTVar*, var, typ.body.locals)
-    {
-        if not local then skip
-        generate(local, level = level + STEP, no)
-        print()
-    end
-    print('
-
-    struct $name {
-    ')
-    if typ.super
-        print("    FIELDS_")
-        generate(typ.super, level=level, other=no)
-        print()
+function generate(tType as ASTType, level as Integer)
+    if not tType.body or not tType.analysed then return
+    var name as Text = tType.name
+    print('#define FIELDS$name')
+    for local as ASTVar in tType.body.locals
+        generate(local, level=level+lStep, no)
     end
 
     print('
-        FIELDS_$name
+
+    struct $name {')
+
+    if tType.super
+        print("    FIELDS")
+        generate(tType.super, level=level, other=no)
+    end
+
+    print('
+        FIELDS$name
         }
 
-        static const char* $name_name_ = "$name"
-        static $name $name_alloc_() {
-            out = _Pool_alloc_(&gPool_, sizeof(struct $name));
+        static const char* $nameName = "$name";
+        static $name $nameAlloc() {
+            out = PoolAlloc(&gPool, sizeof(struct $name));
         }
-        static $name $name_init_($name self) {')
+        static $name $nameInit($name self) {')
 
-    # fp_foreach(ASTVar*, var, typ.body.locals)
+    # for ASTVar*, var, tType.body.locals)
     #     print("#define %s self.%s\n", var.name, var.name)
-    for local in typ.body.locals
+    for local as ASTVar in tType.body.locals
         print('#define $local.name self.$local.name')
-    end for
-
-    fp_foreach(ASTExpr*, stmt, typ.body.stmts)
-    {
-        if not stmt or stmt.kind != .varAssign or not stmt.var.init)
-            continue
-        print("%.*s%s = ", level + STEP, spaces, stmt.var.name)
-        generate(stmt.var.init, 0, true, no, no)
-        print("")
-        if throws(stmt.var.init))
-            print("    if _err_ == ERROR_TRACE) out = missing")
     end
-    fp_foreach(ASTVar*, var, typ.body.locals)
-        print("#undef %s \n", var.name)
 
-    print("    out = self\nend\n")
+    for stmt as ASTExpr in tType.body.stmts
+        if not stmt or stmt.kind != .varAssign or not stmt.var.init then skip
+        var ll = level + lStep
+        print('$spaces{ll}$name = ')
+        generate(stmt.var.init, 0, true, no, no)
+
+        if throws(stmt.var.init)
+            print("    if Err == ERRORTRACE) out = missing;")
+        end
+    end
+
+    for local as ASTVar in tType.body.locals do print('#undef $local.name')
+
     print(
-        "%s %s_new_(\n#ifdef DEBUG\n    const char* callsite_\n#endif\n) {\n",
-        name, name)
-    print("#define DEFAULT_VALUE missing\n#ifdef DEBUG\n    function const char* "
-           "sig_ = \"%s()\"\n#endif\n",
-        name)
+        '   out = self;
+        }
+            $name $nameNew(
+            #ifdef DEBUG
+                const char* callsite
+            #endif
+        ) {
+        #define DEFAULTVALUE missing
+        #ifdef DEBUG
+            function const char* sig = "$name()"
+        #endif')
+
+    # uglly uglly. therefore string interp is the only way
+    print(
+        '   out = self;
+        }
+            ' .. name .. ' ' .. upper(name) .. 'New(
+            #ifdef DEBUG
+                const char* callsite
+            #endif
+        ) {
+        #define DEFAULTVALUE missing
+        #ifdef DEBUG
+            function const char* sig = "$name()"
+        #endif')
+
+    name .= 'wow'
+
     printStackUsageDef(48)
-    print(functionEntryStuff_UNESCAPED)
-    print("    %s ret = %s_alloc_() %s_init_(ret) if _err_==ERROR_TRACE) "
-           "goto backtrace"
-           "_err_ = missing \n#ifndef NOSTACKCHECK\n    "
-           "STACKDEPTH_DOWN\n#endif\n     out = ret",
-        name, name, name)
-    print(functionExitStuff_UNESCAPED)
-    print("#undef DEFAULT_VALUE\n#undef MYSTACKUSAGE\nend")
-    print("#define %s_print_(p) %s_print__(p, STR(p))\n", name, name)
-    print("void %s_print__(%s self, const char* name) {\n    print(\"<%s "
-           "'%%s' at %%p\\n>\",name,self)\nend\n",
-        name, name, name)
-    print("")
+    print(functionEntryStuffUNESCAPED)
+    print('
+        $name ret = $nameAlloc();
+        $nameInit(ret);
+        if (Err == ERRORTRACE) goto backtrace;
+        Err = missing;
+        #ifndef NOSTACKCHECK
+            STACKDEPTHDOWN
+        #endif
+        out = ret;')
+    print(functionExitStuffUNESCAPED)
+    print('
+        #undef DEFAULTVALUE
+        #undef MYSTACKUSAGE
+        }
+        #define $namePrint(p) $namePrint_(p, STR(p))
+        void $namePrint_($name self, const char* name) {
+            printf("<$name \'%s\' at %p>", name, self)
+        }')
 
-    genJson(typ)
-    genJsonReader(typ)
+    genJson(tType)
+    genJsonReader(tType)
 end
 
+preferredRegexStyle := `
+    [a-z] # starts with a lowercase letter only
+    [A-Za-z0-9]* # followed by any alnum but NOT underscore
+    (?= *\() # lookahead must be opening paren (whitespace ok before it)
+    `
 
-function generateHeader(typ as ASTType, level as Integer)
+ASTType generateHeader(ASTType tType, Int level)
+
+export function generateHeader(tType as ASTType, level as Int)
+    check tType.body != nil # means declared funcs # BTW in jet if body is an
+    # array it CANNOT be nil
+    check not tType.isDecl
+    check len(tType.body) > 0
+    check tType.analysisDone or tType.analysisNotNeeded
+    # you cant catch it all at compile time, but this will force the caller to
+    # add an if(...) for this condition and not the callee!!!! yay
+    # if you don't have a return keyword, fFunc writers will be forced to put
+    # such checks
+
+    var name as String = tType.name
+    check name != "" # this should be interpreted as a requires on tType.name!
+
+    print('
+        typedef struct $name* $name;
+        struct $name;
+        void $name $nameAlloc();
+        void $name $nameInit($name self);
+        $name $nameNew(
+            #ifdef DEBUG
+                const char* callsite
+            #endif
+            );
+        DECLJsonWrap($name);
+        DECLJsonFile($name);
+        #define $nameJson(x) { printf("\"%s\": ", #x); $nameJsonWrap(x); }
+        void $nameJson(const $name self, int nspc)')
+
+    # by allowing only ' as string delim, you can write code templates for
+    # most other langs almost literally since they seem to use " for strs
+
+    # You know that string interp is only allowed in literals, NOT in strings
+    # read from somewhere! For that you have to explicitly do a replace().
+end function
+
+
+generate(fFunc as ASTFunc, level as Integer)
 {
-    if not typ.body or not typ.analysed) out =
-    const char* const name = typ.name
-    print("typedef struct %s* %s\nstruct %s\n", name, name, name)
-    print("function %s %s_alloc_() \n", name, name)
-    print("function %s %s_init_(%s self)\n", name, name, name)
-    print(
-        "%s %s_new_(\n#ifdef DEBUG\n    const char* callsite_\n#endif\n) \n",
-        name, name)
-    print("\nDECL_json_wrap_(%s)\n#DECL_json_file(%s)\n", name, name)
-    print("#define %s_json(x) { print(\"\\\"%%s\\\": \",#x) "
-           "%s_json_wrap_(x)
-           end\n\n",
-        name, name)
-    print("function %s_json_(const %s self, Integer nspc)\n", name, name)
-end
-
-
-function generate(func as ASTFunc, level as Integer)
-{
-    if not func.body or not func.analysed) out = # declares, default ctors
+    if not fFunc.body or not fFunc.analysed) out = # declares, default ctors
 
     # actual stack usage is higher due to stack protection, frame bookkeeping
     # ...
-    Integer stackUsage = calcSizeUsage(func)
+    Integer stackUsage = calcSizeUsage(fFunc)
     printStackUsageDef(stackUsage)
 
     print(
-        "#define DEFAULT_VALUE %s\n", getDefaultValueForType(func.returnSpec))
-    if not func.isExported) print("function ")
-    if func.returnSpec) {
-        ASTTypeSpec_genc(func.returnSpec, level, no)
-    end else {
+        "#define DEFAULTVALUE %s\n", getDefaultValueForType(fFunc.returnSpec))
+    if not fFunc.isExported print("static void ")
+    if fFunc.returnSpec
+        generate(fFunc.returnSpec, level, no)
+    else
         print("void")
     end
-    print(" %s(", func.selector)
-    fp_foreachn(ASTVar*, arg, args, func.args)
+    print(" %s(", fFunc.selector)
+    fpForeachn(ASTVar*, arg, args, fFunc.args)
     {
         generate(arg, level, true)
         print(args.next ? ", " : "")
     end
 
     print("\n#ifdef DEBUG\n"
-           "    %c const char* callsite_ "
+           "    %c const char* callsite "
            "\n#endif\n",
-        ((func.args and func.args.item ? ',' : ' ')))
+        ((fFunc.args and fFunc.args.item ? ',' : ' ')))
 
-    # TODO: if flags.throws) print("const char** _err_")
+    # TODO: if flags.throws) print("const char** Err")
     print(") {")
     print("#ifdef DEBUG\n"
-           "    function const char* sig_ = \"")
-    print("%s%s(", func.isStmt ? "" : "function ", func.name)
+           "    function const char* sig = \"")
+    print("%s%s(", fFunc.isStmt ? "" : "function ", fFunc.name)
 
-    fp_foreachn(ASTVar*, arg, args, func.args)
+    fpForeachn(ASTVar*, arg, args, fFunc.args)
     {
         gen(arg, level)
         print(args.next ? ", " : ")")
     end
-    if func.returnSpec) {
+    if fFunc.returnSpec) {
         print(" returns ")
-        ASTTypeSpec_gen(func.returnSpec, level)
+        ASTTypeSpecGen(fFunc.returnSpec, level)
     end
     print("\"\n#endif")
 
-    print(functionEntryStuff_UNESCAPED)
+    print(functionEntryStuffUNESCAPED)
 
-    generate(func.body, level + STEP)
+    generate(fFunc.body, level + lStep)
 
-    print(functionExitStuff_UNESCAPED)
-    print("end\n#undef DEFAULT_VALUE")
+    print(functionExitStuffUNESCAPED)
+    print("end\n#undef DEFAULTVALUE")
     print("#undef MYSTACKUSAGE")
 end
 
 
-function generateHeader(func as ASTFunc, level as Integer)
+function generateHeader(fFunc as ASTFunc, level as Integer)
 {
-    if not func.body or not func.analysed) out =
-    if not func.isExported) print("function ")
-    if func.returnSpec) {
-        ASTTypeSpec_genc(func.returnSpec, level, no)
+    if not fFunc.body or not fFunc.analysed) out =
+    if not fFunc.isExported) print("function ")
+    if fFunc.returnSpec) {
+        ASTTypeSpecGenc(fFunc.returnSpec, level, no)
     end else {
         print("void")
     end
-    print(" %s(", func.selector)
-    fp_foreachn(ASTVar*, arg, args, func.args)
+    print(" %s(", fFunc.selector)
+    fpForeachn(ASTVar*, arg, args, fFunc.args)
     {
         generate(arg, level, true)
         print(args.next ? ", " : "")
     end
-    print("\n#ifdef DEBUG\n    %c const char* callsite_ "
+    print("\n#ifdef DEBUG\n    %c const char* callsite "
            "\n#endif\n",
-        ((func.args and func.args.item) ? ',' : ' '))
+        ((fFunc.args and fFunc.args.item) ? ',' : ' '))
     print(")\n")
 end
 
 ##########################
 
-function ASTTest_genc(test as ASTTest)
+function generate(tTest as ASTTest)
 {
     # TODO: should tests not out = BOOL?
-    if not test.body) out =
-    print("\nstatic void test_%s() {\n", test.name)
-    generate(test.body, STEP)
+    if not tTest.body out =
+    print("\nstatic void test%s() {\n", tTest.name)
+    generate(tTest.body, lStep)
     print("end")
 end
 
@@ -729,13 +757,12 @@ function generate(
     case .number: {
         ls as Integer = strlen(expr.string)
         if expr.string[ls - 1] == 'i') {
-            print("_Complex_I*")
+            print("ComplexI*")
             expr.string[ls - 1] = 0
         end
         print("%s", expr.string)
     end break
-    case .multiDotNumber:
-    case .identifier:
+    case .multiDotNumber, .identifier:
         print("%s", expr.string)
         break
 
@@ -769,22 +796,22 @@ function generate(
         break
 
     case .functionCallResolved: {
-        var tmp as Text = expr.func.selector
+        var tmp as Text = expr.fFunc.selector
 
         var arg1 as ASTExpr = expr.left
         const char* tmpc = ""
         if arg1) {
             if arg1.kind == .opComma) arg1 = arg1.left
-            tmpc = CollectionType_nativeName(arg1.collectionType)
+            tmpc = CollectionTypeNativeName(arg1.collectionType)
         end
         print("%s%s", tmpc, tmp)
-        if *tmp >= 'A' and *tmp <= 'Z' and not strchr(tmp, '_'))
-            print("_new_")
+        if *tmp >= 'A' and *tmp <= 'Z' and not strchr(tmp, ''))
+            print("New")
         print("(")
 
         if expr.left) generate(expr.left, 0, no, true, escStrings)
 
-        if not expr.func.isDeclare) {
+        if not expr.fFunc.isDeclare) {
             print("\n#ifdef DEBUG\n"
                    "      %c \"./\" THISFILE \":%d:%d:\\e[0m ",
                 expr.left ? ',' : ' ', expr.line, expr.col)
@@ -807,15 +834,14 @@ function generate(
         case .number:
             # indexing with a single number
             # can be a -ve number
-            print("Array_get_%s(%s, %s)",
-                ASTTypeSpec_cname(expr.var.typeSpec), name, index.string)
+            print("ArrayGet%s(%s, %s)",
+                cname(expr.var.typeSpec), name, index.string)
             break
 
-        case .string:
-        case .regex:
+        case .string, .regex:
             # indexing with single string or regex
-            print("Dict_get_CString_%s(%s, %s)",
-                ASTTypeSpec_cname(expr.var.typeSpec), name, index.string)
+            print("DictGetCString%s(%s, %s)",
+                cname(expr.var.typeSpec), name, index.string)
             break
 
         case .opComma:
@@ -823,8 +849,8 @@ function generate(
             # stage.
 
             # this is for cases like arr[2, 3, 4].
-            print("Tensor%dD_get_%s(%s, {", expr.var.typeSpec.dims,
-                ASTTypeSpec_cname(expr.var.typeSpec), name)
+            print("Tensor%dDGet%s(%s, {", expr.var.typeSpec.dims,
+                cname(expr.var.typeSpec), name)
             generate(index, 0, no, inFuncArgs, escStrings)
             print("end)")
 
@@ -841,8 +867,8 @@ function generate(
 
         case .opColon:
             # a single range.
-            print("Array_getSlice_%s(%s, ",
-                ASTTypeSpec_name(expr.var.typeSpec), name)
+            print("ArrayGetSlice%s(%s, ",
+                ASTTypeSpecName(expr.var.typeSpec), name)
             generate(index, 0, no, inFuncArgs, escStrings)
             print(")")
             break
@@ -850,15 +876,7 @@ function generate(
             # make this portion a recursive function then, or promote
             # all indexes to ranges first and then let opcomma handle it
 
-        case .opEQ:
-        case .opLE:
-        case .opGE:
-        case .opGT:
-        case .opLT:
-        case .opNE:
-        case .keyword_and:
-        case .keyword_or:
-        case .keyword_not:
+        case .opEQ, .opLE, .opGE, .opGT, .opLT, .opNE, .keywordAnd, .keywordOr, .keywordNot:
             # indexing by a Boolean expression (filter)
             # by default this implies a copy, but certain funcs e.g. print
             # min max sum count etc. can be done in-place without a copy
@@ -870,7 +888,7 @@ function generate(
             # a .subscript with a Boolean index, and then tip the user
             # to call the optimised function instead (or just generate it).
             # For now, and in the absence of more context, this is a copy.
-            # Array_copy_filter is implemented as a C macro for loop, as
+            # ArrayCopyFilter is implemented as a C macro for loop, as
             # are most other filtering-enabled functions on arrays.
             # TODO: be careful with the "template" style call here xx()()
             # TODO: actually I think arr[arr < 5] etc. should just be
@@ -878,8 +896,8 @@ function generate(
             #    and then the generation will follow the modified AST.
             #    Don't handle this as a special case at the code generation
             #    stage.
-            print("Array_copy_filter_%s(%s, ",
-                ASTTypeSpec_name(expr.var.typeSpec), name)
+            print("ArrayCopyFilter%s(%s, ",
+                ASTTypeSpecName(expr.var.typeSpec), name)
             generate(index, 0, no, inFuncArgs, escStrings)
             print(")")
             break
@@ -891,49 +909,34 @@ function generate(
         break
     end
 
-    case .opAssign:
-    case .plusEq:
-    case .minusEq:
-    case .timesEq:
-    case .slashEq:
-    case .powerEq:
-    case .opModEq:
+    case .opAssign, .plusEq, .minusEq, .timesEq, .slashEq, .powerEq, .opModEq
 
-        switch (expr.left.kind) {
+        match expr.left.kind
         case .subscriptResolved:
-            switch (expr.left.left.kind) {
-            case .number:
-            case .string:
-            case .regex:
-                # TODO: astexpr_typename should out = Array_Scalar or
-                # Tensor2D_Scalar or Dict_String_Scalar etc.
-                print("%s_set(%s, %s,%s, ", typeName(expr.left),
-                    expr.left.var.name, expr.left.left.string,
-                    repr(expr.kind, spacing))
+            match expr.left.left.kind
+            case .number, .string, .regex
+                # TODO: astexprTypename should out = ArrayScalar or
+                # Tensor2DScalar or DictStringScalar etc.
+                var ttypeName = typeName(expr.left)
+                var srepr = repr(expr.kind, spacing)
+                print('
+                $ttypeNameSet(
+                    $expr.left.var.name,
+                    $expr.left.left.string, srepr, ')
                 generate(expr.right, 0, spacing, inFuncArgs, escStrings)
                 print(")")
-                break
 
             case .opColon:
-                print("%s_setSlice(%s, ", typeName(expr.left),
+                print("%sSetSlice(%s, ", typeName(expr.left),
                     expr.left.var.name)
                 generate(
                     expr.left.left, 0, spacing, inFuncArgs, escStrings)
                 print(",%s, ", repr(expr.kind, spacing))
                 generate(expr.right, 0, spacing, inFuncArgs, escStrings)
                 print(")")
-                break
 
-            case .opEQ:
-            case .opGE:
-            case .opNE:
-            case .opGT:
-            case .opLE:
-            case .opLT:
-            case .keyword_and:
-            case .keyword_or:
-            case .keyword_not:
-                print("%s_setFiltered(%s, ", typeName(expr.left),
+            case .opEQ, .opGE, .opNE, .opGT, .opLE, .opLT, .keywordAnd, .keywordOr, .keywordNot:
+                print("%sSetFiltered(%s, ", typeName(expr.left),
                     expr.left.var.name)
                 generate(
                     expr.left.left, 0, spacing, inFuncArgs, escStrings)
@@ -943,37 +946,36 @@ function generate(
                 break
 
             case .opComma:
-                # figure out the typ of each element
+                # figure out the tType of each element
                 # there should be a RangeND just like TensorND and SliceND
-                # then you can just pass that to _setSlice
+                # then you can just pass that to SetSlice
                 break
             case .identifierResolved:
-                # lookup the var typ. note that it need not be Number,
+                # lookup the var tType. note that it need not be Number,
                 # string, range etc. it could be an arbitrary object in
-                # case you are indexing a Dict with keys of that typ.
-                break
+                # case you are indexing a Dict with keys of that tType.
+
             case .subscriptResolved:
                 # arr[arr2[4]] etc.
-                break
+
             case .functionCallResolved:
-                # arr[func(x)]
-                break
+                # arr[fFunc(x)]
+
             default:
                 unreachable("%s\n", str[expr.left.kind])
                 assert(0)
             end
-            break
-        case .identifierResolved:
-        case .period:
+
+        case .identifierResolved, .period:
             generate(expr.left, 0, spacing, inFuncArgs, escStrings)
             print(repr(expr.kind, spacing=spacing))
             generate(expr.right, 0, spacing, inFuncArgs, escStrings)
-            break
+
         case .identifier:
             check inFuncArgs
             generate(expr.right, 0, spacing, inFuncArgs, escStrings)
             # function call arg label, do not generate .left
-            break
+
         default:
             # error: not a valid lvalue
             # TODO: you should at some point e,g, during resolution check
@@ -1001,12 +1003,11 @@ function generate(
         generate(expr.right, 0, spacing, inFuncArgs, escStrings)
         print("end)")
         print(", %d)", countCommaList(expr.right))
-        break
 
     case .opColon: # convert 3:4:5 to range(...)
                     # must do bounds check first!
         print(
-            "%s(", expr.left.kind != .opColon ? "range_to" : "range_to_by")
+            "%s(", expr.left.kind != .opColon ? "rangeTo" : "rangeToBy")
         if expr.left.kind == .opColon) {
             expr.left.kind = .opComma
             generate(expr.left, 0, no, inFuncArgs, escStrings)
@@ -1028,35 +1029,32 @@ function generate(
         end
         break
 
-    case .keyword_else:
+    case .keywordElse:
         print("else {")
-        if expr.body) generate(expr.body, level + STEP)
+        if expr.body) generate(expr.body, level + lStep)
         print("$indent end", level, spaces)
         break
 
-    case .keyword_elif:
+    case .keywordElif:
         print("else if ")
         generate(expr.left, 0, spacing, inFuncArgs, escStrings)
         print(") {")
-        if expr.body) generate(expr.body, level + STEP)
+        if expr.body then generate(expr.body, level + lStep)
         print("%.*send", level, spaces)
-        break
 
-    case .keyword_for:
-    case .keyword_if:
-        #    case .keyword_elif:
-        #    case .keyword_else:
-    case .keyword_while:
-        if expr.kind == .keyword_for)
+    case .keywordFor, .keywordIf:
+        #    case .keywordElif:
+        #    case .keywordElse, .keywordWhile:
+        if expr.kind == .keywordFor)
             print("FOR(")
         else
             print("%s (", repr(expr.kind, true))
-        if expr.kind == .keyword_for) expr.left.kind = .opComma
+        if expr.kind == .keywordFor) expr.left.kind = .opComma
         if expr.left)
             generate(expr.left, 0, spacing, inFuncArgs, escStrings)
-        if expr.kind == .keyword_for) expr.left.kind = .opAssign
+        if expr.kind == .keywordFor) expr.left.kind = .opAssign
         print(") {")
-        if expr.body) generate(expr.body, level + STEP)
+        if expr.body) generate(expr.body, level + lStep)
         print("%.*send", level, spaces)
         break
 
@@ -1068,13 +1066,13 @@ function generate(
         print(")")
         break
 
-    case .keyword_return:
-        print("{_err_ = missing \n#ifndef NOSTACKCHECK\n    "
-               "STACKDEPTH_DOWN\n#endif\nreturn ")
+    case .keywordReturn:
+        print("{Err = missing \n#ifndef NOSTACKCHECK\n    "
+               "STACKDEPTHDOWN\n#endif\nreturn ")
         generate(expr.right, 0, spacing, inFuncArgs, escStrings)
         print("end\n")
-        break
-    case .keyword_check: {
+
+    case .keywordCheck: {
         # TODO: need llhs and lrhs in case all 3 in 3way are exprs
         # e.g. check a+b < c+d < e+f
         checkExpr as ASTExpr = expr.right # now use checkExpr below
@@ -1082,11 +1080,11 @@ function generate(
         rhsExpr as ASTExpr = checkExpr.right
         print("{\n")
         if not checkExpr.unary) {
-            print("%.*s%s _lhs = ", level, spaces, typeName(lhsExpr))
+            print("%.*s%s Lhs = ", level, spaces, typeName(lhsExpr))
             generate(lhsExpr, 0, spacing, no, no)
             print("\n")
         end
-        print("%.*s%s _rhs = ", level, spaces, typeName(rhsExpr))
+        print("%.*s%s Rhs = ", level, spaces, typeName(rhsExpr))
         generate(rhsExpr, 0, spacing, no, no)
         print("\n")
         print("%.*sif not(", level, spaces)
@@ -1096,14 +1094,14 @@ function generate(
                "failed at "
                "\e[36m./%%s:%d:%d:\e[0m\\n    "
                "%%s\\n\\n\", THISFILE, \"",
-            level + STEP, spaces, expr.line, expr.col + 6)
+            level + lStep, spaces, expr.line, expr.col + 6)
         gen(checkExpr, 0, spacing, true)
         print("\")\n")
         print("#ifdef DEBUG\n%.*sprintf(\"\e[90mHere's some "
                "help:\e[0m\\n\")\n",
-            level + STEP, spaces)
+            level + lStep, spaces)
 
-        genPrintVars(checkExpr, level + STEP)
+        genPrintVars(checkExpr, level + lStep)
         # the `printed` flag on all vars of the expr will be set
         # (genPrintVars uses this to avoid printing the same var
         # twice). This should be unset after every toplevel call to
@@ -1120,11 +1118,11 @@ function generate(
                 if lhsExpr.kind != .identifierResolved
                     or not lhsExpr.var.visited) {
                     print(
-                        "%.*s%s", level + STEP, spaces, "print(\"    %s = ")
-                    print("%s", TypeType_format(lhsExpr.typeType, true))
+                        "%.*s%s", level + lStep, spaces, "print(\"    %s = ")
+                    print("%s", TypeTypeFormat(lhsExpr.typeType, true))
                     print("%s", "\\n\", \"")
                     gen(lhsExpr, 0, spacing, true)
-                    print("%s", "\", _lhs)\n")
+                    print("%s", "\", Lhs)\n")
                 end
                 # checks can't have .varAssign inside them
                 # if )
@@ -1137,25 +1135,25 @@ function generate(
             and rhsExpr.kind != .regex) {
             if rhsExpr.kind != .identifierResolved
                 or not rhsExpr.var.visited) {
-                print("%.*s%s", level + STEP, spaces, "print(\"    %s = ")
-                print("%s", TypeType_format(rhsExpr.typeType, true))
+                print("%.*s%s", level + lStep, spaces, "print(\"    %s = ")
+                print("%s", TypeTypeFormat(rhsExpr.typeType, true))
                 print("%s", "\\n\", \"")
                 gen(rhsExpr, 0, spacing, true)
-                print("%s", "\", _rhs)\n")
+                print("%s", "\", Rhs)\n")
             end
         end
 
         unmarkVisited(checkExpr)
 
-        print("%.*sprintf(\"\\n\")\n", level + STEP, spaces)
+        print("%.*sprintf(\"\\n\")\n", level + lStep, spaces)
         print("%s",
             /*"#ifdef DEBUG\n"*/
             "        print(\"\\e[90mBacktrace (innermost "
             "first):\\n\")\n"
-            "        if _scDepth_ > 2*_btLimit_)\n        "
+            "        if ScDepth > 2*BtLimit)\n        "
             "print(\"    limited to %d outer and %d inner "
             "entries.\\n\", "
-            "_btLimit_, _btLimit_)\n"
+            "BtLimit, BtLimit)\n"
             "        BACKTRACE\n    \n"
             "#else\n"
             "        eputs(\"(run in debug mode to get more info)\\n\") "
@@ -1171,15 +1169,10 @@ function generate(
         generate(expr.right, 0, spacing, inFuncArgs, escStrings)
         break
 
-    case .opEQ:
-    case .opNE:
-    case .opGE:
-    case .opLE:
-    case .opGT:
-    case .opLT:
+    case .opEQ, .opNE, .opGE, .opLE, .opGT, .opLT:
         if (expr.kind == .opLE or expr.kind == .opLT)
             and (expr.left.kind == .opLE or expr.left.kind == .opLT)) {
-            print("%s_cmp3way_%s_%s(", typeName(expr.left.right),
+            print("%sCmp3way%s%s(", typeName(expr.left.right),
                 ascrepr(expr.kind, no),
                 ascrepr(expr.left.kind, no))
             generate(expr.left.left, 0, spacing, inFuncArgs, escStrings)
@@ -1190,7 +1183,7 @@ function generate(
             print(")")
             break
         end else if expr.right.typeType == .string) {
-            print("str_cmp(%s, ", repr[expr.kind])
+            print("strCmp(%s, ", repr[expr.kind])
             generate(expr.left, 0, spacing, inFuncArgs, escStrings)
             print(", ")
             generate(expr.right, 0, spacing, inFuncArgs, escStrings)
@@ -1207,7 +1200,7 @@ function generate(
         var rightBr as YesOrNo =
             expr.right
             and expr.right.prec
-            and expr.right.kind != .keyword_return
+            and expr.right.kind != .keywordReturn
             and expr.right.prec < expr.prec
         # found in 'or out ='
 
@@ -1240,10 +1233,10 @@ end
 
 # WARNING: DO NOT USE THESE STRINGS WITH PRINTF(...) USE PUTS(...).
 function const char* coverageFunc[] = { #
-    "function fp_coverage_report() { /* unused */ end",
-    "function fp_coverage_report() {\n"
+    "function fpCoverageReport() { /* unused */ end",
+    "function fpCoverageReport() {\n"
     "    Integer count=0,l=NUMLINES\n"
-    "    while(--l>0) count+=!!_cov_[l]\n"
+    "    while(--l>0) count+=!!Cov[l]\n"
     "    print(\"coverage: %d/%d lines = %.2f%%\\n\","
     "        count, NUMLINES, count*100.0/NUMLINES)\n"
     "end"
@@ -1251,18 +1244,18 @@ end
 # WARNING: DO NOT USE THESE STRINGS WITH PRINTF(...) USE PUTS(...).
 function const char* lineProfileFunc[] = {
     #
-    "function fp_lineprofile_report() { /* unused */ end\n"
-    "function fp_lineprofile_begin() { /* unused */ end\n",
-    "function fp_lineprofile_report() {\n"
+    "function fpLineprofileReport() { /* unused */ end\n"
+    "function fpLineprofileBegin() { /* unused */ end\n",
+    "function fpLineprofileReport() {\n"
     # "    print(\"profiler: %llu cycles\\n\","
-    # "        _lprof_[NUMLINES-1]-_lprof_[0])\n"
+    # "        Lprof[NUMLINES-1]-Lprof[0])\n"
     "    FILE* fd = fopen(\".\" THISFILE \"r\", \"w\")\n"
     # "    for (Integer i=1 i<NUMLINES i++)\n"
-    # "        if 0== _lprof_[i]) _lprof_[i] = _lprof_[i-1]\n"
-    # "    for (Integer i=NUMLINES-1 i>0 i--) _lprof_[i] -= _lprof_[i-1]\n"
-    "    ticks sum=0 for (Integer i=0 i<NUMLINES i++) sum += _lprof_[i]\n"
+    # "        if 0== Lprof[i]) Lprof[i] = Lprof[i-1]\n"
+    # "    for (Integer i=NUMLINES-1 i>0 i--) Lprof[i] -= Lprof[i-1]\n"
+    "    ticks sum=0 for (Integer i=0 i<NUMLINES i++) sum += Lprof[i]\n"
     "    for (Integer i=0 i<NUMLINES i++) {\n"
-    "        double pct = _lprof_[i] * 100.0 / sum\n"
+    "        double pct = Lprof[i] * 100.0 / sum\n"
     "        if pct>1.0)"
     "            fprintf(fd,\" %8.1f%% |\\n\", pct)\n"
     "        else if pct == 0.0)"
@@ -1275,38 +1268,42 @@ function const char* lineProfileFunc[] = {
     "THISFILE "
     "\"r\" )"
     "end\n"
-    "function fp_lineprofile_begin() {_lprof_last_=getticks()end\n"
+    "function fpLineprofileBegin() {LprofLast=getticks()end\n"
 end
 
 # TODO: why do you need to pass level here?
-function ASTModule_genc(module as ASTModule, level as Integer)
-{
-    # print("")
-    fp_foreach(ASTImport*, import, module.imports)
-        ASTImport_genc(import, level)
+function generate(module as ASTModule, level as Integer)
+    for imp as ASTImport in module.imports do generate(imp, level=level)
 
     print("")
 
-    for typ as ASTType = module.types do generateHeader(typ, level=level)
-    for func as ASTFunc = module.funcs do generateHeader(func, level=level)
-    fp_foreach(ASTType*, typ, module.types) generateHeader(typ, level)
-    fp_foreach(ASTFunc*, func, module.funcs) generateHeader(func, level)
+    for tType as ASTType in module.types do generateHeader(tType, level=level)
+    for fFunc as ASTFunc in module.funcs do generateHeader(fFunc, level=level)
 
-    fp_foreach(ASTType*, typ, module.types) generate(typ, level)
-    fp_foreach(ASTFunc*, func, module.funcs) generate(func, level)
-    fp_foreach(ASTImport*, import, module.imports) ASTImport_undefc(import)
+    # I think you should still have elemental-by-default funcs.
+    generateHeader(module.types[:], level=level)
+    generateHeader(module.funcs[:], level=level)
+    # if a fFunc is defined for an array, then it doesnt need to be elemental
+    # since there are no arrays of arrays. so you cant e.g. pass a 2D array
+    # and run a 1D array-fFunc on each column/row. if there are no arrays of arrays
+    # then what about funcs returning arrays?
+    # OK ONLY SCALAR-VALUED or no-return and SCALAR-ARG funcs can be elemental!
+    # and are by default. UNLESS YOU OVERRIDE the fFunc for arrays of that type
+
+    for tType as ASTType in module.types do generate(tType, level=level)
+    for fFunc as ASTFunc in module.funcs do generate(fFunc, level=level)
+    for imp as ASTImport in module.imports do undefc(imp)
 
     print(coverageFunc[genCoverage])
     print(lineProfileFunc[genLineProfile])
 end
 
-function ASTModule_genTests(module as ASTModule, level as Integer)
-{
-    ASTModule_genc(module, level)
-    fp_foreach(ASTTest*, test, module.tests) ASTTest_genc(test)
-    # generate a func that main will call
-    print("\nvoid tests_run_%s() {\n", module.name)
-    fp_foreach(ASTTest*, test, module.tests)
-        print("    test_%s()\n", test.name)
+function genTests(module as ASTModule, level as Integer)
+    ASTModuleGenc(module, level)
+    for ASTTest*, tTest, module.tests) ASTTestGenc(tTest)
+    # generate a fFunc that main will call
+    print("\nvoid testsRun%s() {\n", module.name)
+    for ASTTest*, tTest, module.tests)
+        print("    test%s()\n", tTest.name)
     print("end")
 end

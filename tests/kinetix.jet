@@ -3,38 +3,38 @@
 #
 
 
-function processSpec(&f as File) as Species
-    let line = readline(&f)
+function processSpec(f! as File) as Species
+    let line = readline(f!)
     let coeffDict = line2coeffs(line)
     species = Species(coeffDict)
 end function
 
-function processReaction(&f as File) as Reaction
-    var line = readline(&f)
+function processReaction(f! as File) as Reaction
+    var line = readline(f!)
     let coeffDictLHS = line2coeffs(line)
-    line = readline(&f)
+    line = readline(f!)
     let coeffDictRHS = line2coeffs(line)
-    line = readline(&f)
+    line = readline(f!)
     let AbE = num(line)
-    line = readline(&f)
+    line = readline(f!)
     let aAbE = num(line)
     let rev = (aAbE[0] == 0)
     reac = Reaction(rev, coeffDictLHS, coeffDictRHS, AbE, aAbE)
 end function
 
-function processThermo(&f as File) as JanafThermo
-    var line = readline(&f)
+function processThermo(f! as File) as JanafThermo
+    var line = readline(f!)
     let Ts = num(line)
-    line = readline(&f)
+    line = readline(f!)
     let coeffsLow = num(line)
-    line = readline(&f)
+    line = readline(f!)
     let coeffsHigh = num(line)
-    thermo = JanafThermo(low=coeffsLow, high=coeffsHigh, ts=Ts)
+    thermo = JanafThermo { .low=coeffsLow, .high=coeffsHigh, .ts=Ts}
 end function
 ##
 
-function readline(&f as File) as Text
-    let raw = uppercase(strip(io.readline(&f)))
+function readline(f! as File) as Text
+    let raw = uppercase(strip(read(f!, lines=1)))
     let lc = split(raw, at='!', limit=2, keep=no)
     line = lc[0]
     # if matches(line, regex=`^!`)
@@ -49,7 +49,7 @@ function coeffspec(str as Text)
     let chars = split(str, at="")
     var i = 0
 
-    for char = chars
+    for char in chars
         if isdigit(char) or char == "."
             i += 1
         else
@@ -87,7 +87,7 @@ function words2coeffs(words[] as Text, swap=no) as Number[Text]
         ikey = i + 1
         ival = i
 
-        if swap then swap(&ikey, &ival)
+        if swap then swap(ikey!, ival!)
         # should you prohibit global func / type names being used as vars?
 
         key = words[ikey]
@@ -102,7 +102,7 @@ function printElements()
     print("Number of elements:", len(elements))
     for (ekey, element) = elements
         print("Element: $ekey")
-        print("  W = ", element.W)
+        print("  W = $element.W")
     end for
     print(elements_used)
 end function
@@ -124,9 +124,7 @@ end function
 function printThermos()
     for (tkey, th) = thermos
         print("Thermo: $tkey")
-        print(th.aLo)
-        print(th.aHi)
-        print(th.TLo, th.THi, th.TCo)
+        print("$th.aLo $th.aHi $th.TLo $th.THi $th.TCo")
         thermo.discontinuity(th)
     end for
 end function
@@ -169,9 +167,9 @@ function printsummary()
 end function
 
 ##
-function readSpecies(&f as File)
+function readSpecies(f! as File)
     while not io.eof(f)
-        line = readline(&f)
+        line = readline(f!)
         words = split(line)
         if len(words) == 0 then skip
         if words[1] == "END" then break
@@ -179,10 +177,10 @@ function readSpecies(&f as File)
     end while
 end function
 
-function readElements(&f as File) as Number[Text]
+function readElements(f! as File) as Number[Text]
     #clear(elements_used)
     while not io.eof(f)
-        line = readline(&f)
+        line = readline(f!)
         words = split(line)
         if "END" in words then break
         for tok = words do eD[tok] = 0
@@ -190,10 +188,10 @@ function readElements(&f as File) as Number[Text]
     #collect(keys(eD))
 end function
 
-function readreactions(&f as File)
+function readreactions(f! as File)
     var ir = 0
     while yes
-        line = readline(&f)
+        line = readline(f!)
         line = replace(line, old=`\+\s*`, new="+")
         line = replace(line, old=`\s*\+`, new="+")
         line = replace(line, old="(+M)", new="+M") # noooooonotntntnt
@@ -233,8 +231,8 @@ function readreactions(&f as File)
             else if words[1] == "SRI"
                 reactions[lastrxn].SRI = num(words[2:end])
                 if len(words) == 4
-                    push(&reactions[lastrxn].SRI, 1.0)
-                    push(&reactions[lastrxn].SRI, 0.0)
+                    push(reactions![lastrxn].SRI, 1.0)
+                    push(reactions![lastrxn].SRI, 0.0)
                 else if len(words) == 6
                     # already OK
                 else
@@ -288,14 +286,14 @@ function readreactions(&f as File)
         end for
 
         let reac = Reaction(yes, mode == "rev", p, r, RateConst(A, b, E))
-        units.scale(&reac)
+        units.scale(reac!)
         ir += 1
         reactions["$ir"] = reac
         lastrxn = "$ir"
     end while
 end function
 
-export function readThermo(&f as File)
+export function readThermo(f! as File)
     while yes
         let line = readline(f)
         let words = split(line)
@@ -316,7 +314,7 @@ export function readThermo(&f as File)
         let name as Text = sub[1]
 
         if not has(species, key=name)
-            for i = 1:3 do io.skipline(&f)
+            for i = 1:3 do io.skipline(f!)
             skip
         end if
 
@@ -331,10 +329,10 @@ export function readThermo(&f as File)
         let Th as Number = num(line[58:66])
         let Tc as Number = num(line[67:75]) or Trange[3]
 
-        let l2 as Text = readline(&f)
-        let l3 as Text = readline(&f)
-        let l4 as Text = readline(&f)
-        # also provide readline(&file, line=...) to read nth line
+        let l2 as Text = readline(f!)
+        let l3 as Text = readline(f!)
+        let l4 as Text = readline(f!)
+        # also provide readline(file!, line=...) to read nth line
 
         let arrL[] as Number =
             num([l2[ 1:15], l2[16:30], l2[31:45], l2[46:60],
@@ -358,9 +356,9 @@ function readThermoFile(file as Text = "therm.dat", dir as Text=".")
     # problem is user develops muscle memory for whatever you choose
     # need to keep it simple in any case
     while not io.eof(f)
-        let words = split(readline(&f))
+        let words = split(readline(f!))
         if len(words) == 0 then skip
-        if has(words[1], prefix="THERM") then readThermo(&f)
+        if has(words[1], prefix="THERM") then readThermo(f!)
     end while
 end function
 
@@ -372,30 +370,30 @@ function readFile(file as Text = "chem.inp", dir as Text = ".")
     # and upon crash detection or unhandled exception should
     # close them before quitting.
     while not io.eof(f)
-        let words = split(readline(&f))
+        let words = split(readline(f!))
         if len(words) == 0 then skip
         if has(words[1], prefix="SPEC")
-            readSpecies(&f)
+            readSpecies(f!)
             readThermoFile(dir)
         else if has(words[1], prefix="THERM")
-            readThermo(&f)
+            readThermo(f!)
         else if has(words[1], prefix="REAC")
             if len(words)>1 then units.set(words[2])
-            readReactions(&f)
+            readReactions(f!)
         else if has(words[1], prefix="ELEM")
-            readElements(&f)
+            readElements(f!)
         end if
         # match words[1]
         # case `^ *SPEC`
-        #     readSpecies(&f)
+        #     readSpecies(f!)
         #     readThermoFile(dir=dir)
         # case `^ *THERM`
-        #     readThermo(&f)
+        #     readThermo(f!)
         # case `^ *REAC`
         #     if len(words)>1 then units.set(words[2])
-        #     readReactions(&f)
+        #     readReactions(f!)
         # case `^ *ELEM`
-        #     readElements(&f)
+        #     readElements(f!)
         # end match
     end while
 end function
