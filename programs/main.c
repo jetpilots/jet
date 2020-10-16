@@ -61,6 +61,7 @@ typedef struct ASTVar {
     // within an inner scope. The drop call should go at the end of such
     // subscope, NOT within the subscope itself after the actual expr. (so set
     // the if/for/while as the lastref, not the actual lastref)
+    // WHY NOT JUST SAVE THE LINE NUMBER OF THE LAST USE?
     uint16_t line;
     struct {
         bool used : 1, //
@@ -884,15 +885,17 @@ static void getSelector(ASTFunc* func)
 
 // this is a global astexpr representing 0. it will be used when parsing e.g.
 // the colon op with nothing on either side. : -> 0:0 means the same as 1:end
-static ASTExpr expr_const_0;
-static ASTExpr lparen, rparen;
-static void initStaticExprs()
-{
-    expr_const_0.kind = tkNumber;
-    expr_const_0.string = "0";
-    lparen.kind = tkParenOpen;
-    rparen.kind = tkParenClose;
-}
+static ASTExpr expr_const_0[] = { { .kind = tkNumber, .string = "0" } };
+static ASTExpr lparen[] = { { .kind = tkParenOpen } };
+static ASTExpr rparen[] = { { .kind = tkParenClose } };
+
+// static void initStaticExprs()
+// {
+//     expr_const_0.kind = tkNumber;
+//     expr_const_0.string = "0";
+//     lparen.kind = tkParenOpen;
+//     rparen.kind = tkParenClose;
+// }
 
 #include "parse.h"
 
@@ -933,7 +936,7 @@ int main(int argc, char* argv[])
     List(ASTModule) * modules;
     Parser* parser;
 
-    initStaticExprs();
+    // initStaticExprs();
 
     parser = Parser_fromFile(argv[1], true);
     if (not parser) return 2;
@@ -942,8 +945,8 @@ int main(int argc, char* argv[])
     if (argc > 3 && *argv[3] == 't') parser->mode = PMGenTests;
     if (argc > 2 && *argv[2] == 't') parser->mode = PMGenTests;
 
- parser->generateCommentExprs=(parser->mode==PMLint);
-    
+    parser->generateCommentExprs = (parser->mode == PMLint);
+
     modules = parseModule(parser);
 
     if (not(parser->errCount)) {

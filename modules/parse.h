@@ -34,9 +34,9 @@ static ASTExpr* parseExpr(Parser* self)
 
         ASTExpr* expr;
         if (matches(self, tkParenOpen))
-            expr = &lparen;
+            expr = lparen;
         else if (matches(self, tkParenClose))
-            expr = &rparen;
+            expr = rparen;
         else
             expr = ASTExpr_fromToken(&self->token); // dont advance yet
 
@@ -47,7 +47,7 @@ static ASTExpr* parseExpr(Parser* self)
         switch (expr->kind) {
         case tkIdentifier:
             switch (lookAheadChar) {
-                //TODO: need a general lookahead that skips whitespace.
+                // TODO: need a general lookahead that skips whitespace.
             case '(':
                 expr->kind = tkFunctionCall;
                 expr->prec = 60;
@@ -59,16 +59,16 @@ static ASTExpr* parseExpr(Parser* self)
                 jet_PtrArray_push(&ops, expr);
                 break;
             case ' ':
-                if (self->token.pos[2]!='{') goto defaultCase;
+                if (self->token.pos[2] != '{') goto defaultCase;
                 // otherwise fall through
             case '{':
-                expr->kind=tkObjectInit;
-                expr->prec=60;
+                expr->kind = tkObjectInit;
+                expr->prec = 60;
                 jet_PtrArray_push(&ops, expr);
                 break;
 
             default:
-                defaultCase:
+            defaultCase:
                 jet_PtrArray_push(&rpn, expr);
                 break;
             }
@@ -100,7 +100,6 @@ static ASTExpr* parseExpr(Parser* self)
             if (lookAheadChar == '}') jet_PtrArray_push(&rpn, NULL);
             // for empty Obj {} push null for no args
             break;
-
 
         case tkParenClose:
         case tkArrayClose:
@@ -140,11 +139,11 @@ static ASTExpr* parseExpr(Parser* self)
             // push tkBraceOpen to indicate a dict literal (another unary op).
             if ((p and p->kind == tkBraceOpen)
                 and (jet_PtrArray_empty(&ops)
-                     or (jet_PtrArray_top(&rpn)
-                         and jet_PtrArray_topAs(ASTExpr*, &ops)->kind
-                         != tkObjectInit)))
-                //again, not if it is an object init
-                jet_PtrArray_push(&rpn,p);
+                    or (jet_PtrArray_top(&rpn)
+                        and jet_PtrArray_topAs(ASTExpr*, &ops)->kind
+                            != tkObjectInit)))
+                // again, not if it is an object init
+                jet_PtrArray_push(&rpn, p);
             // Object { member1 = 3, member3 = "train" }
             // ^^ this is an object init, not a dict
             // { "bing" = 34, "whang" = 33 }
@@ -337,7 +336,7 @@ error:
                 printf("NUL ");
             else {
                 ASTExpr* e = rpn.ref[i];
-                printf("%.*s ",32,
+                printf("%.*s ", 32,
                     e->prec ? TokenKind_repr(e->kind, false) : e->string);
             }
         puts("");
@@ -350,14 +349,14 @@ error:
                 printf("NUL ");
             else {
                 ASTExpr* e = result.ref[i];
-                printf("%.*s ",32,
+                printf("%.*s ", 32,
                     e->prec ? TokenKind_repr(e->kind, false) : e->string);
             }
         puts("");
     }
 
     if (p) {
-        printf("      p: %.*s ",32,
+        printf("      p: %.*s ", 32,
             p->prec ? TokenKind_repr(p->kind, false) : p->string);
         puts("");
     }
@@ -371,7 +370,7 @@ error:
 #pragma mark - PARSE TYPESPEC
 static ASTTypeSpec* parseTypeSpec(Parser* self)
 {
-     self->token.mergeArrayDims = true;
+    self->token.mergeArrayDims = true;
 
     ASTTypeSpec* typeSpec = jet_new(ASTTypeSpec);
     typeSpec->line = self->token.line;
@@ -382,19 +381,19 @@ static ASTTypeSpec* parseTypeSpec(Parser* self)
 
     typeSpec->name = parseIdent(self);
 
-     if (matches(self, tkArrayDims)) {
-         for (int i = 0; i < self->token.matchlen; i++)
-             if (self->token.pos[i] == ':') typeSpec->dims++;
-         if (not typeSpec->dims) typeSpec->dims = 1;
-         Token_advance(&self->token);
-     }
+    if (matches(self, tkArrayDims)) {
+        for (int i = 0; i < self->token.matchlen; i++)
+            if (self->token.pos[i] == ':') typeSpec->dims++;
+        if (not typeSpec->dims) typeSpec->dims = 1;
+        Token_advance(&self->token);
+    }
 
     Parser_ignore(self, tkUnits);
 
     assert(self->token.kind != tkUnits);
     assert(self->token.kind != tkArrayDims);
 
-     self->token.mergeArrayDims = false;
+    self->token.mergeArrayDims = false;
     return typeSpec;
 }
 
@@ -441,8 +440,7 @@ static ASTVar* parseVar(Parser* self)
     var->typeSpec->dims = dims;
 
     Parser_ignore(self, tkOneSpace);
-    if (Parser_ignore(self, tkOpAssign))
-        var->init = parseExpr(self);
+    if (Parser_ignore(self, tkOpAssign)) var->init = parseExpr(self);
 
     return var;
 }
@@ -471,7 +469,7 @@ static ASTScope* parseScope(Parser* self, ASTScope* parent, bool isTypeBody)
     ASTVar *var = NULL, *orig = NULL;
     ASTExpr* expr = NULL;
     TokenKind tt = tkUnknown;
-    ASTScope* forScope=NULL;
+    ASTScope* forScope = NULL;
 
     scope->parent = parent;
     bool startedElse = false;
@@ -1102,10 +1100,9 @@ void analyseModule(Parser* self, ASTModule* mod)
         fmain
         = func;
 
-    
     /* TODO: what if you have tests and a main()? Now you will have to analyse
      the tests anyway */
-    
+
     if (fmain) {
         ASTFunc_analyse(self, fmain, mod);
         // Check dead code -- unused funcs and types, and report warnings.
@@ -1113,13 +1110,13 @@ void analyseModule(Parser* self, ASTModule* mod)
             and not func->isDefCtor) Parser_warnUnusedFunc(self, func);
         jet_foreach(ASTType*, type, mod->types) if (not type->analysed)
             Parser_warnUnusedType(self, type);
-        
-     }   else { // TODO: new error, unless you want to get rid of main
+
+    } else { // TODO: new error, unless you want to get rid of main
         eputs(
             "\n\e[31m*** error:\e[0m cannot find function \e[33mmain\e[0m.\n");
         self->errCount++;
     }
-    
+
     // this happens regardless of whether main was found or not
     if (self->mode == PMGenTests or self->mode == PMLint) {
         jet_foreach(ASTTest*, test, mod->tests) analyseTest(self, test, mod);
@@ -1211,7 +1208,7 @@ static int ASTExpr_markTypesVisited(Parser* self, ASTExpr* expr)
     case tkString:
     case tkNumber:
     case tkRegex:
-        case tkLineComment:
+    case tkLineComment:
         return 0;
     default:
         if (expr->prec) {
