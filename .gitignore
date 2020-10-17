@@ -9,3 +9,4 @@ aout.c
 *.gcov
 *.gcno
 *.gcda
+doxy/
