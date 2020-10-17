@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <ctype.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -157,6 +158,8 @@ typedef double Real64;
 
 // dont get smart and try to do jet_Array(jet_Array(jet_Array(whatever)))
 
+#define for_to(i, n) for (int i = 0; i < (n); i++)
+
 // Should be using adhoc to generate these.
 
 // At some point, make these use some smart ass tricks to enable good
@@ -237,6 +240,7 @@ typedef double Real64;
     }
 
 MAKE_Array(Ptr);
+MAKE_Array(UInt32);
 
 // display first "digits" many digits of number plus unit (kilo-exabytes)
 static int human_readable(char* buf, double num)
@@ -294,6 +298,7 @@ typedef struct jet_Pool {
     void* ref;
     UInt32 cap, capTotal; // BYTES
     jet_Array(Ptr) ptrs;
+    jet_Array(UInt32) caps;
     UInt32 used, usedTotal; // used BYTES, unlike in jet_Array!
 } jet_Pool;
 
@@ -306,7 +311,10 @@ STATIC void* jet_Pool_alloc(jet_Pool* self, size_t reqd)
     // dont ask for a big fat chunk larger than 16KB (or up to 256KB
     // depending on how much is already there) all at one time.
     if (self->used + reqd > self->cap) {
-        if (self->ref) jet_Array_push(Ptr)(&self->ptrs, self->ref);
+        if (self->ref) {
+            jet_Array_push(Ptr)(&self->ptrs, self->ref);
+            jet_Array_push(UInt32)(&self->caps, self->cap);
+        }
         self->cap
             = (self->cap ? (self->cap > 2 MB ? 2 MB : self->cap * 2) : 4 KB);
         self->capTotal += self->cap;
@@ -370,6 +378,9 @@ jet_Pool jet_gPool[1] = {};
 jet_Pool jet_sPool[1] = {};
 
 #define jet_new(T) (T##_allocTotal++, jet_Pool_alloc(jet_gPool, sizeof(T)));
+// Use jet_newn for contiguous alloc of n objects of type T (for small n!)
+#define jet_newn(T, n)                                                         \
+    (T##_allocTotal += n, jet_Pool_alloc(jet_gPool, n * sizeof(T)));
 
 // This macro should be invoked on each struct defined.
 #define MKSTAT(T) static int T##_allocTotal = 0;

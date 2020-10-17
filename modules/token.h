@@ -226,7 +226,7 @@ static TokenKind Token_getType(Token* self, const size_t offset)
 {
     const char c = self->pos[offset];
     const char cn = c ? self->pos[1 + offset] : 0;
-    TokenKind ret = (TokenKind)TokenKindTable[c];
+    TokenKind ret = (TokenKind)TokenKindTable[(unsigned char)c];
     switch (c) {
     case '<':
         switch (cn) {
@@ -315,8 +315,8 @@ static void Token_detect(Token* self)
         = tkUnknown; // the last non-space self->token found
     TokenKind tmp;
     char* start = self->pos;
-    bool found_e = false, found_dot = false;//, found_cmt = false;
-//    uint8_t found_spc = 0;
+    bool found_e = false, found_dot = false; //, found_cmt = false;
+    //    uint8_t found_spc = 0;
 
     switch (tt) {
     case tkStringBoundary:
@@ -337,7 +337,10 @@ static void Token_detect(Token* self)
             }
             if (tt == tkBackslash and Token_getType(self, 1) == tmp)
                 self->pos++;
-            if (tt == tkNewline) {self->line++; self->col = 0;}
+            if (tt == tkNewline) {
+                self->line++;
+                self->col = 0;
+            }
         }
         switch (tmp) {
         case tkStringBoundary:
@@ -374,7 +377,6 @@ static void Token_detect(Token* self)
     case tkOpComma:
     case tkOpSemiColon:
 
-
         //        line continuation tokens
         tt_ret = tt;
 
@@ -382,34 +384,37 @@ static void Token_detect(Token* self)
             tt = Token_getType(self, 1);
             self->pos++;
             if (tt == tkHash) {
-                 while(*self->pos!='\n' and *self->pos!='\0') self->pos++;
+                while (*self->pos != '\n' and *self->pos != '\0') self->pos++;
                 tt = Token_getType(self, 0);
             }
             if (tt == tkNewline) {
                 self->line++;
                 self->col = 0;
-             }
-            if (tt != tkSpaces and tt != tkNewline and tt!=tkHash) break;
+            }
+            if (tt != tkSpaces and tt != tkNewline and tt != tkHash) break;
         }
- break;
-
+        break;
 
     case tkArrayOpen:
     case tkBraceOpen:
-            // go on for array open [. here you need to identify [:,:,:] as a single token
-//        self->pos++;
+        // go on for array open [. here you need to identify [:,:,:] as a single
+        // token
+        //        self->pos++;
 
         while (self->pos and *self->pos) {
             self->pos++;
             if (*self->pos == '#')
-                while(*self->pos and *self->pos!='\n') self->pos++;
+                while (*self->pos and *self->pos != '\n') self->pos++;
 
             if (*self->pos == '\n') {
                 self->line++;
                 self->col = 0;
             }
-            if (*self->pos != ' ' and *self->pos != '\n' and *self->pos!='#'){
-                self->pos--; break;}
+            if (*self->pos != ' ' and *self->pos != '\n'
+                and *self->pos != '#') {
+                self->pos--;
+                break;
+            }
         }
 
         // mergearraydims should be set only when reading func args
@@ -425,7 +430,8 @@ static void Token_detect(Token* self)
         }
         tt = Token_getType(self, 0);
         if (tt != tkArrayClose) {
-            unreachable("expected a ']', found a '%c'. now what?\n", *self->pos);
+            unreachable(
+                "expected a ']', found a '%c'. now what?\n", *self->pos);
         }
         self->pos++;
         tt_ret = tkArrayDims;

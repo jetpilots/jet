@@ -1,3 +1,14 @@
+
+static void setStmtFuncTypeInfo(Parser* self, ASTFunc* func)
+{
+    // this assumes that setExprTypeInfo has been called on the func body
+    const ASTExpr* stmt = func->body->stmts->item;
+    if (not func->returnSpec->typeType)
+        func->returnSpec->typeType = stmt->typeType;
+    else if (func->returnSpec->typeType != stmt->typeType)
+        Parser_errorTypeMismatchBinOp(self, stmt);
+}
+
 // TODO make sempassModule -> same as analyseModule now
 static void analyseType(Parser* parser, ASTType* type, ASTModule* mod);
 static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod);

@@ -1,14 +1,12 @@
 
-static void ASTImport_gen(ASTImport* import, int level)
+static void ASTImport_lint(ASTImport* import, int level)
 {
     printf("import %s%s%s%s\n", import->isPackage ? "@" : "",
         import->importFile, import->hasAlias ? " as " : "",
         import->hasAlias ? import->importFile + import->aliasOffset : "");
 }
 
- 
-
-static void ASTTypeSpec_gen(ASTTypeSpec* spec, int level)
+static void ASTTypeSpec_lint(ASTTypeSpec* spec, int level)
 {
     switch (spec->typeType) {
     case TYObject:
@@ -23,33 +21,31 @@ static void ASTTypeSpec_gen(ASTTypeSpec* spec, int level)
     }
     if (spec->dims) {
         static const char* dimsstr = ":,:,:,:,:,:,:,:,:,:,:,:,:,:,:,:,:,:,:";
-//        char str[32];
-//        str[31]=0;
-//        int sz= 2 + dims + (dims ? (dims-1) : 0) + 1;
-//        str[0] = '[';
-//        str[sz-2] = ']';
-//        str[sz-1] = 0;
-//        for (i=0; i<sz; i++) {
-//            str[i*2+1]=':';
-//            str[i*2+2]=',';
-//        }
-        printf("[%.*s]", 2*spec->dims-1,dimsstr);
-
+        //        char str[32];
+        //        str[31]=0;
+        //        int sz= 2 + dims + (dims ? (dims-1) : 0) + 1;
+        //        str[0] = '[';
+        //        str[sz-2] = ']';
+        //        str[sz-1] = 0;
+        //        for (i=0; i<sz; i++) {
+        //            str[i*2+1]=':';
+        //            str[i*2+2]=',';
+        //        }
+        printf("[%.*s]", 2 * spec->dims - 1, dimsstr);
     }
-
 }
 
-static void ASTExpr_gen(
+static void ASTExpr_lint(
     ASTExpr* self, int level, bool spacing, bool escapeStrings);
 
-static void ASTVar_gen(ASTVar* var, int level)
+static void ASTVar_lint(ASTVar* var, int level)
 {
     printf("%.*s%s%s", level, spaces,
         var->isVar ? "var " : var->isLet ? "let " : "", var->name);
     if (not(var->init and var->init->kind == tkFunctionCall
             and !strcmp(var->init->string, var->typeSpec->name))) {
         printf(" as ");
-        ASTTypeSpec_gen(var->typeSpec, level + STEP);
+        ASTTypeSpec_lint(var->typeSpec, level + STEP);
     }
     // }
     // else {
@@ -68,11 +64,11 @@ static void ASTVar_gen(ASTVar* var, int level)
     // }
     if (var->init) {
         printf(" = ");
-        ASTExpr_gen(var->init, 0, true, false);
+        ASTExpr_lint(var->init, 0, true, false);
     }
 }
 
-static void ASTScope_gen(ASTScope* scope, int level)
+static void ASTScope_lint(ASTScope* scope, int level)
 {
     jet_foreachn(ASTExpr*, expr, exprList, scope->stmts)
     {
@@ -84,10 +80,10 @@ static void ASTScope_gen(ASTScope* scope, int level)
         case tkKeyword_while: {
             printf("%.*s", level, spaces);
             printf("%s ", TokenKind_repr(expr->kind, false));
-            if (expr->left) ASTExpr_gen(expr->left, 0, true, false);
+            if (expr->left) ASTExpr_lint(expr->left, 0, true, false);
             puts("");
             if (expr->body)
-                ASTScope_gen(
+                ASTScope_lint(
                     expr->body, level + STEP); //, true, escapeStrings);
             const char* tok = TokenKind_repr(expr->kind, false);
             if (expr->kind == tkKeyword_else or expr->kind == tkKeyword_elif)
@@ -102,19 +98,19 @@ static void ASTScope_gen(ASTScope* scope, int level)
             printf("%.*send %s\n", level, spaces, tok);
         } break;
         default:
-            ASTExpr_gen(expr, level, true, false);
+            ASTExpr_lint(expr, level, true, false);
             puts("");
         }
     }
 }
 
-static void ASTType_gen(ASTType* type, int level)
+static void ASTType_lint(ASTType* type, int level)
 {
     if (not type->body) printf("declare ");
     printf("type %s", type->name);
     if (type->super) {
         printf(" extends ");
-        ASTTypeSpec_gen(type->super, level);
+        ASTTypeSpec_lint(type->super, level);
     }
     puts("");
     if (not type->body) return;
@@ -122,13 +118,13 @@ static void ASTType_gen(ASTType* type, int level)
     jet_foreach(ASTExpr*, stmt, type->body->stmts)
     {
         if (not stmt) continue;
-        ASTExpr_gen(stmt, level + STEP, true, false);
+        ASTExpr_lint(stmt, level + STEP, true, false);
         puts("");
     }
     puts("end type\n");
 }
 
-static void ASTFunc_gen(ASTFunc* func, int level)
+static void ASTFunc_lint(ASTFunc* func, int level)
 {
     if (func->isDefCtor or func->intrinsic) return;
     if (func->isDeclare) printf("declare ");
@@ -137,39 +133,39 @@ static void ASTFunc_gen(ASTFunc* func, int level)
 
     jet_foreachn(ASTVar*, arg, args, func->args)
     {
-        ASTVar_gen(arg, level);
+        ASTVar_lint(arg, level);
         printf(args->next ? ", " : "");
     }
     printf(")");
 
     if (func->returnSpec and not func->isStmt) {
         printf(" returns ");
-        ASTTypeSpec_gen(func->returnSpec, level);
+        ASTTypeSpec_lint(func->returnSpec, level);
     }
     if (func->isDeclare) {
         puts("");
         return;
     } else if (not func->isStmt) {
         puts("");
-        ASTScope_gen(func->body, level + STEP);
+        ASTScope_lint(func->body, level + STEP);
         puts("end function\n");
     } else {
         ASTExpr* def = func->body->stmts->item;
         def = def->right; // its a return expr
         printf(" := ");
-        ASTExpr_gen(def, 0, true, false);
+        ASTExpr_lint(def, 0, true, false);
         puts("\n");
     }
 }
 
-static void ASTTest_gen(ASTTest* test, int level)
+static void ASTTest_lint(ASTTest* test, int level)
 {
-    printf("test '%s'\n",  test->name);
-    ASTScope_gen(test->body, level + STEP);
+    printf("test '%s'\n", test->name);
+    ASTScope_lint(test->body, level + STEP);
     puts("end test\n");
 }
 
-static void ASTExpr_gen(
+static void ASTExpr_lint(
     ASTExpr* expr, int level, bool spacing, bool escapeStrings)
 {
     // generally an expr is not split over several lines (but maybe in
@@ -209,7 +205,7 @@ static void ASTExpr_gen(
         char* tmp = (expr->kind == tkFunctionCallResolved) ? expr->func->name
                                                            : expr->string;
         printf("%s(", tmp);
-        if (expr->left) ASTExpr_gen(expr->left, 0, spacing, escapeStrings);
+        if (expr->left) ASTExpr_lint(expr->left, 0, spacing, escapeStrings);
         printf(")");
     } break;
 
@@ -218,7 +214,7 @@ static void ASTExpr_gen(
         char* tmp = (expr->kind == tkSubscriptResolved) ? expr->var->name
                                                         : expr->string;
         printf("%s[", tmp);
-        if (expr->left) ASTExpr_gen(expr->left, 0, false, escapeStrings);
+        if (expr->left) ASTExpr_lint(expr->left, 0, false, escapeStrings);
         printf("]");
     } break;
 
@@ -228,9 +224,9 @@ static void ASTExpr_gen(
 
     case tkVarAssign:
         // var x as XYZ = abc... -> becomes an ASTVar and an ASTExpr
-        // (to keep location). Send it to ASTVar_gen.
+        // (to keep location). Send it to ASTVar_lint.
         assert(expr->var != NULL);
-        ASTVar_gen(expr->var, 0);
+        ASTVar_lint(expr->var, 0);
         break;
 
     default:
@@ -293,7 +289,7 @@ static void ASTExpr_gen(
         char lpc = leftBr and expr->left->kind == tkOpColon ? ']' : ')';
         if (leftBr) putc(lpo, stdout);
         if (expr->left)
-            ASTExpr_gen(expr->left, 0,
+            ASTExpr_lint(expr->left, 0,
                 spacing and !leftBr and expr->kind != tkOpColon, escapeStrings);
         if (leftBr) putc(lpc, stdout);
 
@@ -303,7 +299,7 @@ static void ASTExpr_gen(
         char rpc = rightBr and expr->right->kind == tkOpColon ? ']' : ')';
         if (rightBr) putc(rpo, stdout);
         if (expr->right)
-            ASTExpr_gen(expr->right, 0,
+            ASTExpr_lint(expr->right, 0,
                 spacing and !rightBr and expr->kind != tkOpColon,
                 escapeStrings);
         if (rightBr) putc(rpc, stdout);
@@ -314,18 +310,18 @@ static void ASTExpr_gen(
     }
 }
 
-static void ASTModule_gen(ASTModule* module, int level)
+static void ASTModule_lint(ASTModule* module, int level)
 {
     printf("! module %s\n", module->name);
 
     jet_foreach(ASTImport*, import, module->imports)
-        ASTImport_gen(import, level);
+        ASTImport_lint(import, level);
 
     puts("");
 
-    jet_foreach(ASTType*, type, module->types) ASTType_gen(type, level);
+    jet_foreach(ASTType*, type, module->types) ASTType_lint(type, level);
 
-    jet_foreach(ASTFunc*, func, module->funcs) ASTFunc_gen(func, level);
+    jet_foreach(ASTFunc*, func, module->funcs) ASTFunc_lint(func, level);
 
-    jet_foreach(ASTTest*, test, module->tests) ASTTest_gen(test, level);
+    jet_foreach(ASTTest*, test, module->tests) ASTTest_lint(test, level);
 }

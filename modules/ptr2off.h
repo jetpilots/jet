@@ -10,70 +10,131 @@
 // you need only 1 ptr2off func for each type. Best is keep a func ptr that
 // takes you to the actual implementation.
 
-void ASTTypeSpec_ptr2off(ASTTypeSpec* typeSpec)
+void ptr2off_s_fwd(char** str) { }
+
+void ptr2off_fwd(void** ptr)
 {
-    if (typeSpec->typeType == TYObject) {
-        ASTType_ptr2off(typeSpec->type);
-        ptr2off(&typeSpec->type);
-    } else if (TypeType_isNumeric(typeSpec->typeType) and typeSpec->units) {
-        ASTUnits_ptr2off(typeSpec->units);
-        ptr2off(&typeSpec->units);
-    } else {
-        // what's left. unresolved?
-        unreachable("");
+    size_t pd = 0;
+    pd = *ptr - jet_gPool->ref;
+    if (pd > 0 and pd < jet_gPool->cap) {
+        pd |= 0xffffUL << 48;
+        *ptr = (void*)pd;
+        return;
     }
+
+    for_to(i, jet_gPool->ptrs.used)
+    {
+        pd = *ptr - jet_gPool->ptrs.ref[i];
+        if (pd > 0 and pd < jet_gPool->caps.ref[i]) {
+            pd |= ((size_t)i) << 48;
+            // high16 holds subpool index, low48 is the offset
+            *ptr = (void*)pd;
+            return;
+        }
+    }
+
+    unreachable("ptr2off failed %s", "-");
 }
+
+void ptr2off_rev(void** ptr)
+{
+    size_t pd = (size_t)*ptr;
+    unsigned short owner = pd >> 48;
+    pd |= 0x0000ffffffffffff;
+    if (owner == 0xffff)
+        *ptr = pd + jet_gPool->ref;
+    else if (owner < jet_gPool->ptrs.used)
+        *ptr = pd + jet_gPool->ptrs.ref[owner];
+    else
+        unreachable("ptr2off failed %s", "-");
+}
+
+static void (*ptr2off)(void**) = ptr2off_fwd;
+static void (*ptr2off_s)(char**) = ptr2off_s_fwd;
+
+// BEGIN STRUCT HELPERS
+
+void List_ptr2off(jet_PtrList* list)
+{
+    // CALL THIS AFTER ITERATING THROUGH THE LIST!!
+    ptr2off(&list->item);
+    ptr2off((void**)&list->next);
+}
+
+void ASTTypeSpec_ptr2off(ASTTypeSpec* typeSpec);
+
+void ASTExpr_ptr2off(ASTExpr* expr) { }
+void ASTUnits_ptr2off(ASTUnits* units) { }
 
 void ASTVar_ptr2off(ASTVar* var)
 {
-    ptr2off_s(var->name);
+    ptr2off_s(&var->name);
     ASTTypeSpec_ptr2off(var->typeSpec);
-    ptr2off(&var->typeSpec);
+    ptr2off((void**)&var->typeSpec);
     ASTExpr_ptr2off(var->init);
-    ptr2off(&var->init);
+    ptr2off((void**)&var->init);
 }
 
 void ASTScope_ptr2off(ASTScope* scope)
 {
-    foreach (ASTExpr, stmt, scope->stmts)
-        ASTExpr_ptr2off(stmt);
-    foreach (ASTVar, var, stmt->locals)
-        ASTVar_ptr2off(var);
+    jet_foreach(ASTExpr*, stmt, scope->stmts) ASTExpr_ptr2off(stmt);
+    jet_foreach(ASTVar*, var, scope->locals) ASTVar_ptr2off(var);
     List_ptr2off(scope->stmts);
     List_ptr2off(scope->locals);
     // DO NOT process the parent!
-    ptr2off(&scope->stmts);
-    ptr2off(&scope->locals);
-    ptr2off(&scope->parent);
+    ptr2off((void**)&scope->stmts);
+    ptr2off((void**)&scope->locals);
+    ptr2off((void**)&scope->parent);
 }
 
 void ASTType_ptr2off(ASTType* type)
 {
     ASTScope_ptr2off(type->body);
-    ptr2off(&type->body);
+    ptr2off((void**)&type->body);
     ptr2off_s(&type->name);
     // TODO: type super?
+}
+
+void ASTImport_ptr2off(ASTImport* import)
+{
+    // ASTScope_ptr2off(type->body);
+    // ptr2off(&type->body);
+    ptr2off_s(&import->importFile);
+    // TODO: type super?
+}
+
+void ASTTypeSpec_ptr2off(ASTTypeSpec* typeSpec)
+{
+    if (typeSpec->typeType == TYObject) {
+        ASTType_ptr2off(typeSpec->type);
+        ptr2off((void**)&typeSpec->type);
+    } else if (TypeType_isnum(typeSpec->typeType) and typeSpec->units) {
+        ASTUnits_ptr2off(typeSpec->units);
+        ptr2off((void**)&typeSpec->units);
+    } else {
+        // what's left. unresolved?
+        unreachable("%s", "-");
+    }
 }
 
 void ASTEnum_ptr2off(ASTEnum* enm)
 {
     ASTScope_ptr2off(enm->body);
-    ptr2off(&enm->body);
+    ptr2off((void**)&enm->body);
     ptr2off_s(&enm->name);
     // TODO: type super?
 }
 
 void ASTFunc_ptr2off(ASTFunc* func)
 {
-    foreach (ASTVar, arg, func->args)
-        ASTVar_ptr2off(arg);
+    jet_foreach(ASTVar*, arg, func->args) ASTVar_ptr2off(arg);
     List_ptr2off(func->args);
     ASTScope_ptr2off(func->body);
     ASTTypeSpec_ptr2off(func->returnSpec);
 
-    ptr2off(&func->body);
-    ptr2off(&func->returnSpec);
-    ptr2off(&func->args);
+    ptr2off((void**)&func->body);
+    ptr2off((void**)&func->returnSpec);
+    ptr2off((void**)&func->args);
 
     ptr2off_s(&func->name);
     ptr2off_s(&func->selector);
@@ -82,27 +143,20 @@ void ASTFunc_ptr2off(ASTFunc* func)
 void ASTTest_ptr2off(ASTTest* test)
 {
     ASTScope_ptr2off(test->body);
-    ptr2off(&test->body);
+    ptr2off((void**)&test->body);
     ptr2off_s(&test->name);
     ptr2off_s(&test->selector);
 }
 
 void ASTModule_ptr2off(ASTModule* mod)
 {
-    foreach (ASTVar, var, mod->globals)
-        ASTVar_ptr2off(var);
-    foreach (ASTFunc, func, mod->funcs)
-        ASTFunc_ptr2off(func);
-    foreach (ASTTest, test, mod->tests)
-        ASTTest_ptr2off(test);
-    foreach (ASTExpr, expr, mod->exprs)
-        ASTExpr_ptr2off(expr);
-    foreach (ASTImport, import, mod->imports)
-        ASTImport_ptr2off(import);
-    foreach (ASTEnum, enm, mod->enums)
-        ASTEnum_ptr2off(enm);
-    foreach (ASTType, type, mod->types)
-        ASTType_ptr2off(type);
+    jet_foreach(ASTVar*, var, mod->globals) ASTVar_ptr2off(var);
+    jet_foreach(ASTFunc*, func, mod->funcs) ASTFunc_ptr2off(func);
+    jet_foreach(ASTTest*, test, mod->tests) ASTTest_ptr2off(test);
+    jet_foreach(ASTExpr*, expr, mod->exprs) ASTExpr_ptr2off(expr);
+    jet_foreach(ASTImport*, import, mod->imports) ASTImport_ptr2off(import);
+    jet_foreach(ASTEnum*, enm, mod->enums) ASTEnum_ptr2off(enm);
+    jet_foreach(ASTType*, type, mod->types) ASTType_ptr2off(type);
 
     List_ptr2off(mod->globals);
     List_ptr2off(mod->funcs);
@@ -112,41 +166,13 @@ void ASTModule_ptr2off(ASTModule* mod)
     List_ptr2off(mod->enums);
     List_ptr2off(mod->types);
 
-    ptr2off(&mod->globals);
-    ptr2off(&mod->funcs);
-    ptr2off(&mod->tests);
-    ptr2off(&mod->exprs);
-    ptr2off(&mod->imports);
-    ptr2off(&mod->enums);
-    ptr2off(&mod->types);
+    ptr2off((void**)&mod->globals);
+    ptr2off((void**)&mod->funcs);
+    ptr2off((void**)&mod->tests);
+    ptr2off((void**)&mod->exprs);
+    ptr2off((void**)&mod->imports);
+    ptr2off((void**)&mod->enums);
+    ptr2off((void**)&mod->types);
     ptr2off_s(&mod->name);
     ptr2off_s(&mod->moduleName);
-}
-
-static void (*ptr2off)(void**) = ptr2off_fwd;
-
-void ptr2off_fwd(void** ptr)
-{
-    ptrdiff_t pd = 0;
-    for_to(i, gPool->subpools->count)
-    {
-        pd = ptr - gPool->subpools->ref[i];
-        if (pd > 0 and pd < gPool->subpools->used[i]) {
-            pd |= i << 48; // high16 holds subpool index, low48 is the offset
-            *ptr = pd;
-            return;
-        }
-    }
-    unreachable("ptr2off failed");
-}
-
-void ptr2off_rev(void** ptr)
-{
-    ptrdiff_t pd = ptr;
-    int owner = pd >> 48;
-    pd |= 0x0000ffffffffffff;
-    if (owner < gPool->subpools->used)
-        *ptr = pd + gPool->subpools->ref[owner];
-    else
-        unreachable("ptr2off failed");
 }

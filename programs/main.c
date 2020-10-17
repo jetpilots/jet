@@ -1,12 +1,12 @@
 
 // #include <assert.h>
-#include <ctype.h>
-#include <limits.h>
+// #include <ctype.h>
+// #include <limits.h>
 // #include <stdio.h>
 // #include <stdint.h>
 // #include <stdlib.h>
 // #include <string.h>
-#include <math.h>
+// #include <math.h>
 
 #include "cycle.h"
 #include "jet_base.h"
@@ -503,6 +503,10 @@ static ASTVar* ASTType_getVar(ASTType* self, const char* name)
 
 #pragma mark - AST FUNC IMPL.
 
+/// This creates a new ASTFunc marked as declare and having one
+/// argument. The name of the function and the type of the argument can be
+/// specified. This way you can create declared functions such as `print`,
+/// `json`, etc. of each new type defined in source code.
 static ASTFunc* ASTFunc_createDeclWithArg(
     char* name, char* retType, char* arg1Type)
 {
@@ -660,12 +664,12 @@ ASTFunc* ASTModule_getFunc(ASTModule* module, const char* selector)
     return NULL;
 }
 
-#include "gen.h"
-#include "genc.h"
+#include "lint.h"
+#include "emit.h"
 
 #pragma mark - PARSER
 
-typedef enum ParserMode { PMLint, PMGenC, PMGenTests } ParserMode;
+typedef enum ParserMode { PMLint, PMEmitC, PMGenTests } ParserMode;
 
 typedef struct Parser {
     char* filename; // mod/submod/xyz/mycode.ch
@@ -768,7 +772,7 @@ static Parser* Parser_fromFile(char* filename, bool skipws)
         ret->token.kind = tkUnknown;
         ret->token.line = 1;
         ret->token.col = 1;
-        ret->mode = PMGenC; // parse args to set this
+        ret->mode = PMEmitC; // parse args to set this
         ret->errCount = 0;
         ret->warnCount = 0;
         ret->errLimit = 50;
@@ -879,15 +883,14 @@ static void getSelector(ASTFunc* func)
     }
 }
 
-#include "typecheck.h"
 #include "resolve.h"
-#include "sempass.h"
+#include "analyse.h"
 
 // this is a global astexpr representing 0. it will be used when parsing e.g.
 // the colon op with nothing on either side. : -> 0:0 means the same as 1:end
-static ASTExpr expr_const_0[] = { { .kind = tkNumber, .string = "0" } };
-static ASTExpr lparen[] = { { .kind = tkParenOpen } };
-static ASTExpr rparen[] = { { .kind = tkParenClose } };
+static const ASTExpr expr_const_0[] = { { .kind = tkNumber, .string = "0" } };
+static const ASTExpr lparen[] = { { .kind = tkParenOpen } };
+static const ASTExpr rparen[] = { { .kind = tkParenClose } };
 
 // static void initStaticExprs()
 // {
@@ -900,7 +903,7 @@ static ASTExpr rparen[] = { { .kind = tkParenClose } };
 #include "parse.h"
 
 // TODO: this should be in ASTModule open/close
-static void Parser_genc_open(Parser* parser)
+static void Parser_emit_open(Parser* parser)
 {
     printf("#ifndef HAVE_%s\n#define HAVE_%s\n\n", parser->capsMangledName,
         parser->capsMangledName);
@@ -913,7 +916,7 @@ static void Parser_genc_open(Parser* parser)
     printf("static ticks _lprof_[NUMLINES] = {};\n");
 }
 
-static void Parser_genc_close(Parser* parser)
+static void Parser_emit_close(Parser* parser)
 {
     printf("#undef THISMODULE\n");
     printf("#undef THISFILE\n");
@@ -921,6 +924,8 @@ static void Parser_genc_close(Parser* parser)
 }
 
 static void alloc_stat() { }
+
+#include "ptr2off.h"
 
 #pragma mark - main
 int main(int argc, char* argv[])
@@ -952,21 +957,21 @@ int main(int argc, char* argv[])
     if (not(parser->errCount)) {
         switch (parser->mode) {
         case PMLint: {
-            jet_foreach(ASTModule*, mod, modules) ASTModule_gen(mod, 0);
+            jet_foreach(ASTModule*, mod, modules) ASTModule_lint(mod, 0);
         } break;
 
-        case PMGenC: {
+        case PMEmitC: {
             // TODO: if (monolithic) printf("#define STATIC static\n");
             printf("#include \"jet_runtime.h\"\n");
-            Parser_genc_open(parser);
-            jet_foreach(ASTModule*, mod, modules) ASTModule_genc(mod, 0);
-            Parser_genc_close(parser);
+            Parser_emit_open(parser);
+            jet_foreach(ASTModule*, mod, modules) ASTModule_emit(mod, 0);
+            Parser_emit_close(parser);
         } break;
 
         case PMGenTests: {
             printf("#include \"jet_tester.h\"\n");
             // TODO : THISFILE must be defined since function callsites need it,
-            // but the other stuff in Parser_genc_open isn't required. Besides,
+            // but the other stuff in Parser_emit_open isn't required. Besides,
             // THISFILE should be the actual module's file not the test file
 
             jet_foreach(ASTModule*, mod, modules) ASTModule_genTests(mod, 0);
