@@ -888,9 +888,9 @@ static void getSelector(ASTFunc* func)
 
 // this is a global astexpr representing 0. it will be used when parsing e.g.
 // the colon op with nothing on either side. : -> 0:0 means the same as 1:end
-static const ASTExpr expr_const_0[] = { { .kind = tkNumber, .string = "0" } };
-static const ASTExpr lparen[] = { { .kind = tkParenOpen } };
-static const ASTExpr rparen[] = { { .kind = tkParenClose } };
+static ASTExpr expr_const_0[] = { { .kind = tkNumber, .string = "0" } };
+static ASTExpr lparen[] = { { .kind = tkParenOpen } };
+static ASTExpr rparen[] = { { .kind = tkParenClose } };
 
 // static void initStaticExprs()
 // {
