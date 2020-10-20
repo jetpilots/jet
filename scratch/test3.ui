@@ -1,0 +1,50 @@
+radio !ontoggle:string !receivesDefault:bool !halign:choice[start|end|middle] active=yes drawIndicator=yes group:string
+// Comments go after a two slashes (cpp-style).
+// In schemas, ! indicates an attribute must be present, :type indicates the type,
+// an optional default value if given determines the type and provides the default
+// value.
+
+adjust #adjustment1 upper=1000000 stepIncrement=1 pageIncrement=10
+box #storageBox orientation='vertical' spacing=6
+  box #storageCreateBox orientation='vertical' spacing=3
+    radio #storageCreate receivesDefault=no halign='start' active=yes drawIndicator=yes
+      label text='Create a disk image for the virtual machine' useMarkup=yes useUnderline=yes
+    align leftPadding=22
+      box orientation='vertical' spacing=4
+        box spacing=6
+          spinButton #storageSize halign='end' text='00' adjustment='adjustment1' climbRate=1 digits=1
+          label text='GiB' useUnderline=yes mnemonicWidget='storageSize'
+          label #physHdLabel text='Free Space' halign='start' useMarkup=yes
+  box
+  box orientation='vertical' spacing=6
+    radio #storageSelect ontoggle='onStorageSelectToggled' receivesDefault=no halign='start' active drawIndicator=yes group='storageCreate'
+      label text='Select or create custom storage' useMarkup=yes useUnderline=yes
+    box #storageBrowseBox .boxt .moreclass5--yu sensitive=no spacing=6
+      button #storageBrowse receivesDefault useUnderline=yes clicked='onStorageBrowseClicked'
+      -- if $j == 2
+      // control flow goes after an `@` sign.
+      // all variables are prefixed with $, everywhere.
+        label text='Manage' useUnderline=yes mnemonicWidget='storageBrowse'
+        'Here is a line of plain $fs and blah $mb blah'
+      -- end
+      textField #storageEntry widthChars=25
+box #storageAdvancedBox orientation='vertical'
+  expander #storageAdvanced
+    grid rowSpacing=6 columnSpacing=6
+      label halign='end' text='Cache mode:' useUnderline=yes mnemonicWidget='diskCache'
+      combobox #disk__-Cache .cls__id-da .clase-3 hasEntry=yes onchange='onDiskCacheComboChanged'
+      label #labelDiskDiscard halign='end' text='Discard mode:' useUnderline=yes mnemonicWidget='diskDiscard'
+      combobox #diskDiscard hasEntry=yes onchange='onDiskDiscardComboChanged'
+      label #labelDiskDetectZeroes halign='end' text='Detect Zeroes:' useUnderline=yes mnemonicWidget='diskDetectZeroes'
+      combobox #diskDetectZeroes hasEntry=yes onchange='onDiskDetectZeroesComboChanged'
+      label #permissionsLabel halign='end' text='Readonly:' useUnderline=yes mnemonicWidget='diskReadonly'
+      label halign='end' text='Shareable:' useUnderline=yes mnemonicWidget='diskShareable'
+      checkbox #diskReadonly receivesDefault=no drawIndicator=yes ontoggle='onDiskReadonlyChanged'
+      checkbox #diskShareable receivesDefault=no halign='start' drawIndicator ontoggle='onDiskShareableChanged'
+      label halign='end' text='Removable:' useUnderline=yes mnemonicWidget='diskRemovable'
+      checkbox #diskRemovable receivesDefault=no halign='start' drawIndicator=yes ontoggle='onDiskRemovableChanged'
+      label halign='end' text='Serial:' useUnderline=yes mnemonicWidget='diskSerial'
+      textfield #diskSerial onchange='onDiskSerialChanged'
+    label text='Advanced Options' useUnderline=yes
+
+

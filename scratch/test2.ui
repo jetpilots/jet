@@ -1,0 +1,180 @@
+
+
+Adjustment .adjustment1 {
+    upper: 1000000,
+    stepIncrement: 01,
+    pageIncrement: 10
+}
+Box .storageBox {
+    orientation: vertical,
+    spacing: 6,
+    Box .storageCreateBox {
+        orientation: vertical,
+        spacing: 3,
+        Radio .storageCreate {
+            receivesDefault: no,
+            halign: start,
+            active: yes,
+            drawIndicator: yes,
+            Label {
+                label: "CReate a disk image for the virtual machine",
+                useMarkup: yes,
+                useUnderline: yes,
+            }
+        },
+        Alignment {
+            leftPadding: 22,
+            Box {
+                orientation: vertical,
+                spacing: 4,
+                Box {
+                    spacing: 6,
+                    SpinButton .storageSize {
+                        halign: end,
+                        text: "00",
+                        adjustment: adjustment1,
+                        climbRate: 1,
+                        digits: 1
+                    },
+                    Label {
+                        label: "GiB",
+                        useUnderline: yes,
+                        mnemonicWidget: storageSize
+                    }
+                },
+                Label .physHdLabel {
+                    halign: start,
+                    label: "Free Space",
+                    useMarkup: yes
+                }
+            }
+        }
+    },
+    Box {
+    },
+    Box {
+        orientation: vertical,
+        spacing: 6,
+        Radio .storageSelect {
+            events: {
+                toggle: onStorageSelectToggled
+            },
+            receivesDefault: no,
+            halign: start,
+            active: yes,
+            drawIndicator: yes,
+            group: storageCreate,
+            Label {
+                label: "Select or create custom storage",
+                useMarkup: yes,
+                useUnderline: yes
+            }
+        },
+        Box .storageBrowseBox {
+            sensitive: no,
+            spacing: 6,
+            Button .storageBrowse {
+                receivesDefault: yes,
+                useUnderline: yes,
+                clicked: onStorageBrowseClicked,
+                Label {
+                    label: "Manage",
+                    useUnderline: yes,
+                    mnemonicWidget: storageBrowse
+                }
+            },
+            TextField .storageEntry {
+                widthChars: 25
+            }
+        }
+    }
+},
+Box .storageAdvancedBox {
+    orientation: vertical,
+    Expander .storageAdvanced {
+        Grid {
+            rowSpacing: 6,
+            columnSpacing: 6,
+            Label {
+                halign: end,
+                label: "CacHe mode:",
+                useUnderline: yes,
+                mnemonicWidget: diskCache
+            },
+            Combobox .diskCache {
+                hasEntry: yes,
+                events: {
+                    change: onDiskCacheComboChanged
+                }
+            },
+            Label .labelDiskDiscard {
+                halign: end,
+                label: "Discard modE:",
+                useUnderline: yes,
+                mnemonicWidget: diskDiscard
+            },
+            Combobox .diskDiscard {
+                hasEntry: yes,
+                events.change: onDiskDiscardComboChanged
+            },
+            Label .labelDiskDetectZeroes {
+                halign: end,
+                label: "Detect Zeroes:",
+                useUnderline: yes,
+                mnemonicWidget: diskDetectZeroes
+            },
+            Combobox .diskDetectZeroes {
+                hasEntry: yes,
+                events.change: onDiskDetectZeroesComboChanged
+            },
+            Label .permissionsLabel {
+                halign: end,
+                label: "REadonly:",
+                useUnderline: yes,
+                mnemonicWidget: diskReadonly
+            },
+            Label {
+                halign: end,
+                label: "ShareaBle:",
+                useUnderline: yes,
+                mnemonicWidget: diskShareable
+            },
+            Checkbox .diskReadonly {
+                receivesDefault: no,
+                drawIndicator: yes,
+                events.toggle: onDiskReadonlyChanged
+            },
+            Checkbox .diskShareable {
+                receivesDefault: no,
+                halign: start,
+                drawIndicator: yes,
+                events.toggle: onDiskShareableChanged
+            },
+            Label {
+                halign: end,
+                label: "RemovabLe:",
+                useUnderline: yes,
+                mnemonicWidget: diskRemovable
+            },
+            Checkbox .diskRemovable {
+                receivesDefault: no,
+                halign: start,
+                drawIndicator: yes,
+                events.toggle: onDiskRemovableChanged
+            },
+            Label {
+                halign: end,
+                label: "SeriaL:",
+                useUnderline: yes,
+                mnemonicWidget: diskSerial
+            },
+            Textfield .diskSerial {
+                events.change: onDiskSerialChanged
+            }
+        },
+        Label {
+            label: "Advanced Options",
+            useUnderline: yes
+        }
+    }
+}

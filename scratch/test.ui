@@ -1,0 +1,207 @@
+# existing (defined) members use a dot,
+# creating new vars: no dot (no var either, for G files),
+# so the only difference from normal Jet files is that var can be skipped.,
+
+# For UIs, the type name is far more important than the ID. So the alternative
+# syntax in test2.ui is preferred (Box .storageBox instead of storageBox = Box)
+
+adjustment1 = Adjustment {
+    .upper = 1000000,
+    .stepIncrement = 0.1,
+    .pageIncrement = 10
+}
+storageBox = Box {
+    .orientation = .vertical,
+    .spacing = 6,
+    .children = [
+        storageCreateBox = Box {
+            .orientation = .vertical,
+            .spacing = 3,
+            .children = [
+                storageCreate = Radio {
+                    .receivesDefault = no,
+                    .halign = .start,
+                    .active = yes,
+                    .drawIndicator = yes,
+                    .children = [
+                        Label {
+                            .label = "CReate a disk image for the virtual machine",
+                            .useMarkup = yes,
+                            .useUnderline = yes,
+                        }
+                    ]
+                },
+                Alignment {
+                    .leftPadding = 22,
+                    .children = [
+                        Box {
+                            .orientation = .vertical,
+                            .spacing = 4,
+                            .children = [
+                                Box {
+                                    .spacing = 6,
+                                    .children = [
+                                        storageSize = SpinButton {
+                                            .halign = end,
+                                            .text = "0.0",
+                                            .adjustment = adjustment1,
+                                            .climbRate = 1,
+                                            .digits = 1
+                                        },
+                                        Label {
+                                            .label = "GiB",
+                                            .useUnderline = yes,
+                                            .mnemonicWidget = storageSize
+                                        }
+                                    ]
+                                },
+                                physHdLabel = Label {
+                                    .halign = .start,
+                                    .label = "Free Space",
+                                    .useMarkup = yes
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        Box {
+        },
+        Box {
+            .orientation = vertical,
+            .spacing = 6,
+            .children = [
+                storageSelect = Radio {
+                    on toggle = onStorageSelectToggled,
+                    .receivesDefault = no,
+                    .halign = start,
+                    .active = yes,
+                    .drawIndicator = yes,
+                    .group = storageCreate,
+                    .children = [
+                        Label {
+                            .label = "Select or create custom storage",
+                            .useMarkup = yes,
+                            .useUnderline = yes
+                        }
+                    ]
+                },
+                storageBrowseBox = Box {
+                    .sensitive = no,
+                    .spacing = 6,
+                    .children = [
+                        storageBrowse = Button {
+                            .receivesDefault = yes,
+                            .useUnderline = yes,
+                            .clicked = onStorageBrowseClicked,
+                            .children = [
+                                Label {
+                                    .label = "Manage..",
+                                    .useUnderline = yes,
+                                    .mnemonicWidget = storageBrowse
+                                }
+                            ]
+                        },
+                        storageEntry = TextField {
+                            .widthChars = 25
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
+storageAdvancedBox = Box {
+    .orientation = vertical,
+    .children = [
+        storageAdvanced = Expander {
+            .children = [
+                Grid {
+                    .rowSpacing = 6,
+                    .columnSpacing = 6,
+                    .children = [
+                        Label {
+                            .halign = end,
+                            .label = "CacHe mode:",
+                            .useUnderline = yes,
+                            .mnemonicWidget = diskCache
+                        },
+                        diskCache = Combobox {
+                            .hasEntry = yes,
+                            on change = onDiskCacheComboChanged
+                        },
+                        labelDiskDiscard = Label {
+                            .halign = end,
+                            .label = "Discard modE:",
+                            .useUnderline = yes,
+                            .mnemonicWidget = diskDiscard
+                        },
+                        diskDiscard = Combobox {
+                            .hasEntry = yes,
+                            on change = onDiskDiscardComboChanged
+                        },
+                        labelDiskDetectZeroes = Label {
+                            .halign = end,
+                            .label = "Detect Zeroes:",
+                            .useUnderline = yes,
+                            .mnemonicWidget = diskDetectZeroes
+                        },
+                        diskDetectZeroes = Combobox {
+                            .hasEntry = yes,
+                            on change = onDiskDetectZeroesComboChanged
+                        },
+                        permissionsLabel = Label {
+                            .halign = end,
+                            .label = "REadonly:",
+                            .useUnderline = yes,
+                            .mnemonicWidget = diskReadonly
+                        },
+                        Label {
+                            .halign = end,
+                            .label = "ShareaBle:",
+                            .useUnderline = yes,
+                            .mnemonicWidget = diskShareable
+                        },
+                        diskReadonly = Checkbox {
+                            .receivesDefault = no,
+                            .drawIndicator = yes,
+                            on toggle = onDiskReadonlyChanged
+                        },
+                        diskShareable = Checkbox {
+                            .receivesDefault = no,
+                            .halign = start,
+                            .drawIndicator = yes,
+                            on toggle = onDiskShareableChanged
+                        },
+                        Label {
+                            .halign = end,
+                            .label = "RemovabLe:",
+                            .useUnderline = yes,
+                            .mnemonicWidget = diskRemovable
+                        },
+                        diskRemovable = Checkbox {
+                            .receivesDefault = no,
+                            .halign = start,
+                            .drawIndicator = yes,
+                            on toggle = onDiskRemovableChanged
+                        },
+                        Label {
+                            .halign = end,
+                            .label = "SeriaL:",
+                            .useUnderline = yes,
+                            .mnemonicWidget = diskSerial
+                        },
+                        diskSerial = Textfield {
+                            on change = onDiskSerialChanged
+                        }
+                    ]
+                },
+                Label {
+                    .label = "Advanced Options",
+                    .useUnderline = yes
+                }
+            ]
+        }
+    ]
+}
