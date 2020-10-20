@@ -481,7 +481,7 @@ static KDTreePoint* newPoint(double x, double y, double z)
     *p = (KDTreePoint) { { x, y, z } };
     return p;
 }
-#include "../modules/jet_sys_time.h"
+#include "../modules/jet_clock.h"
 
 // addLevels can only be called on a node which has 1 further level below it
 // already. This is because you need 1 node above the current level in order to
@@ -617,30 +617,30 @@ int main(int argc, char* argv[])
     // i);
     // }
     const int NPTS = argc > 1 ? atoi(argv[1]) : 10000000;
-    jet_sys_time_Time t0 = jet_sys_time_getTime();
+    jet_clock_Time t0 = jet_clock_getTime();
     KDTreeNode* root = init(boundBox, NPTS);
     // printDot(root);
     // return 0;
-    printf("init: %g ms\n", jet_sys_time_clockSpanMicro(t0) / 1e3);
+    printf("init: %g ms\n", jet_clock_clockSpanMicro(t0) / 1e3);
 
     KDTreePoint* pt = malloc(sizeof(KDTreePoint) * NPTS);
-    t0 = jet_sys_time_getTime();
+    t0 = jet_clock_getTime();
     for_to(i, NPTS) pt[i] = (KDTreePoint) { { rndf(), rndf(), rndf() } };
     printf("%d rndgen+mallocs etc: %g ms\n", NPTS,
-        jet_sys_time_clockSpanMicro(t0) / 1e3);
-    t0 = jet_sys_time_getTime();
+        jet_clock_clockSpanMicro(t0) / 1e3);
+    t0 = jet_clock_getTime();
 
     // TODO: preallocate log2(NPTS/POINTS_PER_LEAF) nodes, assuming
     // uniformly distributed points that should be OK
     for_to(i, NPTS) addPoint(root, pt + i);
-    printf("add %d pts: %g ms\n", NPTS, jet_sys_time_clockSpanMicro(t0) / 1e3);
+    printf("add %d pts: %g ms\n", NPTS, jet_clock_clockSpanMicro(t0) / 1e3);
 
     // printNode(root, 0);
     if (NPTS < 1000) printDot(root);
     KDTreePoint ptest[] = { { -3.14159 } };
-    t0 = jet_sys_time_getTime();
+    t0 = jet_clock_getTime();
     KDTreePoint* nea = getNearestPoint(root, ptest);
-    printf("lookup: %g us\n", jet_sys_time_clockSpanNano(t0) / 1e3);
+    printf("lookup: %g us\n", jet_clock_clockSpanNano(t0) / 1e3);
 
     if (nea)
         printPoint(nea, 0);
@@ -648,9 +648,9 @@ int main(int argc, char* argv[])
         printf("no match for: ");
         printPoint(ptest, 0);
     }
-    t0 = jet_sys_time_getTime();
+    t0 = jet_clock_getTime();
     printPoint(linsearch(pt, NPTS, ptest), 0);
-    printf("linsearch: %g us\n", jet_sys_time_clockSpanNano(t0) / 1e3);
+    printf("linsearch: %g us\n", jet_clock_clockSpanNano(t0) / 1e3);
     printf("total calloc %zu B (%d), malloc %zu B (%d)\n", __totCallocB,
         __totCalloc, __totMallocB, __totMalloc);
 }

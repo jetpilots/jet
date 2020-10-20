@@ -89,7 +89,7 @@ ret:
     return sz;
 }
 
-#include "../modules/jet_sys_time.h"
+#include "../modules/jet_clock.h"
 
 int main()
 {
@@ -117,15 +117,15 @@ int main()
     fs[256 * 1024 * 1024 - 2] = '\0';
 
     size_t l;
-    jet_sys_time_Time t0;
+    jet_clock_Time t0;
     l = strlen(fs);
-    t0 = jet_sys_time_getTime();
+    t0 = jet_clock_getTime();
     unhex(fs, fs, l);
-    double tme = jet_sys_time_clockSpanMicro(t0);
+    double tme = jet_clock_clockSpanMicro(t0);
     printf("%zu %f\n", l, tme / 1e3);
-    t0 = jet_sys_time_getTime();
+    t0 = jet_clock_getTime();
     hex(fs, fs, l / 2);
-    tme = jet_sys_time_clockSpanMicro(t0);
+    tme = jet_clock_clockSpanMicro(t0);
     printf("%zu %f\n", l, tme / 1e3);
     // #endif
 }

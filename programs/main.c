@@ -10,7 +10,7 @@
 
 #include "cycle.h"
 #include "jet_base.h"
-#include "jet_sys_time.h"
+#include "jet_clock.h"
 
 #define STEP 4
 
@@ -937,7 +937,7 @@ int main(int argc, char* argv[])
     bool printDiagnostics = (argc > 2 && *argv[2] == 'd') or false;
 
     // ticks t0 = getticks();
-    jet_sys_time_Time t0 = jet_sys_time_getTime();
+    jet_clock_Time t0 = jet_clock_getTime();
     List(ASTModule) * modules;
     Parser* parser;
 
@@ -984,7 +984,7 @@ int main(int argc, char* argv[])
 
     // if (printDiagnostics) printstats(parser, elapsed(getticks(), t0) / 1e6);
     if (printDiagnostics)
-        printstats(parser, jet_sys_time_clockSpanMicro(t0) / 1.0e3);
+        printstats(parser, jet_clock_clockSpanMicro(t0) / 1.0e3);
 
     if (parser->errCount)
         eprintf(

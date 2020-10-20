@@ -35,7 +35,7 @@
 		85CB0F15251967D500592C13 /* cycle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cycle.h; sourceTree = "<group>"; };
 		85CB0F16251967D500592C13 /* TokenKindDefs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TokenKindDefs.h; sourceTree = "<group>"; };
 		85CB0F17251967D500592C13 /* hash.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = hash.c; sourceTree = "<group>"; };
-		85CB0F18251967D500592C13 /* jet_sys_time.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = jet_sys_time.h; sourceTree = "<group>"; };
+		85CB0F18251967D500592C13 /* jet_clock.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = jet_clock.h; sourceTree = "<group>"; };
 		85CB0F19251967D500592C13 /* jet_mpi.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = jet_mpi.h; sourceTree = "<group>"; };
 		85CB0F1A251967D500592C13 /* jet_util.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = jet_util.h; sourceTree = "<group>"; };
 		85CB0F1B251967D500592C13 /* strcasecmp.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = strcasecmp.h; sourceTree = "<group>"; };
@@ -207,7 +207,7 @@
 				85CB0F15251967D500592C13 /* cycle.h */,
 				85CB0F16251967D500592C13 /* TokenKindDefs.h */,
 				85CB0F17251967D500592C13 /* hash.c */,
-				85CB0F18251967D500592C13 /* jet_sys_time.h */,
+				85CB0F18251967D500592C13 /* jet_clock.h */,
 				85CB0F19251967D500592C13 /* jet_mpi.h */,
 				85CB0F1A251967D500592C13 /* jet_util.h */,
 				85CB0F1B251967D500592C13 /* strcasecmp.h */,

@@ -243,7 +243,7 @@ static void printDot(KDDict* dict)
     fclose(f);
 }
 
-#include "../modules/jet_sys_time.h"
+#include "../modules/jet_clock.h"
 // When you know the hash bounds, use this function to init. This is the case
 // when you are creating a sparse matrix with known shape and the hash function
 // for ints is a no-op. By the way in that case you don't need to compare keys
@@ -350,23 +350,23 @@ int main(int argc, char* argv[])
     srand(time(0));
 
     // const int NPTS = argc > 1 ? atoi(argv[1]) : 10000000;
-    // jet_sys_time_Time t0 = jet_sys_time_getTime();
+    // jet_clock_Time t0 = jet_clock_getTime();
     KDDict* dict = initDict(strhash, streq);
     // printDot(root);
     // return 0;
-    // printf("init: %g ms\n", jet_sys_time_clockSpanMicro(t0) / 1e3);
+    // printf("init: %g ms\n", jet_clock_clockSpanMicro(t0) / 1e3);
 
     // KDTreePoint* pt = malloc(sizeof(KDTreePoint) * NPTS);
-    // t0 = jet_sys_time_getTime();
+    // t0 = jet_clock_getTime();
     // // for_to(i, NPTS) pt[i] = (KDTreePoint) { { rndf(), rndf(), rndf() } };
     // // printf("%d rndgen+mallocs etc: %g ms\n", NPTS,
-    //     jet_sys_time_clockSpanMicro(t0) / 1e3);
-    // t0 = jet_sys_time_getTime();
+    //     jet_clock_clockSpanMicro(t0) / 1e3);
+    // t0 = jet_clock_getTime();
 
     // TODO: preallocate log2(NPTS/POINTS_PER_LEAF) nodes, assuming
     // uniformly distributed points that should be OK
     // for_to(i, NPTS) addPoint(root, pt + i);
-    // printf("add %d pts: %g ms\n", NPTS, jet_sys_time_clockSpanMicro(t0) /
+    // printf("add %d pts: %g ms\n", NPTS, jet_clock_clockSpanMicro(t0) /
     // 1e3);
     double dx[][1] = { 0.1234567, 9.345345, 2.123123, 6.3452395, 7.39486 };
     // printNode(root, 0);
@@ -383,10 +383,10 @@ int main(int argc, char* argv[])
     for_to(i, 5) addEntry(dict, keys[i], dx[i]);
     printDot(dict);
     // KDTreePoint ptest[] = { { -3.14159 } };
-    // t0 = jet_sys_time_getTime();
+    // t0 = jet_clock_getTime();
     const char** sought = keysno; //[3];
     double* nea = lookup(dict, sought);
-    // printf("lookup: %g us\n", jet_sys_time_clockSpanNano(t0) / 1e3);
+    // printf("lookup: %g us\n", jet_clock_clockSpanNano(t0) / 1e3);
 
     if (nea)
         printf("found: %f at %p for '%s'\n", *nea, nea, keys[3][0]);
