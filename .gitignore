@@ -9,4 +9,8 @@ aout.c
 *.gcov
 *.gcno
 *.gcda
+jetc
+jetc-dbg
+jetc-fast
+jetc-cov
 doxy/
