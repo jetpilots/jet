@@ -228,6 +228,7 @@ static void analyseExpr(
         break;
 
     case tkString:
+    case tkRawString:
         expr->typeType = TYString;
         break;
 
@@ -246,19 +247,20 @@ static void analyseExpr(
         break;
 
     case tkArrayOpen:
-        analyseExpr(parser, expr->right, mod, inFuncArgs);
+            if (expr->right) {analyseExpr(parser, expr->right, mod, inFuncArgs);
         expr->typeType = expr->right->typeType;
         expr->collectionType
             = expr->right->kind == tkOpSemiColon ? CTYTensor : CTYArray;
-        break;
+            }        break;
 
     case tkBraceOpen:
-        analyseExpr(parser, expr->right, mod, true);
+        if (expr->right)
+            {analyseExpr(parser, expr->right, mod, true);
         // TODO: you told analyseExpr to not care about what's on the LHS of
         // tkOpAssign exprs. Now you handle it yourself. Ensure that they're
         // all of the same type and set that type to the expr somehow.
         analyseDictLiteral(parser, expr->right, mod);
-        expr->typeType = expr->right->typeType;
+        expr->typeType = expr->right->typeType;}
         expr->collectionType = CTYDictS;
         // these are only Dicts! Sets are normal [] when you detect they are
         // only used for querying membership.
@@ -313,13 +315,18 @@ static void analyseExpr(
 
     case tkLineComment:
         break;
+
+        //    case tkRawString:
+        // TODO: analyse regex, compile it already, whatever
+        //        break;
         // -------------------------------------------------- //
     default:
         if (expr->prec) {
 
             if (not expr->unary)
                 analyseExpr(parser, expr->left, mod, inFuncArgs);
-            analyseExpr(parser, expr->right, mod, inFuncArgs);
+            // some exprs like return can be used without any args
+            if (expr->right) analyseExpr(parser, expr->right, mod, inFuncArgs);
 
             if (expr->kind == tkKeyword_or and expr->left->typeType != TYBool) {
                 // Handle the 'or' keyword used to provide alternatives for a
@@ -336,10 +343,11 @@ static void analyseExpr(
             } else {
                 // Set the type from the ->right expr for now. if an error type
                 // is on the right, this is accounted for.
-                expr->typeType = expr->right->typeType;
-                expr->collectionType = expr->right->collectionType;
+                if (expr->right)
+{                expr->typeType = expr->right->typeType;
+                expr->collectionType = expr->right->collectionType;}
             }
-            expr->elemental = expr->right->elemental or expr->kind == tkOpColon;
+            if (expr->right)           expr->elemental = expr->right->elemental or expr->kind == tkOpColon;
             // TODO: actually, indexing by an array of integers is also an
             // indication of an elemental op
 
@@ -512,7 +520,7 @@ static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod)
     // have the same type as the declared return type.
 
     // Do optimisations or ANY lowering only if there are no errors
-    if (not parser->errCount and parser->mode != PMLint) {
+    if (not parser->issues.errCount and parser->mode != PMLint) {
 
         // do (try) CSE
         ASTFunc_hashExprs(/* parser, */ func);
@@ -547,7 +555,7 @@ static void analyseTest(Parser* parser, ASTTest* test, ASTModule* mod)
         analyseExpr(parser, stmt, mod, false);
 
     // Do optimisations or ANY lowering only if there are no errors
-    if (not parser->errCount and parser->mode != PMLint) {
+    if (not parser->issues.errCount and parser->mode != PMLint) {
         ASTScope_lowerElementalOps(test->body);
         ASTScope_promoteCandidates(test->body);
     }

@@ -13,7 +13,7 @@ let TokenKindTable = [
     .tkUnknown, .tkUnknown,
     .tkSpaces, .tkExclamation,
     .tkStringBoundary, .tkHash, .tkDollar,
-    .tkOpMod, .tkAmpersand, .tkRegexBoundary,
+    .tkOpMod, .tkAmpersand, .tkRawStringBoundary,
     .tkParenOpen, .tkParenClose, .tkTimes,
     .tkPlus,  .tkOpComma, .tkMinus,
     .tkPeriod, .tkSlash, .tkDigit,
@@ -34,7 +34,7 @@ let TokenKindTable = [
     .tkAlphabet, .tkAlphabet,
     .tkArrayOpen, .tkBackslash, .tkArrayClose,
     .tkPower, .tkUnderscore,
-    .tkInlineBoundary,
+    .tkRegexpBoundary,
     .tkAlphabet, .tkAlphabet, .tkAlphabet,
     .tkAlphabet, .tkAlphabet, .tkAlphabet,
     .tkAlphabet, .tkAlphabet, .tkAlphabet,
@@ -321,8 +321,8 @@ static void Token_detect(Token* token)
 
     match tt
     case .tkStringBoundary
-    case .tkInlineBoundary
-    case .tkRegexBoundary
+    case .tkRegexpBoundary
+    case .tkRawStringBoundary
         tmp = tt # remember which it is exactly
 
         # Incrementing pos is a side effect of getTypeAtCurrentPos(...)
@@ -343,11 +343,11 @@ static void Token_detect(Token* token)
         case .tkStringBoundary
             tt_ret = .tkString
             break
-        case .tkInlineBoundary
-            tt_ret = .tkInline
+        case .tkRegexpBoundary
+            tt_ret = .tkRegexp
             break
-        case .tkRegexBoundary
-            tt_ret = .tkRegex
+        case .tkRawStringBoundary
+            tt_ret = .tkRawString
             break
         case else
             tt_ret = .tkUnknown
@@ -535,7 +535,7 @@ end
 function advance(token as Token)
     match token.kind
     case .tkIdentifier, .tkString, .tkNumber, .tkMultiDotNumber,
-    .tkFunctionCall, .tkSubscript, .tkDigit, .tkAlphabet, .tkRegex, .tkInline,
+    .tkFunctionCall, .tkSubscript, .tkDigit, .tkAlphabet, .tkRawString, .tkRegexp,
     .tkUnits, .tkKeywordCheater, .tkKeywordFor, .tkKeywordWhile, .tkKeywordIf,
     .tkKeywordEnd, .tkKeywordFunction, .tkKeywordTest, .tkKeywordNot,
     .tkKeywordAnd, .tkKeywordOr, .tkKeywordIn, .tkKeywordDo, .tkKeywordThen,

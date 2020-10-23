@@ -21,9 +21,9 @@ box #storageBox orientation='vertical' spacing=6
       label text='Select or create custom storage' useMarkup=yes useUnderline=yes
     box #storageBrowseBox .boxt .moreclass5--yu sensitive=no spacing=6
       button #storageBrowse receivesDefault useUnderline=yes clicked='onStorageBrowseClicked'
-      -- if $j == 2
+      -- if #j == 2
       // control flow goes after an `@` sign.
-      // all variables are prefixed with $, everywhere.
+      // all variables are prefixed with #, everywhere. -> this goes well with IDs which are then global vars.
         label text='Manage' useUnderline=yes mnemonicWidget='storageBrowse'
         'Here is a line of plain $fs and blah $mb blah'
       -- end

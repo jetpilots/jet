@@ -505,9 +505,9 @@ let functionExitStuffUNESCAPED = '
 function printStackUsageDef(stackUsage as Integer)
     print('
         #ifdef DEBUG
-        #define MYSTACKUSAGE ($stackUsage + 6*sizeof(void*) + sizeof(char*))
+        #define MYSTACKUSAGE ($stackUsage$ + 6*sizeof(void*) + sizeof(char*))
         #else
-        #define MYSTACKUSAGE ($stackUsage + 6*sizeof(void*))
+        #define MYSTACKUSAGE ($stackUsage$ + 6*sizeof(void*))
         #endif
         ')
 end function
@@ -515,14 +515,14 @@ end function
 function generate(tType as ASTType, level as Integer)
     if not tType.body or not tType.analysed then return
     var name as Text = tType.name
-    print('#define FIELDS$name')
+    print('#define FIELDS$name$')
     for local as ASTVar in tType.body.locals
         generate(local, level=level+lStep, no)
     end
 
     print('
 
-    struct $name {')
+    struct $name$ {')
 
     if tType.super
         print("    FIELDS")
@@ -530,25 +530,25 @@ function generate(tType as ASTType, level as Integer)
     end
 
     print('
-        FIELDS$name
+        FIELDS$name$
         }
 
-        static const char* $nameName = "$name";
-        static $name $nameAlloc() {
-            out = PoolAlloc(&gPool, sizeof(struct $name));
+        static const char* $nameName$ = "$name$";
+        static $name$ $nameAlloc$() {
+            out = PoolAlloc(&gPool, sizeof(struct $name$));
         }
-        static $name $nameInit($name self) {')
+        static $name$ $nameInit$($name$ self) {')
 
     # for ASTVar*, var, tType.body.locals)
     #     print("#define %s self.%s\n", var.name, var.name)
     for local as ASTVar in tType.body.locals
-        print('#define $local.name self.$local.name')
+        print('#define $local.name$ self.$local.name$')
     end
 
     for stmt as ASTExpr in tType.body.stmts
         if not stmt or stmt.kind != .varAssign or not stmt.var.init then skip
         var ll = level + lStep
-        print('$spaces{ll}$name = ')
+        print('$spaces@ll$$name$ = ')
         generate(stmt.var.init, 0, true, no, no)
 
         if throws(stmt.var.init)
@@ -556,33 +556,33 @@ function generate(tType as ASTType, level as Integer)
         end
     end
 
-    for local as ASTVar in tType.body.locals do print('#undef $local.name')
+    for local as ASTVar in tType.body.locals do print('#undef {local.name}')
 
-    print(
-        '   out = self;
+    print('
+           out = self;
         }
-            $name $nameNew(
+            {name} {name.koiu}_new(
             #ifdef DEBUG
                 const char* callsite
             #endif
-        ) {
+        ) {==\\9igtr5}
         #define DEFAULTVALUE missing
         #ifdef DEBUG
-            function const char* sig = "$name()"
+            function const char* sig = "{b64(name)}()"
         #endif')
 
     # uglly uglly. therefore string interp is the only way
     print(
         '   out = self;
         }
-            ' .. name .. ' ' .. upper(name) .. 'New(
+            'name' 'upper(name)'New(
             #ifdef DEBUG
                 const char* callsite
             #endif
         ) {
         #define DEFAULTVALUE missing
         #ifdef DEBUG
-            function const char* sig = "$name()"
+            function const char* sig = "' name '()"
         #endif')
 
     name .= 'wow'
@@ -590,8 +590,8 @@ function generate(tType as ASTType, level as Integer)
     printStackUsageDef(48)
     print(functionEntryStuffUNESCAPED)
     print('
-        $name ret = $nameAlloc();
-        $nameInit(ret);
+        $name$ ret = $nameAlloc$();
+        $nameInit$(ret);
         if (Err == ERRORTRACE) goto backtrace;
         Err = missing;
         #ifndef NOSTACKCHECK
@@ -603,9 +603,9 @@ function generate(tType as ASTType, level as Integer)
         #undef DEFAULTVALUE
         #undef MYSTACKUSAGE
         }
-        #define $namePrint(p) $namePrint_(p, STR(p))
-        void $namePrint_($name self, const char* name) {
-            printf("<$name \'%s\' at %p>", name, self)
+        #define $name$_print(p) $name$_print_(p, STR(p))
+        void $name$_print_($name$ self, const char* name) {
+            printf("<$name$ \'%s\' at %p>", name, self)
         }')
 
     genJson(tType)
@@ -637,17 +637,17 @@ export function generateHeader(tType as ASTType, level as Int)
     print('
         typedef struct $name* $name;
         struct $name;
-        void $name $nameAlloc();
-        void $name $nameInit($name self);
-        $name $nameNew(
+        void $name.upper $name_alloc();
+        void $name $name_init($name self);
+        $name $name_new(
             #ifdef DEBUG
                 const char* callsite
             #endif
             );
         DECLJsonWrap($name);
         DECLJsonFile($name);
-        #define $nameJson(x) { printf("\"%s\": ", #x); $nameJsonWrap(x); }
-        void $nameJson(const $name self, int nspc)')
+        #define $name_json(x) { printf("\"%s\": ", #x); $name_json_wrap(x); }
+        void $name_json(const $name self, int nspc)')
 
     # by allowing only ' as string delim, you can write code templates for
     # most other langs almost literally since they seem to use " for strs

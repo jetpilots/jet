@@ -31,85 +31,86 @@
 #include <string.h>
 #include <limits.h>
 
-#define jet_Dict__empty(flag, i) ((flag[i >> 4] >> ((i & 0xfU) << 1)) & 2)
-#define jet_Dict__deleted(flag, i) ((flag[i >> 4] >> ((i & 0xfU) << 1)) & 1)
-#define jet_Dict__emptyOrDel(flag, i) ((flag[i >> 4] >> ((i & 0xfU) << 1)) & 3)
+#define Dict__empty(flag, i) ((flag[i >> 4] >> ((i & 0xfU) << 1)) & 2)
+#define Dict__deleted(flag, i) ((flag[i >> 4] >> ((i & 0xfU) << 1)) & 1)
+#define Dict__emptyOrDel(flag, i) ((flag[i >> 4] >> ((i & 0xfU) << 1)) & 3)
 
-#define jet_Dict__setNotDeleted(flag, i)                                       \
+#define Dict__setNotDeleted(flag, i)                                           \
     (flag[i >> 4] &= ~(1ul << ((i & 0xfU) << 1)))
-#define jet_Dict__setDeleted(flag, i) (flag[i >> 4] |= 1ul << ((i & 0xfU) << 1))
+#define Dict__setDeleted(flag, i) (flag[i >> 4] |= 1ul << ((i & 0xfU) << 1))
 
-#define jet_Dict__setNotEmpty(flag, i)                                         \
-    (flag[i >> 4] &= ~(2ul << ((i & 0xfU) << 1)))
-#define jet_Dict__clearFlags(flag, i)                                          \
-    (flag[i >> 4] &= ~(3ul << ((i & 0xfU) << 1)))
+#define Dict__setNotEmpty(flag, i) (flag[i >> 4] &= ~(2ul << ((i & 0xfU) << 1)))
+#define Dict__clearFlags(flag, i) (flag[i >> 4] &= ~(3ul << ((i & 0xfU) << 1)))
 
-#define jet_Dict__flagsSize(m) ((m) < 16 ? 1 : (m) >> 4)
+#define Dict__flagsSize(m) ((m) < 16 ? 1 : (m) >> 4)
 
 #define roundUp32(x)                                                           \
     (--(x), (x) |= (x) >> 1, (x) |= (x) >> 2, (x) |= (x) >> 4,                 \
         (x) |= (x) >> 8, (x) |= (x) >> 16, ++(x))
 
-static const double jet_Dict_HASH_UPPER = 0.77;
+static const double Dict_HASH_UPPER = 0.77;
 
 // Sets do not have any values, but the type of the value ptr is char*.
 
-// Generally it is not recommended to use jet_Dict_has because you call it and
-// then you call jet_Dict_get again. So just call jet_Dict_get and do whatever.
-// If you don't really want the index, then its fine to call jet_Dict_has.
-#define jet_Dict(K, V) jet_Dict_##K##_##V
-#define jet_Dict_init(K, V) jet_Dict_init_##K##_##V
-#define jet_Dict_free(K, V) jet_Dict_free_##K##_##V
-#define jet_Dict_freedata(K, V) jet_Dict_freedata_##K##_##V
-#define jet_Dict_clear(K, V) jet_Dict_clear_##K##_##V
-#define jet_Dict_resize(K, V) jet_Dict_resize_##K##_##V
-#define jet_Dict_put(K, V) jet_Dict_put_##K##_##V
-#define jet_Dict_get(K, V) jet_Dict_get_##K##_##V
-#define jet_Dict_has(K, V) jet_Dict_has_##K##_##V
-#define jet_Dict_delete(K, V) jet_Dict_del_##K##_##V
-#define jet_Dict_deleteByKey(K, V) jet_Dict_delk_##K##_##V
+// Generally it is not recommended to use  Dict_has because you call it and
+// then you call  Dict_get again. So just call  Dict_get and do whatever.
+// If you don't really want the index, then its fine to call  Dict_has.
+#define Dict(K, V) Dict_##K##_##V
+#define Dict_init(K, V) Dict_init_##K##_##V
+#define Dict_make(K, V) Dict_make_##K##_##V
+#define Dict_free(K, V) Dict_free_##K##_##V
+#define Dict_freedata(K, V) Dict_freedata_##K##_##V
+#define Dict_clear(K, V) Dict_clear_##K##_##V
+#define Dict_resize(K, V) Dict_resize_##K##_##V
+#define Dict_put(K, V) Dict_put_##K##_##V
+#define Dict_get(K, V) Dict_get_##K##_##V
+#define Dict_has(K, V) Dict_has_##K##_##V
+#define Dict_delete(K, V) Dict_del_##K##_##V
+#define Dict_deleteByKey(K, V) Dict_delk_##K##_##V
 
 // TODO: why not void instead of char?
-#define jet_Set(K) jet_Dict(K, char)
-#define jet_Set_init(K) jet_Dict_init(K, char)
-#define jet_Set_free(K) jet_Dict_free(K, char)
-#define jet_Set_freedata(K) jet_Dict_freedata(K, char)
-#define jet_Set_clear(K) jet_Dict_clear(K, char)
-#define jet_Set_resize(K) jet_Dict_resize(K, char)
-#define jet_Set_put(K) jet_Dict_put(K, char)
-#define jet_Set_get(K) jet_Dict_get(K, char)
-#define jet_Set_has(K) jet_Dict_has(K, char)
-#define jet_Set_del(K) jet_Dict_delete(K, char)
-#define jet_Set_delk(K) jet_Dict_deleteByKey(K, char)
+#define Set(K) Dict(K, char)
+#define Set_init(K) Dict_init(K, char)
+#define Set_make(K) Dict_make(K, char)
+#define Set_free(K) Dict_free(K, char)
+#define Set_freedata(K) Dict_freedata(K, char)
+#define Set_clear(K) Dict_clear(K, char)
+#define Set_resize(K) Dict_resize(K, char)
+#define Set_put(K) Dict_put(K, char)
+#define Set_get(K) Dict_get(K, char)
+#define Set_has(K) Dict_has(K, char)
+#define Set_del(K) Dict_delete(K, char)
+#define Set_delk(K) Dict_deleteByKey(K, char)
 
 #define __DICT_TYPE(K, V)                                                      \
-    typedef struct jet_Dict(K, V)                                              \
+    typedef struct Dict(K, V)                                                  \
     {                                                                          \
         UInt32 nBuckets, size, nOccupied, upperBound;                          \
         UInt32* flags;                                                         \
         K* keys;                                                               \
         V* vals;                                                               \
     }                                                                          \
-    jet_Dict(K, V);
+    Dict(K, V);
 
 // #define __DICT_PROTOTYPES(K, V)                                            \
-//     jet_Dict(K, V) * jet_Dict_init(K, V)();                                        \
-//     void jet_Dict_free(K, V)(jet_Dict(K, V) * h);                                  \
-//     void jet_Dict_freedata(K, V)(jet_Dict(K, V) * h);                              \
-//     void jet_Dict_clear(K, V)(jet_Dict(K, V) * h);                                 \
-//     UInt32 jet_Dict_get(K, V)(const jet_Dict(K, V) * const h, K key);                    \
-//     bool jet_Dict_has(K, V)(const jet_Dict(K, V) * const h, K key);                      \
-//     int jet_Dict_resize(K, V)(jet_Dict(K, V) * h, UInt32 nnBuckets);               \
-//     UInt32 jet_Dict_put(K, V)(jet_Dict(K, V) * h, K key, int* ret);                \
-//     void jet_Dict_delete(K, V)(jet_Dict(K, V) * h, UInt32 x);
+//      Dict(K, V) *  Dict_init(K, V)();                                        \
+//     void  Dict_free(K, V)( Dict(K, V) * h);                                  \
+//     void  Dict_freedata(K, V)( Dict(K, V) * h);                              \
+//     void  Dict_clear(K, V)( Dict(K, V) * h);                                 \
+//     UInt32  Dict_get(K, V)(const  Dict(K, V) * const h, K key);                    \
+//     bool  Dict_has(K, V)(const  Dict(K, V) * const h, K key);                      \
+//     int  Dict_resize(K, V)( Dict(K, V) * h, UInt32 nnBuckets);               \
+//     UInt32  Dict_put(K, V)( Dict(K, V) * h, K key, int* ret);                \
+//     void  Dict_delete(K, V)( Dict(K, V) * h, UInt32 x);
 
-// TODO: move the implementation into jet_runtime.h
+// TODO: move the implementation into  runtime.h
 #define __DICT_IMPL(Scope, K, V, IsMap, hash, equal)                           \
-    Scope jet_Dict(K, V) * jet_Dict_init(K, V)()                               \
+    Scope Dict(K, V) * Dict_init(K, V)()                                       \
     {                                                                          \
-        return calloc(1, sizeof(jet_Dict(K, V)));                              \
+        return calloc(1, sizeof(Dict(K, V)));                                  \
     }                                                                          \
-    Scope void jet_Dict_freedata(K, V)(jet_Dict(K, V) * h)                     \
+                                                                               \
+    Scope void Dict_freedata(K, V)(Dict(K, V) * h)                             \
     {                                                                          \
         if (h) {                                                               \
             free(h->keys);                                                     \
@@ -117,16 +118,16 @@ static const double jet_Dict_HASH_UPPER = 0.77;
             if (IsMap) free(h->vals);                                          \
         }                                                                      \
     }                                                                          \
-    Scope void jet_Dict_free(K, V)(jet_Dict(K, V) * h) { free(h); }            \
-    Scope void jet_Dict_clear(K, V)(jet_Dict(K, V) * h)                        \
+    Scope void Dict_free(K, V)(Dict(K, V) * h) { free(h); }                    \
+    Scope void Dict_clear(K, V)(Dict(K, V) * h)                                \
     {                                                                          \
         if (h and h->flags) {                                                  \
             memset(h->flags, 0xAA,                                             \
-                jet_Dict__flagsSize(h->nBuckets) * sizeof(UInt32));            \
+                Dict__flagsSize(h->nBuckets) * sizeof(UInt32));                \
             h->size = h->nOccupied = 0;                                        \
         }                                                                      \
     }                                                                          \
-    Scope UInt32 jet_Dict_get(K, V)(const jet_Dict(K, V)* const h, K key)      \
+    Scope UInt32 Dict_get(K, V)(const Dict(K, V)* const h, K key)              \
     {                                                                          \
         if (h->nBuckets) {                                                     \
             UInt32 k, i, last, mask, step = 0;                                 \
@@ -134,22 +135,22 @@ static const double jet_Dict_HASH_UPPER = 0.77;
             k = hash(key);                                                     \
             i = k & mask;                                                      \
             last = i;                                                          \
-            while (not jet_Dict__empty(h->flags, i)                            \
-                and (jet_Dict__deleted(h->flags, i)                            \
+            while (not Dict__empty(h->flags, i)                                \
+                and (Dict__deleted(h->flags, i)                                \
                     or not equal(h->keys[i], key))) {                          \
                 i = (i + (++step)) & mask;                                     \
                 if (i == last) return h->nBuckets;                             \
             }                                                                  \
-            return jet_Dict__emptyOrDel(h->flags, i) ? h->nBuckets : i;        \
+            return Dict__emptyOrDel(h->flags, i) ? h->nBuckets : i;            \
         } else                                                                 \
             return 0;                                                          \
     }                                                                          \
-    Scope bool jet_Dict_has(K, V)(const jet_Dict(K, V)* const h, K key)        \
+    Scope bool Dict_has(K, V)(const Dict(K, V)* const h, K key)                \
     {                                                                          \
-        UInt32 x = jet_Dict_get(K, V)(h, key);                                 \
-        return x < h->nBuckets && jet_Dict_exist(h, x);                        \
+        UInt32 x = Dict_get(K, V)(h, key);                                     \
+        return x < h->nBuckets && Dict_exist(h, x);                            \
     }                                                                          \
-    Scope int jet_Dict_resize(K, V)(jet_Dict(K, V) * h, UInt32 nnBuckets)      \
+    Scope int Dict_resize(K, V)(Dict(K, V) * h, UInt32 nnBuckets)              \
     { /* This function uses 0.25*nBuckets bytes of working space instead       \
          of [sizeof(key_t+val_t)+.25]*nBuckets. */                             \
         UInt32* nFlags = 0;                                                    \
@@ -157,14 +158,13 @@ static const double jet_Dict_HASH_UPPER = 0.77;
         {                                                                      \
             roundUp32(nnBuckets);                                              \
             if (nnBuckets < 4) nnBuckets = 4;                                  \
-            if (h->size >= (UInt32)(nnBuckets * jet_Dict_HASH_UPPER + 0.5))    \
+            if (h->size >= (UInt32)(nnBuckets * Dict_HASH_UPPER + 0.5))        \
                 j = 0; /* requested size is too small */                       \
             else { /* size to be changed (shrink or expand); rehash */         \
-                nFlags                                                         \
-                    = malloc(jet_Dict__flagsSize(nnBuckets) * sizeof(UInt32)); \
+                nFlags = malloc(Dict__flagsSize(nnBuckets) * sizeof(UInt32));  \
                 if (not nFlags) return -1;                                     \
                 memset(nFlags, 0xAA,                                           \
-                    jet_Dict__flagsSize(nnBuckets) * sizeof(UInt32));          \
+                    Dict__flagsSize(nnBuckets) * sizeof(UInt32));              \
                 if (h->nBuckets < nnBuckets) { /* expand */                    \
                     K* nKeys = realloc(h->keys, nnBuckets * sizeof(K));        \
                     if (not nKeys) {                                           \
@@ -185,23 +185,23 @@ static const double jet_Dict_HASH_UPPER = 0.77;
         }                                                                      \
         if (j) { /* rehashing is needed */                                     \
             for (j = 0; j != h->nBuckets; ++j) {                               \
-                if (jet_Dict__emptyOrDel(h->flags, j) == 0) {                  \
+                if (Dict__emptyOrDel(h->flags, j) == 0) {                      \
                     K key = h->keys[j];                                        \
                     V val;                                                     \
                     UInt32 new_mask;                                           \
                     new_mask = nnBuckets - 1;                                  \
                     if (IsMap) val = h->vals[j];                               \
-                    jet_Dict__setDeleted(h->flags, j);                         \
+                    Dict__setDeleted(h->flags, j);                             \
                     while (1) { /* kick-out process; sort of like in           \
                                    Cuckoo hashing */                           \
                         UInt32 k, i, step = 0;                                 \
                         k = hash(key);                                         \
                         i = k & new_mask;                                      \
-                        while (not jet_Dict__empty(nFlags, i))                 \
+                        while (not Dict__empty(nFlags, i))                     \
                             i = (i + (++step)) & new_mask;                     \
-                        jet_Dict__setNotEmpty(nFlags, i);                      \
+                        Dict__setNotEmpty(nFlags, i);                          \
                         if (i < h->nBuckets                                    \
-                            and jet_Dict__emptyOrDel(h->flags, i) == 0) {      \
+                            and Dict__emptyOrDel(h->flags, i) == 0) {          \
                             /* kick out the existing element */                \
                             {                                                  \
                                 K tmp = h->keys[i];                            \
@@ -213,8 +213,8 @@ static const double jet_Dict_HASH_UPPER = 0.77;
                                 h->vals[i] = val;                              \
                                 val = tmp;                                     \
                             }                                                  \
-                            jet_Dict__setDeleted(h->flags, i);                 \
-                            /* mark it jet_Dict__deleted in the old table */   \
+                            Dict__setDeleted(h->flags, i);                     \
+                            /* mark it  Dict__deleted in the old table */      \
                         } else {                                               \
                             /* write the element and break the loop */         \
                             h->keys[i] = key;                                  \
@@ -232,21 +232,21 @@ static const double jet_Dict_HASH_UPPER = 0.77;
             h->flags = nFlags;                                                 \
             h->nBuckets = nnBuckets;                                           \
             h->nOccupied = h->size;                                            \
-            h->upperBound = (UInt32)(h->nBuckets * jet_Dict_HASH_UPPER + 0.5); \
+            h->upperBound = (UInt32)(h->nBuckets * Dict_HASH_UPPER + 0.5);     \
         }                                                                      \
         return 0;                                                              \
     }                                                                          \
-    Scope UInt32 jet_Dict_put(K, V)(jet_Dict(K, V) * h, K key, int* ret)       \
+    Scope UInt32 Dict_put(K, V)(Dict(K, V) * h, K key, int* ret)               \
     {                                                                          \
         UInt32 x;                                                              \
         if (h->nOccupied >= h->upperBound) { /* update the hash table */       \
             if (h->nBuckets > (h->size << 1)) {                                \
-                if (jet_Dict_resize(K, V)(h, h->nBuckets - 1) < 0) {           \
-                    /* clear "jet_Dict__deleted" elements */                   \
+                if (Dict_resize(K, V)(h, h->nBuckets - 1) < 0) {               \
+                    /* clear " Dict__deleted" elements */                      \
                     *ret = -1;                                                 \
                     return h->nBuckets;                                        \
                 }                                                              \
-            } else if (jet_Dict_resize(K, V)(h, h->nBuckets + 1) < 0) {        \
+            } else if (Dict_resize(K, V)(h, h->nBuckets + 1) < 0) {            \
                 /* expand the hash table */                                    \
                 *ret = -1;                                                     \
                 return h->nBuckets;                                            \
@@ -258,14 +258,14 @@ static const double jet_Dict_HASH_UPPER = 0.77;
             x = site = h->nBuckets;                                            \
             k = hash(key);                                                     \
             i = k & mask;                                                      \
-            if (jet_Dict__empty(h->flags, i))                                  \
+            if (Dict__empty(h->flags, i))                                      \
                 x = i; /* for speed up */                                      \
             else {                                                             \
                 last = i;                                                      \
-                while (not jet_Dict__empty(h->flags, i)                        \
-                    and (jet_Dict__deleted(h->flags, i)                        \
+                while (not Dict__empty(h->flags, i)                            \
+                    and (Dict__deleted(h->flags, i)                            \
                         or not equal(h->keys[i], key))) {                      \
-                    if (jet_Dict__deleted(h->flags, i)) site = i;              \
+                    if (Dict__deleted(h->flags, i)) site = i;                  \
                     i = (i + (++step)) & mask;                                 \
                     if (i == last) {                                           \
                         x = site;                                              \
@@ -273,39 +273,49 @@ static const double jet_Dict_HASH_UPPER = 0.77;
                     }                                                          \
                 }                                                              \
                 if (x == h->nBuckets) {                                        \
-                    if (jet_Dict__empty(h->flags, i) and site != h->nBuckets)  \
+                    if (Dict__empty(h->flags, i) and site != h->nBuckets)      \
                         x = site;                                              \
                     else                                                       \
                         x = i;                                                 \
                 }                                                              \
             }                                                                  \
         }                                                                      \
-        if (jet_Dict__empty(h->flags, x)) { /* not present at all */           \
+        if (Dict__empty(h->flags, x)) { /* not present at all */               \
             h->keys[x] = key;                                                  \
-            jet_Dict__clearFlags(h->flags, x);                                 \
+            Dict__clearFlags(h->flags, x);                                     \
             ++h->size;                                                         \
             ++h->nOccupied;                                                    \
             *ret = 1;                                                          \
-        } else if (jet_Dict__deleted(h->flags, x)) { /* jet_Dict__deleted */   \
+        } else if (Dict__deleted(h->flags, x)) { /*  Dict__deleted */          \
             h->keys[x] = key;                                                  \
-            jet_Dict__clearFlags(h->flags, x);                                 \
+            Dict__clearFlags(h->flags, x);                                     \
             ++h->size;                                                         \
             *ret = 2;                                                          \
         } else                                                                 \
             *ret = 0;                                                          \
-        /* Don't touch h->keys[x] if present and not jet_Dict__deleted */      \
+        /* Don't touch h->keys[x] if present and not  Dict__deleted */         \
         return x;                                                              \
     }                                                                          \
-    Scope void jet_Dict_delete(K, V)(jet_Dict(K, V) * h, UInt32 x)             \
+    Scope void Dict_delete(K, V)(Dict(K, V) * h, UInt32 x)                     \
     {                                                                          \
-        if (x != h->nBuckets and not jet_Dict__emptyOrDel(h->flags, x)) {      \
-            jet_Dict__setDeleted(h->flags, x);                                 \
+        if (x != h->nBuckets and not Dict__emptyOrDel(h->flags, x)) {          \
+            Dict__setDeleted(h->flags, x);                                     \
             --h->size;                                                         \
         }                                                                      \
     }                                                                          \
-    Scope void jet_Dict_deleteByKey(K, V)(jet_Dict(K, V) * h, K key)           \
+    Scope void Dict_deleteByKey(K, V)(Dict(K, V) * h, K key)                   \
     {                                                                          \
-        jet_Dict_delete(K, V)(h, jet_Dict_get(K, V)(h, key));                  \
+        Dict_delete(K, V)(h, Dict_get(K, V)(h, key));                          \
+    }                                                                          \
+    Scope Dict(K, V) * Dict_make(K, V)(int size, K keys[], V values[])         \
+    {                                                                          \
+        Dict(K, V)* ret = Dict_init(K, V)();                                   \
+        int p;                                                                 \
+        for (int i = 0; i < size; i++) {                                       \
+            UInt32 idx = Dict_put(K, V)(ret, keys[i], &p);                     \
+            Dict_val(ret, i) = values[i];                                      \
+        }                                                                      \
+        return ret;                                                            \
     }
 
 #define DICT_DECLARE(K, V)                                                     \
@@ -411,47 +421,47 @@ static inline UInt32 __ac_Wang_hash(UInt32 key)
     key ^= (key >> 16);
     return key;
 }
-#define jet_Dict_int_hash_func2(key) __ac_Wang_hash((UInt32)key)
+#define Dict_int_hash_func2(key) __ac_Wang_hash((UInt32)key)
 
-#define jet_Dict_exist(h, x) (not jet_Dict__emptyOrDel((h)->flags, (x)))
+#define Dict_exist(h, x) (not Dict__emptyOrDel((h)->flags, (x)))
 
-#define jet_Dict_key(h, x) ((h)->keys[x])
+#define Dict_key(h, x) ((h)->keys[x])
 
-#define jet_Dict_val(h, x) ((h)->vals[x])
+#define Dict_val(h, x) ((h)->vals[x])
 
-#define jet_Dict_begin(h) (UInt32)(0)
+#define Dict_begin(h) (UInt32)(0)
 
-#define jet_Dict_end(h) ((h)->nBuckets)
+#define Dict_end(h) ((h)->nBuckets)
 
-#define jet_Dict_size(h) ((h)->size)
+#define Dict_size(h) ((h)->size)
 
-#define jet_Dict_nBuckets(h) ((h)->nBuckets)
+#define Dict_nBuckets(h) ((h)->nBuckets)
 
-#define jet_Dict_foreach(h, kvar, vvar, code)                                  \
+#define Dict_foreach(h, kvar, vvar, code)                                      \
     {                                                                          \
-        for (UInt32 _i_ = jet_Dict_begin(h); _i_ != jet_Dict_end(h); ++_i_) {  \
-            if (not jet_Dict_exist(h, _i_)) continue;                          \
-            kvar = jet_Dict_key(h, _i_);                                       \
-            vvar = jet_Dict_val(h, _i_);                                       \
+        for (UInt32 _i_ = Dict_begin(h); _i_ != Dict_end(h); ++_i_) {          \
+            if (not Dict_exist(h, _i_)) continue;                              \
+            kvar = Dict_key(h, _i_);                                           \
+            vvar = Dict_val(h, _i_);                                           \
             code;                                                              \
         }                                                                      \
     }
 
-#define jet_Dict_foreach_value(h, vvar, code)                                  \
+#define Dict_foreach_value(h, vvar, code)                                      \
     {                                                                          \
-        for (UInt32 _i_ = jet_Dict_begin(h); _i_ != jet_Dict_end(h); ++_i_) {  \
-            if (not jet_Dict_exist(h, _i_)) continue;                          \
-            vvar = jet_Dict_val(h, _i_);                                       \
+        for (UInt32 _i_ = Dict_begin(h); _i_ != Dict_end(h); ++_i_) {          \
+            if (not Dict_exist(h, _i_)) continue;                              \
+            vvar = Dict_val(h, _i_);                                           \
             code;                                                              \
         }                                                                      \
     }
 
-#define jet_Set_foreach(h, kvar, code) jet_Dict_foreach_key(h, kvar, code)
-#define jet_Dict_foreach_key(h, kvar, code)                                    \
+#define Set_foreach(h, kvar, code) Dict_foreach_key(h, kvar, code)
+#define Dict_foreach_key(h, kvar, code)                                        \
     {                                                                          \
-        for (UInt32 _i_ = jet_Dict_begin(h); _i_ != jet_Dict_end(h); ++_i_) {  \
-            if (not jet_Dict_exist(h, _i_)) continue;                          \
-            kvar = jet_Dict_key(h, _i_);                                       \
+        for (UInt32 _i_ = Dict_begin(h); _i_ != Dict_end(h); ++_i_) {          \
+            if (not Dict_exist(h, _i_)) continue;                              \
+            kvar = Dict_key(h, _i_);                                           \
             code;                                                              \
         }                                                                      \
     }
@@ -479,7 +489,9 @@ MAKE_DICT(UInt32, Ptr)
 // MAKE_DICT(CString, Ptr)
 // MAKE_DICT(UInt32, CString)
 // MAKE_DICT(CString, CString)
-// MAKE_DICT(UInt64, Ptr)
+MAKE_DICT(UInt64, Ptr)
+MAKE_DICT(CString, Real64)
+
 // MAKE_DICT(Ptr, UInt64)
 // MAKE_DICT(Ptr, Ptr)
 

@@ -2,12 +2,12 @@
 #include "hash.h"
 
 static void ASTExpr_hash(
-    /* Parser* parser, */ ASTExpr* expr, jet_Dict(UInt32, Ptr) * cseDict)
+    /* Parser* parser, */ ASTExpr* expr, Dict(UInt32, Ptr) * cseDict)
 {
     if (not expr) unreachable("%s", "expr is NULL");
     switch (expr->kind) {
     case tkString:
-    case tkRegex:
+    case tkRawString:
         expr->hash = CString_hash(expr->string);
         break;
     case tkNumber: {
@@ -50,9 +50,11 @@ static void ASTExpr_hash(
 
             //            UInt32 kind = expr->kind;
             str.hash[0] = UInt32_hash(expr->kind);
-
-            ASTExpr_hash(/* parser, */ expr->right, cseDict);
-            str.hash[1] = expr->right->hash;
+            str.hash[1] = 0;
+            if (expr->right) {
+                ASTExpr_hash(/* parser, */ expr->right, cseDict);
+                str.hash[1] = expr->right->hash;
+            }
             UInt32 tmphash = UInt64_hash(str.h64);
 
             if (not expr->unary) {
@@ -79,8 +81,8 @@ static void ASTExpr_hash(
         // within the func. Also regexes. What we really want are binops, calls,
         // subscripts, etc.
         int status = 0;
-        UInt32 idx = jet_Dict_put(UInt32, Ptr)(cseDict, expr->hash, &status);
-        if (status == 1) jet_Dict_val(cseDict, idx) = expr;
+        UInt32 idx = Dict_put(UInt32, Ptr)(cseDict, expr->hash, &status);
+        if (status == 1) Dict_val(cseDict, idx) = expr;
     }
 }
 
@@ -88,13 +90,13 @@ static void ASTExpr_hash(
 // hashes have been generated in ASTExpr_hash (which is bottom-up, so checking
 // cannot happen inline).
 static void ASTExpr_checkHashes(
-    /* Parser* parser, */ ASTExpr* expr, jet_Dict(UInt32, Ptr) * cseDict)
+    /* Parser* parser, */ ASTExpr* expr, Dict(UInt32, Ptr) * cseDict)
 {
 
-    UInt32 idx = jet_Dict_get(UInt32, Ptr)(cseDict, expr->hash);
+    UInt32 idx = Dict_get(UInt32, Ptr)(cseDict, expr->hash);
 
-    if (idx < jet_Dict_end(cseDict)) {
-        ASTExpr* orig = jet_Dict_val(cseDict, idx);
+    if (idx < Dict_end(cseDict)) {
+        ASTExpr* orig = Dict_val(cseDict, idx);
         if (orig != expr
             and orig->kind == expr->kind) // unfortunately there ARE collisions,
                                           // so check again
@@ -125,16 +127,17 @@ static void ASTExpr_checkHashes(
         if (expr->prec) {
             if (not expr->unary)
                 ASTExpr_checkHashes(/* parser, */ expr->left, cseDict);
-            ASTExpr_checkHashes(/* parser, */ expr->right, cseDict);
+            if (expr->right)
+                ASTExpr_checkHashes(/* parser, */ expr->right, cseDict);
         }
     }
 }
 
 static void ASTFunc_hashExprs(/* Parser* parser,  */ ASTFunc* func)
 {
-    static jet_Dict(UInt32, Ptr)* cseDict = NULL; // FIXME: will leak
-    if (not cseDict) cseDict = jet_Dict_init(UInt32, Ptr)();
-    jet_Dict_clear(UInt32, Ptr)(cseDict);
+    static Dict(UInt32, Ptr)* cseDict = NULL; // FIXME: will leak
+    if (not cseDict) cseDict = Dict_init(UInt32, Ptr)();
+    Dict_clear(UInt32, Ptr)(cseDict);
 
     jet_foreach(ASTExpr*, stmt, func->body->stmts)
     {

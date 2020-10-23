@@ -196,9 +196,9 @@ static void resolveVars(
                     if (not var) {
                         char* orig = expr->string;
                         expr->string = buf;
-                        expr->col += (pos - orig);
+                        expr->col += (pos - orig) + 1;
                         Parser_errorUnrecognizedVar(parser, expr);
-                        expr->col -= (pos - orig);
+                        expr->col -= (pos - orig) + 1;
                         expr->string = orig;
                     } else {
                         // we're not going to actually "resolve" the embedded

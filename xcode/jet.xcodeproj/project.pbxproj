@@ -23,13 +23,17 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		8582B37A25422C04000256D0 /* jet_mem.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = jet_mem.h; sourceTree = "<group>"; };
+		8582B37B25422C04000256D0 /* emit.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = emit.h; sourceTree = "<group>"; };
+		8582B37D25422C05000256D0 /* cse.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cse.h; sourceTree = "<group>"; };
+		8582B37E25422C05000256D0 /* List.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = List.h; sourceTree = "<group>"; };
+		8582B37F25422C05000256D0 /* ptr2off.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ptr2off.h; sourceTree = "<group>"; };
+		8582B38025422C05000256D0 /* lint.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = lint.h; sourceTree = "<group>"; };
+		8582B38125422C05000256D0 /* analyse.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = analyse.h; sourceTree = "<group>"; };
 		85CB0F0A251962F200592C13 /* main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = main.c; path = ../programs/main.c; sourceTree = "<group>"; };
-		85CB0F0D251967D500592C13 /* typecheck.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = typecheck.h; sourceTree = "<group>"; };
 		85CB0F0E251967D500592C13 /* makeTokens.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = makeTokens.sh; sourceTree = "<group>"; };
-		85CB0F0F251967D500592C13 /* sempass.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sempass.h; sourceTree = "<group>"; };
 		85CB0F10251967D500592C13 /* types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = types.h; sourceTree = "<group>"; };
 		85CB0F11251967D500592C13 /* jet_mem.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = jet_mem.c; sourceTree = "<group>"; };
-		85CB0F12251967D500592C13 /* gen.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = gen.h; sourceTree = "<group>"; };
 		85CB0F13251967D500592C13 /* parse.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = parse.h; sourceTree = "<group>"; };
 		85CB0F14251967D500592C13 /* errors.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = errors.h; sourceTree = "<group>"; };
 		85CB0F15251967D500592C13 /* cycle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cycle.h; sourceTree = "<group>"; };
@@ -42,7 +46,6 @@
 		85CB0F1C251967D500592C13 /* token.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = token.h; sourceTree = "<group>"; };
 		85CB0F1D251967D500592C13 /* resolve.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = resolve.h; sourceTree = "<group>"; };
 		85CB0F1E251967D500592C13 /* tokenKind.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tokenKind.h; sourceTree = "<group>"; };
-		85CB0F1F251967D500592C13 /* genc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = genc.h; sourceTree = "<group>"; };
 		85CB0F20251967D500592C13 /* jet_base.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = jet_base.h; sourceTree = "<group>"; };
 		85CB0F21251967D500592C13 /* jet_runtime.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = jet_runtime.h; sourceTree = "<group>"; };
 		85CB0F22251967D500592C13 /* stats.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = stats.h; sourceTree = "<group>"; };
@@ -196,12 +199,16 @@
 		85CB0F0C251967D500592C13 /* modules */ = {
 			isa = PBXGroup;
 			children = (
-				85CB0F0D251967D500592C13 /* typecheck.h */,
+				8582B38125422C05000256D0 /* analyse.h */,
+				8582B37D25422C05000256D0 /* cse.h */,
+				8582B37B25422C04000256D0 /* emit.h */,
+				8582B37A25422C04000256D0 /* jet_mem.h */,
+				8582B38025422C05000256D0 /* lint.h */,
+				8582B37E25422C05000256D0 /* List.h */,
+				8582B37F25422C05000256D0 /* ptr2off.h */,
 				85CB0F0E251967D500592C13 /* makeTokens.sh */,
-				85CB0F0F251967D500592C13 /* sempass.h */,
 				85CB0F10251967D500592C13 /* types.h */,
 				85CB0F11251967D500592C13 /* jet_mem.c */,
-				85CB0F12251967D500592C13 /* gen.h */,
 				85CB0F13251967D500592C13 /* parse.h */,
 				85CB0F14251967D500592C13 /* errors.h */,
 				85CB0F15251967D500592C13 /* cycle.h */,
@@ -214,7 +221,6 @@
 				85CB0F1C251967D500592C13 /* token.h */,
 				85CB0F1D251967D500592C13 /* resolve.h */,
 				85CB0F1E251967D500592C13 /* tokenKind.h */,
-				85CB0F1F251967D500592C13 /* genc.h */,
 				85CB0F20251967D500592C13 /* jet_base.h */,
 				85CB0F21251967D500592C13 /* jet_runtime.h */,
 				85CB0F22251967D500592C13 /* stats.h */,

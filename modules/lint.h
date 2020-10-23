@@ -42,8 +42,21 @@ static void ASTVar_lint(ASTVar* var, int level)
 {
     printf("%.*s%s%s", level, spaces,
         var->isVar ? "var " : var->isLet ? "let " : "", var->name);
-    if (not(var->init and var->init->kind == tkFunctionCall
-            and !strcmp(var->init->string, var->typeSpec->name))) {
+    TokenKind kind = var->init ? var->init->kind : tkUnknown;
+
+    // if ((var->init and var->init->kind == tkFunctionCall
+    //         and !strcmp(var->init->string, var->typeSpec->name))) {
+    // } else if ((var->init and var->init->kind == tkNumber
+    //                or var->init->kind == tkRegexp or var->init->kind ==
+    //                tkString or var->init->kind == tkRawString)) {
+    if (kind == tkFunctionCall // unresolved constructor
+        and !strcmp(var->init->string, var->typeSpec->name)) {
+    } else if (kind == tkFunctionCallResolved
+        and !strcmp(var->init->func->name, var->typeSpec->type->name)) {
+        // resolved constructor, so type is also resolved
+    } else if ((kind == tkNumber or kind == tkRegexp or kind == tkString
+                   or kind == tkRawString)) { // simple literals
+    } else {
         printf(" as ");
         ASTTypeSpec_lint(var->typeSpec, level + STEP);
     }
@@ -139,7 +152,7 @@ static void ASTFunc_lint(ASTFunc* func, int level)
     printf(")");
 
     if (func->returnSpec and not func->isStmt) {
-        printf(" returns ");
+        printf(" as ");
         ASTTypeSpec_lint(func->returnSpec, level);
     }
     if (func->isDeclare) {
@@ -177,10 +190,10 @@ static void ASTExpr_lint(
     case tkMultiDotNumber:
         printf("%s", expr->string);
         break;
-    case tkRegex:
+    case tkRawString:
         printf("'%s'", expr->string + 1);
         break;
-    case tkInline:
+    case tkRegexp:
         printf("`%s`", expr->string + 1);
         break;
 
@@ -274,7 +287,7 @@ static void ASTExpr_lint(
         //            case tkIdentifier:
         //            case tkFunctionCall:
         //            case tkSubscript:
-        //            case tkRegex:
+        //            case tkRawString:
         //            case tkMultiDotNumber:
         //                break;
         //            default:

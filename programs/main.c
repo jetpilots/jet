@@ -167,7 +167,10 @@ typedef struct ASTExpr {
         uint8_t col;
         TokenKind kind : 8;
     };
-    struct ASTExpr* left;
+    union {
+        struct ASTExpr* left;
+        List(ASTVar*) vars; // for tkString
+    };
     union {
         // ASTEvalInfo eval;
         uint32_t hash;
@@ -399,8 +402,8 @@ static ASTExpr* ASTExpr_fromToken(const Token* self)
     switch (ret->kind) {
     case tkIdentifier:
     case tkString:
-    case tkRegex:
-    case tkInline:
+    case tkRawString:
+    case tkRegexp:
     case tkNumber:
     case tkMultiDotNumber:
     case tkLineComment: // Comments go in the AST like regular stmts
@@ -426,8 +429,8 @@ static bool ASTExpr_throws(ASTExpr* self)
     switch (self->kind) {
     case tkNumber:
     case tkMultiDotNumber:
-    case tkRegex:
-    case tkInline:
+    case tkRawString:
+    case tkRegexp:
     case tkIdentifier:
     case tkIdentifierResolved:
     case tkString:
@@ -441,7 +444,7 @@ static bool ASTExpr_throws(ASTExpr* self)
     case tkSubscriptResolved:
         return ASTExpr_throws(self->left);
     case tkVarAssign:
-        return ASTExpr_throws(self->var->init);
+        return self->var->used and ASTExpr_throws(self->var->init);
     case tkKeyword_for:
     case tkKeyword_if:
     case tkKeyword_while:
@@ -484,8 +487,8 @@ static size_t ASTScope_calcSizeUsage(ASTScope* self)
 static ASTVar* ASTScope_getVar(ASTScope* self, const char* name)
 {
     // stupid linear search, no dictionary yet
-    jet_foreach(ASTVar*, local,
-        self->locals) if (not strcasecmp(name, local->name)) return local;
+    jet_foreach(ASTVar*, local, self->locals) //
+        if (not strcasecmp(name, local->name)) return local;
     if (self->parent) return ASTScope_getVar(self->parent, name);
     return NULL;
 }
@@ -493,8 +496,8 @@ static ASTVar* ASTScope_getVar(ASTScope* self, const char* name)
 static ASTVar* ASTType_getVar(ASTType* self, const char* name)
 {
     // stupid linear search, no dictionary yet
-    jet_foreach(ASTVar*, var,
-        self->body->locals) if (not strcasecmp(name, var->name)) return var;
+    jet_foreach(ASTVar*, var, self->body->locals) //
+        if (not strcasecmp(name, var->name)) return var;
 
     if (self->super and self->super->typeType == TYObject)
         return ASTType_getVar(self->super->type, name);
@@ -670,6 +673,11 @@ ASTFunc* ASTModule_getFunc(ASTModule* module, const char* selector)
 #pragma mark - PARSER
 
 typedef enum ParserMode { PMLint, PMEmitC, PMGenTests } ParserMode;
+typedef struct IssueMgr {
+    uint16_t errCount, warnCount, errLimit;
+    uint8_t lastError /*enum type*/, warnUnusedVar : 1, warnUnusedFunc : 1,
+        warnUnusedType : 1, warnUnusedArg : 1;
+} IssueMgr;
 
 typedef struct Parser {
     char* filename; // mod/submod/xyz/mycode.ch
@@ -678,30 +686,41 @@ typedef struct Parser {
     char* capsMangledName; // MOD_SUBMOD_XYZ_MYCODE
     char *data, *end;
     char* noext;
+
     Token token; // current
+    IssueMgr issues;
+
     List(ASTModule*) * modules; // module node of the AST
                                 // Stack(ASTScope*) scopes; // a stack
                                 // that keeps track of scope nesting
-    uint32_t errCount, warnCount;
-    uint16_t errLimit;
-
+    // uint32_t errCount, warnCount;
+    // uint16_t errLimit;
     ParserMode mode : 8;
-    bool generateCommentExprs : 1, // set to false when compiling, set to
-                                   // true when linting
-        warnUnusedVar : 1, warnUnusedFunc : 1, warnUnusedType : 1,
-        warnUnusedArg : 1;
+    bool generateCommentExprs; // set to false when compiling, set to
+                               // true when linting
 
     // set these whenever use is detected (e.g. during resolveTypes or parsing
     // literals)
     struct {
-        bool complex, json, yaml, xml, html, http, ftp, imap, pop3, smtp, frpc,
-            fml, fbin, rational, polynomial, regex, datetime, colour, range,
-            table, ui;
+        bool complex : 1, json : 1, yaml : 1, xml : 1, html : 1, http : 1,
+            ftp : 1, imap : 1, pop3 : 1, smtp : 1, frpc : 1, fml : 1, fbin : 1,
+            rational : 1, polynomial : 1, regex : 1, datetime : 1, colour : 1,
+            range : 1, table : 1, ui : 1;
     } requires;
 } Parser;
 
+static const int sgr = sizeof(Parser);
+
 #define STR(x) STR_(x)
 #define STR_(x) #x
+
+static const char* const jet_banner = //
+    "________     _____  _\n"
+    "______(_)______  /_ _|  The next-gen language of computing\n"
+    "_____  /_  _ \\  __/ _|  %s %s %4d-%02d-%02d\n"
+    "____  / /  __/ /_  __|\n"
+    "___  /  \\___/\\__/ ___|  https://github.com/jetpilots/jet\n"
+    "/___/ -----------------------------------------------------\n\n";
 
 static void Parser_fini(Parser* parser)
 {
@@ -773,9 +792,9 @@ static Parser* Parser_fromFile(char* filename, bool skipws)
         ret->token.line = 1;
         ret->token.col = 1;
         ret->mode = PMEmitC; // parse args to set this
-        ret->errCount = 0;
-        ret->warnCount = 0;
-        ret->errLimit = 50;
+        ret->issues.errCount = 0;
+        ret->issues.warnCount = 0;
+        ret->issues.errLimit = 50;
     } else {
         eputs("Source files larger than 16MB are not allowed.\n");
     }
@@ -911,9 +930,9 @@ static void Parser_emit_open(Parser* parser)
     printf("#define THISFILE \"%s\"\n", parser->filename);
     printf("#define NUMLINES %d\n", parser->token.line);
     // if(genCoverage)
-    printf("static UInt64 _cov_[NUMLINES] = {};\n");
-    printf("static ticks _lprof_last_, _lprof_tmp_;\n");
-    printf("static ticks _lprof_[NUMLINES] = {};\n");
+    // printf("static UInt64 _cov_[NUMLINES] = {};\n");
+    // printf("static ticks _lprof_last_, _lprof_tmp_;\n");
+    // printf("static ticks _lprof_[NUMLINES] = {};\n");
 }
 
 static void Parser_emit_close(Parser* parser)
@@ -930,8 +949,9 @@ static void alloc_stat() { }
 #pragma mark - main
 int main(int argc, char* argv[])
 {
+    fprintf(stderr, jet_banner, "v0.2.2", "asd762345asd", 2020, 9, 21);
     if (argc == 1) {
-        eputs("jet: no input files.\n");
+        eputs("jet: no input files. What are you trying to do?\n");
         return 1;
     }
     bool printDiagnostics = (argc > 2 && *argv[2] == 'd') or false;
@@ -954,7 +974,7 @@ int main(int argc, char* argv[])
 
     modules = parseModule(parser);
 
-    if (not(parser->errCount)) {
+    if (not(parser->issues.errCount)) {
         switch (parser->mode) {
         case PMLint: {
             jet_foreach(ASTModule*, mod, modules) ASTModule_lint(mod, 0);
@@ -962,8 +982,10 @@ int main(int argc, char* argv[])
 
         case PMEmitC: {
             // TODO: if (monolithic) printf("#define STATIC static\n");
-            printf("#include \"jet_runtime.h\"\n");
             Parser_emit_open(parser);
+            // ^ This is called before including the runtime, so that the
+            // runtime can know THISFILE NUMLINES etc.
+            printf("#include \"jet_runtime.h\"\n");
             jet_foreach(ASTModule*, mod, modules) ASTModule_emit(mod, 0);
             Parser_emit_close(parser);
         } break;
@@ -986,14 +1008,19 @@ int main(int argc, char* argv[])
     if (printDiagnostics)
         printstats(parser, jet_clock_clockSpanMicro(t0) / 1.0e3);
 
-    if (parser->errCount)
+    if (parser->issues.errCount)
         eprintf(
             "\n\e[31;1;4m THERE ARE %2d ERRORS.                              "
             "                         \e[0m\n How about fixing them? Reading "
             "the code would be a good start.\n",
-            parser->errCount);
-    if (parser->warnCount)
-        eprintf("\n\e[33m*** %d warnings\e[0m\n", parser->warnCount);
+            parser->issues.errCount);
+    if (parser->issues.warnCount)
+        eprintf("\n\e[33m*** %d warnings\e[0m\n", parser->issues.warnCount);
 
-    return (parser->errCount); // or parser->warnCount);
+    // returns the last error kind (from enum ParserErrors) so that test scripts
+    // can check for specific errors raised.
+    int ret = (parser->issues.errCount or _jet_InternalErrs);
+    // eprintf("ret: %d\n", ret);
+    return ret; // or parser->warnCount);
+    // TODO: what about last warning?
 }

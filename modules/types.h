@@ -44,7 +44,7 @@ static const char* TypeType_name(TypeTypes tyty)
     case TYErrorType:
         return "<invalid>";
     case TYString:
-        return "String";
+        return "CString";
     case TYBool:
         return "Boolean";
     case TYObject:
@@ -68,7 +68,7 @@ static const char* TypeType_c_name[] = {
     [TYUnresolved] = "<unresolved>",
     [TYNoType] = "void",
     [TYErrorType] = "<invalid>",
-    [TYString] = "String",
+    [TYString] = "CString",
     [TYBool] = "bool",
     [TYObject] = "<object>",
     [TYSize] = "SizeT",

@@ -13,7 +13,7 @@ static const uint8_t TokenKindTable[256] = {
     /* 30 */ tkUnknown, /* 31 */ tkUnknown,
     /* 32   */ tkSpaces, /* 33 ! */ tkExclamation,
     /* 34 " */ tkStringBoundary, /* 35 # */ tkHash, /* 36 $ */ tkDollar,
-    /* 37 % */ tkOpMod, /* 38 & */ tkAmpersand, /* 39 ' */ tkRegexBoundary,
+    /* 37 % */ tkOpMod, /* 38 & */ tkAmpersand, /* 39 ' */ tkRawStringBoundary,
     /* 40 ( */ tkParenOpen, /* 41 ) */ tkParenClose, /* 42 * */ tkTimes,
     /* 43 + */ tkPlus, /* 44 , */ tkOpComma, /* 45 - */ tkMinus,
     /* 46 . */ tkPeriod, /* 47 / */ tkSlash, /* 48 0 */ tkDigit,
@@ -34,7 +34,7 @@ static const uint8_t TokenKindTable[256] = {
     /* 89 Y */ tkAlphabet, /* 90 Z */ tkAlphabet,
     /* 91 [ */ tkArrayOpen, /* 92 \ */ tkBackslash, /* 93 ] */ tkArrayClose,
     /* 94 ^ */ tkPower, /* 95 _ */ tkUnderscore,
-    /* 96 ` */ tkInlineBoundary,
+    /* 96 ` */ tkRegexpBoundary,
     /* 97 a */ tkAlphabet, /* 98 b */ tkAlphabet, /* 99 c */ tkAlphabet,
     /* 100 d */ tkAlphabet, /* 101 e */ tkAlphabet, /* 102 f */ tkAlphabet,
     /* 103 g */ tkAlphabet, /* 104 h */ tkAlphabet, /* 105 i */ tkAlphabet,
@@ -320,8 +320,8 @@ static void Token_detect(Token* self)
 
     switch (tt) {
     case tkStringBoundary:
-    case tkInlineBoundary:
-    case tkRegexBoundary:
+    case tkRegexpBoundary:
+    case tkRawStringBoundary:
         tmp = tt; // remember which it is exactly
 
         // Incrementing pos is a side effect of getTypeAtCurrentPos(...)
@@ -346,11 +346,11 @@ static void Token_detect(Token* self)
         case tkStringBoundary:
             tt_ret = tkString;
             break;
-        case tkInlineBoundary:
-            tt_ret = tkInline;
+        case tkRegexpBoundary:
+            tt_ret = tkRegexp;
             break;
-        case tkRegexBoundary:
-            tt_ret = tkRegex;
+        case tkRawStringBoundary:
+            tt_ret = tkRawString;
             break;
         default:
             tt_ret = tkUnknown;
@@ -570,8 +570,8 @@ static void Token_advance(Token* self)
     case tkSubscript:
     case tkDigit:
     case tkAlphabet:
-    case tkRegex:
-    case tkInline:
+    case tkRawString:
+    case tkRegexp:
     case tkUnits:
     case tkKeyword_cheater:
     case tkKeyword_for:
@@ -595,8 +595,8 @@ static void Token_advance(Token* self)
     case tkKeyword_let:
     case tkKeyword_import:
     case tkUnknown: // bcz start of the file is this
-    case tkArrayOpen:
-    case tkBraceOpen:
+//    case tkArrayOpen:
+//    case tkBraceOpen:
         break;
     default:
         *self->pos = 0; // trample it so that idents etc. can be assigned

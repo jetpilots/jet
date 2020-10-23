@@ -51,7 +51,7 @@ static void ASTTypeSpec_emit(ASTTypeSpec* typeSpec, int level, bool isconst)
     case TYUnresolved:
         unreachable("unresolved: '%s' at %d:%d", typeSpec->name, typeSpec->line,
             typeSpec->col);
-        printf("%s", typeSpec->name);
+        printf("%s", *typeSpec->name ? typeSpec->name : "Error_Type");
         break;
     default:
         printf("%s", TypeType_name(typeSpec->typeType));
@@ -219,7 +219,9 @@ static ASTExpr* ASTExpr_findPromotionCandidate(ASTExpr* expr)
 
     default:
         if (expr->prec) {
-            if ((ret = ASTExpr_findPromotionCandidate(expr->right))) return ret;
+            if (expr->right
+                and (ret = ASTExpr_findPromotionCandidate(expr->right)))
+                return ret;
             if (not expr->unary)
                 if ((ret = ASTExpr_findPromotionCandidate(expr->left)))
                     return ret;
@@ -419,13 +421,28 @@ static void ASTScope_emit(ASTScope* scope, int level)
         if (stmt->kind == tkLineComment) continue;
 
         if (genLineNumbers) printf("#line %d\n", stmt->line);
-        if (genCoverage) printf("_cov_[%d]++;\n", stmt->line - 1);
-        if (genLineProfile) {
-            printf("_lprof_tmp_ = getticks();\n");
-            printf("_lprof_[%d] += (_lprof_tmp_-_lprof_last_)/100;\n",
-                stmt->line - 1);
-            printf("_lprof_last_ = _lprof_tmp_;\n");
+        // if (genCoverage) printf("    _cov_[%d]++;\n", stmt->line - 1);
+        // if (genLineProfile) {
+        //     printf("    _lprof_tmp_ = getticks();\n");
+        //     printf("    _lprof_[%d] += (_lprof_tmp_-_lprof_last_)/100;\n",
+        //         stmt->line - 1);
+        //     printf("    _lprof_last_ = _lprof_tmp_;\n");
+        // }
+
+        // You need to know if the ASTExpr_emit will in fact generate something.
+        // This is true in general unless it is an unused var init.
+        if (stmt->kind != tkVarAssign or stmt->var->used) {
+            if (genCoverage or genLineProfile) //
+                printf("    /************/ ");
+            if (genCoverage) printf("JET_COVERAGE_UP(%d); ", stmt->line);
+            if (genLineProfile) {
+                // printf("    _lprof_tmp_ = getticks();\n");
+                printf("JET_PROFILE_LINE(%d);", stmt->line);
+                // printf("    _lprof_last_ = _lprof_tmp_;\n");
+            }
+            if (genCoverage or genLineProfile) puts(" /************/");
         }
+
         ASTExpr_emit(stmt, level, true, false, false);
         if (not isCtrlExpr(stmt) and stmt->kind != tkKeyword_return)
             puts(";");
@@ -451,7 +468,7 @@ static void ASTType_genJson(ASTType* type)
     // superclass to add in their fields inline
     jet_foreachn(ASTVar*, var, vars, type->body->locals)
     {
-        if (not var) continue;
+        if (not var or not var->used) continue;
         printf("    printf(\"%%.*s\\\"%s\\\": \", nspc+4, _spaces_);\n",
             var->name);
         const char* valueType = ASTExpr_typeName(var->init);
@@ -472,54 +489,64 @@ static void ASTType_genJson(ASTType* type)
 static void ASTType_genJsonReader(ASTType* type) { }
 
 static const char* functionEntryStuff_UNESCAPED
-    = "#ifndef NOSTACKCHECK\n"
-      "    STACKDEPTH_UP\n"
-      "    // printf(\"%8lu %8lu\\n\",_scUsage_, _scSize_);\n"
-      "    if (_scUsage_ >= _scSize_) {\n"
-      "#ifdef DEBUG\n"
-      "        _scPrintAbove_ = _scDepth_ - _btLimit_;\n"
-      "        printf(\"\\e[31mfatal: stack overflow at call depth %lu.\\n    "
-      "in %s\\e[0m\\n\", _scDepth_, sig_);\n"
-      "        printf(\"\\e[90mBacktrace (innermost first):\\n\");\n"
-      "        if (_scDepth_ > 2*_btLimit_)\n"
-      "            printf(\"    limited to %d outer and %d inner "
-      "entries.\\n\", _btLimit_, _btLimit_);\n"
-      "        printf(\"[%lu] \\e[36m%s\\n\", _scDepth_, callsite_);\n"
-      "#else\n"
-      "        printf(\"\\e[31mfatal: stack  overflow at call depth "
-      "%lu.\\e[0m\\n\",_scDepth_);\n"
-      "#endif\n"
-      "        DONE\n    }\n"
-      "#endif\n";
-static const char* functionExitStuff_UNESCAPED
-    = "    return DEFAULT_VALUE;\n assert(0);\n"
-      "error:\n"
-      "#ifdef DEBUG\n"
-      "    eprintf(\"error: %s\\n\",_err_);\n"
-      "#endif\n"
-      "backtrace:\n"
-      "#ifdef DEBUG\n"
+    = "    STACKDEPTH_UP; DO_STACK_CHECK;\n";
 
-      "    if (_scDepth_ <= _btLimit_ || _scDepth_ > _scPrintAbove_)\n"
-      "        printf(\"\\e[90m[%lu] \\e[36m%s\\n\", _scDepth_, callsite_);\n"
-      "    else if (_scDepth_ == _scPrintAbove_)\n"
-      "        printf(\"\\e[90m... truncated ...\\e[0m\\n\");\n"
-      "#endif\n"
-      "done:\n"
-      "#ifndef NOSTACKCHECK\n"
-      "    STACKDEPTH_DOWN\n"
-      "#endif\n"
+// static const char* functionEntryStuff_UNESCAPED__old
+//     = "    STACKDEPTH_UP\n"
+//       "#ifndef NOSTACKCHECK\n"
+//       //   "    // printf(\"%8lu %8lu\\n\",_scUsage_, _scSize_);\n"
+//       "    if (_scUsage_ >= _scSize_) {\n"
+//       "#ifdef DEBUG\n"
+//       "        _scPrintAbove_ = _scDepth_ - _btLimit_;\n"
+//       "        printf(\"\\e[31mfatal: stack overflow at call depth %lu.\\n "
+//       "in %s\\e[0m\\n\", _scDepth_, sig_);\n"
+//       "        printf(\"\\e[90mBacktrace (innermost first):\\n\");\n"
+//       "        if (_scDepth_ > 2*_btLimit_)\n"
+//       "            printf(\"    limited to %d outer and %d inner "
+//       "entries.\\n\", _btLimit_, _btLimit_);\n"
+//       "        printf(\"[%lu] \\e[36m%s\\n\", _scDepth_, callsite_);\n"
+//       "#else\n"
+//       "        printf(\"\\e[31mfatal: stack  overflow at call depth "
+//       "%lu.\\e[0m\\n\",_scDepth_);\n"
+//       "#endif\n"
+//       "        DONE\n    }\n"
+//       "#endif\n";
+static const char* functionExitStuff_UNESCAPED
+    = "    return DEFAULT_VALUE;\n"
+      "uncaught: HANDLE_UNCAUGHT;\n"
+      "backtrace: SHOW_BACKTRACE_LINE;\n"
+      "return_: STACKDEPTH_DOWN;\n"
       "    return DEFAULT_VALUE;";
+
+// static const char* functionExitStuff_UNESCAPED_old
+// = "    return DEFAULT_VALUE;\n"
+//   "error:\n"
+//   "#ifdef DEBUG\n"
+//   "    eprintf(\"error: %s\\n\",_err_);\n"
+//   "#endif\n"
+//   "backtrace:\n"
+//   "#ifdef DEBUG\n"
+//   "    if (_scDepth_ <= _btLimit_ || _scDepth_ > _scPrintAbove_)\n"
+//   "        printf(\"\\e[90m[%lu] \\e[36m%s\\n\", _scDepth_, callsite_);\n"
+//   "    else if (_scDepth_ == _scPrintAbove_)\n"
+//   "        printf(\"\\e[90m... truncated ...\\e[0m\\n\");\n"
+//   "#endif\n"
+//   "done:\n"
+//   "    STACKDEPTH_DOWN\n"
+//   "    return DEFAULT_VALUE;";
 
 ///////////////////////////////////////////////////////////////////////////
 static void ASTFunc_printStackUsageDef(size_t stackUsage)
 {
-    printf("#ifdef DEBUG\n"
-           "#define MYSTACKUSAGE (%lu + 6*sizeof(void*) + sizeof(char*))\n"
-           "#else\n"
-           "#define MYSTACKUSAGE (%lu + 6*sizeof(void*))\n"
-           "#endif\n",
-        stackUsage, stackUsage);
+    printf("#define MYSTACKUSAGE (%lu + 6*sizeof(void*) + "
+           "IFDEBUGELSE(sizeof(char*),0))\n",
+        stackUsage);
+    // printf("#ifdef DEBUG\n"
+    //        "#define MYSTACKUSAGE (%lu + 6*sizeof(void*) + sizeof(char*))\n"
+    //        "#else\n"
+    //        "#define MYSTACKUSAGE (%lu + 6*sizeof(void*))\n"
+    //        "#endif\n",
+    //     stackUsage, stackUsage);
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -543,9 +570,9 @@ static void ASTType_emit(ASTType* type, int level)
     }
 
     printf("    FIELDS_%s\n};\n\n", name);
-    printf("static const char* %s_name_ = \"%s\";\n", name, name);
+    printf("static const char* %s_name_ = \"%s\";\n\n", name, name);
     printf("static %s %s_alloc_() {\n    return _Pool_alloc_(&gPool_, "
-           "sizeof(struct %s));\n}\n",
+           "sizeof(struct %s));\n}\n\n",
         name, name, name);
     printf("static %s %s_init_(%s self) {\n", name, name, name);
 
@@ -565,22 +592,20 @@ static void ASTType_emit(ASTType* type, int level)
     jet_foreach(ASTVar*, var, type->body->locals)
         printf("#undef %s \n", var->name);
 
-    printf("    return self;\n}\n");
-    printf(
-        "%s %s_new_(\n#ifdef DEBUG\n    const char* callsite_\n#endif\n) {\n",
-        name, name);
-    printf("#define DEFAULT_VALUE NULL\n#ifdef DEBUG\n    static const char* "
-           "sig_ = \"%s()\";\n#endif\n",
+    printf("    return self;\n}\n\n");
+    printf("%s %s_new_(IFDEBUG(const char* callsite_)) {\n", name, name);
+
+    printf("#define DEFAULT_VALUE NULL\n    "
+           "IFDEBUG(static const char* sig_ = \"%s()\");\n",
         name);
     ASTFunc_printStackUsageDef(48);
     puts(functionEntryStuff_UNESCAPED);
-    printf("    %s ret = %s_alloc_(); %s_init_(ret); if (_err_==ERROR_TRACE) "
-           "goto backtrace;"
-           "_err_ = NULL; \n#ifndef NOSTACKCHECK\n    "
-           "STACKDEPTH_DOWN\n#endif\n     return ret;",
+    printf("    %s ret = %s_alloc_(); %s_init_(ret);\n"
+           "    if (_err_==ERROR_TRACE) goto backtrace;\n"
+           "    _err_ = NULL; STACKDEPTH_DOWN; return ret;\n",
         name, name, name);
     puts(functionExitStuff_UNESCAPED);
-    puts("#undef DEFAULT_VALUE\n#undef MYSTACKUSAGE\n}");
+    puts("#undef DEFAULT_VALUE\n#undef MYSTACKUSAGE\n}\n");
     printf("#define %s_print_(p) %s_print__(p, STR(p))\n", name, name);
     printf("void %s_print__(%s self, const char* name) {\n    printf(\"<%s "
            "'%%s' at %%p\\n>\",name,self);\n}\n",
@@ -641,8 +666,7 @@ static void ASTFunc_emit(ASTFunc* func, int level)
 
     // TODO: if (flags.throws) printf("const char** _err_");
     puts(") {");
-    printf("#ifdef DEBUG\n"
-           "    static const char* sig_ = \"");
+    printf("    IFDEBUG(static const char* sig_ = \"");
     printf("%s%s(", func->isStmt ? "" : "function ", func->name);
 
     jet_foreachn(ASTVar*, arg, args, func->args)
@@ -651,10 +675,10 @@ static void ASTFunc_emit(ASTFunc* func, int level)
         printf(args->next ? ", " : ")");
     }
     if (func->returnSpec) {
-        printf(" returns ");
+        printf(" as ");
         ASTTypeSpec_lint(func->returnSpec, level);
     }
-    puts("\";\n#endif");
+    puts("\");");
 
     puts(functionEntryStuff_UNESCAPED);
 
@@ -714,7 +738,7 @@ static void ASTExpr_emit_tkSubscriptResolved(
         break;
 
     case tkString:
-    case tkRegex: // indexing with single string or regex
+    case tkRawString: // indexing with single string or regex
         printf("Dict_get_CString_%s(%s, %s)",
             ASTTypeSpec_cname(expr->var->typeSpec), name, index->string);
         break;
@@ -823,6 +847,109 @@ static void ASTExpr_emit_tkFunctionCallResolved(
     printf(")");
 }
 
+char* jet_strchrnul(char* str, char ch)
+{
+    while (*str && *str != ch) str++;
+    return str;
+}
+
+// This is really taking up a whole pass. It should be moved to the analysis
+// phase! ASTExpr should hold some extra data for string interpolation.
+static void ASTExpr_prepareInterp(ASTExpr* expr, ASTScope* scope)
+{ // TODO: you should have a flag that tells you whether there is any string
+    // interpolation at all, and if yes what the expected size might be, and if
+    // it can be put on the stack
+
+    // actually the string may have embedded %s, so you need to process it
+    // in any case, unless you plan on doing puts.
+    // there are 3 things to do.
+    // 1. compute the format string
+    // 2. compute a guess for the size
+    // 3. keep a stack of vars that are in the string in the right order
+    static jet_Array(Ptr) vars;
+
+    //     char* pos = expr->string - 1,*last = expr->string;
+    //     while (*++pos) {
+    // while (*pos!='$') pos++;
+    switch (expr->kind) {
+    case tkString:
+        //      }
+        {
+            char* pos = expr->string + 1; // starts with '"'
+            while (*pos) {
+                // in this loop you print the text preceding a $, then text
+                // suceeding a $, then loop. Here's the text before the $
+                char* dollar = jet_strchrnul(pos, '$');
+                // not using $..., using {...}
+                int lentxt = dollar - pos;
+                // printf(",\"%.*s\"", lentxt, pos);
+                if (!*dollar) break;
+                // after the $ is a variable, so look it up etc.
+                char* varname = dollar + 1;
+                char* varend = jet_strchrnul(varname, ' ');
+                *varend = 0;
+                ASTVar* var = ASTScope_getVar(scope, varname);
+                // ^ TODO: this should be getQualVar which looks up a.b.c and
+                // returns c
+                if (!var) {
+                    // you have a real problem. You should have checked for all
+                    // var refs to be valid in the analysis phase!
+                    unreachable("undefined var found: %s", varname);
+                }
+                const char* fmtstr;
+                if (var->typeSpec->typeType == TYObject) {
+                    fmtstr = "%s";
+                    // you'll have to call Type_str(...) for it. Or actually why
+                    // not just do Type_print?
+                } else {
+                    fmtstr = TypeType_format(var->typeSpec->typeType, false);
+                }
+                // printf(",%s", var->name);
+                // ^ this should be qualified name or the cgen version
+                // of accessing the actual member for a.b.c
+                pos = varend + 1; // you might go past the end!!!
+            }
+        }
+        break;
+    case tkRawString:
+    case tkNumber:
+    case tkIdentifierResolved:
+        break;
+    case tkFunctionCallResolved:
+    case tkFunctionCall:
+    case tkSubscript:
+    case tkObjectInit:
+    case tkObjectInitResolved:
+    case tkSubscriptResolved:
+        if (expr->left) ASTExpr_prepareInterp(expr->left, scope);
+        break;
+    case tkVarAssign:
+        ASTExpr_prepareInterp(expr->var->init, scope);
+        break;
+    default:
+        if (expr->prec) {
+            if (!expr->unary) ASTExpr_prepareInterp(expr->left, scope);
+            if (expr->right) ASTExpr_prepareInterp(expr->right, scope);
+        } else {
+            unreachable("unknown token kind %s", TokenKind_str[expr->kind]);
+        }
+    }
+
+    // #this string
+    //     "The quick brown fox $jumps over $the lazy dog.";
+    // #becomes
+    //     `"%s%s%s%s%s", "The quick brown fox ", jumps, " over ", the, "lazy
+    //     dog.",
+    //         ""`;
+}
+
+static void ASTExpr_emit_tkString(
+    ASTExpr* expr, int level, bool spacing, bool inFuncArgs, bool escStrings)
+{
+
+    printf(escStrings ? "\\%s\\\"" : "%s\"", expr->string);
+}
+
 //_____________________________________________________________________________
 /// Emits the equivalent C code for a (literal) numeric expression. Complex
 /// numbers follow C99 literal syntax, e.g. 1i generates `_Complex_I * 1`.
@@ -858,18 +985,19 @@ static void ASTExpr_emit(
         break;
 
     case tkString: // TODO: parse vars inside, escape stuff, etc.
-        printf(escStrings ? "\\%s\\\"" : "%s\"", expr->string);
+        ASTExpr_emit_tkString(expr, level, spacing, inFuncArgs, escStrings);
+        // printf(escStrings ? "\\%s\\\"" : "%s\"", expr->string);
         break;
 
     case tkIdentifierResolved:
         printf("%s", expr->var->name);
         break;
 
-    case tkRegex: // 'raw strings' or 'regexes'
+    case tkRawString: // 'raw strings' or 'regexes'
         printf("\"%s\"", expr->string + 1);
         break;
 
-    case tkInline: // inline C code?
+    case tkRegexp: // inline C code?
         printf("%s", expr->string + 1);
         break;
 
@@ -879,7 +1007,7 @@ static void ASTExpr_emit(
 
     case tkFunctionCall:
         unreachable("unresolved call to %s\n", expr->string);
-        assert(0);
+        //        assert(0);
         break;
 
     case tkFunctionCallResolved:
@@ -910,7 +1038,7 @@ static void ASTExpr_emit(
             switch (expr->left->left->kind) {
             case tkNumber:
             case tkString:
-            case tkRegex:
+            case tkRawString:
                 // TODO: astexpr_typename should return Array_Scalar or
                 // Tensor2D_Scalar or Dict_String_Scalar etc.
                 printf("%s_set(%s, %s,%s, ", ASTExpr_typeName(expr->left),
@@ -1003,24 +1131,47 @@ static void ASTExpr_emit(
         // TODO: send parent ASTExpr* as an arg to this function. Then
         // here do various things based on whether parent is a =,
         // funcCall, etc.
-        printf("Array_make(((%s[]) {", "double"); // FIXME
-        // TODO: MKARR should be different based on the CollectionType
-        // of the var or arg in question, eg stack cArray, heap
-        // allocated Array, etc.
-        ASTExpr_emit(expr->right, 0, spacing, inFuncArgs, escStrings);
-        printf("})");
-        printf(", %d)", ASTExpr_countCommaList(expr->right));
+        if (!expr->right) {
+            printf("Array_init(%s)()", "double");
+        } else {
+            printf("Array_make(((%s[]) {", "double"); // FIXME
+            // TODO: MKARR should be different based on the CollectionType
+            // of the var or arg in question, eg stack cArray, heap
+            // allocated Array, etc.
+            ASTExpr_emit(expr->right, 0, spacing, inFuncArgs, escStrings);
+            printf("})");
+            printf(", %d)", ASTExpr_countCommaList(expr->right));
+        }
         break;
 
-    case tkBraceOpen:
-        printf("Dict_make(%s,%s)(%d", "String", "Real64",
-            ASTExpr_countCommaList(expr->right)); // FIXME
-        // TODO: MKARR should be different based on the CollectionType
-        // of the var or arg in question, eg stack cArray, heap
-        // allocated Array, etc.
-        ASTExpr_emit(expr->right, 0, spacing, inFuncArgs, escStrings);
-        printf(")");
-        break;
+    case tkBraceOpen: {
+        const char* Ktype = "CString";
+        const char* Vtype = "Real64";
+        if (!expr->right)
+            printf("Dict_init(%s,%s)()", Ktype, Vtype); // FIXME
+        else {
+            printf("Dict_make(%s,%s)(%d, (%s[]){", Ktype, Vtype,
+                ASTExpr_countCommaList(expr->right), Ktype); // FIXME
+
+            ASTExpr* p = expr->right;
+            while (p and p->kind == tkOpComma) {
+                ASTExpr_emit(p->left->left, 0, spacing, inFuncArgs, escStrings);
+                printf(", ");
+                p = p->right;
+            };
+            ASTExpr_emit(p->left, 0, spacing, inFuncArgs, escStrings);
+            printf("}, (%s[]){", Vtype);
+            p = expr->right;
+            while (p and p->kind == tkOpComma) {
+                ASTExpr_emit(
+                    p->left->right, 0, spacing, inFuncArgs, escStrings);
+                printf(", ");
+                p = p->right;
+            };
+            ASTExpr_emit(p->right, 0, spacing, inFuncArgs, escStrings);
+            printf("})");
+        }
+    } break;
 
     case tkOpColon: // convert 3:4:5 to range(...)
                     // must do bounds check first!
@@ -1044,6 +1195,9 @@ static void ASTExpr_emit(
         if (expr->var->init != NULL and expr->var->used) {
             printf("%s = ", expr->var->name);
             ASTExpr_emit(expr->var->init, 0, true, inFuncArgs, escStrings);
+        } else {
+            printf("/* %s %s at line %d */", expr->var->name,
+                expr->var->used ? "null" : "unused", expr->line);
         }
         break;
 
@@ -1088,9 +1242,9 @@ static void ASTExpr_emit(
         break;
 
     case tkKeyword_return:
-        printf("{_err_ = NULL; \n#ifndef NOSTACKCHECK\n    "
-               "STACKDEPTH_DOWN\n#endif\nreturn ");
-        ASTExpr_emit(expr->right, 0, spacing, inFuncArgs, escStrings);
+        printf("{_err_ = NULL; STACKDEPTH_DOWN; return ");
+        if (expr->right)
+            ASTExpr_emit(expr->right, 0, spacing, inFuncArgs, escStrings);
         printf(";}\n");
         break;
     case tkKeyword_check: {
@@ -1108,19 +1262,27 @@ static void ASTExpr_emit(
         printf("%.*s%s _rhs = ", level, spaces, ASTExpr_typeName(rhsExpr));
         ASTExpr_emit(rhsExpr, 0, spacing, false, false);
         printf(";\n");
-        printf("%.*sif (not(", level, spaces);
+        printf("%.*sif (!(", level, spaces);
+        // ----- use lhs rhs cached values instead of the expression
         ASTExpr_emit(checkExpr, 0, spacing, false, false);
+        // how are you doing to deal with x < y < z? Repeat all the logic of
+        // ASTExpr_emit?
+        // ----------------------------------------------------------------
+        // if (checkExpr->unary) {
+        //     printf("_rhs");
+        // } else {
+        //     printf("_lhs %s _rhs");
+        // }
+        // -------------
         printf(")) {\n");
         printf("%.*sprintf(\"\\n\\n\e[31mruntime error:\e[0m check "
                "failed at "
                "\e[36m./%%s:%d:%d:\e[0m\\n    "
-               "%%s\\n\\n\", THISFILE, \"",
+               "%%s\\n\\n\",\n               THISFILE, \"",
             level + STEP, spaces, expr->line, expr->col + 6);
         ASTExpr_lint(checkExpr, 0, spacing, true);
         printf("\");\n");
-        printf("#ifdef DEBUG\n%.*sprintf(\"\e[90mHere's some "
-               "help:\e[0m\\n\");\n",
-            level + STEP, spaces);
+        printf("#ifdef DEBUG\n%.*sCHECK_HELP_OPEN;\n", level + STEP, spaces);
 
         ASTExpr_genPrintVars(checkExpr, level + STEP);
         // the `printed` flag on all vars of the expr will be set
@@ -1132,7 +1294,7 @@ static void ASTExpr_emit(
             if (lhsExpr->collectionType == CTYNone //
                 and lhsExpr->kind != tkString //
                 and lhsExpr->kind != tkNumber //
-                and lhsExpr->kind != tkRegex //
+                and lhsExpr->kind != tkRawString //
                 and lhsExpr->kind != tkOpLE //
                 and lhsExpr->kind != tkOpLT) {
 
@@ -1153,7 +1315,7 @@ static void ASTExpr_emit(
         if (rhsExpr->collectionType == CTYNone //
             and rhsExpr->kind != tkString //
             and rhsExpr->kind != tkNumber //
-            and rhsExpr->kind != tkRegex) {
+            and rhsExpr->kind != tkRawString) {
             if (rhsExpr->kind != tkIdentifierResolved
                 or not rhsExpr->var->visited) {
                 printf("%.*s%s", level + STEP, spaces, "printf(\"    %s = ");
@@ -1166,20 +1328,10 @@ static void ASTExpr_emit(
 
         ASTExpr_unmarkVisited(checkExpr);
 
-        printf("%.*sprintf(\"\\n\");\n", level + STEP, spaces);
-        printf("%s",
-            /*"#ifdef DEBUG\n"*/
-            "        printf(\"\\e[90mBacktrace (innermost "
-            "first):\\n\");\n"
-            "        if (_scDepth_ > 2*_btLimit_)\n        "
-            "printf(\"    limited to %d outer and %d inner "
-            "entries.\\n\", "
-            "_btLimit_, _btLimit_);\n"
-            "        BACKTRACE\n    \n"
-            "#else\n"
-            "        eputs(\"(run in debug mode to get more info)\\n\"); "
-            "exit(1);\n"
-            "#endif\n");
+        printf("%.*sCHECK_HELP_CLOSE;\n", level + STEP, spaces);
+        printf("#else\n");
+        printf("%.*sCHECK_HELP_DISABLED;\n", level + STEP, spaces);
+        printf("#endif\n");
         printf("\n%.*s}\n", level, spaces);
         printf("%.*s}", level, spaces);
     } break;
@@ -1253,44 +1405,44 @@ static void ASTExpr_emit(
 }
 
 // WARNING: DO NOT USE THESE STRINGS WITH PRINTF(...) USE PUTS(...).
-static const char* coverageFunc[] = { //
-    "static void jet_coverage_report() { /* unused */ }",
-    "static void jet_coverage_report() {\n"
-    "    int count=0,l=NUMLINES;\n"
-    "    while(--l>0) count+=!!_cov_[l];\n"
-    "    printf(\"coverage: %d/%d lines = %.2f%%\\n\","
-    "        count, NUMLINES, count*100.0/NUMLINES);\n"
-    "}"
-};
+// static const char* coverageFunc[] = { //
+//     "static void jet_coverage_report() { /* unused */ }",
+//     "static void jet_coverage_report() {\n"
+//     "    int count=0,l=NUMLINES;\n"
+//     "    while(--l>0) count+=!!_cov_[l];\n"
+//     "    printf(\"coverage: %d/%d lines = %.2f%%\\n\","
+//     "        count, NUMLINES, count*100.0/NUMLINES);\n"
+//     "}"
+// };
 // WARNING: DO NOT USE THESE STRINGS WITH PRINTF(...) USE PUTS(...).
-static const char* lineProfileFunc[] = {
-    //
-    "static void jet_lineprofile_report() { /* unused */ }\n"
-    "static void jet_lineprofile_begin() { /* unused */ }\n",
-    "static void jet_lineprofile_report() {\n"
-    // "    printf(\"profiler: %llu cycles\\n\","
-    // "        _lprof_[NUMLINES-1]-_lprof_[0]);\n"
-    "    FILE* fd = fopen(\".\" THISFILE \"r\", \"w\");\n"
-    // "    for (int i=1; i<NUMLINES; i++)\n"
-    // "        if (0== _lprof_[i]) _lprof_[i] = _lprof_[i-1];\n"
-    // "    for (int i=NUMLINES-1; i>0; i--) _lprof_[i] -= _lprof_[i-1];\n"
-    "    ticks sum=0; for (int i=0; i<NUMLINES; i++) sum += _lprof_[i];\n"
-    "    for (int i=0; i<NUMLINES; i++) {\n"
-    "        double pct = _lprof_[i] * 100.0 / sum;\n"
-    "        if (pct>1.0)"
-    "            fprintf(fd,\" %8.1f%% |\\n\", pct);\n"
-    "        else if (pct == 0.0)"
-    "            fprintf(fd,\"           |\\n\");\n"
-    "        else"
-    "            fprintf(fd,\"         ~ |\\n\");\n"
-    "    }\n"
-    "    fclose(fd);\n"
-    "    system(\"paste -d ' ' .\" THISFILE \"r \" THISFILE \" > \" "
-    "THISFILE "
-    "\"r\" );"
-    "}\n"
-    "static void jet_lineprofile_begin() {_lprof_last_=getticks();}\n"
-};
+// static const char* lineProfileFunc[] = {
+//     //
+//     "static void jet_lineprofile_report() { /* unused */ }\n"
+//     "static void jet_lineprofile_begin() { /* unused */ }\n",
+//     "static void jet_lineprofile_report() {\n"
+//     // "    printf(\"profiler: %llu cycles\\n\","
+//     // "        _lprof_[NUMLINES-1]-_lprof_[0]);\n"
+//     "    FILE* fd = fopen(\".\" THISFILE \"r\", \"w\");\n"
+//     // "    for (int i=1; i<NUMLINES; i++)\n"
+//     // "        if (0== _lprof_[i]) _lprof_[i] = _lprof_[i-1];\n"
+//     // "    for (int i=NUMLINES-1; i>0; i--) _lprof_[i] -= _lprof_[i-1];\n"
+//     "    ticks sum=0; for (int i=0; i<NUMLINES; i++) sum += _lprof_[i];\n"
+//     "    for (int i=0; i<NUMLINES; i++) {\n"
+//     "        double pct = _lprof_[i] * 100.0 / sum;\n"
+//     "        if (pct>1.0)"
+//     "            fprintf(fd,\" %8.1f%% |\\n\", pct);\n"
+//     "        else if (pct == 0.0)"
+//     "            fprintf(fd,\"           |\\n\");\n"
+//     "        else"
+//     "            fprintf(fd,\"         ~ |\\n\");\n"
+//     "    }\n"
+//     "    fclose(fd);\n"
+//     "    system(\"paste -d ' ' .\" THISFILE \"r \" THISFILE \" > \" "
+//     "THISFILE "
+//     "\"r\" );"
+//     "}\n"
+//     "static void jet_lineprofile_begin() {_lprof_last_=getticks();}\n"
+// };
 ///////////////////////////////////////////////////////////////////////////
 // TODO: why do you need to pass level here?
 
@@ -1314,14 +1466,25 @@ static void ASTModule_emit(ASTModule* module, int level)
 
     jet_foreach(ASTType*, type, module->types)
     {
+        if (type->body)
+            jet_foreach(ASTExpr*, expr, type->body->stmts)
+                ASTExpr_prepareInterp(expr, type->body);
+        // ^ MOVE THIS INTO ASTType_emit
         ASTType_emit(type, level);
         ASTType_genTypeInfoDefs(type);
     }
-    jet_foreach(ASTFunc*, func, module->funcs) ASTFunc_emit(func, level);
+    jet_foreach(ASTFunc*, func, module->funcs)
+    {
+        if (func->body)
+            jet_foreach(ASTExpr*, expr, func->body->stmts)
+                ASTExpr_prepareInterp(expr, func->body);
+        // ^ MOVE THIS INTO ASTFunc_emit
+        ASTFunc_emit(func, level);
+    }
     jet_foreach(ASTImport*, import, module->imports) ASTImport_undefc(import);
 
-    puts(coverageFunc[genCoverage]);
-    puts(lineProfileFunc[genLineProfile]);
+    // puts(coverageFunc[genCoverage]);
+    // puts(lineProfileFunc[genLineProfile]);
 }
 
 static void ASTModule_genTests(ASTModule* module, int level)

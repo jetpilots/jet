@@ -7,7 +7,7 @@ modules/TokenKindDefs.h: modules/makeTokens.sh
 	cd modules && ./makeTokens.sh
 
 jetc: programs/main.c modules/*.h
-	$(CC) -Os $(CCFLAGS) $< -lc -o $@
+	$(CC)  $(CCFLAGS) $< -lc -o $@
 
 jetc-fast: programs/main.c modules/*.h
 	$(CC) -Os $(CCFLAGS) $< -lc -o $@

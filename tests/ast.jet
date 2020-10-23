@@ -112,12 +112,13 @@ type Test
 end type
 
 type Module
-    var funcs as Func[]
-    var tests as Test[]
-    var exprs as Expr[]
-    var types as Type[]
-    var globals as Var[]
-    var imports as Import[]
+    var funcs = Func[n+5]
+    var tests = Test[]
+    var exprs = Expr[]
+    var types = Type[]
+    var globals = Var[]
+    var imports = Import[]
     var name = ""
     var moduleName = ""
+    var g = Real[nx,ny,nz]
 end type

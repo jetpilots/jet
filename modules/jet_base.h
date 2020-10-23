@@ -84,9 +84,17 @@ union Value {
     double d;
 };
 
+// this is used to mark a hopeless failure to infer the type of something
+typedef struct Error_Type {
+} Error_Type;
+
 #define SArray(T) T*
 
-#define mkarr(A, sz) A
+// works only for known-size static arrays
+#define Array_make(A, sz) A
+
+static int _jet_InternalErrs = 0;
+
 #define jet_Array_get_Number(A, i) A[(i)-1]
 #define unreachable(fmt, ...)                                                  \
     {                                                                          \
@@ -95,6 +103,7 @@ union Value {
                 "    unreachable location hit, quitting\n"                     \
                 "    msg: " fmt "\n",                                          \
             __FILE__, __LINE__, __func__, __VA_ARGS__);                        \
+        _jet_InternalErrs++;                                                   \
     }
 //    exit(12);
 

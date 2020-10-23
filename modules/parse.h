@@ -121,13 +121,13 @@ static ASTExpr* parseExpr(Parser* self)
             // we'll push the tkArrayOpen as well to indicate a list
             // literal or comprehension
             // tkArrayOpen is a unary op.
-            if ((p and p->kind == tkArrayOpen)
-                and (jet_PtrArray_empty(&ops)
+            if ((p and p->kind == tkArrayOpen))
+                if ( (jet_PtrArray_empty(&ops)
                     or (jet_PtrArray_top(&rpn)
                         and jet_PtrArray_topAs(ASTExpr*, &ops)->kind
                             != tkSubscript))
                 // don't do this if its part of a subscript
-                and (jet_PtrArray_empty(&rpn)
+                or (jet_PtrArray_empty(&rpn)
                     or (jet_PtrArray_top(&rpn)
                         and jet_PtrArray_topAs(ASTExpr*, &rpn)->kind
                             != tkOpColon)))
@@ -269,8 +269,8 @@ exitloop:
 
         case tkNumber:
         case tkString:
-        case tkRegex:
-        case tkInline:
+        case tkRawString:
+        case tkRegexp:
         case tkUnits:
         case tkMultiDotNumber:
         case tkIdentifier:
@@ -440,7 +440,8 @@ static ASTVar* parseVar(Parser* self)
     var->typeSpec->dims = dims;
 
     Parser_ignore(self, tkOneSpace);
-    if (Parser_ignore(self, tkOpAssign)) var->init = parseExpr(self);
+    if (Parser_ignore(self, tkOpAssign))//
+        var->init = parseExpr(self);
 
     return var;
 }
@@ -778,7 +779,8 @@ static ASTTest* parseTest(Parser* self)
 
     test->line = self->token.line;
 
-    if (*self->token.pos != '"') Parser_errorInvalidTestName(self);
+    if (self->token.kind != tkString and self->token.kind != tkRawString)
+        Parser_errorInvalidTestName(self);
     test->name = self->token.pos + 1;
     Token_advance(&self->token);
 
@@ -1093,31 +1095,31 @@ void analyseModule(Parser* self, ASTModule* mod)
         getSelector(func);
     }
 
-    ASTFunc* fmain = NULL;
-    // don't break on the first match, keep looking so that duplicate mains
+    ASTFunc* fstart = NULL;
+    // don't break on the first match, keep looking so that duplicate starts
     // can be found
-    jet_foreach(ASTFunc*, func, mod->funcs) if (not strcmp(func->name, "main"))
-        fmain
+    jet_foreach(ASTFunc*, func, mod->funcs) if (not strcmp(func->name, "start"))
+        fstart
         = func;
 
-    /* TODO: what if you have tests and a main()? Now you will have to analyse
+    /* TODO: what if you have tests and a start()? Now you will have to analyse
      the tests anyway */
 
-    if (fmain) {
-        ASTFunc_analyse(self, fmain, mod);
+    if (fstart) {
+        ASTFunc_analyse(self, fstart, mod);
         // Check dead code -- unused funcs and types, and report warnings.
         jet_foreach(ASTFunc*, func, mod->funcs) if (not func->analysed
             and not func->isDefCtor) Parser_warnUnusedFunc(self, func);
         jet_foreach(ASTType*, type, mod->types) if (not type->analysed)
             Parser_warnUnusedType(self, type);
 
-    } else { // TODO: new error, unless you want to get rid of main
+    } else { // TODO: new error, unless you want to get rid of start
         eputs(
-            "\n\e[31m*** error:\e[0m cannot find function \e[33mmain\e[0m.\n");
-        self->errCount++;
+            "\n\e[31m*** error:\e[0m cannot find function \e[33mstart\e[0m.\n");
+        self->issues.errCount++;
     }
 
-    // this happens regardless of whether main was found or not
+    // this happens regardless of whether start was found or not
     if (self->mode == PMGenTests or self->mode == PMLint) {
         jet_foreach(ASTTest*, test, mod->tests) analyseTest(self, test, mod);
     }
@@ -1202,12 +1204,13 @@ static int ASTExpr_markTypesVisited(Parser* self, ASTExpr* expr)
             and expr->func->returnsNewObjectAlways)
             type = expr->func->returnSpec->type;
         break;
+        case tkSubscript:
     case tkSubscriptResolved:
         return ASTExpr_markTypesVisited(self, expr->left);
     case tkIdentifierResolved:
     case tkString:
     case tkNumber:
-    case tkRegex:
+    case tkRawString:
     case tkLineComment:
         return 0;
     default:

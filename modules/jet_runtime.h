@@ -11,6 +11,8 @@
 
 #include "jet_base.h"
 
+#include "hash.h"
+
 #ifdef WINDOWS
 #include <windows.h>
 #endif
@@ -73,7 +75,7 @@ static size_t sys_stackSize()
 #define DONE                                                                   \
     {                                                                          \
         _err_ = ERROR_TRACE;                                                   \
-        goto done;                                                             \
+        goto return_;                                                          \
     }
 #define BACKTRACE                                                              \
     {                                                                          \
@@ -85,7 +87,12 @@ static size_t _scSize_; // size of stack
 static size_t _scDepth_ = 0; // current depth, updated in each function
 static size_t _scUsage_ = 0; // current depth, updated in each function
 static size_t _scPrintAbove_ = 0; // used for truncating long backtraces
-// #ifdef DEBUG
+
+static UInt64 _cov_[NUMLINES] = {};
+static ticks _lprof_last_, _lprof_tmp_;
+static ticks _lprof_[NUMLINES] = {};
+
+#ifndef NOSTACKCHECK
 // define these unconditionally, they are needed for both debug and release
 // for fast mode, NOSTACKCHECK is defined globally, so these will not be
 // used.
@@ -99,19 +106,105 @@ static size_t _scPrintAbove_ = 0; // used for truncating long backtraces
         _scDepth_--;                                                           \
         _scUsage_ -= MYSTACKUSAGE;                                             \
     }
-// #else
-// #define STACKDEPTH_UP(s)
-// #define STACKDEPTH_DOWN(s)
-// #endif
+#else
+#define STACKDEPTH_UP
+#define STACKDEPTH_DOWN
+#endif
 // what is the point of a separate NOSTACKCHECK option if release mode
 // doesn't track ANY info (stack depth, function name etc.) other than
 // showing "stack overflow" instead of "segmentation fault".
 
-// FIXME: String will be a proper String type whereas normal C strings are
-// CString. For now ignoring
+#define CHECK_HELP_OPEN printf("Here's some help:\n");
+#define CHECK_HELP_CLOSE                                                       \
+    printf("\n");                                                              \
+    printf("\e[90mBacktrace (innermost first):\n");                            \
+    if (_scDepth_ > 2 * _btLimit_)                                             \
+        printf("    limited to %d outer and %d inner entries.\n", _btLimit_,   \
+            _btLimit_);                                                        \
+    BACKTRACE;
+
+#define CHECK_HELP_DISABLED                                                    \
+    eputs("(run in debug mode to get more info)\n");                           \
+    exit(1);
+
+#ifdef DEBUG
+#define FUNC_ENTRY_STACK_BLOWN                                                 \
+    _scPrintAbove_ = _scDepth_ - _btLimit_;                                    \
+    printf("\e[31mfatal: stack overflow at call depth %lu.\n    in %s\e[0m\n", \
+        _scDepth_, sig_);                                                      \
+    printf("\e[90mBacktrace (innermost first):\n");                            \
+    if (_scDepth_ > 2 * _btLimit_)                                             \
+        printf("    limited to %d outer and %d inner entries.\n", _btLimit_,   \
+            _btLimit_);                                                        \
+    printf("[%lu] \e[36m%s\n", _scDepth_, callsite_);
+#else
+#define FUNC_ENTRY_STACK_BLOWN                                                 \
+    printf("\e[31mfatal: stack  overflow at call depth %lu.\e[0m\n", _scDepth_);
+#endif
+
+#ifndef NOSTACKCHECK
+#define DO_STACK_CHECK                                                         \
+    if (_scUsage_ >= _scSize_) {                                               \
+        FUNC_ENTRY_STACK_BLOWN;                                                \
+        DONE;                                                                  \
+    }
+#else
+#define DO_STACK_CHECK
+#endif
+
+#ifdef DEBUG
+#define SHOW_BACKTRACE_LINE                                                    \
+    if (_scDepth_ <= _btLimit_ || _scDepth_ > _scPrintAbove_)                  \
+        printf("\e[90m[%lu] \e[36m%s\n", _scDepth_, callsite_);                \
+    else if (_scDepth_ == _scPrintAbove_)                                      \
+        printf("\e[90m... truncated ...\e[0m\n");
+#else
+#define SHOW_BACKTRACE_LINE
+#endif
+
+#ifdef DEBUG
+#define HANDLE_UNCAUGHT eprintf("error: %s\n", _err_);
+#else
+// its the same for now, tweak it
+#define HANDLE_UNCAUGHT eprintf("error: %s\n", _err_);
+#endif
+
+// ---------
+//         // If something causes an error and the handler is not installed,
+//         insert
+//         // a goto to the catch-all error handler for the function, labeled by
+//         // uncaught:.
+//         uncaught : // error:
+//                    HANDLE_UNCAUGHT;
+// // If something has set _err_=ERROR_TRACE it has initiated a backtrace and
+// the
+// // unwrap must continue, so insert a goto to backtrace:.
+// backtrace : SHOW_BACKTRACE_LINE;
+// // The function that initates a backtrace does not go to backtrace:, but
+// // prints the initial site description, sets _err_=ERROR_TRACE, and starts
+// // an unwind, going to unwind1:
+// unwind : // one:
+//          STACKDEPTH_DOWN;
+// return DEFAULT_VALUE;
+// }
+// -----------
+/// This allows a single statement or subexpression to be included only in debug
+/// mode.
+#ifdef DEBUG
+#define IFDEBUG(s) s
+#define IFDEBUGELSE(s, e) s
+#else
+#define IFDEBUG(s)
+#define IFDEBUGELSE(s, e) e
+#endif
+
+// FIXME: String will be a proper String type whereas normal C strings
+// are CString. For now ignoring
+typedef double Number;
 typedef CString String;
 typedef CStrings Strings;
 typedef bool Boolean;
+typedef unsigned char Byte;
 #define STR(x) #x
 
 static const char* const _fp_bools_tf_[2] = { "false", "true" };
@@ -188,9 +281,48 @@ static const char* _undersc72_ = "------------------------"
                                  "------------------------"
                                  "------------------------";
 
-static void jet_coverage_report();
-static void jet_lineprofile_report();
-static void jet_lineprofile_begin();
+#define JET_COVERAGE_UP(l)                                                     \
+    {                                                                          \
+        _cov_[l - 1]++;                                                        \
+    }
+#define JET_PROFILE_LINE(l)                                                    \
+    {                                                                          \
+        _lprof_tmp_ = getticks();                                              \
+        _lprof_[l - 1] += (_lprof_tmp_ - _lprof_last_) / 100;                  \
+        _lprof_last_ = _lprof_tmp_;                                            \
+    }
+
+// static void jet_coverage_report();
+// static void jet_lineprofile_report();
+// static void jet_lineprofile_begin();
+
+static void jet_coverage_report()
+{
+    int count = 0, l = NUMLINES;
+    while (--l > 0) count += !!_cov_[l];
+    printf("coverage: %d/%d lines = %.2f%%\n", count, NUMLINES,
+        count * 100.0 / NUMLINES);
+}
+static void jet_lineprofile_report()
+{
+    FILE* fd = fopen("." THISFILE "r", "w");
+    ticks sum = 0;
+    for (int i = 0; i < NUMLINES; i++) sum += _lprof_[i];
+    for (int i = 0; i < NUMLINES; i++) {
+        double pct = _lprof_[i] * 100.0 / sum;
+        if (pct > 1.0)
+            fprintf(fd, " %8.1f%% |\n", pct);
+        else if (pct == 0.0)
+            fprintf(fd, "           |\n");
+        else
+            fprintf(fd, "         ~ |\n");
+    }
+    fclose(fd);
+    system("paste -d ' ' ." THISFILE "r " THISFILE " > " THISFILE "r");
+}
+
+static void jet_lineprofile_begin() { _lprof_last_ = getticks(); }
+
 int main(int argc, char* argv[])
 {
     srand(time(0));
