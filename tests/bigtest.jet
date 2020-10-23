@@ -24,8 +24,8 @@ type Type2 extends Type1
         # "first" = 42} #,
         # "second" = 67i,
         # "third" = 44 }
-    var c = garr[7]
-    var d = gmap["bonh"]
+    # var c = garr[7]
+    # var d = gmap["bonh"]
     # var t1 = Type1 { f = 33 , g = 45 }
     # var t2 = Type1(f=33, g=45)
 end type
@@ -35,6 +35,7 @@ declare function unhex(s as String) as Byte[:,:]
 
 function start()
     var arg1=5
+    maisn("k",b="jk")
     print(arg1)
     return
     var t1 = Type1()
@@ -47,7 +48,8 @@ enum Enum1
     enumVal3
 end enum
 
-function maisn()
+function maisn(n as String, b as String)
+print(6)
 end function
 
 function redt(n as String) as String

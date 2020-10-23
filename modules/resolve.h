@@ -217,9 +217,13 @@ static void resolveVars(
 
     default:
         if (expr->prec) {
-            if (not expr->unary
-                and not(inFuncCall and expr->kind == tkOpAssign))
-                resolveVars(parser, expr->left, scope, inFuncCall);
+            if (not expr->unary) {
+                if (inFuncCall and expr->kind == tkOpAssign) {
+                    expr->left->kind = tkArgumentLabel;
+                } else {
+                    resolveVars(parser, expr->left, scope, inFuncCall);
+                }
+            }
             resolveVars(parser, expr->right, scope, inFuncCall);
 
             if (isSelfMutOp(expr)) {

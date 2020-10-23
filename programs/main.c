@@ -8,15 +8,15 @@
 // #include <string.h>
 // #include <math.h>
 
-#include "cycle.h"
-#include "jet_base.h"
-#include "jet_clock.h"
+#include "../modules/cycle.h"
+#include "../modules/jet_base.h"
+#include "../modules/jet_clock.h"
 
 #define STEP 4
 
-#include "types.h"
-#include "tokenKind.h"
-#include "token.h"
+#include "../modules/types.h"
+#include "../modules/tokenKind.h"
+#include "../modules/token.h"
 
 #define JOIN(x, y) x##y
 
@@ -667,8 +667,8 @@ ASTFunc* ASTModule_getFunc(ASTModule* module, const char* selector)
     return NULL;
 }
 
-#include "lint.h"
-#include "emit.h"
+#include "../modules/lint.h"
+#include "../modules/emit.h"
 
 #pragma mark - PARSER
 
@@ -803,8 +803,8 @@ static Parser* Parser_fromFile(char* filename, bool skipws)
     return ret;
 }
 
-#include "errors.h"
-#include "stats.h"
+#include "../modules/errors.h"
+#include "../modules/stats.h"
 
 #pragma mark - PARSING BASICS
 
@@ -902,8 +902,8 @@ static void getSelector(ASTFunc* func)
     }
 }
 
-#include "resolve.h"
-#include "analyse.h"
+#include "../modules/resolve.h"
+#include "../modules/analyse.h"
 
 // this is a global astexpr representing 0. it will be used when parsing e.g.
 // the colon op with nothing on either side. : -> 0:0 means the same as 1:end
@@ -919,7 +919,7 @@ static ASTExpr rparen[] = { { .kind = tkParenClose } };
 //     rparen.kind = tkParenClose;
 // }
 
-#include "parse.h"
+#include "../modules/parse.h"
 
 // TODO: this should be in ASTModule open/close
 static void Parser_emit_open(Parser* parser)
@@ -944,7 +944,7 @@ static void Parser_emit_close(Parser* parser)
 
 static void alloc_stat() { }
 
-#include "ptr2off.h"
+#include "../modules/ptr2off.h"
 
 #pragma mark - main
 int main(int argc, char* argv[])

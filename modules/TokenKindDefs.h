@@ -31,6 +31,7 @@ typedef enum TokenKind {
     tkKeyword_let,
     tkKeyword_import,
     tkIdentifier,
+    tkArgumentLabel,
     tkFunctionCall,
     tkSubscript,
     tkObjectInit,
@@ -135,6 +136,7 @@ static const char* const TokenKind_str[] = {
     [tkKeyword_let] = "tkKeyword_let",
     [tkKeyword_import] = "tkKeyword_import",
     [tkIdentifier] = "tkIdentifier",
+    [tkArgumentLabel] = "tkArgumentLabel",
     [tkFunctionCall] = "tkFunctionCall",
     [tkSubscript] = "tkSubscript",
     [tkObjectInit] = "tkObjectInit",
@@ -239,6 +241,7 @@ static const char* const tkrepr[] = {
     [tkKeyword_let] = "let ",
     [tkKeyword_import] = "import ",
     [tkIdentifier] = "(id)",
+    [tkArgumentLabel] = "(lbl)",
     [tkFunctionCall] = "(call)",
     [tkSubscript] = "(sub)",
     [tkObjectInit] = "(obj)",
@@ -343,6 +346,7 @@ static const char* const tksrepr[] = {
     [tkKeyword_let] = "let ",
     [tkKeyword_import] = "import ",
     [tkIdentifier] = "(id)",
+    [tkArgumentLabel] = "(lbl)",
     [tkFunctionCall] = "(call)",
     [tkSubscript] = "(sub)",
     [tkObjectInit] = "(obj)",
@@ -416,3 +420,4 @@ static const char* const tksrepr[] = {
     [tkColEq] = " := ",
     [tkQuestion] = "?",
 };
+
