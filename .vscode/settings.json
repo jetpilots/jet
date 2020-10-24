@@ -32,6 +32,7 @@
         "gslicen": "c",
         "__string": "cpp",
         "utility": "c",
-        "*.txt": "plaintext"
+        "*.txt": "plaintext",
+        "__locale": "c"
     }
 }

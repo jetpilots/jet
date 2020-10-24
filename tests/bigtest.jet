@@ -42,6 +42,7 @@ function start()
     return
     var t1 = Type1()
     var t2 = Type2()
+    t2.g = "8"
 end function
 
 enum Enum1
