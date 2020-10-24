@@ -13,4 +13,6 @@ jetc
 jetc-dbg
 jetc-fast
 jetc-cov
+*.o
+*.s
 doxy/

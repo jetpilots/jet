@@ -65,7 +65,7 @@ static void ASTTypeSpec_emit(ASTTypeSpec* typeSpec, int level, bool isconst)
     //        }
 }
 
-static void ASTExpr_emit(ASTExpr* self, int level, bool escStrings);
+static void ASTExpr_emit(ASTExpr* self, int level);
 
 ///////////////////////////////////////////////////////////////////////////
 static void ASTVar_emit(ASTVar* var, int level, bool isconst)
@@ -442,7 +442,7 @@ static void ASTScope_emit(ASTScope* scope, int level)
             if (genCoverage or genLineProfile) puts(" /************/");
         }
 
-        ASTExpr_emit(stmt, level, false);
+        ASTExpr_emit(stmt, level);
         if (not isCtrlExpr(stmt) and stmt->kind != tkKeyword_return)
             puts(";");
         else
@@ -580,10 +580,11 @@ static void ASTType_emit(ASTType* type, int level)
 
     jet_foreach(ASTExpr*, stmt, type->body->stmts)
     {
-        if (not stmt or stmt->kind != tkVarAssign or not stmt->var->init)
+        if (not stmt or stmt->kind != tkVarAssign or not stmt->var->init
+            or not stmt->var->used)
             continue;
         printf("%.*s%s = ", level + STEP, spaces, stmt->var->name);
-        ASTExpr_emit(stmt->var->init, 0, false);
+        ASTExpr_emit(stmt->var->init, 0);
         puts(";");
         if (ASTExpr_throws(stmt->var->init))
             puts("    if (_err_ == ERROR_TRACE) return NULL;");
@@ -723,8 +724,7 @@ static void ASTTest_emit(ASTTest* test) // TODO: should tests not return BOOL?
 /// its corresponding `ASTVariable`). This function does all of the heavy
 /// lifting to decide what the subscript actually does, based on the kind of the
 /// subscript expression, number of dimensions and the context.
-static void ASTExpr_emit_tkSubscriptResolved(
-    ASTExpr* expr, int level, bool escStrings)
+static void ASTExpr_emit_tkSubscriptResolved(ASTExpr* expr, int level)
 {
     char* name = expr->var->name;
     ASTExpr* index = expr->left;
@@ -746,7 +746,7 @@ static void ASTExpr_emit_tkSubscriptResolved(
         // this is for cases like arr[2, 3, 4].
         printf("Tensor%dD_get_%s(%s, {", expr->var->typeSpec->dims,
             ASTTypeSpec_cname(expr->var->typeSpec), name);
-        ASTExpr_emit(index, 0, escStrings);
+        ASTExpr_emit(index, 0);
         printf("})");
 
         // TODO: cases like arr[2:3, 4:5, 1:end]
@@ -764,7 +764,7 @@ static void ASTExpr_emit_tkSubscriptResolved(
         // a single range.
         printf("Array_getSlice_%s(%s, ", ASTTypeSpec_name(expr->var->typeSpec),
             name);
-        ASTExpr_emit(index, 0, escStrings);
+        ASTExpr_emit(index, 0);
         printf(")");
         break;
         // what about mixed cases, e.g. arr[2:3, 5, 3:end]
@@ -801,7 +801,7 @@ static void ASTExpr_emit_tkSubscriptResolved(
         //    stage.
         printf("Array_copy_filter_%s(%s, ",
             ASTTypeSpec_name(expr->var->typeSpec), name);
-        ASTExpr_emit(index, 0, escStrings);
+        ASTExpr_emit(index, 0);
         printf(")");
         break;
 
@@ -817,8 +817,7 @@ static void ASTExpr_emit_tkSubscriptResolved(
 /// that has `_new` appended to the type name. This function passes a
 /// constructed string as the extra argument `callsite_` that is used to
 /// generate accurate backtraces.
-static void ASTExpr_emit_tkFunctionCallResolved(
-    ASTExpr* expr, int level, bool escStrings)
+static void ASTExpr_emit_tkFunctionCallResolved(ASTExpr* expr, int level)
 {
     char* tmp = expr->func->selector;
 
@@ -832,7 +831,7 @@ static void ASTExpr_emit_tkFunctionCallResolved(
     if (*tmp >= 'A' and *tmp <= 'Z' and not strchr(tmp, '_')) printf("_new_");
     printf("(");
 
-    if (expr->left) ASTExpr_emit(expr->left, 0, escStrings);
+    if (expr->left) ASTExpr_emit(expr->left, 0);
 
     if (not expr->func->isDeclare) {
         printf("\n#ifdef DEBUG\n"
@@ -943,16 +942,16 @@ static void ASTExpr_prepareInterp(ASTExpr* expr, ASTScope* scope)
     //         ""`;
 }
 
-static void ASTExpr_emit_tkString(ASTExpr* expr, int level, bool escStrings)
+static void ASTExpr_emit_tkString(ASTExpr* expr, int level)
 {
 
-    printf(escStrings ? "\\%s\\\"" : "%s\"", expr->string);
+    printf("%s\"", expr->string);
 }
 
 //_____________________________________________________________________________
 /// Emits the equivalent C code for a (literal) numeric expression. Complex
 /// numbers follow C99 literal syntax, e.g. 1i generates `_Complex_I * 1`.
-static void ASTExpr_emit_tkNumber(ASTExpr* expr, int level, bool escStrings)
+static void ASTExpr_emit_tkNumber(ASTExpr* expr, int level)
 {
     size_t ls = strlen(expr->string);
     if (expr->string[ls - 1] == 'i') {
@@ -962,7 +961,7 @@ static void ASTExpr_emit_tkNumber(ASTExpr* expr, int level, bool escStrings)
     printf("%s", expr->string);
 }
 
-static void ASTExpr_emit_tkCheck(ASTExpr* expr, int level, bool escStrings)
+static void ASTExpr_emit_tkCheck(ASTExpr* expr, int level)
 {
     // TODO: need llhs and lrhs in case all 3 in 3way are exprs
     // e.g. check a+b < c+d < e+f
@@ -972,15 +971,15 @@ static void ASTExpr_emit_tkCheck(ASTExpr* expr, int level, bool escStrings)
     printf("{\n");
     if (not checkExpr->unary) {
         printf("%.*s%s _lhs = ", level, spaces, ASTExpr_typeName(lhsExpr));
-        ASTExpr_emit(lhsExpr, 0, false);
+        ASTExpr_emit(lhsExpr, 0);
         printf(";\n");
     }
     printf("%.*s%s _rhs = ", level, spaces, ASTExpr_typeName(rhsExpr));
-    ASTExpr_emit(rhsExpr, 0, false);
+    ASTExpr_emit(rhsExpr, 0);
     printf(";\n");
     printf("%.*sif (!(", level, spaces);
     // ----- use lhs rhs cached values instead of the expression
-    ASTExpr_emit(checkExpr, 0, false);
+    ASTExpr_emit(checkExpr, 0);
     // how are you doing to deal with x < y < z? Repeat all the logic of
     // ASTExpr_emit?
     // ----------------------------------------------------------------
@@ -1050,7 +1049,7 @@ static void ASTExpr_emit_tkCheck(ASTExpr* expr, int level, bool escStrings)
 ///////////////////////////////////////////////////////////////////////////
 /// This should be a standard dispatcher that does nothing except the actual
 /// dispatching (via a function pointer table, not a switch).
-static void ASTExpr_emit(ASTExpr* expr, int level, bool escStrings)
+static void ASTExpr_emit(ASTExpr* expr, int level)
 {
     // generally an expr is not split over several lines (but maybe in
     // rare cases). so level is not passed on to recursive calls.
@@ -1058,7 +1057,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level, bool escStrings)
     printf("%.*s", level, spaces);
     switch (expr->kind) {
     case tkNumber:
-        ASTExpr_emit_tkNumber(expr, level, escStrings);
+        ASTExpr_emit_tkNumber(expr, level);
         break;
 
     case tkMultiDotNumber:
@@ -1067,7 +1066,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level, bool escStrings)
         break;
 
     case tkString: // TODO: parse vars inside, escape stuff, etc.
-        ASTExpr_emit_tkString(expr, level, escStrings);
+        ASTExpr_emit_tkString(expr, level);
         // printf(escStrings ? "\\%s\\\"" : "%s\"", expr->string);
         break;
 
@@ -1092,7 +1091,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level, bool escStrings)
         break;
 
     case tkFunctionCallResolved:
-        ASTExpr_emit_tkFunctionCallResolved(expr, level, escStrings);
+        ASTExpr_emit_tkFunctionCallResolved(expr, level);
         break;
 
     case tkSubscript:
@@ -1100,7 +1099,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level, bool escStrings)
         break;
 
     case tkSubscriptResolved:
-        ASTExpr_emit_tkSubscriptResolved(expr, level, escStrings);
+        ASTExpr_emit_tkSubscriptResolved(expr, level);
         break;
 
     case tkOpAssign:
@@ -1122,16 +1121,16 @@ static void ASTExpr_emit(ASTExpr* expr, int level, bool escStrings)
                 printf("%s_set(%s, %s,%s, ", ASTExpr_typeName(expr->left),
                     expr->left->var->name, expr->left->left->string,
                     TokenKind_repr(expr->kind, true));
-                ASTExpr_emit(expr->right, 0, escStrings);
+                ASTExpr_emit(expr->right, 0);
                 printf(")");
                 break;
 
             case tkOpColon:
                 printf("%s_setSlice(%s, ", ASTExpr_typeName(expr->left),
                     expr->left->var->name);
-                ASTExpr_emit(expr->left->left, 0, escStrings);
+                ASTExpr_emit(expr->left->left, 0);
                 printf(",%s, ", TokenKind_repr(expr->kind, true));
-                ASTExpr_emit(expr->right, 0, escStrings);
+                ASTExpr_emit(expr->right, 0);
                 printf(")");
                 break;
 
@@ -1146,9 +1145,9 @@ static void ASTExpr_emit(ASTExpr* expr, int level, bool escStrings)
             case tkKeyword_not:
                 printf("%s_setFiltered(%s, ", ASTExpr_typeName(expr->left),
                     expr->left->var->name);
-                ASTExpr_emit(expr->left->left, 0, escStrings);
+                ASTExpr_emit(expr->left->left, 0);
                 printf(",%s, ", TokenKind_repr(expr->kind, true));
-                ASTExpr_emit(expr->right, 0, escStrings);
+                ASTExpr_emit(expr->right, 0);
                 printf(")");
                 break;
 
@@ -1175,16 +1174,16 @@ static void ASTExpr_emit(ASTExpr* expr, int level, bool escStrings)
             break;
         case tkIdentifierResolved:
         case tkPeriod:
-            ASTExpr_emit(expr->left, 0, escStrings);
+            ASTExpr_emit(expr->left, 0);
             printf("%s", TokenKind_repr(expr->kind, true));
-            ASTExpr_emit(expr->right, 0, escStrings);
+            ASTExpr_emit(expr->right, 0);
             break;
         case tkIdentifier:
             unreachable("unresolved var %s", expr->left->string);
             break;
         case tkArgumentLabel:
             // assert(inFuncArgs);
-            ASTExpr_emit(expr->right, 0, escStrings);
+            ASTExpr_emit(expr->right, 0);
             // function call arg label, do not generate ->left
             break;
         case tkString:
@@ -1217,7 +1216,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level, bool escStrings)
             // TODO: MKARR should be different based on the CollectionType
             // of the var or arg in question, eg stack cArray, heap
             // allocated Array, etc.
-            ASTExpr_emit(expr->right, 0, escStrings);
+            ASTExpr_emit(expr->right, 0);
             printf("})");
             printf(", %d)", ASTExpr_countCommaList(expr->right));
         }
@@ -1234,19 +1233,19 @@ static void ASTExpr_emit(ASTExpr* expr, int level, bool escStrings)
 
             ASTExpr* p = expr->right;
             while (p and p->kind == tkOpComma) {
-                ASTExpr_emit(p->left->left, 0, escStrings);
+                ASTExpr_emit(p->left->left, 0);
                 printf(", ");
                 p = p->right;
             };
-            ASTExpr_emit(p->left, 0, escStrings);
+            ASTExpr_emit(p->left, 0);
             printf("}, (%s[]){", Vtype);
             p = expr->right;
             while (p and p->kind == tkOpComma) {
-                ASTExpr_emit(p->left->right, 0, escStrings);
+                ASTExpr_emit(p->left->right, 0);
                 printf(", ");
                 p = p->right;
             };
-            ASTExpr_emit(p->right, 0, escStrings);
+            ASTExpr_emit(p->right, 0);
             printf("})");
         }
     } break;
@@ -1257,12 +1256,12 @@ static void ASTExpr_emit(ASTExpr* expr, int level, bool escStrings)
             "%s(", expr->left->kind != tkOpColon ? "range_to" : "range_to_by");
         if (expr->left->kind == tkOpColon) {
             expr->left->kind = tkOpComma;
-            ASTExpr_emit(expr->left, 0, escStrings);
+            ASTExpr_emit(expr->left, 0);
             expr->left->kind = tkOpColon;
         } else
-            ASTExpr_emit(expr->left, 0, escStrings);
+            ASTExpr_emit(expr->left, 0);
         printf(", ");
-        ASTExpr_emit(expr->right, 0, escStrings);
+        ASTExpr_emit(expr->right, 0);
         printf(")");
         break;
 
@@ -1272,7 +1271,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level, bool escStrings)
         // ASTExpr (to keep location). Send it to ASTVar::gen.
         if (expr->var->init != NULL and expr->var->used) {
             printf("%s = ", expr->var->name);
-            ASTExpr_emit(expr->var->init, 0, escStrings);
+            ASTExpr_emit(expr->var->init, 0);
         } else {
             printf("/* %s %s at line %d */", expr->var->name,
                 expr->var->used ? "null" : "unused", expr->line);
@@ -1287,7 +1286,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level, bool escStrings)
 
     case tkKeyword_elif:
         puts("else if (");
-        ASTExpr_emit(expr->left, 0, escStrings);
+        ASTExpr_emit(expr->left, 0);
         puts(") {");
         if (expr->body) ASTScope_emit(expr->body, level + STEP);
         printf("%.*s}", level, spaces);
@@ -1303,7 +1302,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level, bool escStrings)
         else
             printf("%s (", TokenKind_repr(expr->kind, true));
         if (expr->kind == tkKeyword_for) expr->left->kind = tkOpComma;
-        if (expr->left) ASTExpr_emit(expr->left, 0, escStrings);
+        if (expr->left) ASTExpr_emit(expr->left, 0);
         if (expr->kind == tkKeyword_for) expr->left->kind = tkOpAssign;
         puts(") {");
         if (expr->body) ASTScope_emit(expr->body, level + STEP);
@@ -1312,26 +1311,26 @@ static void ASTExpr_emit(ASTExpr* expr, int level, bool escStrings)
 
     case tkPower:
         printf("pow(");
-        ASTExpr_emit(expr->left, 0, escStrings);
+        ASTExpr_emit(expr->left, 0);
         printf(",");
-        ASTExpr_emit(expr->right, 0, escStrings);
+        ASTExpr_emit(expr->right, 0);
         printf(")");
         break;
 
     case tkKeyword_return:
         printf("{_err_ = NULL; STACKDEPTH_DOWN; return ");
-        if (expr->right) ASTExpr_emit(expr->right, 0, escStrings);
+        if (expr->right) ASTExpr_emit(expr->right, 0);
         printf(";}\n");
         break;
 
     case tkKeyword_check:
-        ASTExpr_emit_tkCheck(expr, 0, escStrings);
+        ASTExpr_emit_tkCheck(expr, 0);
         break;
 
     case tkPeriod:
-        ASTExpr_emit(expr->left, 0, escStrings);
+        ASTExpr_emit(expr->left, 0);
         printf("->"); // may be . if right is embedded and not a reference
-        ASTExpr_emit(expr->right, 0, escStrings);
+        ASTExpr_emit(expr->right, 0);
         break;
 
     case tkOpEQ:
@@ -1345,18 +1344,18 @@ static void ASTExpr_emit(ASTExpr* expr, int level, bool escStrings)
             printf("%s_cmp3way_%s_%s(", ASTExpr_typeName(expr->left->right),
                 TokenKind_ascrepr(expr->kind, false),
                 TokenKind_ascrepr(expr->left->kind, false));
-            ASTExpr_emit(expr->left->left, 0, escStrings);
+            ASTExpr_emit(expr->left->left, 0);
             printf(", ");
-            ASTExpr_emit(expr->left->right, 0, escStrings);
+            ASTExpr_emit(expr->left->right, 0);
             printf(", ");
-            ASTExpr_emit(expr->right, 0, escStrings);
+            ASTExpr_emit(expr->right, 0);
             printf(")");
             break;
         } else if (expr->right->typeType == TYString) {
             printf("str_cmp(%s, ", tksrepr[expr->kind]);
-            ASTExpr_emit(expr->left, 0, escStrings);
+            ASTExpr_emit(expr->left, 0);
             printf(", ");
-            ASTExpr_emit(expr->right, 0, escStrings);
+            ASTExpr_emit(expr->right, 0);
             printf(")");
             break;
         }
@@ -1372,7 +1371,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level, bool escStrings)
         char lpo = '(';
         char lpc = ')';
         if (leftBr) putc(lpo, stdout);
-        if (expr->left) ASTExpr_emit(expr->left, 0, escStrings);
+        if (expr->left) ASTExpr_emit(expr->left, 0);
         if (leftBr) putc(lpc, stdout);
 
         if (expr->kind == tkArrayOpen)
@@ -1383,7 +1382,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level, bool escStrings)
         char rpo = '(';
         char rpc = ')';
         if (rightBr) putc(rpo, stdout);
-        if (expr->right) ASTExpr_emit(expr->right, 0, escStrings);
+        if (expr->right) ASTExpr_emit(expr->right, 0);
         if (rightBr) putc(rpc, stdout);
 
         if (expr->kind == tkArrayOpen) putc('}', stdout);
