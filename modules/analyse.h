@@ -1,6 +1,5 @@
 
-static void setStmtFuncTypeInfo(Parser* self, ASTFunc* func)
-{
+static void setStmtFuncTypeInfo(Parser* self, ASTFunc* func) {
     // this assumes that setExprTypeInfo has been called on the func body
     const ASTExpr* stmt = func->body->stmts->item;
     if (not func->returnSpec->typeType)
@@ -14,8 +13,7 @@ static void analyseType(Parser* parser, ASTType* type, ASTModule* mod);
 static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod);
 
 ///////////////////////////////////////////////////////////////////////////
-static bool isCmpOp(ASTExpr* expr)
-{
+static bool isCmpOp(ASTExpr* expr) {
     return expr->kind == tkOpLE //
         or expr->kind == tkOpLT //
         or expr->kind == tkOpGT //
@@ -25,16 +23,14 @@ static bool isCmpOp(ASTExpr* expr)
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static bool isBoolOp(ASTExpr* expr)
-{
+static bool isBoolOp(ASTExpr* expr) {
     return expr->kind == tkKeyword_and //
         or expr->kind == tkKeyword_or //
         or expr->kind == tkKeyword_not;
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static void analyseDictLiteral(Parser* parser, ASTExpr* expr, ASTModule* mod)
-{
+static void analyseDictLiteral(Parser* parser, ASTExpr* expr, ASTModule* mod) {
     // check that
     // - dict keys in the dict literal are of the same type.
     // - values are of the same type.
@@ -46,8 +42,7 @@ static void analyseDictLiteral(Parser* parser, ASTExpr* expr, ASTModule* mod)
 
 ///////////////////////////////////////////////////////////////////////////
 static void analyseExpr(
-    Parser* parser, ASTExpr* expr, ASTModule* mod, bool inFuncArgs)
-{
+    Parser* parser, ASTExpr* expr, ASTModule* mod, bool inFuncArgs) {
     switch (expr->kind) {
 
         // -------------------------------------------------- //
@@ -70,8 +65,7 @@ static void analyseExpr(
         expr->elemental = expr->elemental and expr->left->elemental;
         expr->throws = expr->left->throws or expr->func->throws;
         ASTExpr* currArg = expr->left;
-        jet_foreach(ASTVar*, arg, expr->func->args)
-        {
+        jet_foreach(ASTVar*, arg, expr->func->args) {
             ASTExpr* cArg
                 = (currArg->kind == tkOpComma) ? currArg->left : currArg;
             if (cArg->kind == tkOpAssign) cArg = cArg->right;
@@ -115,8 +109,7 @@ static void analyseExpr(
             Parser_errorUnrecognizedFunc(parser, expr, buf);
 
             if (*buf != '<') // not invalid type
-                jet_foreach(ASTFunc*, func, mod->funcs)
-                {
+                jet_foreach(ASTFunc*, func, mod->funcs) {
                     if (not strcasecmp(expr->string, func->name))
                         eprintf("\e[;2m ./%s:%d: \e[;1;2m%s\e[0;2m with %d "
                                 "arguments is not viable.\e[0m\n",
@@ -417,8 +410,7 @@ static void analyseExpr(
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static void analyseType(Parser* parser, ASTType* type, ASTModule* mod)
-{
+static void analyseType(Parser* parser, ASTType* type, ASTModule* mod) {
     if (type->analysed) return;
     // eprintf(
     //     "analyseExpr: %s at ./%s:%d\n", type->name, parser->filename,
@@ -429,8 +421,7 @@ static void analyseType(Parser* parser, ASTType* type, ASTModule* mod)
             Parser_errorTypeInheritsSelf(parser, type);
     }
     // TODO: this should be replaced by a dict query
-    jet_foreach(ASTType*, type2, mod->types)
-    {
+    jet_foreach(ASTType*, type2, mod->types) {
         if (type2 == type) break;
         if (not strcasecmp(type->name, type2->name))
             Parser_errorDuplicateType(parser, type, type2);
@@ -455,8 +446,7 @@ static void analyseType(Parser* parser, ASTType* type, ASTModule* mod)
 static void ASTFunc_hashExprs(/* Parser* parser,  */ ASTFunc* func);
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod)
-{
+static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod) {
     if (func->analysed) return;
     // eprintf("analyseExpr: %s at ./%s:%d\n", func->selector, parser->filename,
     // func->line);
@@ -464,8 +454,7 @@ static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod)
     bool isCtor = false;
     // Check if the function is a constructor call and identify the type.
     // TODO: this should be replaced by a dict query
-    jet_foreach(ASTType*, type, mod->types)
-    {
+    jet_foreach(ASTType*, type, mod->types) {
         if (not strcasecmp(func->name, type->name)) {
             if (func->returnSpec and not(func->isStmt or func->isDefCtor))
                 Parser_errorCtorHasType(parser, func, type);
@@ -504,8 +493,7 @@ static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod)
 
     // Check for duplicate functions (same selectors) and report errors.
     // TODO: this should be replaced by a dict query
-    jet_foreach(ASTFunc*, func2, mod->funcs)
-    {
+    jet_foreach(ASTFunc*, func2, mod->funcs) {
         if (func == func2) break;
         if (not strcasecmp(func->selector, func2->selector))
             Parser_errorDuplicateFunc(parser, func, func2);
@@ -543,14 +531,12 @@ static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod)
     }
 }
 
-static void analyseTest(Parser* parser, ASTTest* test, ASTModule* mod)
-{
+static void analyseTest(Parser* parser, ASTTest* test, ASTModule* mod) {
     if (not test->body) return;
 
     // Check for duplicate test names and report errors.
     // TODO: this should be replaced by a dict query
-    jet_foreach(ASTTest*, test2, mod->tests)
-    {
+    jet_foreach(ASTTest*, test2, mod->tests) {
         if (test == test2) break;
         if (not strcasecmp(test->name, test2->name))
             Parser_errorDuplicateTest(parser, test, test2);

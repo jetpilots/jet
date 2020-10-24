@@ -1,7 +1,6 @@
 
 #pragma mark - PARSE EXPR
-static ASTExpr* parseExpr(Parser* self)
-{
+static ASTExpr* parseExpr(Parser* self) {
     // there are 2 steps to this madness.
     // 1. parse a sequence of tokens into RPN using shunting-yard.
     // 2. walk the rpn stack as a sequence and copy it into a result
@@ -371,8 +370,7 @@ error:
 }
 
 #pragma mark - PARSE TYPESPEC
-static ASTTypeSpec* parseTypeSpec(Parser* self)
-{
+static ASTTypeSpec* parseTypeSpec(Parser* self) {
     self->token.mergeArrayDims = true;
 
     ASTTypeSpec* typeSpec = jet_new(ASTTypeSpec);
@@ -401,8 +399,7 @@ static ASTTypeSpec* parseTypeSpec(Parser* self)
 }
 
 #pragma mark - PARSE VAR
-static ASTVar* parseVar(Parser* self)
-{
+static ASTVar* parseVar(Parser* self) {
     ASTVar* var = jet_new(ASTVar);
     var->isVar = (self->token.kind == tkKeyword_var);
     var->isLet = (self->token.kind == tkKeyword_let);
@@ -449,8 +446,7 @@ static ASTVar* parseVar(Parser* self)
     return var;
 }
 
-static List(ASTVar) * parseArgs(Parser* self)
-{
+static List(ASTVar) * parseArgs(Parser* self) {
     List(ASTVar)* args = NULL;
     discard(self, tkParenOpen);
     if (Parser_ignore(self, tkParenClose)) return args;
@@ -466,8 +462,7 @@ static List(ASTVar) * parseArgs(Parser* self)
 }
 
 #pragma mark - PARSE SCOPE
-static ASTScope* parseScope(Parser* self, ASTScope* parent, bool isTypeBody)
-{
+static ASTScope* parseScope(Parser* self, ASTScope* parent, bool isTypeBody) {
     ASTScope* scope = jet_new(ASTScope);
 
     ASTVar *var = NULL, *orig = NULL;
@@ -632,8 +627,7 @@ exitloop:
     return scope;
 }
 
-static ASTScope* parseEnumBody(Parser* self)
-{
+static ASTScope* parseEnumBody(Parser* self) {
     ASTScope* scope = jet_new(ASTScope);
     ASTExpr* expr = NULL;
     while (self->token.kind != tkKeyword_end) {
@@ -676,8 +670,7 @@ exitloop:
 }
 
 #pragma mark - PARSE PARAM
-static List(ASTVar) * parseParams(Parser* self)
-{
+static List(ASTVar) * parseParams(Parser* self) {
     discard(self, tkOpLT);
     List(ASTVar) * params;
     ASTVar* param;
@@ -694,8 +687,7 @@ static List(ASTVar) * parseParams(Parser* self)
 }
 
 #pragma mark - PARSE FUNC / STMT-FUNC
-static ASTFunc* parseFunc(Parser* self, bool shouldParseBody)
-{
+static ASTFunc* parseFunc(Parser* self, bool shouldParseBody) {
     discard(self, tkKeyword_function);
     discard(self, tkOneSpace);
     ASTFunc* func = jet_new(ASTFunc);
@@ -731,8 +723,7 @@ static ASTFunc* parseFunc(Parser* self, bool shouldParseBody)
     return func;
 }
 
-static ASTFunc* parseStmtFunc(Parser* self)
-{
+static ASTFunc* parseStmtFunc(Parser* self) {
     ASTFunc* func = jet_new(ASTFunc);
 
     func->line = self->token.line;
@@ -774,8 +765,7 @@ static ASTFunc* parseStmtFunc(Parser* self)
 }
 
 #pragma mark - PARSE TEST
-static ASTTest* parseTest(Parser* self)
-{
+static ASTTest* parseTest(Parser* self) {
     discard(self, tkKeyword_test);
     discard(self, tkOneSpace);
     ASTTest* test = jet_new(ASTTest);
@@ -802,8 +792,7 @@ static ASTTest* parseTest(Parser* self)
 static ASTUnits* parseUnits(Parser* self) { return NULL; }
 
 #pragma mark - PARSE TYPE
-static ASTType* parseType(Parser* self, bool shouldParseBody)
-{
+static ASTType* parseType(Parser* self, bool shouldParseBody) {
     ASTType* type = jet_new(ASTType);
 
     discard(self, tkKeyword_type);
@@ -842,8 +831,7 @@ static ASTType* parseType(Parser* self, bool shouldParseBody)
     return type;
 }
 
-static ASTEnum* parseEnum(Parser* self)
-{
+static ASTEnum* parseEnum(Parser* self) {
     ASTEnum* en = jet_new(ASTEnum);
 
     discard(self, tkKeyword_enum);
@@ -875,8 +863,7 @@ static ASTEnum* parseEnum(Parser* self)
     return en;
 }
 
-static ASTImport* parseImport(Parser* self)
-{
+static ASTImport* parseImport(Parser* self) {
     ASTImport* import = jet_new(ASTImport);
     char* tmp;
     discard(self, tkKeyword_import);
@@ -916,8 +903,7 @@ static ASTImport* parseImport(Parser* self)
 }
 void analyseModule(Parser* self, ASTModule* mod);
 
-static jet_PtrList* parseModule(Parser* self)
-{
+static jet_PtrList* parseModule(Parser* self) {
     ASTModule* root = jet_new(ASTModule);
     root->name = self->moduleName;
     const bool onlyPrintTokens = false;
@@ -1083,15 +1069,13 @@ static void ASTModule_unmarkTypesVisited(ASTModule* mod);
 static int ASTExpr_markTypesVisited(Parser* self, ASTExpr* expr);
 static int ASTType_checkCycles(Parser* self, ASTType* type);
 
-void analyseModule(Parser* self, ASTModule* mod)
-{
+void analyseModule(Parser* self, ASTModule* mod) {
     // If function calls are going to be resolved based on the type of
     // first arg, then ALL functions must be visited in order to
     // generate their selectors and resolve their typespecs. (this does
     // not set the resolved flag on the func -- that is done by the
     // semantic pass)
-    jet_foreach(ASTFunc*, func, mod->funcs)
-    {
+    jet_foreach(ASTFunc*, func, mod->funcs) {
         jet_foreach(ASTVar*, arg, func->args)
             resolveTypeSpec(self, arg->typeSpec, mod);
         if (func->returnSpec) resolveTypeSpec(self, func->returnSpec, mod);
@@ -1157,8 +1141,7 @@ void analyseModule(Parser* self, ASTModule* mod)
 
     // check each stmt in each type to find cycles.
     jet_foreach(ASTType*, type,
-        mod->types) if (type->analysed and type->body and not type->visited)
-    {
+        mod->types) if (type->analysed and type->body and not type->visited) {
         if (ASTType_checkCycles(self, type)) {
             // cycle was detected. err has been reported along with a
             // backtrace. now just unset the dim control codes.
@@ -1178,11 +1161,9 @@ void analyseModule(Parser* self, ASTModule* mod)
 }
 
 // return 0 on no cycle found, -1 on cycle found
-static int ASTType_checkCycles(Parser* self, ASTType* type)
-{
+static int ASTType_checkCycles(Parser* self, ASTType* type) {
     jet_foreach(ASTExpr*, stmt,
-        type->body->stmts) if (ASTExpr_markTypesVisited(self, stmt))
-    {
+        type->body->stmts) if (ASTExpr_markTypesVisited(self, stmt)) {
         eprintf("  -> created in type \e[;1;2m%s\e[0;2m at ./%s:%d:%d \n",
             type->name, self->filename, stmt->line, stmt->col);
         return -1;
@@ -1190,8 +1171,7 @@ static int ASTType_checkCycles(Parser* self, ASTType* type)
     return 0;
 }
 
-static int ASTExpr_markTypesVisited(Parser* self, ASTExpr* expr)
-{
+static int ASTExpr_markTypesVisited(Parser* self, ASTExpr* expr) {
     ASTType* type = NULL;
     if (!expr) return 0;
     switch (expr->kind) {
@@ -1237,8 +1217,7 @@ static int ASTExpr_markTypesVisited(Parser* self, ASTExpr* expr)
     return ASTType_checkCycles(self, type);
 }
 
-static void ASTModule_unmarkTypesVisited(ASTModule* mod)
-{
+static void ASTModule_unmarkTypesVisited(ASTModule* mod) {
     // reset the cycle check flag on all types
     jet_foreach(ASTType*, type, mod->types) type->visited = false;
 }

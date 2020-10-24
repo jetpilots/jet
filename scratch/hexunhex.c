@@ -6,8 +6,7 @@
 
 // outbuf must have 2*inlen+1 chars. in and out can alias, then it works in
 // place. (this function canInplace).
-static void hex(const void* in, char* out, size_t inlen)
-{
+static void hex(const void* in, char* out, size_t inlen) {
     static const char* const dec2char = "0123456789abcdef";
     const char* inp = in + inlen - 1;
     const char* const instart = in;
@@ -31,8 +30,7 @@ static void hex(const void* in, char* out, size_t inlen)
 
 // `outbuf` must have `inlen/2 + 1` chars, `inlen` must be even
 // inp and out can alias, then it works in place. (function canInplace)
-static void unhex(const char* inp, char* out, size_t inlen)
-{
+static void unhex(const char* inp, char* out, size_t inlen) {
     static const char char2dec[256] = { //
         ['0'] = 0x00,
         ['1'] = 0x01,
@@ -73,8 +71,7 @@ static void unhex(const char* inp, char* out, size_t inlen)
     *out = '\0';
 }
 
-size_t jet_strlen(const char* str)
-{
+size_t jet_strlen(const char* str) {
     const char* orig = str;
     while (*str) str++;
     return str - orig;
@@ -91,8 +88,7 @@ ret:
 
 #include "../modules/jet_clock.h"
 
-int main()
-{
+int main() {
     // this is a mutable string on the stack!!! well fixed size but ok
     char f[] = "what"; // a nice day? yeah. this is on the stack, mutable";
     static char sf[] = "this is in .bss, mutable! fixed size still";

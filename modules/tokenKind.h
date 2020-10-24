@@ -2,8 +2,7 @@
 
 // Return the repr of a self->token kind (for debug)
 
-static const char* TokenKind_repr(const TokenKind kind, bool spacing)
-{
+static const char* TokenKind_repr(const TokenKind kind, bool spacing) {
     return spacing ? tksrepr[kind] : tkrepr[kind];
 }
 
@@ -13,8 +12,7 @@ static const char* TokenKind_repr(const TokenKind kind, bool spacing)
 // 3way(<, <=, a, b, c) even for string e.g. < implies cmp(a,b) < 0
 // TODO: get rid of this func
 
-static const char* TokenKind_ascrepr(const TokenKind kind, bool spacing)
-{
+static const char* TokenKind_ascrepr(const TokenKind kind, bool spacing) {
     switch (kind) {
     case tkOpGT:
         return "GT";
@@ -33,24 +31,22 @@ static const char* TokenKind_ascrepr(const TokenKind kind, bool spacing)
     }
 }
 
-static bool TokenKind_isUnary(TokenKind kind)
-{
+static bool TokenKind_isUnary(TokenKind kind) {
     return kind == tkKeyword_not or kind == tkUnaryMinus
         or kind == tkKeyword_return or kind == tkArrayOpen
-        or kind == tkKeyword_check or kind==tkBraceOpen;
+        or kind == tkKeyword_check or kind == tkBraceOpen;
     // tkArrayOpen is "unary" because it's EXPR is unary i.e.
     // it has one field `->right`, a list/dict literal expr
     // same goes for tkBraceOpen
 }
 
-static bool TokenKind_isRightAssociative(TokenKind kind)
-{
+static bool TokenKind_isRightAssociative(TokenKind kind) {
     return kind == tkPeriod or kind == tkPower or kind == tkOpComma
         or kind == tkOpSemiColon;
 }
 
-static uint8_t TokenKind_getPrecedence(TokenKind kind)
-{ // if templateStr then precedence of < and > should be 0
+static uint8_t TokenKind_getPrecedence(
+    TokenKind kind) { // if templateStr then precedence of < and > should be 0
     // functions and subscripts are set to 60, so stay below that
     switch (kind) {
     case tkUnaryMinus:
@@ -111,8 +107,7 @@ static uint8_t TokenKind_getPrecedence(TokenKind kind)
     }
 }
 
-static TokenKind TokenKind_reverseBracket(TokenKind kind)
-{
+static TokenKind TokenKind_reverseBracket(TokenKind kind) {
     switch (kind) {
     case tkArrayOpen:
         return tkArrayClose;

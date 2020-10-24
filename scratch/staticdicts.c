@@ -88,8 +88,7 @@ static const struct TType myStDict[] = {
     [three] = { 2, "whadasdt" },
 };
 
-int main()
-{
+int main() {
     printf("%s\n", myStDict[two].ret);
     return 0;
 }

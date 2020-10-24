@@ -1,5 +1,4 @@
-int touch(char* strFilename)
-{
+int touch(char* strFilename) {
     BOOL bRet = FALSE;
     HANDLE hFile = CreateFile(strFilename, GENERIC_WRITE, FILE_SHARE_READ, NULL,
         OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);

@@ -2,16 +2,14 @@
 #include <math.h>
 #define jet_countof(x) (sizeof(x) / sizeof(x[0]))
 
-void printarrf(const double* const x, int n)
-{
+void printarrf(const double* const x, int n) {
     n--;
     printf("[");
     for (int i = 0; i < n; i++) printf("%g, ", x[i]);
     printf("%g]\n", x[n]);
 }
 
-void printarrd(int* x, int n)
-{
+void printarrd(int* x, int n) {
     n--;
     printf("[");
     for (int i = 0; i < n; i++) printf("%d, ", x[i]);
@@ -21,8 +19,7 @@ void printarrd(int* x, int n)
 // int funca()[3] { return (int[]) { 1, 2, 3 }; }
 
 // struct SA {int count;double x[6];};
-int main()
-{
+int main() {
     double m = 3.2;
     const double x[] = { 4, 5, 6, 7, 4 + sin(m), cos(1.5) };
     // struct SA sx = { 4, {5, 6, 7, 4 + sin(m), cos(1.5)} };

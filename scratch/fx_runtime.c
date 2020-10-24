@@ -136,13 +136,12 @@ struct fx__Array {
     arrElemPostCode)                                                           \
                                                                                \
     static void __##funcName(fx__Value* v, int level);                         \
-    static void __##funcName##Pair(const exists fx__KeyValue* kv, int level)   \
-    {                                                                          \
+    static void __##funcName##Pair(const exists fx__KeyValue* kv, int level) { \
         keyCode;                                                               \
         __##funcName(kv->value, level);                                        \
     }                                                                          \
-    static void __##funcName##Object(const exists fx__Object* obj, int level)  \
-    {                                                                          \
+    static void __##funcName##Object(                                          \
+        const exists fx__Object* obj, int level) {                             \
         objPreCode;                                                            \
         while (obj) {                                                          \
             pairPreCode;                                                       \
@@ -152,8 +151,7 @@ struct fx__Array {
         }                                                                      \
         objPostCode;                                                           \
     }                                                                          \
-    static void __##funcName##Array(const exists fx__Array* arr, int level)    \
-    {                                                                          \
+    static void __##funcName##Array(const exists fx__Array* arr, int level) {  \
         arrPreCode;                                                            \
         while (arr) {                                                          \
             arrElemPreCode;                                                    \
@@ -167,8 +165,7 @@ struct fx__Array {
     static void __##funcName##Bool(bool val) { boolCode; }                     \
     static void __##funcName##Null() { nullCode; }                             \
     static void __##funcName##Number(double val) { numberCode; }               \
-    static void __##funcName(fx__Value* v, int level)                          \
-    {                                                                          \
+    static void __##funcName(fx__Value* v, int level) {                        \
         if (!v)                                                                \
             __##funcName##Null();                                              \
         else if (!isnan(v->num))                                               \
@@ -182,8 +179,7 @@ struct fx__Array {
         else if (v->_B_T || v->_B_F)                                           \
             __##funcName##Bool(v->_B_T);                                       \
     }                                                                          \
-    static void funcName(fx__Value* arg1Name)                                  \
-    {                                                                          \
+    static void funcName(fx__Value* arg1Name) {                                \
         preCode;                                                               \
         __##funcName(arg1Name, 1);                                             \
         postCode;                                                              \
@@ -275,24 +271,21 @@ GEN_DISPATCHER_1( //
                                                      // array elem post code
 )
 
-static fx__KeyValue* fx_newPair(char* key, fx__Value* value)
-{
+static fx__KeyValue* fx_newPair(char* key, fx__Value* value) {
     fx__KeyValue* ret = malloc(sizeof(fx__KeyValue));
     ret->key = key;
     ret->value = value;
     return ret;
 }
 
-static fx__Object* fx_newObjectItem(fx__KeyValue* kv, fx__Object* next)
-{
+static fx__Object* fx_newObjectItem(fx__KeyValue* kv, fx__Object* next) {
     fx__Object* ret = malloc(sizeof(fx__Object));
     ret->kv = kv;
     ret->next = next;
     return ret;
 }
 
-static fx__Array* fx_newArrayItem(fx__Value* value, fx__Array* next)
-{
+static fx__Array* fx_newArrayItem(fx__Value* value, fx__Array* next) {
     fx__Array* ret = malloc(sizeof(fx__Array));
     ret->value = value;
     ret->next = next;
@@ -315,8 +308,7 @@ API var fx_emptyObject();
 // you allocate using fx_newPair but it should be up to the caller whether
 // a new allocation is needed or an existing KeyValue pair is to be added
 // --- NO NO NO
-API var fx_set(var objp, char* key, var value)
-{
+API var fx_set(var objp, char* key, var value) {
     assert(objp);
     assert(fx_isObj(objp));
 
@@ -342,8 +334,7 @@ API var fx_set(var objp, char* key, var value)
     return NULL;
 }
 
-API var fx_get(var objp, char* key)
-{
+API var fx_get(var objp, char* key) {
     // assert(objp);
 
     char* lkey = key;
@@ -368,8 +359,7 @@ API var fx_get(var objp, char* key)
     return NULL;
 }
 
-API var fx_getAt(var arrp, int index)
-{
+API var fx_getAt(var arrp, int index) {
     assert(arrp);
     assert(fx_isArr(arrp));
 
@@ -384,8 +374,7 @@ API var fx_getAt(var arrp, int index)
 API var fx_emptyArray();
 // returns an array reference to the last item, so that you can use it for
 // repeated pushes. insert call should do this too
-API var fx_push(var arrp, var value)
-{
+API var fx_push(var arrp, var value) {
     assert(arrp);
     assert(fx_isArr(arrp));
 
@@ -409,8 +398,7 @@ API var fx_push(var arrp, var value)
 }
 
 // insert at position 0
-API void fx_shift(var arrp, var value)
-{
+API void fx_shift(var arrp, var value) {
     assert(arrp);
     assert(fx_isArr(arrp));
 
@@ -434,49 +422,42 @@ API void fx_shift(var arrp, var value)
     // }
 }
 
-API var fx_stringRef(const char* str)
-{
+API var fx_stringRef(const char* str) {
     var ret = malloc(sizeof(fx__Value));
     *ret = (fx__Value) { .cstr = str };
     fx_setFlag(ret, _B_S);
     return ret;
 }
 API var fx_string(const char* str) { return fx_stringRef(strdup(str)); }
-API var fx_number(double d)
-{
+API var fx_number(double d) {
     var ret = malloc(sizeof(fx__Value));
     *ret = (fx__Value) { .num = d };
     return ret;
 }
-API var fx_true()
-{
+API var fx_true() {
     var ret = calloc(1, sizeof(fx__Value));
     fx_setFlag(ret, _B_T);
     return ret;
 }
-API var fx_false()
-{
+API var fx_false() {
     var ret = calloc(1, sizeof(fx__Value));
     fx_setFlag(ret, _B_F);
     return ret;
 }
 // when you have B_O set but null ptr, it means empty object, not null
-API var fx_emptyObject()
-{
+API var fx_emptyObject() {
     var ret = calloc(1, sizeof(fx__Value));
     fx_setFlag(ret, _B_O);
     return ret;
 }
 // when you have B_A set but null ptr, it means empty array, not null
-API var fx_emptyArray()
-{
+API var fx_emptyArray() {
     var ret = calloc(1, sizeof(fx__Value));
     fx_setFlag(ret, _B_A);
     return ret;
 }
 
-API var fx_arrayWith(var items[], int size)
-{
+API var fx_arrayWith(var items[], int size) {
     var arr = fx_emptyArray();
     // careful with >= 0
     // printf("arr new: %p\n", fx_ptr(arr));
@@ -488,58 +469,49 @@ API var fx_arrayWith(var items[], int size)
 
 API var fx_null() { return NULL; }
 
-API var fx_add(var a, var b)
-{
+API var fx_add(var a, var b) {
     assert(fx_isNum(a) && fx_isNum(b));
     return fx_number(a->num + b->num);
 }
 
-API var fx_sub(var a, var b)
-{
+API var fx_sub(var a, var b) {
     assert(fx_isNum(a) && fx_isNum(b));
     return fx_number(a->num - b->num);
 }
 
-API var fx_mul(var a, var b)
-{
+API var fx_mul(var a, var b) {
     assert(fx_isNum(a) && fx_isNum(b));
     return fx_number(a->num * b->num);
 }
 
-API var fx_div(var a, var b)
-{
+API var fx_div(var a, var b) {
     assert(fx_isNum(a) && fx_isNum(b));
     return fx_number(a->num / b->num);
 }
 
-API var fx_pow(var a, var b)
-{
+API var fx_pow(var a, var b) {
     assert(fx_isNum(a) && fx_isNum(b));
     return fx_number(pow(a->num, b->num));
 }
 
-API var fx_exp(var a)
-{
+API var fx_exp(var a) {
     assert(fx_isNum(a));
     return fx_number(exp(a->num));
 }
 
-API var fx_log(var a)
-{
+API var fx_log(var a) {
     assert(fx_isNum(a));
     return fx_number(log10(a->num));
 }
 
-API var fx_ln(var a)
-{
+API var fx_ln(var a) {
     assert(fx_isNum(a));
     return fx_number(log(a->num));
 }
 
 #define va_parg(x) va_arg(x, void*)
 
-var fx_object(int size, ...)
-{
+var fx_object(int size, ...) {
     va_list args;
     va_start(args, size);
     var obj = fx_emptyObject();
@@ -554,8 +526,7 @@ var fx_object(int size, ...)
     return obj;
 }
 
-int main()
-{
+int main() {
     // user facing API only exposes 1 type fx__Value (alias var)
     // and all user facing functions can only take and return DFValues
     // not internal-use types marked with __. Also internal use funcs marked

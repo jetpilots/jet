@@ -1,6 +1,5 @@
 
-static void expralloc_stat()
-{
+static void expralloc_stat() {
     int iexpr, sum = 0, thres = 0;
     for (int i = 0; i < 128; i++) sum += exprsAllocHistogram[i];
     thres = sum / 20;
@@ -17,8 +16,7 @@ static void expralloc_stat()
     eputs("-------------------------------------------------------\n");
 }
 
-static void printstats(Parser* const parser, double tms)
-{
+static void printstats(Parser* const parser, double tms) {
     eputs("\n======================================================="
           "\n");
     eputs("\e[1mPARSER STATISTICS\e[0m\n");

@@ -21,8 +21,7 @@
 /// Follows the usual printf format. Size can be provided if known, if you guess
 /// too low, the buffer will incur a resize. It's better to set size=0 if you
 /// don't have a better guess at all.
-char* strinterp_h(int size, const char* fmt, ...)
-{
+char* strinterp_h(int size, const char* fmt, ...) {
     va_list args;
 
     // TODO: mark branch unlikely
@@ -62,8 +61,7 @@ char* strinterp_h(int size, const char* fmt, ...)
 #define strinterp_s(size, fmt, ...)                                            \
     __strinterp__s(size, (char[size]) {}, fmt, __VA_ARGS__)
 
-char* __strinterp__s(int size, char* buf, const char* fmt, ...)
-{
+char* __strinterp__s(int size, char* buf, const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
     int l = vsnprintf(buf, size, fmt, args);
@@ -74,8 +72,7 @@ char* __strinterp__s(int size, char* buf, const char* fmt, ...)
     return buf;
 }
 
-int main()
-{
+int main() {
     char* fmt = "%s is the name of this city with %d people\n";
     char* val = strinterp_h(41, fmt, "zurche", 300500);
     // char* v = gets("buf:");

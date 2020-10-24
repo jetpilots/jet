@@ -6,15 +6,13 @@
         exit(1);                                                               \
     }
 
-static void Parser_errorIncrement(Parser* const parser)
-{
+static void Parser_errorIncrement(Parser* const parser) {
     if (++parser->issues.errCount >= parser->issues.errLimit)
         fatal("\ntoo many errors (%d), quitting\n", parser->issues.errLimit);
 }
 
 static void Parser_errorExpectedToken(
-    Parser* const parser, const TokenKind expected)
-{
+    Parser* const parser, const TokenKind expected) {
     eprintf("\n(%d) \e[31merror:\e[0m at %s%s:%d:%d\n"
             "      expected '%s' (%s) but found '%s'\n",
         parser->issues.errCount + 1, RELF(parser->filename), parser->token.line,
@@ -23,8 +21,7 @@ static void Parser_errorExpectedToken(
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorParsingExpr(Parser* const parser, ASTExpr* expr)
-{
+static void Parser_errorParsingExpr(Parser* const parser, ASTExpr* expr) {
     eprintf("\n(%d) \e[31merror:\e[0m syntax error at %s%s:%d/%d\n"
             "    probably around %d:%d\n",
         parser->issues.errCount + 1, RELF(parser->filename),
@@ -32,8 +29,7 @@ static void Parser_errorParsingExpr(Parser* const parser, ASTExpr* expr)
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorInvalidIdent(Parser* const parser)
-{
+static void Parser_errorInvalidIdent(Parser* const parser) {
     eprintf("\n(%d) \e[31merror:\e[0m invalid name '%.*s' at "
             "%s%s:%d:%d\n",
         parser->issues.errCount + 1, parser->token.matchlen, parser->token.pos,
@@ -41,8 +37,7 @@ static void Parser_errorInvalidIdent(Parser* const parser)
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorInvalidTypeMember(Parser* const parser)
-{
+static void Parser_errorInvalidTypeMember(Parser* const parser) {
     eprintf("\n(%d) \e[31merror:\e[0m invalid member at %s%s:%d\n",
         parser->issues.errCount + 1, RELF(parser->filename),
         parser->token.line - 1);
@@ -50,8 +45,7 @@ static void Parser_errorInvalidTypeMember(Parser* const parser)
 }
 
 static void Parser_errorUnrecognizedVar(
-    Parser* const parser, const ASTExpr* const expr)
-{
+    Parser* const parser, const ASTExpr* const expr) {
     eprintf("\n(%d) \e[31merror:\e[0m unknown variable "
             "\e[34m%s\e[0m at %s%s:%d:%d\n",
         parser->issues.errCount + 1, expr->string, RELF(parser->filename),
@@ -59,9 +53,8 @@ static void Parser_errorUnrecognizedVar(
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorUnrecognizedMember(
-    Parser* const parser, const ASTType* const type, const ASTExpr* const expr)
-{
+static void Parser_errorUnrecognizedMember(Parser* const parser,
+    const ASTType* const type, const ASTExpr* const expr) {
     eprintf("\n(%d) \e[31merror:\e[0m type \e[34m%s\e[0m has no member "
             "\e[34m%s\e[0m at %s%s:%d:%d\n",
         parser->issues.errCount + 1, type->name, expr->string,
@@ -69,8 +62,8 @@ static void Parser_errorUnrecognizedMember(
     Parser_errorIncrement(parser);
 }
 
-static void Parser_warnUnusedArg(Parser* const parser, const ASTVar* const var)
-{
+static void Parser_warnUnusedArg(
+    Parser* const parser, const ASTVar* const var) {
     if (not parser->issues.warnUnusedArg) return;
     eprintf("\n(%d) \e[33mwarning:\e[0m unused argument "
             "\e[34m%s\e[0m at %s%s:%d:%d\n",
@@ -78,8 +71,8 @@ static void Parser_warnUnusedArg(Parser* const parser, const ASTVar* const var)
         var->line, var->col);
 }
 
-static void Parser_warnUnusedVar(Parser* const parser, const ASTVar* const var)
-{
+static void Parser_warnUnusedVar(
+    Parser* const parser, const ASTVar* const var) {
     if (not parser->issues.warnUnusedVar) return;
     eprintf("\n(%d) \e[33mwarning:\e[0m unused variable "
             "\e[34m%s\e[0m at %s%s:%d:%d\n",
@@ -88,8 +81,7 @@ static void Parser_warnUnusedVar(Parser* const parser, const ASTVar* const var)
 }
 
 static void Parser_warnUnusedFunc(
-    Parser* const parser, const ASTFunc* const func)
-{
+    Parser* const parser, const ASTFunc* const func) {
     if (not parser->issues.warnUnusedFunc) return;
     eprintf("\n(%d) \e[33mwarning:\e[0m unused function "
             "\e[34m%s\e[0m at %s%s:%d\n"
@@ -99,8 +91,7 @@ static void Parser_warnUnusedFunc(
 }
 
 static void Parser_warnUnusedType(
-    Parser* const parser, const ASTType* const type)
-{
+    Parser* const parser, const ASTType* const type) {
     if (not parser->issues.warnUnusedType) return;
     eprintf("\n(%d) \e[33mwarning:\e[0m unused type "
             "\e[34m%s\e[0m at %s%s:%d:%d\n",
@@ -109,8 +100,7 @@ static void Parser_warnUnusedType(
 }
 
 static void Parser_errorDuplicateVar(
-    Parser* const parser, const ASTVar* const var, const ASTVar* const orig)
-{
+    Parser* const parser, const ASTVar* const var, const ASTVar* const orig) {
     eprintf("\n(%d) \e[31merror:\e[0m duplicate variable "
             "\e[34m%s\e[0m at %s%s:%d:%d\n   "
             "          already declared at %s%s:%d:%d\n",
@@ -119,9 +109,8 @@ static void Parser_errorDuplicateVar(
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorDuplicateType(
-    Parser* const parser, const ASTType* const type, const ASTType* const orig)
-{
+static void Parser_errorDuplicateType(Parser* const parser,
+    const ASTType* const type, const ASTType* const orig) {
     if (orig)
         eprintf("\n(%d) \e[31merror:\e[0m duplicate type "
                 "\e[34m%s\e[0m at %s%s:%d:%d\n   "
@@ -139,8 +128,7 @@ static void Parser_errorDuplicateType(
 }
 
 static void Parser_errorDuplicateEnum(
-    Parser* const parser, const ASTEnum* const en, const ASTEnum* const orig)
-{
+    Parser* const parser, const ASTEnum* const en, const ASTEnum* const orig) {
     if (orig)
         eprintf("\n(%d) \e[31merror:\e[0m duplicate enum "
                 "\e[34m%s\e[0m at %s%s:%d:%d\n   "
@@ -157,17 +145,15 @@ static void Parser_errorDuplicateEnum(
 }
 
 static void Parser_errorTypeInheritsSelf(
-    Parser* const parser, const ASTType* const type)
-{
+    Parser* const parser, const ASTType* const type) {
     eprintf("\n(%d) \e[31merror:\e[0m type inherits from parser "
             "\e[34m%s\e[0m at %s%s:%d:%d\n",
         parser->issues.errCount + 1, type->name, RELF(parser->filename),
         type->line, type->col);
     Parser_errorIncrement(parser);
 }
-static void Parser_errorCtorHasType(
-    Parser* const parser, const ASTFunc* const func, const ASTType* const orig)
-{
+static void Parser_errorCtorHasType(Parser* const parser,
+    const ASTFunc* const func, const ASTType* const orig) {
     eprintf("\n(%d) \e[31merror:\e[0m constructor needs no return "
             "type: \e[34m%s\e[0m at %s%s:%d:%d\n"
             "             type declared at %s%s:%d:%d\n"
@@ -176,8 +162,8 @@ static void Parser_errorCtorHasType(
         func->line, 1, RELF(parser->filename), orig->line, orig->col);
     Parser_errorIncrement(parser);
 }
-static void Parser_warnCtorCase(Parser* const parser, const ASTFunc* const func)
-{
+static void Parser_warnCtorCase(
+    Parser* const parser, const ASTFunc* const func) {
     const ASTType* const orig = func->returnSpec->type;
     eprintf("\n(%d) \e[33mwarning:\e[0m wrong case "
             "\e[34m%s\e[0m for constructor at %s%s:%d:%d\n"
@@ -188,9 +174,8 @@ static void Parser_warnCtorCase(Parser* const parser, const ASTFunc* const func)
         orig->name);
 }
 
-static void Parser_errorDuplicateFunc(
-    Parser* const parser, const ASTFunc* const func, const ASTFunc* const orig)
-{
+static void Parser_errorDuplicateFunc(Parser* const parser,
+    const ASTFunc* const func, const ASTFunc* const orig) {
     eprintf("\n(%d) \e[31merror:\e[0m duplicate function "
             "\e[34m%s\e[0m at %s%s:%d:%d\n"
             "             already declared at %s%s:%d:%d\n"
@@ -200,9 +185,8 @@ static void Parser_errorDuplicateFunc(
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorDuplicateTest(
-    Parser* const parser, const ASTTest* const test, const ASTTest* const orig)
-{
+static void Parser_errorDuplicateTest(Parser* const parser,
+    const ASTTest* const test, const ASTTest* const orig) {
     eprintf("\n(%d) \e[31merror:\e[0m duplicate test "
             "\e[34m%s\e[0m at %s%s:%d:%d\n"
             "             already declared at %s%s:%d:%d\n",
@@ -211,9 +195,8 @@ static void Parser_errorDuplicateTest(
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorUnrecognizedFunc(
-    Parser* const parser, const ASTExpr* const expr, const char* const selector)
-{
+static void Parser_errorUnrecognizedFunc(Parser* const parser,
+    const ASTExpr* const expr, const char* const selector) {
     if (*selector == '<') return; // invalid type; already error'd
     eprintf(
         "\n\e[31;1;4m ERROR                                               "
@@ -226,8 +209,7 @@ static void Parser_errorUnrecognizedFunc(
 }
 
 static void Parser_errorStringInterp(
-    Parser* const parser, const ASTExpr* const expr, const char* const pos)
-{
+    Parser* const parser, const ASTExpr* const expr, const char* const pos) {
     eprintf("\n\e[31;1;4m ERROR                                               "
             "                       \e[0m\n %s%s:%d:%d:\n There is a syntax "
             "error within"
@@ -243,8 +225,7 @@ static void Parser_errorStringInterp(
 }
 
 static void Parser_errorCallingFuncWithVoid(
-    Parser* const parser, const ASTExpr* const expr, const ASTExpr* const arg)
-{
+    Parser* const parser, const ASTExpr* const expr, const ASTExpr* const arg) {
     eprintf("\n\e[31;1;4m ERROR                                               "
             "                       \e[0m\n %s%s:%d:%d:\n The "
             "\e[1m%s\e[0m function does not return a value.\n"
@@ -255,8 +236,7 @@ static void Parser_errorCallingFuncWithVoid(
 }
 
 static void Parser_errorInheritanceCycle(
-    Parser* const parser, const ASTType* const type)
-{
+    Parser* const parser, const ASTType* const type) {
     eprintf("\n\e[31;1;4m ERROR                                               "
             "                       \e[0m\n %s%s:%d:%d:\n Type "
             "\e[1m%s\e[0m has a cycle in its inheritance graph.",
@@ -277,8 +257,7 @@ static void Parser_errorInheritanceCycle(
 }
 
 static void Parser_errorConstructorHasCycle(
-    Parser* const parser, const ASTType* const type)
-{
+    Parser* const parser, const ASTType* const type) {
     eprintf("\n\e[31;1;4m ERROR                                               "
             "                       \e[0m\n %s%s:%d:%d:\n Type "
             "\e[1m%s\e[0m has an endless cycle in its initialization.\n",
@@ -287,8 +266,7 @@ static void Parser_errorConstructorHasCycle(
 }
 
 static void Parser_errorArgsCountMismatch(
-    Parser* const parser, const ASTExpr* const expr)
-{
+    Parser* const parser, const ASTExpr* const expr) {
     assert(expr->kind == tkFunctionCallResolved);
     eprintf("\n(%d) \e[31merror:\e[0m arg count mismatch for "
             "\e[34m%s\e[0m at %s%s:%d:%d\n"
@@ -300,8 +278,7 @@ static void Parser_errorArgsCountMismatch(
 }
 
 static void Parser_errorIndexDimsMismatch(
-    Parser* const parser, const ASTExpr* const expr)
-{
+    Parser* const parser, const ASTExpr* const expr) {
     assert(expr->kind == tkSubscriptResolved);
     int reqdDims = expr->var->typeSpec->dims;
     if (not reqdDims)
@@ -325,8 +302,7 @@ static void Parser_errorIndexDimsMismatch(
 }
 
 static void Parser_errorMissingInit(
-    Parser* const parser, const ASTExpr* const expr)
-{
+    Parser* const parser, const ASTExpr* const expr) {
     assert(expr->kind == tkVarAssign);
     eprintf("\n(%d) \e[31merror:\e[0m missing initializer for "
             "\e[34m%s\e[0m at %s%s:%d-%d\n",
@@ -336,8 +312,7 @@ static void Parser_errorMissingInit(
 }
 
 static void Parser_errorUnrecognizedType(
-    Parser* const parser, const ASTTypeSpec* const typeSpec)
-{
+    Parser* const parser, const ASTTypeSpec* const typeSpec) {
     eprintf("\n(%d) \e[31merror:\e[0m unknown typespec \e[33m%s\e[0m "
             "at %s%s:%d:%d\n",
         parser->issues.errCount + 1, typeSpec->name, RELF(parser->filename),
@@ -346,8 +321,7 @@ static void Parser_errorUnrecognizedType(
 }
 
 static void Parser_errorUnrecognizedCtor(
-    Parser* const parser, const ASTFunc* const func)
-{
+    Parser* const parser, const ASTFunc* const func) {
     eprintf("\n(%d) \e[31merror:\e[0m unknown type \e[33m%s\e[0m "
             "for constructor at %s%s:%d\n",
         parser->issues.errCount + 1, func->name, RELF(parser->filename),
@@ -355,8 +329,7 @@ static void Parser_errorUnrecognizedCtor(
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorInvalidTestName(Parser* const parser)
-{
+static void Parser_errorInvalidTestName(Parser* const parser) {
     eprintf("\n(%d) \e[31merror:\e[0m invalid test name "
             "\e[33m%.*s\e[0m at %s%s:%d"
             "\n       test names must be strings\n",
@@ -366,8 +339,7 @@ static void Parser_errorInvalidTestName(Parser* const parser)
 }
 
 static void Parser_errorTypeMismatchBinOp(
-    Parser* const parser, const ASTExpr* const expr)
-{
+    Parser* const parser, const ASTExpr* const expr) {
     // if one of the types is "<invalid>", an error has already been
     // reported for it; so don't bother
     const char* const leftTypeName = ASTExpr_typeName(expr->left);
@@ -383,8 +355,7 @@ static void Parser_errorTypeMismatchBinOp(
 }
 
 static void Parser_errorInitMismatch(
-    Parser* const parser, const ASTExpr* const expr)
-{
+    Parser* const parser, const ASTExpr* const expr) {
     // if one of the types is "<invalid>", an error has already been
     // reported for it; so don't bother
     const char* const leftTypeName = ASTTypeSpec_name(expr->var->typeSpec);
@@ -401,8 +372,7 @@ static void Parser_errorInitMismatch(
 }
 
 static void Parser_errorInitDimsMismatch(
-    Parser* const parser, const ASTExpr* const expr, int dims)
-{
+    Parser* const parser, const ASTExpr* const expr, int dims) {
     // if one of the types is "<invalid>", an error has already been
     // reported for it; so don't bother
     //    const char* const leftTypeName =
@@ -421,8 +391,7 @@ static void Parser_errorInitDimsMismatch(
 }
 
 static void Parser_errorReadOnlyVar(
-    Parser* const parser, const ASTExpr* const expr)
-{
+    Parser* const parser, const ASTExpr* const expr) {
     eprintf("\n(%d) \e[31merror:\e[0m mutating read-only variable '"
             "\e[34m%s\e[0m' at %s%s:%d:%d\n",
         parser->issues.errCount + 1, expr->var->name, RELF(parser->filename),
@@ -431,8 +400,7 @@ static void Parser_errorReadOnlyVar(
 }
 
 static void Parser_errorInvalidTypeForOp(
-    Parser* const parser, const ASTExpr* const expr)
-{
+    Parser* const parser, const ASTExpr* const expr) {
     eprintf("\n(%d) \e[31merror:\e[0m invalid types for operator '"
             "\e[34m%s\e[0m' at %s%s:%d:%d\n",
         parser->issues.errCount + 1, TokenKind_repr(expr->kind, false),
@@ -441,8 +409,7 @@ static void Parser_errorInvalidTypeForOp(
 }
 
 static void Parser_errorArgTypeMismatch(
-    Parser* const parser, const ASTExpr* const expr, const ASTVar* const var)
-{
+    Parser* const parser, const ASTExpr* const expr, const ASTVar* const var) {
     eprintf("\n(%d) \e[31merror:\e[0m type mismatch for argument '"
             "\e[34m%s\e[0m' at %s%s:%d:%d\n"
             "    need %s (%d), got %s (%d)\n",
@@ -452,8 +419,7 @@ static void Parser_errorArgTypeMismatch(
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorUnexpectedToken(Parser* const parser)
-{
+static void Parser_errorUnexpectedToken(Parser* const parser) {
     eprintf("\n(%d) \e[31merror:\e[0m at %s%s:%d:%d\n      unexpected "
             "token '%.*s'\n",
         parser->issues.errCount + 1, RELF(parser->filename), parser->token.line,
@@ -462,8 +428,7 @@ static void Parser_errorUnexpectedToken(Parser* const parser)
 }
 
 static void Parser_errorUnexpectedExpr(
-    Parser* const parser, const ASTExpr* const expr)
-{
+    Parser* const parser, const ASTExpr* const expr) {
     eprintf("\n(%d) \e[31merror:\e[0m at %s%s:%d:%d\n"
             "      unexpected expr '%s' (%s)\n",
         parser->issues.errCount + 1, RELF(parser->filename), expr->line,

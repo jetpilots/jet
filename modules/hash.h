@@ -83,8 +83,7 @@ static const double Dict_HASH_UPPER = 0.77;
 #define Set_delk(K) Dict_deleteByKey(K, char)
 
 #define __DICT_TYPE(K, V)                                                      \
-    typedef struct Dict(K, V)                                                  \
-    {                                                                          \
+    typedef struct Dict(K, V) {                                                \
         UInt32 nBuckets, size, nOccupied, upperBound;                          \
         UInt32* flags;                                                         \
         K* keys;                                                               \
@@ -105,13 +104,11 @@ static const double Dict_HASH_UPPER = 0.77;
 
 // TODO: move the implementation into  runtime.h
 #define __DICT_IMPL(Scope, K, V, IsMap, hash, equal)                           \
-    Scope Dict(K, V) * Dict_init(K, V)()                                       \
-    {                                                                          \
+    Scope Dict(K, V) * Dict_init(K, V)() {                                     \
         return calloc(1, sizeof(Dict(K, V)));                                  \
     }                                                                          \
                                                                                \
-    Scope void Dict_freedata(K, V)(Dict(K, V) * h)                             \
-    {                                                                          \
+    Scope void Dict_freedata(K, V)(Dict(K, V) * h) {                           \
         if (h) {                                                               \
             free(h->keys);                                                     \
             free(h->flags);                                                    \
@@ -119,16 +116,14 @@ static const double Dict_HASH_UPPER = 0.77;
         }                                                                      \
     }                                                                          \
     Scope void Dict_free(K, V)(Dict(K, V) * h) { free(h); }                    \
-    Scope void Dict_clear(K, V)(Dict(K, V) * h)                                \
-    {                                                                          \
+    Scope void Dict_clear(K, V)(Dict(K, V) * h) {                              \
         if (h and h->flags) {                                                  \
             memset(h->flags, 0xAA,                                             \
                 Dict__flagsSize(h->nBuckets) * sizeof(UInt32));                \
             h->size = h->nOccupied = 0;                                        \
         }                                                                      \
     }                                                                          \
-    Scope UInt32 Dict_get(K, V)(const Dict(K, V)* const h, K key)              \
-    {                                                                          \
+    Scope UInt32 Dict_get(K, V)(const Dict(K, V)* const h, K key) {            \
         if (h->nBuckets) {                                                     \
             UInt32 k, i, last, mask, step = 0;                                 \
             mask = h->nBuckets - 1;                                            \
@@ -145,14 +140,14 @@ static const double Dict_HASH_UPPER = 0.77;
         } else                                                                 \
             return 0;                                                          \
     }                                                                          \
-    Scope bool Dict_has(K, V)(const Dict(K, V)* const h, K key)                \
-    {                                                                          \
+    Scope bool Dict_has(K, V)(const Dict(K, V)* const h, K key) {              \
         UInt32 x = Dict_get(K, V)(h, key);                                     \
         return x < h->nBuckets && Dict_exist(h, x);                            \
     }                                                                          \
-    Scope int Dict_resize(K, V)(Dict(K, V) * h, UInt32 nnBuckets)              \
-    { /* This function uses 0.25*nBuckets bytes of working space instead       \
-         of [sizeof(key_t+val_t)+.25]*nBuckets. */                             \
+    Scope int Dict_resize(K, V)(Dict(K, V) * h,                                \
+        UInt32 nnBuckets) { /* This function uses 0.25*nBuckets bytes of       \
+                               working space instead of                                                                            \
+                               [sizeof(key_t+val_t)+.25]*nBuckets. */          \
         UInt32* nFlags = 0;                                                    \
         UInt32 j = 1;                                                          \
         {                                                                      \
@@ -236,8 +231,7 @@ static const double Dict_HASH_UPPER = 0.77;
         }                                                                      \
         return 0;                                                              \
     }                                                                          \
-    Scope UInt32 Dict_put(K, V)(Dict(K, V) * h, K key, int* ret)               \
-    {                                                                          \
+    Scope UInt32 Dict_put(K, V)(Dict(K, V) * h, K key, int* ret) {             \
         UInt32 x;                                                              \
         if (h->nOccupied >= h->upperBound) { /* update the hash table */       \
             if (h->nBuckets > (h->size << 1)) {                                \
@@ -296,19 +290,16 @@ static const double Dict_HASH_UPPER = 0.77;
         /* Don't touch h->keys[x] if present and not  Dict__deleted */         \
         return x;                                                              \
     }                                                                          \
-    Scope void Dict_delete(K, V)(Dict(K, V) * h, UInt32 x)                     \
-    {                                                                          \
+    Scope void Dict_delete(K, V)(Dict(K, V) * h, UInt32 x) {                   \
         if (x != h->nBuckets and not Dict__emptyOrDel(h->flags, x)) {          \
             Dict__setDeleted(h->flags, x);                                     \
             --h->size;                                                         \
         }                                                                      \
     }                                                                          \
-    Scope void Dict_deleteByKey(K, V)(Dict(K, V) * h, K key)                   \
-    {                                                                          \
+    Scope void Dict_deleteByKey(K, V)(Dict(K, V) * h, K key) {                 \
         Dict_delete(K, V)(h, Dict_get(K, V)(h, key));                          \
     }                                                                          \
-    Scope Dict(K, V) * Dict_make(K, V)(int size, K keys[], V values[])         \
-    {                                                                          \
+    Scope Dict(K, V) * Dict_make(K, V)(int size, K keys[], V values[]) {       \
         Dict(K, V)* ret = Dict_init(K, V)();                                   \
         int p;                                                                 \
         for (int i = 0; i < size; i++) {                                       \
@@ -351,8 +342,7 @@ static const double Dict_HASH_UPPER = 0.77;
 
 // #define Real64_hash(key) UInt64_hash(*(UInt64*)&key)
 
-static UInt32 Real64_hash(double key)
-{
+static UInt32 Real64_hash(double key) {
     UInt64* ptr = (UInt64*)&key;
     return UInt64_hash(*ptr);
 }
@@ -368,8 +358,7 @@ static UInt32 Real64_hash(double key)
 // 5 'noisy' bits (ASCII 0-31 symbols).
 // CAUTION: Add 8 more bytes to the buffer being hashed, usually malloc(...+8) -
 // to prevent out of boundary reads!
-static uint32_t FNV1A_Hash_Yorikke_v3(const char* str, uint32_t wrdlen)
-{
+static uint32_t FNV1A_Hash_Yorikke_v3(const char* str, uint32_t wrdlen) {
     const uint32_t PRIME = 591798841;
     uint32_t hash32 = 2166136261;
     uint64_t PADDEDby8;
@@ -395,8 +384,7 @@ static uint32_t FNV1A_Hash_Yorikke_v3(const char* str, uint32_t wrdlen)
 // Last touch: 2019-Oct-03, Kaze
 // ---
 
-static inline UInt32 __ac_X31_hash_string(const char* s)
-{
+static inline UInt32 __ac_X31_hash_string(const char* s) {
     UInt32 i = (UInt32)*s;
     if (i)
         for (++s; *s; ++s) i = (i << 5) - i + (UInt32)*s;
@@ -411,8 +399,7 @@ static inline UInt32 __ac_X31_hash_string(const char* s)
 // this does not hold since the same buffer can hold a string and any of
 // its prefixes, especially in Jet where not all strings end with '\0'.
 
-static inline UInt32 __ac_Wang_hash(UInt32 key)
-{
+static inline UInt32 __ac_Wang_hash(UInt32 key) {
     key += ~(key << 15);
     key ^= (key >> 10);
     key += (key << 3);

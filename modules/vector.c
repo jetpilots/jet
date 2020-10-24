@@ -2,8 +2,7 @@
 #include "jet_clock.h"
 
 #define N 1000
-int main()
-{
+int main() {
     srand(time(0));
     Vector m0[1] = {}, mr[1] = {};
     jet_Vector_resize(m0, N);
@@ -18,8 +17,7 @@ int main()
     Vector_fillzero(m0);
     if (mr->used < 24) Vector_print(mr);
     if (m0->used < 24) Vector_print(m0);
-    for_to(il, 10)
-    {
+    for_to(il, 10) {
         Vector_fillrandoms(mr);
         jet_clock_Time t0 = jet_clock_getTime();
         Real64 min0 = Vector_min(m0);

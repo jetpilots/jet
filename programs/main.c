@@ -334,16 +334,14 @@ MKSTAT(List_ASTImport)
 MKSTAT(List_ASTVar)
 static uint32_t exprsAllocHistogram[128];
 
-static ASTTypeSpec* ASTTypeSpec_new(TypeTypes tt, CollectionTypes ct)
-{
+static ASTTypeSpec* ASTTypeSpec_new(TypeTypes tt, CollectionTypes ct) {
     ASTTypeSpec* ret = jet_new(ASTTypeSpec);
     ret->typeType = tt;
     ret->collectionType = ct;
     return ret;
 }
 
-static const char* ASTTypeSpec_name(ASTTypeSpec* self)
-{
+static const char* ASTTypeSpec_name(ASTTypeSpec* self) {
     switch (self->typeType) {
     case TYUnresolved:
         return self->name;
@@ -356,8 +354,7 @@ static const char* ASTTypeSpec_name(ASTTypeSpec* self)
 }
 
 // The name of this type spec as it will appear in the generated C code.
-static const char* ASTTypeSpec_cname(ASTTypeSpec* self)
-{
+static const char* ASTTypeSpec_cname(ASTTypeSpec* self) {
     switch (self->typeType) {
     case TYUnresolved:
         return self->name;
@@ -369,8 +366,7 @@ static const char* ASTTypeSpec_cname(ASTTypeSpec* self)
     // what about collectiontype???
 }
 
-static const char* getDefaultValueForType(ASTTypeSpec* type)
-{
+static const char* getDefaultValueForType(ASTTypeSpec* type) {
     if (not type) return "";
     switch (type->typeType) {
     case TYUnresolved:
@@ -384,8 +380,7 @@ static const char* getDefaultValueForType(ASTTypeSpec* type)
     }
 }
 
-static ASTExpr* ASTExpr_fromToken(const Token* self)
-{
+static ASTExpr* ASTExpr_fromToken(const Token* self) {
     ASTExpr* ret = jet_new(ASTExpr);
     ret->kind = self->kind;
     ret->line = self->line;
@@ -422,8 +417,8 @@ static ASTExpr* ASTExpr_fromToken(const Token* self)
     return ret;
 }
 
-static bool ASTExpr_throws(ASTExpr* self)
-{ // NOOO REMOVE This func and set the throws flag recursively like the
+static bool ASTExpr_throws(ASTExpr* self) { // NOOO REMOVE This func and set the
+                                            // throws flag recursively like the
     // other flags (during e.g. the type resolution dive)
     if (not self) return false;
     switch (self->kind) {
@@ -455,12 +450,10 @@ static bool ASTExpr_throws(ASTExpr* self)
     }
 }
 
-static size_t ASTScope_calcSizeUsage(ASTScope* self)
-{
+static size_t ASTScope_calcSizeUsage(ASTScope* self) {
     size_t size = 0, sum = 0, subsize = 0, maxsubsize = 0;
     // all variables must be resolved before calling this
-    jet_foreach(ASTExpr*, stmt, self->stmts)
-    {
+    jet_foreach(ASTExpr*, stmt, self->stmts) {
         switch (stmt->kind) {
         case tkKeyword_if:
         case tkKeyword_else:
@@ -473,8 +466,7 @@ static size_t ASTScope_calcSizeUsage(ASTScope* self)
         }
     }
     // some vars are not assigned, esp. temporaries _1 _2 etc.
-    jet_foreach(ASTVar*, var, self->locals)
-    {
+    jet_foreach(ASTVar*, var, self->locals) {
         size = TypeType_size(var->typeSpec->typeType);
         assert(size);
         if (var->used) sum += size;
@@ -484,8 +476,7 @@ static size_t ASTScope_calcSizeUsage(ASTScope* self)
     return sum;
 }
 
-static ASTVar* ASTScope_getVar(ASTScope* self, const char* name)
-{
+static ASTVar* ASTScope_getVar(ASTScope* self, const char* name) {
     // stupid linear search, no dictionary yet
     jet_foreach(ASTVar*, local, self->locals) //
         if (not strcasecmp(name, local->name)) return local;
@@ -493,8 +484,7 @@ static ASTVar* ASTScope_getVar(ASTScope* self, const char* name)
     return NULL;
 }
 
-static ASTVar* ASTType_getVar(ASTType* self, const char* name)
-{
+static ASTVar* ASTType_getVar(ASTType* self, const char* name) {
     // stupid linear search, no dictionary yet
     jet_foreach(ASTVar*, var, self->body->locals) //
         if (not strcasecmp(name, var->name)) return var;
@@ -511,8 +501,7 @@ static ASTVar* ASTType_getVar(ASTType* self, const char* name)
 /// specified. This way you can create declared functions such as `print`,
 /// `json`, etc. of each new type defined in source code.
 static ASTFunc* ASTFunc_createDeclWithArg(
-    char* name, char* retType, char* arg1Type)
-{
+    char* name, char* retType, char* arg1Type) {
     ASTFunc* func = jet_new(ASTFunc);
     func->name = name;
     func->isDeclare = true;
@@ -531,11 +520,9 @@ static ASTFunc* ASTFunc_createDeclWithArg(
     return func;
 }
 
-static size_t ASTFunc_calcSizeUsage(ASTFunc* self)
-{
+static size_t ASTFunc_calcSizeUsage(ASTFunc* self) {
     size_t size = 0, sum = 0;
-    jet_foreach(ASTVar*, arg, self->args)
-    {
+    jet_foreach(ASTVar*, arg, self->args) {
         // all variables must be resolved before calling this
         size = TypeType_size(arg->typeSpec->typeType);
         assert(size);
@@ -546,11 +533,9 @@ static size_t ASTFunc_calcSizeUsage(ASTFunc* self)
     return sum;
 }
 
-static size_t ASTType_calcSizeUsage(ASTType* self)
-{
+static size_t ASTType_calcSizeUsage(ASTType* self) {
     size_t size = 0, sum = 0;
-    jet_foreach(ASTVar*, var, self->body->locals)
-    {
+    jet_foreach(ASTVar*, var, self->body->locals) {
         // all variables must be resolved before calling this
         size = TypeType_size(var->typeSpec->typeType);
         assert(size);
@@ -561,8 +546,7 @@ static size_t ASTType_calcSizeUsage(ASTType* self)
 
 #pragma mark - AST EXPR IMPL.
 
-static const char* ASTExpr_typeName(const ASTExpr* const self)
-{
+static const char* ASTExpr_typeName(const ASTExpr* const self) {
     if (not self) return "";
     const char* ret = TypeType_name(self->typeType);
     if (!ret) return "<unknown>"; // unresolved
@@ -590,8 +574,7 @@ static const char* ASTExpr_typeName(const ASTExpr* const self)
     return "<invalid>";
 }
 
-static void ASTExpr_catarglabels(ASTExpr* self)
-{
+static void ASTExpr_catarglabels(ASTExpr* self) {
     switch (self->kind) {
     case tkOpComma:
         ASTExpr_catarglabels(self->left);
@@ -605,8 +588,7 @@ static void ASTExpr_catarglabels(ASTExpr* self)
     }
 }
 
-static int ASTExpr_strarglabels(ASTExpr* self, char* buf, int bufsize)
-{
+static int ASTExpr_strarglabels(ASTExpr* self, char* buf, int bufsize) {
     int ret = 0;
     switch (self->kind) {
     case tkOpComma:
@@ -623,8 +605,7 @@ static int ASTExpr_strarglabels(ASTExpr* self, char* buf, int bufsize)
 }
 
 // TODO: see if this is still correct
-static int ASTExpr_countCommaList(ASTExpr* expr)
-{
+static int ASTExpr_countCommaList(ASTExpr* expr) {
     int i = 0;
     if (expr)
         for (i = 1; expr->right and expr->kind == tkOpComma; i++)
@@ -634,8 +615,7 @@ static int ASTExpr_countCommaList(ASTExpr* expr)
 
 #pragma mark - AST MODULE IMPL.
 
-static ASTType* ASTModule_getType(ASTModule* module, const char* name)
-{
+static ASTType* ASTModule_getType(ASTModule* module, const char* name) {
     // the type may be "mm.XYZType" in which case you should look in
     // module mm instead. actually the caller should have bothered about
     // that.
@@ -651,15 +631,13 @@ static ASTType* ASTModule_getType(ASTModule* module, const char* name)
 // you don't need the actual ASTImport object, so this one is just a
 // bool. imports just turn into a #define for the alias and an #include
 // for the actual file.
-static bool ASTModule_hasImportAlias(ASTModule* module, const char* alias)
-{
+static bool ASTModule_hasImportAlias(ASTModule* module, const char* alias) {
     jet_foreach(ASTImport*, imp, module->imports) //
         if (not strcmp(imp->importFile + imp->aliasOffset, alias)) return true;
     return false;
 }
 
-ASTFunc* ASTModule_getFunc(ASTModule* module, const char* selector)
-{
+ASTFunc* ASTModule_getFunc(ASTModule* module, const char* selector) {
     jet_foreach(ASTFunc*, func, module->funcs) //
         if (not strcasecmp(func->selector, selector)) return func;
     //  no looking anywhere else. If the name is of the form
@@ -722,8 +700,7 @@ static const char* const jet_banner = //
     "___  /  \\___/\\__/ ___|  https://github.com/jetpilots/jet\n"
     "/___/ -----------------------------------------------------\n\n";
 
-static void Parser_fini(Parser* parser)
-{
+static void Parser_fini(Parser* parser) {
     free(parser->data);
     free(parser->noext);
     free(parser->moduleName);
@@ -732,8 +709,7 @@ static void Parser_fini(Parser* parser)
 }
 #define FILE_SIZE_MAX 1 << 24
 
-static Parser* Parser_fromFile(char* filename, bool skipws)
-{
+static Parser* Parser_fromFile(char* filename, bool skipws) {
 
     size_t flen = strlen(filename);
 
@@ -808,16 +784,14 @@ static Parser* Parser_fromFile(char* filename, bool skipws)
 
 #pragma mark - PARSING BASICS
 
-static ASTExpr* exprFromCurrentToken(Parser* parser)
-{
+static ASTExpr* exprFromCurrentToken(Parser* parser) {
     ASTExpr* expr = ASTExpr_fromToken(&parser->token);
     Token_advance(&parser->token);
     return expr;
 }
 
 static ASTExpr* next_token_node(
-    Parser* parser, TokenKind expected, const bool ignore_error)
-{
+    Parser* parser, TokenKind expected, const bool ignore_error) {
     if (parser->token.kind == expected) {
         return exprFromCurrentToken(parser);
     } else {
@@ -827,39 +801,33 @@ static ASTExpr* next_token_node(
 }
 // these should all be part of Token_ when converted back to C
 // in the match case, self->token should be advanced on error
-static ASTExpr* match(Parser* parser, TokenKind expected)
-{
+static ASTExpr* match(Parser* parser, TokenKind expected) {
     return next_token_node(parser, expected, false);
 }
 
 // this returns the match node or null
-static ASTExpr* trymatch(Parser* parser, TokenKind expected)
-{
+static ASTExpr* trymatch(Parser* parser, TokenKind expected) {
     return next_token_node(parser, expected, true);
 }
 
 // just yes or no, simple
-static bool matches(Parser* parser, TokenKind expected)
-{
+static bool matches(Parser* parser, TokenKind expected) {
     return (parser->token.kind == expected);
 }
 
-static bool Parser_ignore(Parser* parser, TokenKind expected)
-{
+static bool Parser_ignore(Parser* parser, TokenKind expected) {
     bool ret;
     if ((ret = matches(parser, expected))) Token_advance(&parser->token);
     return ret;
 }
 
 // this is same as match without return
-static void discard(Parser* parser, TokenKind expected)
-{
+static void discard(Parser* parser, TokenKind expected) {
     if (not Parser_ignore(parser, expected))
         Parser_errorExpectedToken(parser, expected);
 }
 
-static char* parseIdent(Parser* parser)
-{
+static char* parseIdent(Parser* parser) {
     if (parser->token.kind != tkIdentifier)
         Parser_errorExpectedToken(parser, tkIdentifier);
     char* p = parser->token.pos;
@@ -867,8 +835,7 @@ static char* parseIdent(Parser* parser)
     return p;
 }
 
-static void getSelector(ASTFunc* func)
-{
+static void getSelector(ASTFunc* func) {
     if (func->argCount) {
         size_t selLen = 0;
         int remain = 128, wrote = 0;
@@ -886,8 +853,7 @@ static void getSelector(ASTFunc* func)
         bufp += wrote;
         remain -= wrote;
 
-        jet_foreach(ASTVar*, arg, func->args->next)
-        {
+        jet_foreach(ASTVar*, arg, func->args->next) {
             wrote = snprintf(bufp, remain, "_%s", arg->name);
             selLen += wrote;
             bufp += wrote;
@@ -922,8 +888,7 @@ static ASTExpr rparen[] = { { .kind = tkParenClose } };
 #include "../modules/parse.h"
 
 // TODO: this should be in ASTModule open/close
-static void Parser_emit_open(Parser* parser)
-{
+static void Parser_emit_open(Parser* parser) {
     printf("#ifndef HAVE_%s\n#define HAVE_%s\n\n", parser->capsMangledName,
         parser->capsMangledName);
     printf("#define THISMODULE %s\n", parser->mangledName);
@@ -935,8 +900,7 @@ static void Parser_emit_open(Parser* parser)
     // printf("static ticks _lprof_[NUMLINES] = {};\n");
 }
 
-static void Parser_emit_close(Parser* parser)
-{
+static void Parser_emit_close(Parser* parser) {
     printf("#undef THISMODULE\n");
     printf("#undef THISFILE\n");
     printf("#endif // HAVE_%s\n", parser->capsMangledName);
@@ -947,8 +911,7 @@ static void alloc_stat() { }
 #include "../modules/ptr2off.h"
 
 #pragma mark - main
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
     fprintf(stderr, jet_banner, "v0.2.2", "asd762345asd", 2020, 9, 21);
     if (argc == 1) {
         eputs("jet: no input files. What are you trying to do?\n");

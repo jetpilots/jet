@@ -7,8 +7,7 @@ jet_Dict(Ptr, jet_mem__PtrInfo) jet_mem__ptrDict[1];
 UInt64 jet_mem__heapTotal = 0;
 jet_Dict(CString, jet_mem__Stat) jet_mem__allocStats[1];
 
-int jet_mem__cmpsum(const void* a, const void* b)
-{
+int jet_mem__cmpsum(const void* a, const void* b) {
     // For sorting in descending order of sum
     int ia = *(int*)a;
     int ib = *(int*)b;
@@ -17,8 +16,7 @@ int jet_mem__cmpsum(const void* a, const void* b)
     return va > vb ? -1 : va == vb ? 0 : 1;
 }
 
-void jet_mem__heapfree(void* ptr, const char* desc)
-{
+void jet_mem__heapfree(void* ptr, const char* desc) {
     EP;
     // int stat[1];
     int d = jet_Dict_get(Ptr, jet_mem__PtrInfo)(jet_mem__ptrDict, ptr);
@@ -40,8 +38,7 @@ void jet_mem__heapfree(void* ptr, const char* desc)
     }
     EX
 }
-void jet_mem__dealloc(void* ptr, UInt64 size, const char* desc)
-{
+void jet_mem__dealloc(void* ptr, UInt64 size, const char* desc) {
     EP;
     int stat[1] = {};
     int d = jet_Dict_put(UInt64, Ptr)(jet_mem__sizeDict, size, stat);
@@ -123,8 +120,7 @@ void* jet_mem__alloc(UInt64 size, const char* desc)
 #endif
 
 // f+ fp.mem.stats()
-UInt64 jet_mem_stats(bool heap)
-{
+UInt64 jet_mem_stats(bool heap) {
     EP;
     int i = 0;
     UInt64 sum = 0;
@@ -183,8 +179,7 @@ UInt64 jet_mem_stats(bool heap)
     return sum;
 }
 
-void user(double* b)
-{
+void user(double* b) {
     (void)b;
     // return b;
     // free(b);
@@ -192,8 +187,7 @@ void user(double* b)
 
 double* func();
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
     char* bufc = malloc(sizeof(char) * 51200);
     free(bufc);
 

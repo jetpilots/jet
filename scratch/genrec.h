@@ -1,23 +1,24 @@
 int THE_FUNCNAME(const char* const str) {
-    const char* pos = str-1;
-    switch(*++pos) {
+    const char* pos = str - 1;
+    switch (*++pos) {
     case 'f':
-        switch(*++pos) {
+        switch (*++pos) {
         case 'u':
-            switch(*++pos) {
+            switch (*++pos) {
             case 'n':
-                switch(*++pos) {
+                switch (*++pos) {
                 case 'c':
-                    switch(*++pos) {
+                    switch (*++pos) {
                     case 't':
-                        switch(*++pos) {
+                        switch (*++pos) {
                         case 'i':
-                            switch(*++pos) {
+                            switch (*++pos) {
                             case 'o':
-                                switch(*++pos) {
+                                switch (*++pos) {
                                 case 'n':
-                                    switch(*++pos) {
-                                    case '\0': THE_CODE(function);
+                                    switch (*++pos) {
+                                    case '\0':
+                                        THE_CODE(function);
                                     }
                                     break;
                                 }

@@ -70,8 +70,7 @@ typedef struct {
 // ping example shows pipe.
 // speaking of ping, you should have a function ping
 
-jet_Process jet_launch(char* args[])
-{
+jet_Process jet_launch(char* args[]) {
     pid_t pid;
     // spawnp won't allow for creating a pipe.
     int ret = posix_spawnp(&pid, args[0], NULL, NULL, args, environ);
@@ -90,8 +89,7 @@ typedef enum {
     JET_PIPE_READERR = 4
 } jet_PipedProcessCapture;
 
-jet_PipedProcess jet_pipe(char* args[], int capture)
-{
+jet_PipedProcess jet_pipe(char* args[], int capture) {
     int p_from[2] = { -1, -1 };
     int p_to[2] = { -1, -1 };
     int p_errfrom[2] = { -1, -1 }; // from parent to child
@@ -147,8 +145,7 @@ jet_PipedProcess jet_pipe(char* args[], int capture)
     // then jet_close(pp)
 }
 
-void jet_pwrite(jet_PipedProcess proc, void* data, ssize_t size)
-{
+void jet_pwrite(jet_PipedProcess proc, void* data, ssize_t size) {
     static const unsigned int maxsz = 1 << 30;
     do {
         ssize_t sz = size > maxsz ? maxsz : size;
@@ -160,26 +157,22 @@ void jet_pwrite(jet_PipedProcess proc, void* data, ssize_t size)
     } while (size > 0);
 }
 
-void jet_close(jet_PipedProcess* proc)
-{
+void jet_close(jet_PipedProcess* proc) {
     close(proc->p_read);
     close(proc->p_write);
     close(proc->p_err);
     proc->p_read = proc->p_write = proc->p_err = -1;
 }
 
-jet_PipedProcess jet_shpipe(char* cmd, int capture)
-{
+jet_PipedProcess jet_shpipe(char* cmd, int capture) {
     return jet_pipe((char*[]) { "/bin/sh", "-c", cmd }, capture);
 }
 
-jet_Process jet_shlaunch(char* cmd)
-{
+jet_Process jet_shlaunch(char* cmd) {
     return jet_launch((char*[]) { "/bin/sh", "-c", cmd });
 }
 
-void jet_await(jet_Process* proc)
-{
+void jet_await(jet_Process* proc) {
     // all you need is here: https://linux.die.net/man/2/waitpid
     int status = 0;
     if (waitpid(proc->pid, &status, 0) == -1) {
@@ -190,8 +183,7 @@ void jet_await(jet_Process* proc)
     proc->code = WEXITSTATUS(status);
 }
 
-jet_Process jet_awaitAny()
-{
+jet_Process jet_awaitAny() {
     int status = 0;
     pid_t pid = wait(&status);
     if (!pid) fprintf(stderr, "waitpiderr\n"); // TODO: raise an error here
@@ -203,22 +195,19 @@ jet_Process jet_awaitAny()
     };
 }
 
-void jet_awaitAll()
-{
+void jet_awaitAll() {
     int status = 0;
     while (wait(&status) > 0) continue;
 }
 
-void jet_update(jet_Process* proc)
-{
+void jet_update(jet_Process* proc) {
     int status = 0;
     waitpid(proc->pid, &status, WNOHANG);
     proc->code = WEXITSTATUS(status);
     proc->exited = WIFEXITED(status);
 }
 
-void test_posix_spawn(void)
-{
+void test_posix_spawn(void) {
 #define TOT 2000
 #define PROCS 4
 
@@ -250,8 +239,7 @@ void test_posix_spawn(void)
     }
 }
 
-int main(void)
-{
+int main(void) {
     // test_fork_exec();
     // test_posix_spawn();
 

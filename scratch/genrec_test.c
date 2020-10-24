@@ -10,8 +10,7 @@ static const char* const testWords[]
     = { "westermere", "roxisd", "test", "testa", "John", "function" };
 static const size_t nTestWords = sizeof(testWords) / sizeof(testWords[0]);
 
-static int hasWord(const char* const word)
-{
+static int hasWord(const char* const word) {
     forto(iw, nWords) if (!strcmp(words[iw], word)) return 1;
     return 0;
 }
@@ -21,8 +20,7 @@ static int hasWord(const char* const word)
 #define THE_ERRHANDLER(x) return 0;
 #include "genrec.h"
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
     int sum = 0;
     const int NREP = 100000000;
     switch (*argv[1]) {

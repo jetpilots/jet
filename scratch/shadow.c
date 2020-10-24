@@ -6,8 +6,7 @@
 
 long int arr[] = { 3, 4, 5, 5, 6, 7, 8, 9 };
 
-int main()
-{
+int main() {
     // long int* arr = malloc(8 * (1UL << 56));
     long int* arrend = endof(arr); //(1UL << 56);
 #pragma clang loop unroll(enable) interleave(enable)

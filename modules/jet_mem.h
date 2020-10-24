@@ -59,13 +59,11 @@ static jet_Dict(UInt64, Ptr) jet_mem__sizeDict[1] = {};
 #ifdef JET_MEM_DISABLED // --------------------------------------------------
 
 #define jet_mem_alloc(nam, sz) jet_mem__alloc(sz, "")
-void* jet_mem__heapmalloc(UInt64 size, const char* desc)
-{
+void* jet_mem__heapmalloc(UInt64 size, const char* desc) {
     return malloc(size);
 }
 #define jet_mem_heapfree free
-void* jet_mem__alloc(UInt64 size, const char* desc)
-{
+void* jet_mem__alloc(UInt64 size, const char* desc) {
     return jet_mem__heapmalloc(size, "");
 }
 UInt64 jet_mem_stats(bool heap) { return 0; }

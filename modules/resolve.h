@@ -1,6 +1,5 @@
 
-static bool isSelfMutOp(ASTExpr* expr)
-{
+static bool isSelfMutOp(ASTExpr* expr) {
     return expr->kind == tkPlusEq or expr->kind == tkMinusEq
         or expr->kind == tkSlashEq or expr->kind == tkTimesEq
         or expr->kind == tkPowerEq or expr->kind == tkOpModEq
@@ -27,8 +26,7 @@ static bool isSelfMutOp(ASTExpr* expr)
 // end function
 
 static void resolveTypeSpec(
-    Parser* parser, ASTTypeSpec* typeSpec, ASTModule* mod)
-{
+    Parser* parser, ASTTypeSpec* typeSpec, ASTModule* mod) {
     // TODO: disallow a type that derives from itself!
     if (typeSpec->typeType != TYUnresolved) return;
     if (not *typeSpec->name) return;
@@ -61,8 +59,7 @@ static void resolveTypeSpec(
 //     end for
 // end function
 
-static void ASTScope_checkUnusedVars(Parser* parser, ASTScope* scope)
-{
+static void ASTScope_checkUnusedVars(Parser* parser, ASTScope* scope) {
     jet_foreach(ASTVar*, var, scope->locals) if (not var->used)
         Parser_warnUnusedVar(parser, var);
 
@@ -70,16 +67,14 @@ static void ASTScope_checkUnusedVars(Parser* parser, ASTScope* scope)
         and stmt->body) ASTScope_checkUnusedVars(parser, stmt->body);
 }
 
-static void ASTFunc_checkUnusedVars(Parser* parser, ASTFunc* func)
-{
+static void ASTFunc_checkUnusedVars(Parser* parser, ASTFunc* func) {
     jet_foreach(ASTVar*, arg, func->args) if (not arg->used)
         Parser_warnUnusedArg(parser, arg);
 
     ASTScope_checkUnusedVars(parser, func->body);
 }
 
-static void ASTTest_checkUnusedVars(Parser* parser, ASTTest* test)
-{
+static void ASTTest_checkUnusedVars(Parser* parser, ASTTest* test) {
     ASTScope_checkUnusedVars(parser, test->body);
 }
 
@@ -104,18 +99,18 @@ static void resolveMember(Parser* parser, ASTExpr* expr, ASTType* type)
 
 // This function is called in one pass, during the line-by-line parsing.
 // (since variables cannot be "forward-declared").
-static void resolveVars(
-    Parser* parser, ASTExpr* expr, ASTScope* scope, bool inFuncCall)
-{ // TODO: this could be done on rpn in parseExpr, making it iterative
-  // instead of recursive
-  // = behaves differently inside a func call: the ->left is not
-  // resolved to a var, but to an argument label of the called func.
-  // it would make sense to just skip checking it here for now, and
-  // let resolveFuncs use it to construct the func selector for lookup.
-  // At some point though it would be nice if the compiler could tell
-  // the user 'you missed the arg label "xyz"' for which the basename
-  // of the func could be used to get a list of all selectors having
-  // that basename as a prefix.
+static void resolveVars(Parser* parser, ASTExpr* expr, ASTScope* scope,
+    bool inFuncCall) { // TODO: this could be done on rpn in parseExpr, making
+                       // it iterative instead of recursive = behaves
+                       // differently inside a func call: the ->left is not
+                       // resolved to a var, but to an argument label of the
+                       // called func. it would make sense to just skip checking
+                       // it here for now, and let resolveFuncs use it to
+                       // construct the func selector for lookup. At some point
+                       // though it would be nice if the compiler could tell the
+                       // user 'you missed the arg label "xyz"' for which the
+                       // basename of the func could be used to get a list of
+                       // all selectors having that basename as a prefix.
 
     if (not expr) return;
     switch (expr->kind) {

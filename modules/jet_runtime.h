@@ -17,8 +17,7 @@
 #include <windows.h>
 #endif
 
-size_t sys_pageSize()
-{
+size_t sys_pageSize() {
 #ifdef WINDOWS
     SYSTEM_INFO si;
     GetSystemInfo(&si);
@@ -38,8 +37,7 @@ size_t sys_pageSize()
 #define KB *1024UL
 
 #include <sys/resource.h>
-static size_t sys_stackSize()
-{
+static size_t sys_stackSize() {
     struct rlimit limit;
     getrlimit(RLIMIT_STACK, &limit);
     return limit.rlim_cur; //, limit.rlim_max);
@@ -231,15 +229,13 @@ static const char* _spaces_ = //
 #define DECL_json_wrap_(T) static void T##_json_wrap_(const T this);
 
 #define MAKE_json_wrap_(T)                                                     \
-    static void T##_json_wrap_(const T this)                                   \
-    {                                                                          \
+    static void T##_json_wrap_(const T this) {                                 \
         T##_json_(this, 0);                                                    \
         puts("");                                                              \
     }
 
 #define MAKE_json_file(T)                                                      \
-    static void T##_json_file(const T* const this, const char* file)           \
-    {                                                                          \
+    static void T##_json_file(const T* const this, const char* file) {         \
         FILE* fd = fopen(file, "w");                                           \
         if (!fd) ERR;                                                          \
         T##_json(this, fd);                                                    \
@@ -282,9 +278,7 @@ static const char* _undersc72_ = "------------------------"
                                  "------------------------";
 
 #define JET_COVERAGE_UP(l)                                                     \
-    {                                                                          \
-        _cov_[l - 1]++;                                                        \
-    }
+    { _cov_[l - 1]++; }
 #define JET_PROFILE_LINE(l)                                                    \
     {                                                                          \
         _lprof_tmp_ = getticks();                                              \
@@ -296,15 +290,13 @@ static const char* _undersc72_ = "------------------------"
 // static void jet_lineprofile_report();
 // static void jet_lineprofile_begin();
 
-static void jet_coverage_report()
-{
+static void jet_coverage_report() {
     int count = 0, l = NUMLINES;
     while (--l > 0) count += !!_cov_[l];
     printf("coverage: %d/%d lines = %.2f%%\n", count, NUMLINES,
         count * 100.0 / NUMLINES);
 }
-static void jet_lineprofile_report()
-{
+static void jet_lineprofile_report() {
     FILE* fd = fopen("." THISFILE "r", "w");
     ticks sum = 0;
     for (int i = 0; i < NUMLINES; i++) sum += _lprof_[i];
@@ -323,8 +315,7 @@ static void jet_lineprofile_report()
 
 static void jet_lineprofile_begin() { _lprof_last_ = getticks(); }
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
     srand(time(0));
     ticks t0 = getticks();
 

@@ -2,8 +2,7 @@
 #include "hash.h"
 
 static void ASTExpr_hash(
-    /* Parser* parser, */ ASTExpr* expr, Dict(UInt32, Ptr) * cseDict)
-{
+    /* Parser* parser, */ ASTExpr* expr, Dict(UInt32, Ptr) * cseDict) {
     if (not expr) unreachable("%s", "expr is NULL");
     switch (expr->kind) {
     case tkString:
@@ -90,8 +89,7 @@ static void ASTExpr_hash(
 // hashes have been generated in ASTExpr_hash (which is bottom-up, so checking
 // cannot happen inline).
 static void ASTExpr_checkHashes(
-    /* Parser* parser, */ ASTExpr* expr, Dict(UInt32, Ptr) * cseDict)
-{
+    /* Parser* parser, */ ASTExpr* expr, Dict(UInt32, Ptr) * cseDict) {
 
     UInt32 idx = Dict_get(UInt32, Ptr)(cseDict, expr->hash);
 
@@ -133,14 +131,12 @@ static void ASTExpr_checkHashes(
     }
 }
 
-static void ASTFunc_hashExprs(/* Parser* parser,  */ ASTFunc* func)
-{
+static void ASTFunc_hashExprs(/* Parser* parser,  */ ASTFunc* func) {
     static Dict(UInt32, Ptr)* cseDict = NULL; // FIXME: will leak
     if (not cseDict) cseDict = Dict_init(UInt32, Ptr)();
     Dict_clear(UInt32, Ptr)(cseDict);
 
-    jet_foreach(ASTExpr*, stmt, func->body->stmts)
-    {
+    jet_foreach(ASTExpr*, stmt, func->body->stmts) {
         ASTExpr_hash(/* parser, */ stmt, cseDict);
         ASTExpr_checkHashes(/* parser, */ stmt, cseDict);
 

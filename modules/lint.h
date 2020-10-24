@@ -1,13 +1,11 @@
 
-static void ASTImport_lint(ASTImport* import, int level)
-{
+static void ASTImport_lint(ASTImport* import, int level) {
     printf("import %s%s%s%s\n", import->isPackage ? "@" : "",
         import->importFile, import->hasAlias ? " as " : "",
         import->hasAlias ? import->importFile + import->aliasOffset : "");
 }
 
-static void ASTTypeSpec_lint(ASTTypeSpec* spec, int level)
-{
+static void ASTTypeSpec_lint(ASTTypeSpec* spec, int level) {
     switch (spec->typeType) {
     case TYObject:
         printf("%s", spec->type->name);
@@ -38,8 +36,7 @@ static void ASTTypeSpec_lint(ASTTypeSpec* spec, int level)
 static void ASTExpr_lint(
     ASTExpr* self, int level, bool spacing, bool escapeStrings);
 
-static void ASTVar_lint(ASTVar* var, int level)
-{
+static void ASTVar_lint(ASTVar* var, int level) {
     printf("%.*s%s%s", level, spaces,
         var->isVar ? "var " : var->isLet ? "let " : "", var->name);
     TokenKind kind = var->init ? var->init->kind : tkUnknown;
@@ -81,10 +78,8 @@ static void ASTVar_lint(ASTVar* var, int level)
     }
 }
 
-static void ASTScope_lint(ASTScope* scope, int level)
-{
-    jet_foreachn(ASTExpr*, expr, exprList, scope->stmts)
-    {
+static void ASTScope_lint(ASTScope* scope, int level) {
+    jet_foreachn(ASTExpr*, expr, exprList, scope->stmts) {
         switch (expr->kind) {
         case tkKeyword_for:
         case tkKeyword_if:
@@ -117,8 +112,7 @@ static void ASTScope_lint(ASTScope* scope, int level)
     }
 }
 
-static void ASTType_lint(ASTType* type, int level)
-{
+static void ASTType_lint(ASTType* type, int level) {
     if (not type->body) printf("declare ");
     printf("type %s", type->name);
     if (type->super) {
@@ -128,8 +122,7 @@ static void ASTType_lint(ASTType* type, int level)
     puts("");
     if (not type->body) return;
 
-    jet_foreach(ASTExpr*, stmt, type->body->stmts)
-    {
+    jet_foreach(ASTExpr*, stmt, type->body->stmts) {
         if (not stmt) continue;
         ASTExpr_lint(stmt, level + STEP, true, false);
         puts("");
@@ -137,15 +130,13 @@ static void ASTType_lint(ASTType* type, int level)
     puts("end type\n");
 }
 
-static void ASTFunc_lint(ASTFunc* func, int level)
-{
+static void ASTFunc_lint(ASTFunc* func, int level) {
     if (func->isDefCtor or func->intrinsic) return;
     if (func->isDeclare) printf("declare ");
 
     printf("%s%s(", func->isStmt ? "\n" : "function ", func->name);
 
-    jet_foreachn(ASTVar*, arg, args, func->args)
-    {
+    jet_foreachn(ASTVar*, arg, args, func->args) {
         ASTVar_lint(arg, level);
         printf(args->next ? ", " : "");
     }
@@ -171,16 +162,14 @@ static void ASTFunc_lint(ASTFunc* func, int level)
     }
 }
 
-static void ASTTest_lint(ASTTest* test, int level)
-{
+static void ASTTest_lint(ASTTest* test, int level) {
     printf("test '%s'\n", test->name);
     ASTScope_lint(test->body, level + STEP);
     puts("end test\n");
 }
 
 static void ASTExpr_lint(
-    ASTExpr* expr, int level, bool spacing, bool escapeStrings)
-{
+    ASTExpr* expr, int level, bool spacing, bool escapeStrings) {
     // generally an expr is not split over several lines (but maybe in
     // rare cases). so level is not passed on to recursive calls.
     printf("%.*s", level, spaces);
@@ -324,8 +313,7 @@ static void ASTExpr_lint(
     }
 }
 
-static void ASTModule_lint(ASTModule* module, int level)
-{
+static void ASTModule_lint(ASTModule* module, int level) {
     printf("! module %s\n", module->name);
 
     jet_foreach(ASTImport*, import, module->imports)

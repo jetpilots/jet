@@ -37,9 +37,7 @@ typedef unsigned long long
 typedef LARGE_INTEGER jet_clock_Time;
 #define jet_clock_TIME_INITIALIZER                                             \
     {                                                                          \
-        {                                                                      \
-            0, 0                                                               \
-        }                                                                      \
+        { 0, 0 }                                                               \
     }
 
 #elif defined(__APPLE__) && defined(__MACH__)
@@ -55,9 +53,7 @@ typedef PreciseTime jet_clock_Time;
 
 typedef struct timespec jet_clock_Time;
 #define jet_clock_TIME_INITIALIZER                                             \
-    {                                                                          \
-        0, 0                                                                   \
-    }
+    { 0, 0 }
 
 #else /* relies on standard C90 (note : clock_t measurements can be wrong when \
          using multi-threading) */
@@ -88,16 +84,14 @@ void jet_clock_waitForNextTick(void);
 #include <stdlib.h> /* abort */
 #include <stdio.h> /* perror */
 
-jet_clock_Time jet_clock_getTime(void)
-{
+jet_clock_Time jet_clock_getTime(void) {
     jet_clock_Time x;
     QueryPerformanceCounter(&x);
     return x;
 }
 
 PreciseTime jet_clock_getSpanTimeMicro(
-    jet_clock_Time clockStart, jet_clock_Time clockEnd)
-{
+    jet_clock_Time clockStart, jet_clock_Time clockEnd) {
     static LARGE_INTEGER ticksPerSecond;
     static int init = 0;
     if (!init) {
@@ -112,8 +106,7 @@ PreciseTime jet_clock_getSpanTimeMicro(
 }
 
 PreciseTime jet_clock_getSpanTimeNano(
-    jet_clock_Time clockStart, jet_clock_Time clockEnd)
-{
+    jet_clock_Time clockStart, jet_clock_Time clockEnd) {
     static LARGE_INTEGER ticksPerSecond;
     static int init = 0;
     if (!init) {
@@ -132,8 +125,7 @@ PreciseTime jet_clock_getSpanTimeNano(
 jet_clock_Time jet_clock_getTime(void) { return mach_absolute_time(); }
 
 PreciseTime jet_clock_getSpanTimeMicro(
-    jet_clock_Time clockStart, jet_clock_Time clockEnd)
-{
+    jet_clock_Time clockStart, jet_clock_Time clockEnd) {
     static mach_timebase_info_data_t rate;
     static int init = 0;
     if (!init) {
@@ -146,8 +138,7 @@ PreciseTime jet_clock_getSpanTimeMicro(
 }
 
 PreciseTime jet_clock_getSpanTimeNano(
-    jet_clock_Time clockStart, jet_clock_Time clockEnd)
-{
+    jet_clock_Time clockStart, jet_clock_Time clockEnd) {
     static mach_timebase_info_data_t rate;
     static int init = 0;
     if (!init) {
@@ -166,8 +157,7 @@ PreciseTime jet_clock_getSpanTimeNano(
 #include <stdlib.h> /* abort */
 #include <stdio.h> /* perror */
 
-jet_clock_Time jet_clock_getTime(void)
-{
+jet_clock_Time jet_clock_getTime(void) {
     /* time must be initialized, othersize it may fail msan test.
      * No good reason, likely a limitation of timespec_get() for some target */
     jet_clock_Time time = jet_clock_TIME_INITIALIZER;
@@ -179,8 +169,7 @@ jet_clock_Time jet_clock_getTime(void)
 }
 
 static jet_clock_Time jet_clock_getSpanTime(
-    jet_clock_Time begin, jet_clock_Time end)
-{
+    jet_clock_Time begin, jet_clock_Time end) {
     jet_clock_Time diff;
     if (end.tv_nsec < begin.tv_nsec) {
         diff.tv_sec = (end.tv_sec - 1) - begin.tv_sec;
@@ -192,8 +181,8 @@ static jet_clock_Time jet_clock_getSpanTime(
     return diff;
 }
 
-PreciseTime jet_clock_getSpanTimeMicro(jet_clock_Time begin, jet_clock_Time end)
-{
+PreciseTime jet_clock_getSpanTimeMicro(
+    jet_clock_Time begin, jet_clock_Time end) {
     jet_clock_Time const diff = jet_clock_getSpanTime(begin, end);
     PreciseTime micro = 0;
     micro += 1000000ULL * diff.tv_sec;
@@ -201,8 +190,8 @@ PreciseTime jet_clock_getSpanTimeMicro(jet_clock_Time begin, jet_clock_Time end)
     return micro;
 }
 
-PreciseTime jet_clock_getSpanTimeNano(jet_clock_Time begin, jet_clock_Time end)
-{
+PreciseTime jet_clock_getSpanTimeNano(
+    jet_clock_Time begin, jet_clock_Time end) {
     jet_clock_Time const diff = jet_clock_getSpanTime(begin, end);
     PreciseTime nano = 0;
     nano += 1000000000ULL * diff.tv_sec;
@@ -215,34 +204,29 @@ PreciseTime jet_clock_getSpanTimeNano(jet_clock_Time begin, jet_clock_Time end)
 
 jet_clock_Time jet_clock_getTime(void) { return clock(); }
 PreciseTime jet_clock_getSpanTimeMicro(
-    jet_clock_Time clockStart, jet_clock_Time clockEnd)
-{
+    jet_clock_Time clockStart, jet_clock_Time clockEnd) {
     return 1000000ULL * (clockEnd - clockStart) / CLOCKS_PER_SEC;
 }
 PreciseTime jet_clock_getSpanTimeNano(
-    jet_clock_Time clockStart, jet_clock_Time clockEnd)
-{
+    jet_clock_Time clockStart, jet_clock_Time clockEnd) {
     return 1000000000ULL * (clockEnd - clockStart) / CLOCKS_PER_SEC;
 }
 
 #endif
 
 /* returns time span in microseconds */
-PreciseTime jet_clock_clockSpanMicro(jet_clock_Time clockStart)
-{
+PreciseTime jet_clock_clockSpanMicro(jet_clock_Time clockStart) {
     jet_clock_Time const clockEnd = jet_clock_getTime();
     return jet_clock_getSpanTimeMicro(clockStart, clockEnd);
 }
 
 /* returns time span in microseconds */
-PreciseTime jet_clock_clockSpanNano(jet_clock_Time clockStart)
-{
+PreciseTime jet_clock_clockSpanNano(jet_clock_Time clockStart) {
     jet_clock_Time const clockEnd = jet_clock_getTime();
     return jet_clock_getSpanTimeNano(clockStart, clockEnd);
 }
 
-void jet_clock_waitForNextTick(void)
-{
+void jet_clock_waitForNextTick(void) {
     jet_clock_Time const clockStart = jet_clock_getTime();
     jet_clock_Time clockEnd;
     do {

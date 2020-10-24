@@ -52,14 +52,12 @@ MKSTAT(KDDict);
 
 #define UPDATE_DIR(dir, dirInDim)                                              \
     dir = 0;                                                                   \
-    for_to(i, DIMS)                                                            \
-    {                                                                          \
+    for_to(i, DIMS) {                                                          \
         dirInDim[i] = (hash[i] >= node->threshold[i]) << i;                    \
         dir |= dirInDim[i];                                                    \
     }
 
-static void addEntry(KDDict* dict, void* keys[DIMS], void* value)
-{
+static void addEntry(KDDict* dict, void* keys[DIMS], void* value) {
     KDDictNode* node = dict->root; // the first, so skipping &[0]
     int dirInDim[DIMS], dir;
     uint64_t hash[DIMS];
@@ -95,8 +93,7 @@ static void addEntry(KDDict* dict, void* keys[DIMS], void* value)
         newChild->child[dir] = child;
         newChild->child[dir]->isleaf = 1;
 
-        for_to(i, DIMS)
-        {
+        for_to(i, DIMS) {
             uint64_t th_mid = node->threshold[i];
             uint64_t th_lo, th_hi;
             if (node->threshold[i] >= parent->threshold[i]) {
@@ -129,8 +126,7 @@ static void addEntry(KDDict* dict, void* keys[DIMS], void* value)
     //     }
     // }
 
-    for_to(i, child->npoints)
-    {
+    for_to(i, child->npoints) {
         for_to(j, DIMS) //
             if (child->hash[i][j] != hash[j]) goto skip;
         for_to(j, DIMS) //
@@ -142,8 +138,7 @@ static void addEntry(KDDict* dict, void* keys[DIMS], void* value)
     }
     // didn't find a matching record already, so add a new one
     child->value[child->npoints] = value;
-    for_to(j, DIMS)
-    {
+    for_to(j, DIMS) {
         child->hash[child->npoints][j] = hash[j];
         child->keys[child->npoints][j] = keys[j];
     }
@@ -154,8 +149,7 @@ static void addEntry(KDDict* dict, void* keys[DIMS], void* value)
 
 // static void removePoint(KDDictNode* node, KDTreePoint* point) { }
 
-static void* lookup(KDDict* dict, void* keys[DIMS])
-{
+static void* lookup(KDDict* dict, void* keys[DIMS]) {
     KDDictNode* node = dict->root;
     uint64_t hash[DIMS];
     for_to(i, DIMS) hash[i] = dict->hash(keys[i]);
@@ -170,8 +164,7 @@ static void* lookup(KDDict* dict, void* keys[DIMS])
     if (!node) return NULL;
 
     KDDictLeaf* holder = node;
-    for_to(i, holder->npoints)
-    {
+    for_to(i, holder->npoints) {
         for_to(j, DIMS) if (holder->hash[i][j] != hash[j]) goto skip;
         for_to(j, DIMS) //
             if (!dict->equal(holder->keys[i][j], keys[j])) goto skip;
@@ -186,10 +179,8 @@ static void* lookup(KDDict* dict, void* keys[DIMS])
 static const char* const spc = "                                            ";
 static const int levStep = 2;
 
-static void printDotRec(FILE* f, KDDictNode* node)
-{
-    for_to(i, POW2(DIMS))
-    {
+static void printDotRec(FILE* f, KDDictNode* node) {
+    for_to(i, POW2(DIMS)) {
         int dirInDim[DIMS];
         for_to(j, DIMS) dirInDim[j] = i & (1 << j);
 
@@ -202,8 +193,7 @@ static void printDotRec(FILE* f, KDDictNode* node)
                     "\"Points[%d]\\n____________\\n",
                     node->threshold[0], node->threshold[1], node->threshold[2],
                     holder->npoints);
-                for_to(j, holder->npoints)
-                {
+                for_to(j, holder->npoints) {
                     fprintf(f, "keys: ");
                     for_to(k, DIMS) fprintf(f, "'%s' ", holder->keys[j][k]);
                     fprintf(f, "\nhashes: ");
@@ -230,8 +220,7 @@ static void printDotRec(FILE* f, KDDictNode* node)
     }
 }
 
-static void printDot(KDDict* dict)
-{
+static void printDot(KDDict* dict) {
     KDDictNode* node = dict->root;
     FILE* f = fopen("kdd.dot", "w");
     fputs(
@@ -250,11 +239,9 @@ static void printDot(KDDict* dict)
 // at all -- lookup should succeed as soon as hashes match.
 static KDDict* initDictWithLimits(uint64_t hashfn(void*),
     uint64_t equalfn(void*, void*), uint64_t lowLim[DIMS],
-    uint64_t highLim[DIMS])
-{
+    uint64_t highLim[DIMS]) {
     KDDict* dict = jet_new(KDDict);
-    for_to(j, DIMS)
-    {
+    for_to(j, DIMS) {
         dict->root[0].threshold[j] = lowLim[j];
         dict->root[1].threshold[j] = (lowLim[j] + highLim[j]) / 2;
     }
@@ -265,8 +252,8 @@ static KDDict* initDictWithLimits(uint64_t hashfn(void*),
 
     return dict;
 }
-static KDDict* initDict(uint64_t hashfn(void*), uint64_t equalfn(void*, void*))
-{
+static KDDict* initDict(
+    uint64_t hashfn(void*), uint64_t equalfn(void*, void*)) {
     uint64_t lowl[DIMS] = {};
     uint64_t highl[DIMS] = { UINT64_MAX, UINT64_MAX, UINT64_MAX };
     return initDictWithLimits(hashfn, equalfn, lowl, highl);
@@ -284,8 +271,7 @@ https://github.com/ztanml/fast-hash
         (h) ^= (h) >> 47;                                                      \
     })
 
-static uint64_t fasthash64(const void* buf, size_t len, uint64_t seed)
-{
+static uint64_t fasthash64(const void* buf, size_t len, uint64_t seed) {
     const uint64_t m = 0x880355f21e6d1965ULL;
     const uint64_t* pos = (const uint64_t*)buf;
     const uint64_t* end = pos + (len / 8);
@@ -324,29 +310,25 @@ static uint64_t fasthash64(const void* buf, size_t len, uint64_t seed)
     return mix(h);
 }
 
-static uint32_t fasthash32(const void* buf, size_t len, uint32_t seed)
-{
+static uint32_t fasthash32(const void* buf, size_t len, uint32_t seed) {
     uint64_t h = fasthash64(buf, len, seed);
     return h - (h >> 32);
 }
 #undef mix
 
-uint64_t strhash(char* str)
-{
+uint64_t strhash(char* str) {
     size_t l = strlen(str);
     return fasthash64(str, l, 31337);
 }
 
-uint64_t streq(char* str1, char* str2)
-{
+uint64_t streq(char* str1, char* str2) {
     return str1 == str2 || !strcmp(str1, str2);
     // in C, you can't have strings of different lengths at the same address,
     // since they are null-terminated. So it should suffice to compare their
     // addresses first.
 }
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
     srand(time(0));
 
     // const int NPTS = argc > 1 ? atoi(argv[1]) : 10000000;

@@ -2,8 +2,7 @@
 #include "jet_clock.h"
 
 #define N 1000
-int main()
-{
+int main() {
     SpVector sp[1] = {};
     SpVector sp2[1] = {};
 

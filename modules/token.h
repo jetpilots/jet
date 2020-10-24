@@ -93,8 +93,7 @@ static const uint8_t TokenKindTable[256] = {
 #define Token_matchesKeyword(tok)                                              \
     if (sizeof(#tok) - 1 == l and not strncmp(#tok, s, l)) return true;
 
-static bool doesKeywordMatch(const char* s, const int l)
-{
+static bool doesKeywordMatch(const char* s, const int l) {
     //        const char* s = pos;
     //        const int l = matchlen;
 
@@ -145,8 +144,7 @@ typedef struct Token {
 } Token;
 
 // Peek at the char after the current (complete) token
-static char Token_peekCharAfter(Token* self)
-{
+static char Token_peekCharAfter(Token* self) {
     char* s = self->pos + self->matchlen;
     if (self->skipWhiteSpace)
         while (*s == ' ') s++;
@@ -163,8 +161,7 @@ static char Token_peekCharAfter(Token* self)
 
 // Check if an (ident) self->token matches a keyword and return its type
 // accordingly.
-static void Token_tryKeywordMatch(Token* self)
-{
+static void Token_tryKeywordMatch(Token* self) {
     // TODO: USE A DICT OR MPH FOR THIS!
     if (self->kind != tkIdentifier) return;
 
@@ -222,8 +219,7 @@ static void Token_tryKeywordMatch(Token* self)
 
 // Get the token kind based only on the char at the current position
 // (or an offset).
-static TokenKind Token_getType(Token* self, const size_t offset)
-{
+static TokenKind Token_getType(Token* self, const size_t offset) {
     const char c = self->pos[offset];
     const char cn = c ? self->pos[1 + offset] : 0;
     TokenKind ret = (TokenKind)TokenKindTable[(unsigned char)c];
@@ -305,8 +301,7 @@ static TokenKind Token_getType(Token* self, const size_t offset)
     }
 }
 
-static void Token_detect(Token* self)
-{
+static void Token_detect(Token* self) {
     TokenKind tt = Token_getType(self, 0);
     TokenKind tt_ret = tkUnknown; // = tt;
     static TokenKind tt_last
@@ -557,8 +552,7 @@ static void Token_detect(Token* self)
 }
 
 // Advance to the next self->token (skip whitespace if `skipws` is set).
-static void Token_advance(Token* self)
-{
+static void Token_advance(Token* self) {
     switch (self->kind) {
     case tkNullChar:
         return;
@@ -595,8 +589,8 @@ static void Token_advance(Token* self)
     case tkKeyword_let:
     case tkKeyword_import:
     case tkUnknown: // bcz start of the file is this
-//    case tkArrayOpen:
-//    case tkBraceOpen:
+        //    case tkArrayOpen:
+        //    case tkBraceOpen:
         break;
     default:
         *self->pos = 0; // trample it so that idents etc. can be assigned

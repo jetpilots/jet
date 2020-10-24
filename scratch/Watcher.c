@@ -119,8 +119,7 @@ CFMutableArrayRef create_cfarray_from_path(const char* path);
 
 static void fsevents_callback(FSEventStreamRef streamRef,
     void* clientCallBackInfo, int numEvents, const char* const eventPaths[],
-    const FSEventStreamEventFlags* eventFlags, const uint64_t* eventIDs)
-{
+    const FSEventStreamEventFlags* eventFlags, const uint64_t* eventIDs) {
     settings_t* settings = (settings_t*)clientCallBackInfo;
     const char* full_path = (const char*)settings->fullpath;
     int i, len, recursive = 0;
@@ -198,8 +197,7 @@ static void fsevents_callback(FSEventStreamRef streamRef,
     }
 }
 
-static void watch_dir_hierarchy(settings_t* settings)
-{
+static void watch_dir_hierarchy(settings_t* settings) {
     FSEventStreamContext context = { 0, NULL, NULL, NULL, NULL };
     FSEventStreamRef stream_ref = NULL;
     CFMutableArrayRef cfarray_of_paths;
@@ -331,8 +329,7 @@ out:
 //--------------------------------------------------------------------------------
 //
 
-int main(int argc, const char* argv[])
-{
+int main(int argc, const char* argv[]) {
     char fullpath[PATH_MAX];
     settings_t _settings, *settings = &_settings;
 
@@ -368,8 +365,7 @@ int main(int argc, const char* argv[])
 //--------------------------------------------------------------------------------
 //
 
-int get_dev_info(settings_t* settings)
-{
+int get_dev_info(settings_t* settings) {
     struct stat st;
     dev_t dev = 0;
     struct statfs sfs;
@@ -420,8 +416,7 @@ int get_dev_info(settings_t* settings)
 
 #define STREAM_INFO_NAME "stream-info.txt"
 
-void save_stream_info(uint64_t last_id, CFUUIDRef uuid_ref)
-{
+void save_stream_info(uint64_t last_id, CFUUIDRef uuid_ref) {
     FILE* fp;
     CFStringRef cfstr;
     char uuid_str[64];
@@ -449,8 +444,7 @@ void save_stream_info(uint64_t last_id, CFUUIDRef uuid_ref)
     }
 }
 
-int load_stream_info(uint64_t* since_when, CFUUIDRef* uuid_ref_ptr)
-{
+int load_stream_info(uint64_t* since_when, CFUUIDRef* uuid_ref_ptr) {
     FILE* fp;
     char uuid_str[64];
     CFStringRef cfstr;
@@ -487,8 +481,7 @@ int load_stream_info(uint64_t* since_when, CFUUIDRef* uuid_ref_ptr)
 //--------------------------------------------------------------------------------
 //
 
-void usage(const char* progname)
-{
+void usage(const char* progname) {
     printf("\n");
     printf("Usage: %s <options> <path>\n", progname);
     printf("Options:\n");
@@ -499,8 +492,7 @@ void usage(const char* progname)
     exit(-1);
 }
 
-void parse_settings(int argc, const char* argv[], settings_t* settings)
-{
+void parse_settings(int argc, const char* argv[], settings_t* settings) {
     int i;
 
     memset(settings, 0, sizeof(settings_t));
@@ -536,8 +528,7 @@ void parse_settings(int argc, const char* argv[], settings_t* settings)
 //
 //
 
-CFMutableArrayRef create_cfarray_from_path(const char* path)
-{
+CFMutableArrayRef create_cfarray_from_path(const char* path) {
     CFMutableArrayRef cfArray;
 
     cfArray
@@ -584,8 +575,7 @@ int max_dir_items = 0;
 
 #define DIR_ITEM_INCR 128
 
-static int compare_dir_items(const void* _a, const void* _b)
-{
+static int compare_dir_items(const void* _a, const void* _b) {
     dir_item *a = (dir_item*)_a, *b = (dir_item*)_b;
 
     if (a->dirname == NULL) {
@@ -598,8 +588,7 @@ static int compare_dir_items(const void* _a, const void* _b)
     return strcmp(a->dirname, b->dirname);
 }
 
-static int add_dir_item(const char* name, off_t size, int depth)
-{
+static int add_dir_item(const char* name, off_t size, int depth) {
     if (num_dir_items + 1 >= max_dir_items) {
         dir_item* new;
 
@@ -619,8 +608,7 @@ static int add_dir_item(const char* name, off_t size, int depth)
     return 0;
 }
 
-void discard_all_dir_items(void)
-{
+void discard_all_dir_items(void) {
     int i;
 
     for (i = 0; i < num_dir_items; i++) {
@@ -635,8 +623,7 @@ void discard_all_dir_items(void)
     num_dir_items = 0;
 }
 
-int save_dir_items(const char* name)
-{
+int save_dir_items(const char* name) {
     int i;
     FILE* fp;
 
@@ -657,8 +644,7 @@ int save_dir_items(const char* name)
     return 0;
 }
 
-int load_dir_items(const char* name)
-{
+int load_dir_items(const char* name) {
     FILE* fp;
     char buff[MAXPATHLEN];
     int depth;
@@ -678,8 +664,7 @@ int load_dir_items(const char* name)
     return 0;
 }
 
-static int update_dir_item(const char* name, off_t size)
-{
+static int update_dir_item(const char* name, off_t size) {
     int i;
 
     for (i = 0; i < num_dir_items; i++) {
@@ -693,8 +678,7 @@ static int update_dir_item(const char* name, off_t size)
     return ENOENT;
 }
 
-static void cleanup_dir_items(void)
-{
+static void cleanup_dir_items(void) {
     int i;
 
     //
@@ -707,8 +691,7 @@ static void cleanup_dir_items(void)
     }
 }
 
-int remove_dir_and_children(const char* name)
-{
+int remove_dir_and_children(const char* name) {
     int i, start_depth;
 
     for (i = 0; i < num_dir_items; i++) {
@@ -739,8 +722,7 @@ int remove_dir_and_children(const char* name)
 
 // note: this returns zero if the directory exists
 //       otherwise it returns one (i.e. true).
-static int dir_does_not_exist(const char* name)
-{
+static int dir_does_not_exist(const char* name) {
     int i;
 
     for (i = 0; i < num_dir_items; i++) {
@@ -756,8 +738,7 @@ static int dir_does_not_exist(const char* name)
 
 // note: this returns zero if the directory did not
 //       exist in the list
-static int get_dir_depth(const char* name)
-{
+static int get_dir_depth(const char* name) {
     int i;
 
     for (i = 0; i < num_dir_items; i++) {
@@ -770,8 +751,7 @@ static int get_dir_depth(const char* name)
     return 0;
 }
 
-off_t get_total_size(void)
-{
+off_t get_total_size(void) {
     int i;
     off_t size = 0;
 
@@ -783,8 +763,7 @@ off_t get_total_size(void)
 }
 
 static off_t iterate_subdirs(
-    const char* dirname, int add, int recursive, int depth)
-{
+    const char* dirname, int add, int recursive, int depth) {
     char* fullpath;
     DIR* dir;
     struct dirent* dirent;
@@ -840,8 +819,7 @@ static off_t iterate_subdirs(
     return size;
 }
 
-int check_children_of_dir(const char* dirname)
-{
+int check_children_of_dir(const char* dirname) {
     int i, current_depth, start_idx, end_idx;
     struct stat st;
     off_t dir_size;
@@ -943,8 +921,7 @@ int check_children_of_dir(const char* dirname)
     return 0;
 }
 
-void scan_directory(const char* dirname, int add, int recursive, int depth)
-{
+void scan_directory(const char* dirname, int add, int recursive, int depth) {
     iterate_subdirs(dirname, add, recursive, depth);
 
     qsort(dir_items, num_dir_items, sizeof(dir_item), compare_dir_items);
@@ -967,23 +944,20 @@ CFFileDescriptorRef kq_cffd = NULL;
 CFRunLoopSourceRef kq_rl_src = NULL;
 int kq_fd = -1;
 
-static void sig_handler(int sig)
-{
+static void sig_handler(int sig) {
     // there's nothing to do in the signal handler...
     // the real work happens in kq_cffd_callback where
     // we can safely call CFRunLoopStop()
 }
 
 static void kq_cffd_callback(
-    CFFileDescriptorRef kq_cffd, CFOptionFlags callBackTypes, void* info)
-{
+    CFFileDescriptorRef kq_cffd, CFOptionFlags callBackTypes, void* info) {
     CFRunLoopRef loop = (CFRunLoopRef)info;
 
     CFRunLoopStop(loop);
 }
 
-int setup_run_loop_signal_handler(CFRunLoopRef loop)
-{
+int setup_run_loop_signal_handler(CFRunLoopRef loop) {
     CFFileDescriptorContext my_context;
     struct kevent kev[4];
 
@@ -1031,8 +1005,7 @@ int setup_run_loop_signal_handler(CFRunLoopRef loop)
     return 0;
 }
 
-void cleanup_run_loop_signal_handler(CFRunLoopRef loop)
-{
+void cleanup_run_loop_signal_handler(CFRunLoopRef loop) {
     CFRunLoopRemoveSource(loop, kq_rl_src, kCFRunLoopDefaultMode);
 
     CFFileDescriptorInvalidate(kq_cffd);

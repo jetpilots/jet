@@ -34,8 +34,7 @@ typedef enum TypeTypes {
 
 static bool TypeType_isnum(TypeTypes tyty) { return tyty >= TYInt8; }
 
-static const char* TypeType_name(TypeTypes tyty)
-{
+static const char* TypeType_name(TypeTypes tyty) {
     switch (tyty) {
     case TYUnresolved:
         return NULL;
@@ -85,8 +84,7 @@ static const char* TypeType_c_name[] = {
 };
 
 // these are DEFAULTS
-static const char* TypeType_format(TypeTypes tyty, bool quoted)
-{
+static const char* TypeType_format(TypeTypes tyty, bool quoted) {
     switch (tyty) {
     case TYUnresolved:
     case TYNoType:
@@ -128,8 +126,7 @@ static const char* TypeType_format(TypeTypes tyty, bool quoted)
 }
 
 // needed to compute stack usage
-static unsigned int TypeType_size(TypeTypes tyty)
-{
+static unsigned int TypeType_size(TypeTypes tyty) {
     switch (tyty) {
     case TYUnresolved:
     case TYNoType:
@@ -172,8 +169,7 @@ static unsigned int TypeType_size(TypeTypes tyty)
 // according to that why not set the right TypeTypes directly in analysis?
 // but this is needed as long as there is ANY type annotation somewhere.
 // (e.g. func args)
-static TypeTypes TypeType_byName(const char* spec)
-{
+static TypeTypes TypeType_byName(const char* spec) {
     if (not spec) return TYUnresolved;
     if (not strcasecmp(spec, "Number"))
         return TYReal64; // this is default, analysis might change it to
@@ -217,8 +213,7 @@ typedef enum CollectionTypes {
     CTYStackArray4096, // really? you need any larger?
 } CollectionTypes;
 
-static const char* CollectionType_nativeName(CollectionTypes coty)
-{
+static const char* CollectionType_nativeName(CollectionTypes coty) {
     switch (coty) {
     case CTYNone:
         return "";

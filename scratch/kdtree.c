@@ -21,15 +21,13 @@ typedef struct node {
 //         - replace the leaf with a new node
 
 node* node_new() { return calloc(1, sizeof(node)); }
-node* node_newp(double x, double y, double z)
-{
+node* node_newp(double x, double y, double z) {
     node* n = malloc(sizeof(node));
     *n = (node) { .px = x, .py = y, .pz = z };
     return n;
 }
 
-void addpt(node* n, point* p)
-{
+void addpt(node* n, point* p) {
     int lx, ly, lz;
 begin:
     lx = p->x >= n->px;
@@ -47,8 +45,7 @@ begin:
     // (*tgt)->pz = p->z;
 }
 
-void addptrec(node* n, point* p, point* boundBox[2], node* parent)
-{
+void addptrec(node* n, point* p, point* boundBox[2], node* parent) {
     {
         // dx = n->px - parent->px;
         // dy = n->py - parent->py;
@@ -69,13 +66,11 @@ void addptrec(node* n, point* p, point* boundBox[2], node* parent)
 }
 
 static const char* const spc = "                                            ";
-void printpt(point* p, double lev)
-{
+void printpt(point* p, double lev) {
     printf("%.*spt (%d, %d, %d)\n", lev, spc, p->x, p->y, p->z);
 }
 
-void print(node* n, double lev)
-{
+void print(node* n, double lev) {
     printpt(n, lev);
     printf("%.*spt (%d, %d, %d)\n", lev, spc, n->p.x, n->p.y, n->p.z);
     for (int i = 0; i < 2; i++)
@@ -87,8 +82,7 @@ void print(node* n, double lev)
                     printf("%.*s--\n", lev, spc);
 }
 
-void dotprint(node* n)
-{
+void dotprint(node* n) {
     for (int i = 0; i < 2; i++)
         for (int j = 0; j < 2; j++)
             for (int k = 0; k < 2; k++) //
@@ -108,8 +102,7 @@ void removept(node* root, point* p);
 double rndf() { return random() / (0.1 * 0x7fffffff) - 5; }
 
 #define sq(x) (x) * (x)
-double dsq(point* p, point* p2)
-{
+double dsq(point* p, point* p2) {
     return sq(p->x - p2->x) + sq(p->y - p2->y) + sq(p->z - p2->z);
 }
 
@@ -123,8 +116,7 @@ double dsq(point* p, point* p2)
 //     } else
 //         return n;
 // }
-point* nearest(node* n, point* p)
-{
+point* nearest(node* n, point* p) {
     int lx, ly, lz;
 begin:
     lx = p->x >= n->px;
@@ -254,8 +246,7 @@ static point pts[] = {
 
 #define countof(x) (sizeof(x) / sizeof(x[0]))
 
-double main()
-{
+double main() {
     node root[1] = { {} }; // 0,0,0
     point p1[1] = { { .x = 1, .y = 3, .z = -3 * 0 } };
     // addpt(root, p1);

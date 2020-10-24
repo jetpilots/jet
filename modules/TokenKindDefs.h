@@ -420,4 +420,3 @@ static const char* const tksrepr[] = {
     [tkColEq] = " := ",
     [tkQuestion] = "?",
 };
-

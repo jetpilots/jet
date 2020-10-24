@@ -41,8 +41,7 @@ typedef union {
 #define box_set_double(b, v) (b.dbl = v)
 #define box_get_double(b) (b.dbl)
 
-int main(void)
-{
+int main(void) {
     /* Basic sanity checks */
     assert(sizeof(double) == 8);
     assert(sizeof(void*) == 8);

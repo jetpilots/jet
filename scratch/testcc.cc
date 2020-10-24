@@ -12,13 +12,9 @@ struct ASTExpr {
     // ASTFunc& sr;
     // };
     ASTExpr(ASTVar& t)
-        : _t(t)
-    {
-    }
+        : _t(t) { }
     ASTExpr(ASTFunc& r)
-        : _t((ASTVar&)r)
-    {
-    }
+        : _t((ASTVar&)r) { }
     ASTVar& var() { return _t; }
     ASTFunc& func() { return (ASTFunc&)_t; }
 };
@@ -28,16 +24,14 @@ struct ASTExpr {
 // ops.push(token);
 // p = rpn.pop();
 
-ASTVar& fn()
-{
+ASTVar& fn() {
     ASTVar* v = 0;
     return (ASTVar&)v;
 }
 #include <iostream>
 #include <stdio.h>
 
-int main()
-{
+int main() {
     ASTVar t;
     ASTFunc r;
     ASTExpr m1(t);

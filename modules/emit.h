@@ -3,8 +3,7 @@
 #define genLineProfile 1
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTImport_emit(ASTImport* import, int level)
-{
+static void ASTImport_emit(ASTImport* import, int level) {
     str_tr_ip(import->importFile, '.', '_', 0);
     printf("\n#include \"%s.h\"\n", import->importFile);
     if (import->hasAlias)
@@ -14,15 +13,13 @@ static void ASTImport_emit(ASTImport* import, int level)
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTImport_undefc(ASTImport* import)
-{
+static void ASTImport_undefc(ASTImport* import) {
     if (import->hasAlias)
         printf("#undef %s\n", import->importFile + import->aliasOffset);
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTTypeSpec_emit(ASTTypeSpec* typeSpec, int level, bool isconst)
-{
+static void ASTTypeSpec_emit(ASTTypeSpec* typeSpec, int level, bool isconst) {
     if (isconst) printf("const ");
     // TODO: actually this depends on the collectionType. In general
     // Array is the default, but in other cases it may be SArray, Array64,
@@ -68,8 +65,7 @@ static void ASTTypeSpec_emit(ASTTypeSpec* typeSpec, int level, bool isconst)
 static void ASTExpr_emit(ASTExpr* self, int level);
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTVar_emit(ASTVar* var, int level, bool isconst)
-{
+static void ASTVar_emit(ASTVar* var, int level, bool isconst) {
     // for C the variables go at the top of the block, without init
     printf("%.*s", level, spaces);
     if (var->typeSpec) ASTTypeSpec_emit(var->typeSpec, level + STEP, isconst);
@@ -83,8 +79,7 @@ static void ASTVar_emit(ASTVar* var, int level, bool isconst)
 // containing statement, and in place of the original call you
 // should place a temporary holding the value that would have been
 // "returned".
-static bool mustPromote(const char* name)
-{
+static bool mustPromote(const char* name) {
     // TODO: at some point these should go into a dict or trie or MPH
     // whatever
     if (not strcmp(name, "Array_any_filter")) return true;
@@ -96,8 +91,7 @@ static bool mustPromote(const char* name)
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTExpr_unmarkVisited(ASTExpr* expr)
-{
+static void ASTExpr_unmarkVisited(ASTExpr* expr) {
     switch (expr->kind) {
     case tkIdentifierResolved:
     case tkVarAssign:
@@ -129,8 +123,7 @@ static void ASTExpr_unmarkVisited(ASTExpr* expr)
 // printf("m = %?\n", m);
 // checks will print the vars involved in the check expr, if the check
 // fails. This routine will be used there.
-static void ASTExpr_genPrintVars(ASTExpr* expr, int level)
-{
+static void ASTExpr_genPrintVars(ASTExpr* expr, int level) {
     assert(expr);
     // what about func args?
     switch (expr->kind) {
@@ -176,8 +169,7 @@ static void ASTExpr_genPrintVars(ASTExpr* expr, int level)
 
 ///////////////////////////////////////////////////////////////////////////
 // Promotion scan & promotion happens AFTER resolving functions!
-static ASTExpr* ASTExpr_findPromotionCandidate(ASTExpr* expr)
-{
+static ASTExpr* ASTExpr_findPromotionCandidate(ASTExpr* expr) {
     assert(expr);
     ASTExpr* ret;
 
@@ -229,16 +221,14 @@ static ASTExpr* ASTExpr_findPromotionCandidate(ASTExpr* expr)
     return NULL;
 }
 
-static char* newTmpVarName(int num, char c)
-{
+static char* newTmpVarName(int num, char c) {
     char buf[8];
     int l = snprintf(buf, 8, "_%c%d", c, num);
     return pstrndup(buf, l);
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static bool isCtrlExpr(ASTExpr* expr)
-{
+static bool isCtrlExpr(ASTExpr* expr) {
     return expr->kind == tkKeyword_if //
         or expr->kind == tkKeyword_for //
         or expr->kind == tkKeyword_while //
@@ -249,10 +239,8 @@ static bool isLiteralExpr(ASTExpr* expr) { return false; }
 static bool isComparatorExpr(ASTExpr* expr) { return false; }
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTScope_lowerElementalOps(ASTScope* scope)
-{
-    jet_foreach(ASTExpr*, stmt, scope->stmts)
-    {
+static void ASTScope_lowerElementalOps(ASTScope* scope) {
+    jet_foreach(ASTExpr*, stmt, scope->stmts) {
 
         if (isCtrlExpr(stmt) and stmt->body)
             ASTScope_lowerElementalOps(stmt->body);
@@ -317,13 +305,11 @@ static void ASTScope_lowerElementalOps(ASTScope* scope)
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTScope_promoteCandidates(ASTScope* scope)
-{
+static void ASTScope_promoteCandidates(ASTScope* scope) {
     int tmpCount = 0;
     ASTExpr* pc = NULL;
     List(ASTExpr)* prev = NULL;
-    jet_foreachn(ASTExpr*, stmt, stmts, scope->stmts)
-    {
+    jet_foreachn(ASTExpr*, stmt, stmts, scope->stmts) {
         // TODO:
         // if (not stmt->promote) {prev=stmts;continue;}
 
@@ -408,15 +394,12 @@ static void ASTScope_promoteCandidates(ASTScope* scope)
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTScope_emit(ASTScope* scope, int level)
-{
-    jet_foreach(ASTVar*, local, scope->locals) if (local->used)
-    {
+static void ASTScope_emit(ASTScope* scope, int level) {
+    jet_foreach(ASTVar*, local, scope->locals) if (local->used) {
         ASTVar_emit(local, level, false);
         puts(";");
     } // these will be declared at top and defined within the expr list
-    jet_foreach(ASTExpr*, stmt, scope->stmts)
-    {
+    jet_foreach(ASTExpr*, stmt, scope->stmts) {
         if (stmt->kind == tkLineComment) continue;
 
         if (genLineNumbers) printf("#line %d\n", stmt->line);
@@ -454,8 +437,7 @@ static void ASTScope_emit(ASTScope* scope, int level)
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTType_genJson(ASTType* type)
-{
+static void ASTType_genJson(ASTType* type) {
     printf("static void %s_json_(const %s self, int nspc) {\n", type->name,
         type->name);
 
@@ -465,8 +447,7 @@ static void ASTType_genJson(ASTType* type)
 
     // TODO: move this part into its own func so that subclasses can ask the
     // superclass to add in their fields inline
-    jet_foreachn(ASTVar*, var, vars, type->body->locals)
-    {
+    jet_foreachn(ASTVar*, var, vars, type->body->locals) {
         if (not var or not var->used) continue;
         printf("    printf(\"%%.*s\\\"%s\\\": \", nspc+4, _spaces_);\n",
             var->name);
@@ -535,8 +516,7 @@ static const char* functionExitStuff_UNESCAPED
 //   "    return DEFAULT_VALUE;";
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTFunc_printStackUsageDef(size_t stackUsage)
-{
+static void ASTFunc_printStackUsageDef(size_t stackUsage) {
     printf("#define MYSTACKUSAGE (%lu + 6*sizeof(void*) + "
            "IFDEBUGELSE(sizeof(char*),0))\n",
         stackUsage);
@@ -549,13 +529,11 @@ static void ASTFunc_printStackUsageDef(size_t stackUsage)
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTType_emit(ASTType* type, int level)
-{
+static void ASTType_emit(ASTType* type, int level) {
     if (not type->body or not type->analysed) return;
     const char* const name = type->name;
     printf("#define FIELDS_%s \\\n", name);
-    jet_foreach(ASTVar*, var, type->body->locals)
-    {
+    jet_foreach(ASTVar*, var, type->body->locals) {
         if (not var or not var->used) continue;
         ASTVar_emit(var, level + STEP, false);
         printf("; \\\n");
@@ -578,8 +556,7 @@ static void ASTType_emit(ASTType* type, int level)
     jet_foreach(ASTVar*, var, type->body->locals) if (var->used)
         printf("#define %s self->%s\n", var->name, var->name);
 
-    jet_foreach(ASTExpr*, stmt, type->body->stmts)
-    {
+    jet_foreach(ASTExpr*, stmt, type->body->stmts) {
         if (not stmt or stmt->kind != tkVarAssign or not stmt->var->init
             or not stmt->var->used)
             continue;
@@ -617,8 +594,7 @@ static void ASTType_emit(ASTType* type, int level)
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTType_genh(ASTType* type, int level)
-{
+static void ASTType_genh(ASTType* type, int level) {
     if (not type->body or not type->analysed) return;
     const char* const name = type->name;
     printf("typedef struct %s* %s;\nstruct %s;\n", name, name, name);
@@ -633,8 +609,7 @@ static void ASTType_genh(ASTType* type, int level)
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTFunc_emit(ASTFunc* func, int level)
-{
+static void ASTFunc_emit(ASTFunc* func, int level) {
     if (not func->body or not func->analysed) return; // declares, default ctors
 
     // actual stack usage is higher due to stack protection, frame bookkeeping
@@ -651,8 +626,7 @@ static void ASTFunc_emit(ASTFunc* func, int level)
         printf("void");
     }
     printf(" %s(", func->selector);
-    jet_foreachn(ASTVar*, arg, args, func->args)
-    {
+    jet_foreachn(ASTVar*, arg, args, func->args) {
         ASTVar_emit(arg, level, true);
         printf(args->next ? ", " : "");
     }
@@ -667,8 +641,7 @@ static void ASTFunc_emit(ASTFunc* func, int level)
     printf("    IFDEBUG(static const char* sig_ = \"");
     printf("%s%s(", func->isStmt ? "" : "function ", func->name);
 
-    jet_foreachn(ASTVar*, arg, args, func->args)
-    {
+    jet_foreachn(ASTVar*, arg, args, func->args) {
         ASTVar_lint(arg, level);
         printf(args->next ? ", " : "");
     }
@@ -689,8 +662,7 @@ static void ASTFunc_emit(ASTFunc* func, int level)
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTFunc_genh(ASTFunc* func, int level)
-{
+static void ASTFunc_genh(ASTFunc* func, int level) {
     if (not func->body or not func->analysed) return;
     if (not func->isExported) printf("static ");
     if (func->returnSpec) {
@@ -699,13 +671,11 @@ static void ASTFunc_genh(ASTFunc* func, int level)
         printf("void");
     }
     printf(" %s(", func->selector);
-    jet_foreachn(ASTVar*, arg, args, func->args)
-    {
+    jet_foreachn(ASTVar*, arg, args, func->args) {
         ASTVar_emit(arg, level, true);
         printf(args->next ? ", " : "");
     }
-    printf("\n#ifdef DEBUG\n    %c const char* callsite_ "
-           "\n#endif\n",
+    printf("\n#ifdef DEBUG\n    %c const char* callsite_\n#endif\n",
         ((func->args and func->args->item) ? ',' : ' '));
     puts(");\n");
 }
@@ -724,8 +694,7 @@ static void ASTTest_emit(ASTTest* test) // TODO: should tests not return BOOL?
 /// its corresponding `ASTVariable`). This function does all of the heavy
 /// lifting to decide what the subscript actually does, based on the kind of the
 /// subscript expression, number of dimensions and the context.
-static void ASTExpr_emit_tkSubscriptResolved(ASTExpr* expr, int level)
-{
+static void ASTExpr_emit_tkSubscriptResolved(ASTExpr* expr, int level) {
     char* name = expr->var->name;
     ASTExpr* index = expr->left;
     assert(index);
@@ -817,8 +786,7 @@ static void ASTExpr_emit_tkSubscriptResolved(ASTExpr* expr, int level)
 /// that has `_new` appended to the type name. This function passes a
 /// constructed string as the extra argument `callsite_` that is used to
 /// generate accurate backtraces.
-static void ASTExpr_emit_tkFunctionCallResolved(ASTExpr* expr, int level)
-{
+static void ASTExpr_emit_tkFunctionCallResolved(ASTExpr* expr, int level) {
     char* tmp = expr->func->selector;
 
     ASTExpr* arg1 = expr->left;
@@ -844,16 +812,16 @@ static void ASTExpr_emit_tkFunctionCallResolved(ASTExpr* expr, int level)
     printf(")");
 }
 
-char* jet_strchrnul(char* str, char ch)
-{
+char* jet_strchrnul(char* str, char ch) {
     while (*str && *str != ch) str++;
     return str;
 }
 
 // This is really taking up a whole pass. It should be moved to the analysis
 // phase! ASTExpr should hold some extra data for string interpolation.
-static void ASTExpr_prepareInterp(ASTExpr* expr, ASTScope* scope)
-{ // TODO: you should have a flag that tells you whether there is any string
+static void ASTExpr_prepareInterp(
+    ASTExpr* expr, ASTScope* scope) { // TODO: you should have a flag that tells
+                                      // you whether there is any string
     // interpolation at all, and if yes what the expected size might be, and if
     // it can be put on the stack
 
@@ -942,8 +910,7 @@ static void ASTExpr_prepareInterp(ASTExpr* expr, ASTScope* scope)
     //         ""`;
 }
 
-static void ASTExpr_emit_tkString(ASTExpr* expr, int level)
-{
+static void ASTExpr_emit_tkString(ASTExpr* expr, int level) {
 
     printf("%s\"", expr->string);
 }
@@ -951,8 +918,7 @@ static void ASTExpr_emit_tkString(ASTExpr* expr, int level)
 //_____________________________________________________________________________
 /// Emits the equivalent C code for a (literal) numeric expression. Complex
 /// numbers follow C99 literal syntax, e.g. 1i generates `_Complex_I * 1`.
-static void ASTExpr_emit_tkNumber(ASTExpr* expr, int level)
-{
+static void ASTExpr_emit_tkNumber(ASTExpr* expr, int level) {
     size_t ls = strlen(expr->string);
     if (expr->string[ls - 1] == 'i') {
         printf("_Complex_I*");
@@ -961,8 +927,7 @@ static void ASTExpr_emit_tkNumber(ASTExpr* expr, int level)
     printf("%s", expr->string);
 }
 
-static void ASTExpr_emit_tkCheck(ASTExpr* expr, int level)
-{
+static void ASTExpr_emit_tkCheck(ASTExpr* expr, int level) {
     // TODO: need llhs and lrhs in case all 3 in 3way are exprs
     // e.g. check a+b < c+d < e+f
     ASTExpr* checkExpr = expr->right; // now use checkExpr below
@@ -1049,8 +1014,7 @@ static void ASTExpr_emit_tkCheck(ASTExpr* expr, int level)
 ///////////////////////////////////////////////////////////////////////////
 /// This should be a standard dispatcher that does nothing except the actual
 /// dispatching (via a function pointer table, not a switch).
-static void ASTExpr_emit(ASTExpr* expr, int level)
-{
+static void ASTExpr_emit(ASTExpr* expr, int level) {
     // generally an expr is not split over several lines (but maybe in
     // rare cases). so level is not passed on to recursive calls.
 
@@ -1434,16 +1398,14 @@ static void ASTExpr_emit(ASTExpr* expr, int level)
 void ASTType_genTypeInfoDecls(ASTType* type);
 void ASTType_genTypeInfoDefs(ASTType* type);
 void ASTType_genNameAccessors(ASTType* type);
-static void ASTModule_emit(ASTModule* module, int level)
-{
+static void ASTModule_emit(ASTModule* module, int level) {
     // puts("");
     jet_foreach(ASTImport*, import, module->imports)
         ASTImport_emit(import, level);
 
     puts("");
 
-    jet_foreach(ASTType*, type, module->types)
-    {
+    jet_foreach(ASTType*, type, module->types) {
         if (type->body) {
             ASTType_genh(type, level);
             ASTType_genTypeInfoDecls(type);
@@ -1451,8 +1413,7 @@ static void ASTModule_emit(ASTModule* module, int level)
     }
     jet_foreach(ASTFunc*, func, module->funcs) ASTFunc_genh(func, level);
 
-    jet_foreach(ASTType*, type, module->types)
-    {
+    jet_foreach(ASTType*, type, module->types) {
         if (type->body) {
             jet_foreach(ASTExpr*, expr, type->body->stmts)
                 ASTExpr_prepareInterp(expr, type->body);
@@ -1462,8 +1423,7 @@ static void ASTModule_emit(ASTModule* module, int level)
             ASTType_genNameAccessors(type);
         }
     }
-    jet_foreach(ASTFunc*, func, module->funcs)
-    {
+    jet_foreach(ASTFunc*, func, module->funcs) {
         if (func->body)
             jet_foreach(ASTExpr*, expr, func->body->stmts)
                 ASTExpr_prepareInterp(expr, func->body);
@@ -1476,8 +1436,7 @@ static void ASTModule_emit(ASTModule* module, int level)
     // puts(lineProfileFunc[genLineProfile]);
 }
 
-static void ASTModule_genTests(ASTModule* module, int level)
-{
+static void ASTModule_genTests(ASTModule* module, int level) {
     ASTModule_emit(module, level);
     jet_foreach(ASTTest*, test, module->tests) ASTTest_emit(test);
     // generate a func that main will call
@@ -1489,8 +1448,7 @@ static void ASTModule_genTests(ASTModule* module, int level)
 
 // Generates a couple of functions that allow setting an integral member of a
 // type at runtime by name, or getting a pointer to a member by name.
-void ASTType_genNameAccessors(ASTType* type)
-{
+void ASTType_genNameAccessors(ASTType* type) {
     // TODO: instead of a linear search over all members this should generate
     // a switch for checking using a prefix tree -> see genrec.c
 
@@ -1519,12 +1477,10 @@ void ASTType_genNameAccessors(ASTType* type)
 
 // Generates some per-type functions that write out meta info of the type to be
 // used for reflection, serialization, etc.
-void ASTType_genTypeInfoDecls(ASTType* type)
-{
+void ASTType_genTypeInfoDecls(ASTType* type) {
     printf("static const char* const %s__memberNames[] = {\n    ", type->name);
     if (type->body) //
-        jet_foreachn(ASTVar*, var, varn, type->body->locals)
-        {
+        jet_foreachn(ASTVar*, var, varn, type->body->locals) {
             if (not var or not var->used) continue;
             printf("\"%s\", ", var->name);
             // ASTVar_emit(var, level + STEP, false);
@@ -1532,8 +1488,7 @@ void ASTType_genTypeInfoDecls(ASTType* type)
     printf("};\n");
 }
 
-void ASTType_genTypeInfoDefs(ASTType* type)
-{
+void ASTType_genTypeInfoDefs(ASTType* type) {
     // printf("static const char* const %s__memberNames[] = {\n", type->name);
     // jet_foreachn(ASTVar*, var, varn, type->body->locals)
     // {

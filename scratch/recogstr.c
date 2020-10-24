@@ -13,29 +13,25 @@ static const char* const spaces64 = //
 static const int indentStep = 4;
 char accum[64] = {};
 
-bool hasPrefix(char* word, int len)
-{
+bool hasPrefix(char* word, int len) {
     for (int iw = 0; iw < nWords; iw++)
         if (!strncmp(words[iw], word, len)) return 1;
     return 0;
 }
 
-bool hasWord(char* word)
-{
+bool hasWord(char* word) {
     for (int iw = 0; iw < nWords; iw++)
         if (!strcmp(words[iw], word)) return 1;
     return 0;
 }
 
-const char* firstMatchingWordWithPrefix(char* word, int len)
-{
+const char* firstMatchingWordWithPrefix(char* word, int len) {
     for (int iw = 0; iw < nWords; iw++)
         if (!strncmp(words[iw], word, len)) return words[iw];
     return "--";
 }
 
-void recur__old(int indent)
-{
+void recur__old(int indent) {
     bool charUsed[256] = {};
     printf("%.*sswitch(*++yycursor) {\n", indent, spaces64);
     for (int iw = 0; iw < nWords; iw++) {
@@ -50,8 +46,7 @@ static const char charSet[] = "abcdefghijklmnopqrstuvwxyz1234567890";
 static const int nCharSet
     = sizeof(charSet) - 1; // need the \0 as part of the charset
 
-void recur(int level)
-{
+void recur(int level) {
     // if (level > 10) return;
     if (level && !accum[level - 1]) return;
     const int indent = (level + 1) * indentStep;
@@ -78,8 +73,7 @@ void recur(int level)
     printf("%.*s}\n", indent, spaces64);
 }
 
-int main()
-{
+int main() {
     // char* pos[nWords];
     // memcpy(pos, words, nWords * sizeof(char*));
     // printf("%s\n", firstMatchingWordWithPrefix("function", 8));

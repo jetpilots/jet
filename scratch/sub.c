@@ -1,8 +1,7 @@
 #include <stdio.h>
 #define jet_countof(x) (sizeof(x) / sizeof(x[0]))
 
-int sub2ind(int sub[], int sz[], int n)
-{
+int sub2ind(int sub[], int sz[], int n) {
     int acc = 1, ind = 0;
     for (int i = n - 1; i > 0; i--) {
         ind += (sub[i] - 1) * acc;
@@ -12,8 +11,7 @@ int sub2ind(int sub[], int sz[], int n)
     return ind;
 }
 
-void ind2sub(int ind, int sz[], int* sub, int n)
-{
+void ind2sub(int ind, int sz[], int* sub, int n) {
     // b is the index on the monodimensional array
     // i,j,k,m are the four resulting indices on the multidimensional array
     // si,sj,sk,sm are the size of any dimension
@@ -31,8 +29,7 @@ void ind2sub(int ind, int sz[], int* sub, int n)
     sub[0] = (ind / acc) + 1;
 }
 
-int sub2indc(int sub[], int sz[], int n)
-{
+int sub2indc(int sub[], int sz[], int n) {
 #define GETIND(i) ind += (sub[i] - 1) * acc, acc *= sz[i];
 
     int acc = 1, ind = 0;
@@ -60,8 +57,7 @@ int sub2indc(int sub[], int sz[], int n)
     }
 }
 
-void ind2subc(int ind, int sz[], int* sub, int n)
-{
+void ind2subc(int ind, int sz[], int* sub, int n) {
     // --ind;
 #define GETSUB(i) sub[i] = ((ind / acc) % sz[i]) + 1, acc *= sz[i];
 
@@ -89,8 +85,7 @@ void ind2subc(int ind, int sz[], int* sub, int n)
 #undef GETSUB
 }
 
-int main()
-{
+int main() {
     int sz[] = { 6, 2, 4, 8 };
     int sub[] = { 2, 3, 6, 1 };
 

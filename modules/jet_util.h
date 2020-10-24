@@ -148,8 +148,7 @@ typedef struct stat stat_t;
  *  Functions
  ***************************************/
 
-int jet_util_stat(const char* filename, stat_t* statbuf)
-{
+int jet_util_stat(const char* filename, stat_t* statbuf) {
 #if defined(_MSC_VER)
     return !_stat64(filename, statbuf);
 #elif defined(__MINGW32__) && defined(__MSVCRT__)
@@ -159,15 +158,13 @@ int jet_util_stat(const char* filename, stat_t* statbuf)
 #endif
 }
 
-int jet_util_isRegularFile(const char* infilename)
-{
+int jet_util_isRegularFile(const char* infilename) {
     stat_t statbuf;
     return jet_util_stat(infilename, &statbuf)
         && jet_util_isRegularFileStat(&statbuf);
 }
 
-int jet_util_isRegularFileStat(const stat_t* statbuf)
-{
+int jet_util_isRegularFileStat(const stat_t* statbuf) {
 #if defined(_MSC_VER)
     return (statbuf->st_mode & S_IFREG) != 0;
 #else
@@ -177,8 +174,7 @@ int jet_util_isRegularFileStat(const stat_t* statbuf)
 
 /* like chmod, but avoid changing permission of /dev/null */
 int jet_util_chmod(
-    char const* filename, const stat_t* statbuf, mode_t permissions)
-{
+    char const* filename, const stat_t* statbuf, mode_t permissions) {
     stat_t localStatBuf;
     if (statbuf == NULL) {
         if (!jet_util_stat(filename, &localStatBuf)) return 0;
@@ -189,8 +185,7 @@ int jet_util_chmod(
     return chmod(filename, permissions);
 }
 
-int jet_util_setFileStat(const char* filename, const stat_t* statbuf)
-{
+int jet_util_setFileStat(const char* filename, const stat_t* statbuf) {
     int res = 0;
 
     stat_t curStatBuf;
@@ -231,15 +226,13 @@ int jet_util_setFileStat(const char* filename, const stat_t* statbuf)
     return -res; /* number of errors is returned */
 }
 
-int jet_util_isDirectory(const char* infilename)
-{
+int jet_util_isDirectory(const char* infilename) {
     stat_t statbuf;
     return jet_util_stat(infilename, &statbuf)
         && jet_util_isDirectoryStat(&statbuf);
 }
 
-int jet_util_isDirectoryStat(const stat_t* statbuf)
-{
+int jet_util_isDirectoryStat(const stat_t* statbuf) {
 #if defined(_MSC_VER)
     return (statbuf->st_mode & _S_IFDIR) != 0;
 #else
@@ -247,8 +240,7 @@ int jet_util_isDirectoryStat(const stat_t* statbuf)
 #endif
 }
 
-int jet_util_isSameFile(const char* fName1, const char* fName2)
-{
+int jet_util_isSameFile(const char* fName1, const char* fName2) {
     assert(fName1 != NULL);
     assert(fName2 != NULL);
 #if defined(_MSC_VER) || defined(_WIN32)
@@ -271,8 +263,7 @@ int jet_util_isSameFile(const char* fName1, const char* fName2)
 }
 
 /* jet_util_isFIFO : distinguish named pipes */
-int jet_util_isFIFO(const char* infilename)
-{
+int jet_util_isFIFO(const char* infilename) {
 /* macro guards, as defined in : https://linux.die.net/man/2/lstat */
 #if PLATFORM_POSIX_VERSION >= 200112L
     stat_t statbuf;
@@ -284,8 +275,7 @@ int jet_util_isFIFO(const char* infilename)
 }
 
 /* jet_util_isFIFO : distinguish named pipes */
-int jet_util_isFIFOStat(const stat_t* statbuf)
-{
+int jet_util_isFIFOStat(const stat_t* statbuf) {
 /* macro guards, as defined in : https://linux.die.net/man/2/lstat */
 #if PLATFORM_POSIX_VERSION >= 200112L
     if (S_ISFIFO(statbuf->st_mode)) return 1;
@@ -294,8 +284,7 @@ int jet_util_isFIFOStat(const stat_t* statbuf)
     return 0;
 }
 
-int jet_util_isLink(const char* infilename)
-{
+int jet_util_isLink(const char* infilename) {
 /* macro guards, as defined in : https://linux.die.net/man/2/lstat */
 #if PLATFORM_POSIX_VERSION >= 200112L
     stat_t statbuf;
@@ -306,15 +295,13 @@ int jet_util_isLink(const char* infilename)
     return 0;
 }
 
-U64 jet_util_getFileSize(const char* infilename)
-{
+U64 jet_util_getFileSize(const char* infilename) {
     stat_t statbuf;
     if (!jet_util_stat(infilename, &statbuf)) return jet_util_FILESIZE_UNKNOWN;
     return jet_util_getFileSizeStat(&statbuf);
 }
 
-U64 jet_util_getFileSizeStat(const stat_t* statbuf)
-{
+U64 jet_util_getFileSizeStat(const stat_t* statbuf) {
     if (!jet_util_isRegularFileStat(statbuf)) return jet_util_FILESIZE_UNKNOWN;
 #if defined(_MSC_VER)
     if (!(statbuf->st_mode & S_IFREG)) return jet_util_FILESIZE_UNKNOWN;
@@ -329,8 +316,7 @@ U64 jet_util_getFileSizeStat(const stat_t* statbuf)
 /* condition : @file must be valid, and not have reached its end.
  * @return : length of line written into @buf, ended with `\0` instead of '\n',
  *           or 0, if there is no new line */
-static size_t readLineFromFile(char* buf, size_t len, FILE* file)
-{
+static size_t readLineFromFile(char* buf, size_t len, FILE* file) {
     assert(!feof(file));
     /* Work around Cygwin problem when len == 1 it returns NULL. */
     if (len <= 1) return 0;
@@ -351,8 +337,7 @@ static size_t readLineFromFile(char* buf, size_t len, FILE* file)
  *       or -1 if there's an error
  */
 static int readLinesFromFile(
-    void* dst, size_t dstCapacity, const char* inputFileName)
-{
+    void* dst, size_t dstCapacity, const char* inputFileName) {
     int nbFiles = 0;
     size_t pos = 0;
     char* const buf = (char*)dst;
@@ -380,16 +365,14 @@ static int readLinesFromFile(
 }
 
 /*Utility function to get file extension from file */
-const char* jet_util_getFileExtension(const char* infilename)
-{
+const char* jet_util_getFileExtension(const char* infilename) {
     const char* extension = strrchr(infilename, '.');
     if (!extension || extension == infilename) return "";
     return extension;
 }
 
 #define DIR_DEFAULT_MODE 0755
-static mode_t getDirMode(const char* dirName)
-{
+static mode_t getDirMode(const char* dirName) {
     stat_t st;
     if (!jet_util_stat(dirName, &st)) {
         jet_util_DISPLAY(
@@ -403,8 +386,7 @@ static mode_t getDirMode(const char* dirName)
     return st.st_mode;
 }
 
-static int makeDir(const char* dir, mode_t mode)
-{
+static int makeDir(const char* dir, mode_t mode) {
 #if defined(_MSC_VER) || defined(__MINGW32__) || defined(__MSVCRT__)
     int ret = _mkdir(dir);
     (void)mode;
@@ -429,8 +411,7 @@ static int makeDir(const char* dir, mode_t mode)
 
 typedef BOOL(WINAPI* LPFN_GLPI)(PSYSTEM_LOGICAL_PROCESSOR_INFORMATION, PDWORD);
 
-int jet_util_countPhysicalCores(void)
-{
+int jet_util_countPhysicalCores(void) {
     static int numPhysicalCores = 0;
     if (numPhysicalCores != 0) return numPhysicalCores;
 
@@ -509,8 +490,7 @@ failed:
 
 /* Use apple-provided syscall
  * see: man 3 sysctl */
-int jet_util_countPhysicalCores(void)
-{
+int jet_util_countPhysicalCores(void) {
     static int32_t numPhysicalCores = 0; /* apple specifies int32_t */
     if (numPhysicalCores != 0) return numPhysicalCores;
 
@@ -537,8 +517,7 @@ int jet_util_countPhysicalCores(void)
 /* parse /proc/cpuinfo
  * siblings / cpu cores should give hyperthreading ratio
  * otherwise fall back on sysconf */
-int jet_util_countPhysicalCores(void)
-{
+int jet_util_countPhysicalCores(void) {
     static int numPhysicalCores = 0;
 
     if (numPhysicalCores != 0) return numPhysicalCores;
@@ -605,8 +584,7 @@ int jet_util_countPhysicalCores(void)
 
 /* Use physical core sysctl when available
  * see: man 4 smp, man 3 sysctl */
-int jet_util_countPhysicalCores(void)
-{
+int jet_util_countPhysicalCores(void) {
     static int numPhysicalCores = 0; /* freebsd sysctl is native int sized */
     if (numPhysicalCores != 0) return numPhysicalCores;
 
@@ -637,8 +615,7 @@ int jet_util_countPhysicalCores(void)
 
 /* Use POSIX sysconf
  * see: man 3 sysconf */
-int jet_util_countPhysicalCores(void)
-{
+int jet_util_countPhysicalCores(void) {
     static int numPhysicalCores = 0;
 
     if (numPhysicalCores != 0) return numPhysicalCores;
@@ -653,8 +630,7 @@ int jet_util_countPhysicalCores(void)
 
 #else
 
-int jet_util_countPhysicalCores(void)
-{
+int jet_util_countPhysicalCores(void) {
     /* assume 1 */
     return 1;
 }

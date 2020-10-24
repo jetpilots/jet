@@ -6,8 +6,7 @@
 #include "jet_base.h"
 #include "hash.h"
 
-int main()
-{
+int main() {
     // TODO: remove the puterr from Dict_put. What is the point of knowing
     // the status as it was before the PUT call?
     int puterr;
