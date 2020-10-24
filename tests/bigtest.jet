@@ -33,8 +33,10 @@ end type
 declare type Byte
 declare function unhex(s as String) as Byte[:,:]
 
+sets(g as Number) := g  #
+
 function start()
-    var arg1=5
+    var arg1=sets(5)
     maisn("k",b="jk")
     print(arg1)
     return

@@ -183,6 +183,7 @@
 		85CB107B25196A3300592C13 /* finterval.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = finterval.c; sourceTree = "<group>"; };
 		85CB107C25196A3300592C13 /* datetime.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = datetime.c; sourceTree = "<group>"; };
 		85E5B8562519619600E2C253 /* jet */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = jet; sourceTree = BUILT_PRODUCTS_DIR; };
+		85EBE74D25437F9F00A394B0 /* TestPlan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TestPlan.xctestplan; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -461,6 +462,7 @@
 		85E5B84D2519619500E2C253 = {
 			isa = PBXGroup;
 			children = (
+				85EBE74D25437F9F00A394B0 /* TestPlan.xctestplan */,
 				85CB0FED25196A3100592C13 /* scratch */,
 				85CB0F0C251967D500592C13 /* modules */,
 				85CB0F0A251962F200592C13 /* main.c */,

@@ -247,20 +247,23 @@ static void analyseExpr(
         break;
 
     case tkArrayOpen:
-            if (expr->right) {analyseExpr(parser, expr->right, mod, inFuncArgs);
-        expr->typeType = expr->right->typeType;
-        expr->collectionType
-            = expr->right->kind == tkOpSemiColon ? CTYTensor : CTYArray;
-            }        break;
+        if (expr->right) {
+            analyseExpr(parser, expr->right, mod, inFuncArgs);
+            expr->typeType = expr->right->typeType;
+            expr->collectionType
+                = expr->right->kind == tkOpSemiColon ? CTYTensor : CTYArray;
+        }
+        break;
 
     case tkBraceOpen:
-        if (expr->right)
-            {analyseExpr(parser, expr->right, mod, true);
-        // TODO: you told analyseExpr to not care about what's on the LHS of
-        // tkOpAssign exprs. Now you handle it yourself. Ensure that they're
-        // all of the same type and set that type to the expr somehow.
-        analyseDictLiteral(parser, expr->right, mod);
-        expr->typeType = expr->right->typeType;}
+        if (expr->right) {
+            analyseExpr(parser, expr->right, mod, true);
+            // TODO: you told analyseExpr to not care about what's on the LHS of
+            // tkOpAssign exprs. Now you handle it yourself. Ensure that they're
+            // all of the same type and set that type to the expr somehow.
+            analyseDictLiteral(parser, expr->right, mod);
+            expr->typeType = expr->right->typeType;
+        }
         expr->collectionType = CTYDictS;
         // these are only Dicts! Sets are normal [] when you detect they are
         // only used for querying membership.
@@ -316,6 +319,9 @@ static void analyseExpr(
     case tkLineComment:
         break;
 
+    case tkArgumentLabel:
+        break;
+
         //    case tkRawString:
         // TODO: analyse regex, compile it already, whatever
         //        break;
@@ -343,11 +349,14 @@ static void analyseExpr(
             } else {
                 // Set the type from the ->right expr for now. if an error type
                 // is on the right, this is accounted for.
-                if (expr->right)
-{                expr->typeType = expr->right->typeType;
-                expr->collectionType = expr->right->collectionType;}
+                if (expr->right) {
+                    expr->typeType = expr->right->typeType;
+                    expr->collectionType = expr->right->collectionType;
+                }
             }
-            if (expr->right)           expr->elemental = expr->right->elemental or expr->kind == tkOpColon;
+            if (expr->right)
+                expr->elemental
+                    = expr->right->elemental or expr->kind == tkOpColon;
             // TODO: actually, indexing by an array of integers is also an
             // indication of an elemental op
 

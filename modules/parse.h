@@ -122,19 +122,19 @@ static ASTExpr* parseExpr(Parser* self)
             // literal or comprehension
             // tkArrayOpen is a unary op.
             if ((p and p->kind == tkArrayOpen))
-                if ( (jet_PtrArray_empty(&ops)
-                    or (jet_PtrArray_top(&rpn)
-                        and jet_PtrArray_topAs(ASTExpr*, &ops)->kind
-                            != tkSubscript))
-                // don't do this if its part of a subscript
-                or (jet_PtrArray_empty(&rpn)
-                    or (jet_PtrArray_top(&rpn)
-                        and jet_PtrArray_topAs(ASTExpr*, &rpn)->kind
-                            != tkOpColon)))
-                // or aa range. range exprs are handled separately. by
-                // themselves they don't need a surrounding [], but for
-                // grouping like 2+[8:66] they do.
-                jet_PtrArray_push(&rpn, p);
+                if ((jet_PtrArray_empty(&ops)
+                        or (jet_PtrArray_top(&rpn)
+                            and jet_PtrArray_topAs(ASTExpr*, &ops)->kind
+                                != tkSubscript))
+                    // don't do this if its part of a subscript
+                    or (jet_PtrArray_empty(&rpn)
+                        or (jet_PtrArray_top(&rpn)
+                            and jet_PtrArray_topAs(ASTExpr*, &rpn)->kind
+                                != tkOpColon)))
+                    // or aa range. range exprs are handled separately. by
+                    // themselves they don't need a surrounding [], but for
+                    // grouping like 2+[8:66] they do.
+                    jet_PtrArray_push(&rpn, p);
 
             // push tkBraceOpen to indicate a dict literal (another unary op).
             if ((p and p->kind == tkBraceOpen)
@@ -275,6 +275,7 @@ exitloop:
         case tkMultiDotNumber:
         case tkIdentifier:
         case tkParenOpen:
+        case tkLineComment:
             break;
 
         default:
@@ -306,8 +307,10 @@ exitloop:
         Parser_errorUnexpectedToken(self); //    (self, p);
         goto error;
     } else if (result.used != 1) {
-        Parser_errorParsingExpr(self, p);
-        goto error;
+        if (jet_PtrArray_topAs(ASTExpr*, &result)->kind != tkLineComment) {
+            Parser_errorParsingExpr(self, p);
+            goto error;
+        }
     }
 
     ops.used = 0;
@@ -440,7 +443,7 @@ static ASTVar* parseVar(Parser* self)
     var->typeSpec->dims = dims;
 
     Parser_ignore(self, tkOneSpace);
-    if (Parser_ignore(self, tkOpAssign))//
+    if (Parser_ignore(self, tkOpAssign)) //
         var->init = parseExpr(self);
 
     return var;
@@ -1204,7 +1207,7 @@ static int ASTExpr_markTypesVisited(Parser* self, ASTExpr* expr)
             and expr->func->returnsNewObjectAlways)
             type = expr->func->returnSpec->type;
         break;
-        case tkSubscript:
+    case tkSubscript:
     case tkSubscriptResolved:
         return ASTExpr_markTypesVisited(self, expr->left);
     case tkIdentifierResolved:
