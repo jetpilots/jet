@@ -131,17 +131,12 @@ Real64 SpVector_distsqr(SpVector* svec1, SpVector* svec2) {
     UInt32 pos1 = 0, end1 = svec1->countnz;
     UInt32 pos2 = 0, end2 = svec2->countnz;
     while (pos1 < end1 && pos2 < end2) {
-        while (pos1 < end1 && svec1->idxs[pos1] < svec2->idxs[pos2]) //{
+        while (pos1 < end1 && svec1->idxs[pos1] < svec2->idxs[pos2])
             sum += sq(svec1->vals[pos1++]);
-        // pos1++;
-        // }
-        while (pos2 < end2 && svec2->idxs[pos2] < svec1->idxs[pos1]) //{
+        while (pos2 < end2 && svec2->idxs[pos2] < svec1->idxs[pos1])
             sum += sq(svec2->vals[pos2++]);
-        // pos2++;
-        // }
-        if (svec1->idxs[pos1] == svec2->idxs[pos2]) //{
+        if (svec1->idxs[pos1] == svec2->idxs[pos2])
             sum += sq(svec1->vals[pos1++] - svec2->vals[pos2]);
-        // }
     }
     return sum;
 }

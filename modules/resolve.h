@@ -214,7 +214,11 @@ static void resolveVars(Parser* parser, ASTExpr* expr, ASTScope* scope,
         if (expr->prec) {
             if (not expr->unary) {
                 if (inFuncCall and expr->kind == tkOpAssign) {
-                    expr->left->kind = tkArgumentLabel;
+                    // expr->left->kind = tkArgumentLabel;
+                    // Here you only set the type of the expr to
+                    // tkArgumentLabel. It will be resolved later in analyse(),
+                    // when the functions have been resolved. Maybe this should
+                    // also be moved there then.
                 } else {
                     resolveVars(parser, expr->left, scope, inFuncCall);
                 }

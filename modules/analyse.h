@@ -75,6 +75,34 @@ static void analyseExpr(
             // TODO: check units mismatch
             if (not(currArg = currArg->right)) break;
         }
+
+        currArg = expr->left;
+        while (currArg) {
+            ASTExpr* cArg
+                = (currArg->kind == tkOpComma) ? currArg->left : currArg;
+            if (cArg->kind == tkOpAssign) {
+                // LHS will be a tkIdentifier. You should resolve it to one
+                // of the function's arguments and set it to tkArgumentLabel.
+                assert(cArg->left->kind == tkIdentifier);
+                ASTVar* theArg = NULL;
+                jet_foreach(ASTVar*, arg, expr->func->args) {
+                    if (!strcasecmp(cArg->left->string, arg->name))
+                        theArg = arg;
+                }
+                if (!theArg) {
+                    unreachable("unresolved argument %s!", cArg->left->string);
+                    // cArg->left->kind = tkIdentifier;
+                    // change it back to identifier
+                } // TODO: change this to parser error
+                else {
+                    cArg->left->var = theArg;
+                    cArg->left->kind = tkIdentifierResolved;
+                }
+            }
+
+            currArg = currArg->kind == tkOpComma ? currArg->right : NULL;
+        }
+
     } break;
 
         // -------------------------------------------------- //
