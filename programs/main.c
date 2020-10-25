@@ -939,11 +939,13 @@ int main(int argc, char* argv[]) {
 
     modules = parseModule(parser);
 
-    if (not(parser->issues.errCount)) {
+    if (parser->mode == PMLint) {
+        jet_foreach(ASTModule*, mod, modules) ASTModule_lint(mod, 0);
+    } else if (not(parser->issues.errCount)) {
         switch (parser->mode) {
-        case PMLint: {
-            jet_foreach(ASTModule*, mod, modules) ASTModule_lint(mod, 0);
-        } break;
+            // case PMLint: {
+            //     jet_foreach(ASTModule*, mod, modules) ASTModule_lint(mod, 0);
+            // } break;
 
         case PMEmitC: {
             // TODO: if (monolithic) printf("#define STATIC static\n");
@@ -957,9 +959,10 @@ int main(int argc, char* argv[]) {
 
         case PMGenTests: {
             printf("#include \"jet_tester.h\"\n");
-            // TODO : THISFILE must be defined since function callsites need it,
-            // but the other stuff in Parser_emit_open isn't required. Besides,
-            // THISFILE should be the actual module's file not the test file
+            // TODO : THISFILE must be defined since function callsites need
+            // it, but the other stuff in Parser_emit_open isn't required.
+            // Besides, THISFILE should be the actual module's file not the
+            // test file
 
             jet_foreach(ASTModule*, mod, modules) ASTModule_genTests(mod, 0);
         } break;
@@ -969,21 +972,25 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // if (printDiagnostics) printstats(parser, elapsed(getticks(), t0) / 1e6);
+    // if (printDiagnostics) printstats(parser, elapsed(getticks(), t0) /
+    // 1e6);
     if (printDiagnostics)
         printstats(parser, jet_clock_clockSpanMicro(t0) / 1.0e3);
 
-    if (parser->issues.errCount)
-        eprintf(
-            "\n\e[31;1;4m THERE ARE %2d ERRORS.                              "
-            "                         \e[0m\n How about fixing them? Reading "
-            "the code would be a good start.\n",
+    if (parser->issues.errCount) {
+        eprintf("\n\e[31;1;4m THERE ARE %2d ERRORS.                        "
+                "      "
+                "                         \e[0m\n How about fixing them? "
+                "Reading "
+                "the code would be a good start.\n",
             parser->issues.errCount);
+    }
+
     if (parser->issues.warnCount)
         eprintf("\n\e[33m*** %d warnings\e[0m\n", parser->issues.warnCount);
 
-    // returns the last error kind (from enum ParserErrors) so that test scripts
-    // can check for specific errors raised.
+    // returns the last error kind (from enum ParserErrors) so that test
+    // scripts can check for specific errors raised.
     int ret = (parser->issues.errCount or _jet_InternalErrs);
     // eprintf("ret: %d\n", ret);
     return ret; // or parser->warnCount);

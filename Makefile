@@ -1,6 +1,6 @@
 all: jetc
 
-CCFLAGS=-std=c99 -Werror -Imodules -ferror-limit=999
+CCFLAGS=-std=c99  -Imodules -ferror-limit=999
 CC=gcc
 
 modules/TokenKindDefs.h: modules/makeTokens.sh

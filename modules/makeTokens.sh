@@ -129,6 +129,4 @@ add tkSlashEq " /= "
 add tkTimesEq " *= "
 add tkColEq " := "
 add tkQuestion "?"
-add tkListLiteral "[...]"
-add tkDictLiteral "{...}"
 finish

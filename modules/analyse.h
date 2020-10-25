@@ -267,7 +267,7 @@ static void analyseExpr(
         expr->elemental = expr->collectionType != CTYNone;
         break;
 
-    case tkListLiteral:
+    case tkArrayOpen:
         if (expr->right) {
             analyseExpr(parser, expr->right, mod, inFuncArgs);
             expr->typeType = expr->right->typeType;
@@ -276,7 +276,7 @@ static void analyseExpr(
         }
         break;
 
-    case tkDictLiteral:
+    case tkBraceOpen:
         if (expr->right) {
             analyseExpr(parser, expr->right, mod, true);
             // TODO: you told analyseExpr to not care about what's on the LHS of

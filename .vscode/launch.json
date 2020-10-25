@@ -10,7 +10,8 @@
             "request": "launch",
             "program": "${fileDirname}/${fileBasenameNoExtension}",
             "args": [
-                "tests/bigtest.jet"
+                "tests/bigtest.jet",
+                "l"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

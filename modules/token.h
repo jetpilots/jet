@@ -411,7 +411,7 @@ static void Token_detect(Token* self) {
                 break;
             }
         }
-        tt_ret = tt == tkArrayOpen ? tkListLiteral : tkDictLiteral;
+        // tt_ret = tt == tkArrayOpen ? tkListLiteral : tkDictLiteral;
 
         // mergearraydims should be set only when reading func args
         if (not self->mergeArrayDims) goto defaultToken;

@@ -49,10 +49,14 @@ static void ASTVar_lint(ASTVar* var, int level) {
     if (kind == tkFunctionCall // unresolved constructor
         and !strcmp(var->init->string, var->typeSpec->name)) {
     } else if (kind == tkFunctionCallResolved
+        and var->typeSpec->typeType == TYObject
         and !strcmp(var->init->func->name, var->typeSpec->type->name)) {
         // resolved constructor, so type is also resolved
     } else if ((kind == tkNumber or kind == tkRegexp or kind == tkString
                    or kind == tkRawString)) { // simple literals
+    } else if (var->typeSpec->typeType == TYErrorType
+        or (var->typeSpec->typeType == TYUnresolved
+            and *var->typeSpec->name == '\0')) {
     } else {
         printf(" as ");
         ASTTypeSpec_lint(var->typeSpec, level + STEP);
@@ -189,8 +193,8 @@ static void ASTExpr_lint(
     case tkIdentifier:
     case tkArgumentLabel:
     case tkIdentifierResolved: {
-        char* tmp
-            = (expr->kind == tkIdentifier) ? expr->string : expr->var->name;
+        char* tmp = (expr->kind != tkIdentifierResolved) ? expr->string
+                                                         : expr->var->name;
         printf("%s", tmp);
     } break;
 
@@ -308,8 +312,8 @@ static void ASTExpr_lint(
         if (rightBr) putc(rpc, stdout);
 
         if (expr->kind == tkPower and not spacing) putc(')', stdout);
-        if (expr->kind == tkListLiteral) putc(']', stdout);
-        if (expr->kind == tkDictLiteral) putc('}', stdout);
+        if (expr->kind == tkArrayOpen) putc(']', stdout);
+        if (expr->kind == tkBraceOpen) putc('}', stdout);
     }
 }
 
