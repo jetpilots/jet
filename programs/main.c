@@ -170,10 +170,12 @@ typedef struct ASTExpr {
     union {
         struct ASTExpr* left;
         List(ASTVar*) vars; // for tkString
+        ASTTypeSpec* tSpec; // for tkListLiteral, tkDictLiteral only!!
     };
     union {
         // ASTEvalInfo eval;
-        uint32_t hash;
+        uint32_t hash; // why do you need the hash in the expr? just add to the
+                       // dict using the computed hash!
     };
     union {
         char* string;

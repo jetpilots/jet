@@ -104,6 +104,8 @@ typedef enum TokenKind {
     tkTimesEq,
     tkColEq,
     tkQuestion,
+    tkListLiteral,
+    tkDictLiteral,
 } TokenKind;
 
 static const char* const TokenKind_str[] = {
@@ -209,6 +211,8 @@ static const char* const TokenKind_str[] = {
     [tkTimesEq] = "tkTimesEq",
     [tkColEq] = "tkColEq",
     [tkQuestion] = "tkQuestion",
+    [tkListLiteral] = "tkListLiteral",
+    [tkDictLiteral] = "tkDictLiteral",
 };
 
 static const char* const tkrepr[] = {
@@ -314,6 +318,8 @@ static const char* const tkrepr[] = {
     [tkTimesEq] = " *= ",
     [tkColEq] = " := ",
     [tkQuestion] = "?",
+    [tkListLiteral] = "[...]",
+    [tkDictLiteral] = "{...}",
 };
 
 static const char* const tksrepr[] = {
@@ -419,4 +425,7 @@ static const char* const tksrepr[] = {
     [tkTimesEq] = " *= ",
     [tkColEq] = " := ",
     [tkQuestion] = "?",
+    [tkListLiteral] = "[...]",
+    [tkDictLiteral] = "{...}",
 };
+

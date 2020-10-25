@@ -64,7 +64,7 @@ static void ASTVar_lint(ASTVar* var, int level) {
     //     // [, etc
     //     const char* ctyp = TokenKind_defaultType(
     //         self->init ? self->init->kind : tkUnknown);
-    //     if (self->init and self->init->kind == tkArrayOpen)
+    //     if (self->init and self->init->kind == tkListLiteral)
     //         ctyp = TokenKind_defaultType(
     //             self->init->right ? self->init->right->kind : tkUnknown);
     //     if (self->init and self->init->kind == tkFunctionCall
@@ -308,8 +308,8 @@ static void ASTExpr_lint(
         if (rightBr) putc(rpc, stdout);
 
         if (expr->kind == tkPower and not spacing) putc(')', stdout);
-        if (expr->kind == tkArrayOpen) putc(']', stdout);
-        if (expr->kind == tkBraceOpen) putc('}', stdout);
+        if (expr->kind == tkListLiteral) putc(']', stdout);
+        if (expr->kind == tkDictLiteral) putc('}', stdout);
     }
 }
 

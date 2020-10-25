@@ -35,7 +35,7 @@ static void analyseDictLiteral(Parser* parser, ASTExpr* expr, ASTModule* mod) {
     // - dict keys in the dict literal are of the same type.
     // - values are of the same type.
     // - all exprs within the commas are tkOpAssign.
-    // assign the typeSpec pair somehow to the tkBraceOpen expr.
+    // assign the typeSpec pair somehow to the tkDictLiteral expr.
     // maybe alloc twice the size and set the pointer so you can access
     // spec[0] and spec[1].
 }
@@ -239,7 +239,7 @@ static void analyseExpr(
         expr->elemental = expr->collectionType != CTYNone;
         break;
 
-    case tkArrayOpen:
+    case tkListLiteral:
         if (expr->right) {
             analyseExpr(parser, expr->right, mod, inFuncArgs);
             expr->typeType = expr->right->typeType;
@@ -248,7 +248,7 @@ static void analyseExpr(
         }
         break;
 
-    case tkBraceOpen:
+    case tkDictLiteral:
         if (expr->right) {
             analyseExpr(parser, expr->right, mod, true);
             // TODO: you told analyseExpr to not care about what's on the LHS of
@@ -313,6 +313,7 @@ static void analyseExpr(
         break;
 
     case tkArgumentLabel:
+
         break;
 
         //    case tkRawString:
@@ -321,7 +322,6 @@ static void analyseExpr(
         // -------------------------------------------------- //
     default:
         if (expr->prec) {
-
             if (not expr->unary)
                 analyseExpr(parser, expr->left, mod, inFuncArgs);
             // some exprs like return can be used without any args

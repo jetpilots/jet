@@ -82,7 +82,7 @@ static ASTExpr* parseExpr(Parser* self) {
             // for empty func() push null for no args
             break;
 
-        case tkArrayOpen:
+        case tkListLiteral:
             jet_PtrArray_push(&ops, expr);
             if (not jet_PtrArray_empty(&ops)
                 and jet_PtrArray_topAs(ASTExpr*, &ops)->kind == tkSubscript)
@@ -91,7 +91,7 @@ static ASTExpr* parseExpr(Parser* self) {
             // for empty arr[] push null for no args
             break;
 
-        case tkBraceOpen:
+        case tkDictLiteral:
             jet_PtrArray_push(&ops, expr);
             if (not jet_PtrArray_empty(&ops)
                 and jet_PtrArray_topAs(ASTExpr*, &ops)->kind == tkObjectInit)
@@ -117,10 +117,9 @@ static ASTExpr* parseExpr(Parser* self) {
                     if (p->kind == revBrkt) break;
                     jet_PtrArray_push(&rpn, p);
                 }
-            // we'll push the tkArrayOpen as well to indicate a list
-            // literal or comprehension
-            // tkArrayOpen is a unary op.
-            if ((p and p->kind == tkArrayOpen))
+
+            // tkListLiteral is a unary op.
+            if ((p and p->kind == tkListLiteral))
                 if ((jet_PtrArray_empty(&ops)
                         or (jet_PtrArray_top(&rpn)
                             and jet_PtrArray_topAs(ASTExpr*, &ops)->kind
@@ -135,8 +134,8 @@ static ASTExpr* parseExpr(Parser* self) {
                     // grouping like 2+[8:66] they do.
                     jet_PtrArray_push(&rpn, p);
 
-            // push tkBraceOpen to indicate a dict literal (another unary op).
-            if ((p and p->kind == tkBraceOpen)
+            // a dict literal (another unary op).
+            if ((p and p->kind == tkDictLiteral)
                 and (jet_PtrArray_empty(&ops)
                     or (jet_PtrArray_top(&rpn)
                         and jet_PtrArray_topAs(ASTExpr*, &ops)->kind
@@ -173,7 +172,7 @@ static ASTExpr* parseExpr(Parser* self) {
                             and (jet_PtrArray_topAs(ASTExpr*, &ops)->kind
                                     == tkOpComma
                                 or jet_PtrArray_topAs(ASTExpr*, &ops)->kind
-                                    == tkArrayOpen)))
+                                    == tkListLiteral)))
                         // TODO: better way to parse :, 1:, :-1, etc.
                         // while passing tokens to RPN, if you see a :
                         // with nothing on the RPN or comma or [, push a
@@ -232,7 +231,7 @@ exitloop:
         p = jet_PtrArray_pop(&ops);
 
         if (p->kind != tkOpComma and p->kind != tkFunctionCall
-            and p->kind != tkSubscript and p->kind != tkArrayOpen
+            and p->kind != tkSubscript and p->kind != tkListLiteral
             and jet_PtrArray_topAs(ASTExpr*, &rpn)
             and jet_PtrArray_topAs(ASTExpr*, &rpn)->kind == tkOpComma) {
             Parser_errorUnexpectedExpr(

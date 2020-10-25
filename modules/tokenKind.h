@@ -33,11 +33,13 @@ static const char* TokenKind_ascrepr(const TokenKind kind, bool spacing) {
 
 static bool TokenKind_isUnary(TokenKind kind) {
     return kind == tkKeyword_not or kind == tkUnaryMinus
-        or kind == tkKeyword_return or kind == tkArrayOpen
-        or kind == tkKeyword_check or kind == tkBraceOpen;
+        or kind == tkKeyword_return or kind == tkListLiteral
+        or kind == tkKeyword_check or kind == tkDictLiteral;
     // tkArrayOpen is "unary" because it's EXPR is unary i.e.
     // it has one field `->right`, a list/dict literal expr
-    // same goes for tkBraceOpen
+    // same goes for tkDictLiteral
+    // TODO: remove dict/arr literals from here and in switches treat them
+    // separately (not in default block)
 }
 
 static bool TokenKind_isRightAssociative(TokenKind kind) {
@@ -99,8 +101,8 @@ static uint8_t TokenKind_getPrecedence(
         return 9;
     case tkKeyword_do:
         return 5;
-    case tkArrayOpen:
-    case tkBraceOpen:
+    case tkListLiteral:
+    case tkDictLiteral:
         return 1;
     default:
         return 0;

@@ -1169,7 +1169,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
         // map["uuyt"]="hello" etc.
         break;
 
-    case tkArrayOpen:
+    case tkListLiteral:
         // TODO: send parent ASTExpr* as an arg to this function. Then
         // here do various things based on whether parent is a =,
         // funcCall, etc.
@@ -1186,7 +1186,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
         }
         break;
 
-    case tkBraceOpen: {
+    case tkDictLiteral: {
         const char* Ktype = "CString";
         const char* Vtype = "Real64";
         if (!expr->right)
@@ -1338,7 +1338,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
         if (expr->left) ASTExpr_emit(expr->left, 0);
         if (leftBr) putc(lpc, stdout);
 
-        if (expr->kind == tkArrayOpen)
+        if (expr->kind == tkListLiteral)
             putc('{', stdout);
         else
             printf("%s", TokenKind_repr(expr->kind, true));
@@ -1349,7 +1349,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
         if (expr->right) ASTExpr_emit(expr->right, 0);
         if (rightBr) putc(rpc, stdout);
 
-        if (expr->kind == tkArrayOpen) putc('}', stdout);
+        if (expr->kind == tkListLiteral) putc('}', stdout);
     }
 }
 
