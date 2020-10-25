@@ -17,19 +17,32 @@ static void ASTTypeSpec_lint(ASTTypeSpec* spec, int level) {
         printf("%s", TypeType_name(spec->typeType));
         break;
     }
-    if (spec->dims) {
-        static const char* dimsstr = ":,:,:,:,:,:,:,:,:,:,:,:,:,:,:,:,:,:,:";
-        //        char str[32];
-        //        str[31]=0;
-        //        int sz= 2 + dims + (dims ? (dims-1) : 0) + 1;
-        //        str[0] = '[';
-        //        str[sz-2] = ']';
-        //        str[sz-1] = 0;
-        //        for (i=0; i<sz; i++) {
-        //            str[i*2+1]=':';
-        //            str[i*2+2]=',';
-        //        }
-        printf("[%.*s]", 2 * spec->dims - 1, dimsstr);
+
+    switch (spec->collectionType) {
+    case CTYDictS:
+        printf("[DICTK]");
+        break;
+    case CTYArray:
+        break;
+    case CTYTensor:
+        if (spec->dims) {
+            static const char* dimsstr
+                = ":,:,:,:,:,:,:,:,:,:,:,:,:,:,:,:,:,:,:";
+            //        char str[32];
+            //        str[31]=0;
+            //        int sz= 2 + dims + (dims ? (dims-1) : 0) + 1;
+            //        str[0] = '[';
+            //        str[sz-2] = ']';
+            //        str[sz-1] = 0;
+            //        for (i=0; i<sz; i++) {
+            //            str[i*2+1]=':';
+            //            str[i*2+2]=',';
+            //        }
+            printf("[%.*s]", 2 * spec->dims - 1, dimsstr);
+        } else {
+            printf("[?]");
+        }
+        break;
     }
 }
 
@@ -41,6 +54,7 @@ static void ASTVar_lint(ASTVar* var, int level) {
         var->isVar ? "var " : var->isLet ? "let " : "", var->name);
     TokenKind kind = var->init ? var->init->kind : tkUnknown;
 
+    bool genType = true; // set it here to override
     // if ((var->init and var->init->kind == tkFunctionCall
     //         and !strcmp(var->init->string, var->typeSpec->name))) {
     // } else if ((var->init and var->init->kind == tkNumber
@@ -55,9 +69,15 @@ static void ASTVar_lint(ASTVar* var, int level) {
     } else if ((kind == tkNumber or kind == tkRegexp or kind == tkString
                    or kind == tkRawString)) { // simple literals
     } else if (var->typeSpec->typeType == TYErrorType
+        or var->typeSpec->typeType == TYNoType
         or (var->typeSpec->typeType == TYUnresolved
             and *var->typeSpec->name == '\0')) {
+        genType = false;
     } else {
+        genType = true;
+    }
+
+    if (genType) {
         printf(" as ");
         ASTTypeSpec_lint(var->typeSpec, level + STEP);
     }
@@ -212,7 +232,7 @@ static void ASTExpr_lint(
         char* tmp = (expr->kind == tkFunctionCallResolved) ? expr->func->name
                                                            : expr->string;
         printf("%s(", tmp);
-        if (expr->left) ASTExpr_lint(expr->left, 0, spacing, escapeStrings);
+        if (expr->left) ASTExpr_lint(expr->left, 0, false, escapeStrings);
         printf(")");
     } break;
 
@@ -220,9 +240,9 @@ static void ASTExpr_lint(
     case tkSubscriptResolved: {
         char* tmp = (expr->kind == tkSubscriptResolved) ? expr->var->name
                                                         : expr->string;
-        printf("%s[", tmp);
+        printf("%s", tmp);
         if (expr->left) ASTExpr_lint(expr->left, 0, false, escapeStrings);
-        printf("]");
+        // printf("]");
     } break;
 
     case tkObjectInit:
@@ -234,6 +254,15 @@ static void ASTExpr_lint(
         // (to keep location). Send it to ASTVar_lint.
         assert(expr->var != NULL);
         ASTVar_lint(expr->var, 0);
+        break;
+
+    case tkArrayOpen:
+    case tkBraceOpen:
+        printf("%s", tkrepr[expr->kind]);
+        if (expr->right)
+            ASTExpr_lint(
+                expr->right, level, expr->kind != tkArrayOpen, escapeStrings);
+        printf("%s", tkrepr[TokenKind_reverseBracket(expr->kind)]);
         break;
 
     default:
@@ -312,8 +341,8 @@ static void ASTExpr_lint(
         if (rightBr) putc(rpc, stdout);
 
         if (expr->kind == tkPower and not spacing) putc(')', stdout);
-        if (expr->kind == tkArrayOpen) putc(']', stdout);
-        if (expr->kind == tkBraceOpen) putc('}', stdout);
+        // if (expr->kind == tkArrayOpen) putc(']', stdout);
+        // if (expr->kind == tkBraceOpen) putc('}', stdout);
     }
 }
 

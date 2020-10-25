@@ -16,7 +16,7 @@ jetc-dbg: programs/main.c modules/*.h
 	$(CC) -g -O0 $(CCFLAGS) $< -lc -o $@
 
 jetc-cov: programs/main.c modules/*.h
-	$(CC) -g -fprofile-arcs -ftest-coverage -O0 $(CCFLAGS) $< -lc -o $@
+	$(CC) -g -fprofile-arcs -ftest-coverage -O3 $(CCFLAGS) $< -lc -o $@
 
 clean:
 	@rm -r jetc jetc-fast jetc-dbg jetc-cov > /dev/null 2>&1; true

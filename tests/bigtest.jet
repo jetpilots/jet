@@ -14,7 +14,7 @@ type Type2 extends Type1
     # var ffg = "String{In}terp " base44.cg54e.nets[7]@6.2f ": " m
     # var fbg = "String{In}terp " .. format(base44.cg54e.nets[7], width=6) .. ": " .. m
     # var ifg = "String{In}terp " _ base44.cg54e.nets[7]@6.2f _ ": " _ m
-    var garr as Biko = [  ]   # ~5ef4ed5e
+    var garr = [  ]   # ~5ef4ed5e
     #    ]
     #       3 , # ~ed4
     # 4, 5, 6 ]
@@ -42,6 +42,10 @@ function start()
     return
     var t1 = Type1()
     var t2 = Type2()
+    var td = {"t1"= t1, "t2"= t2}
+    var ts = [1, 2, no]
+    var gg as String = ts[3]
+    var t3 = { "reted" = 34, "res" = no }
     t2.g = "8"
 end function
 

@@ -8,15 +8,15 @@
 // #include <string.h>
 // #include <math.h>
 
-#include "../modules/cycle.h"
-#include "../modules/jet_base.h"
-#include "../modules/jet_clock.h"
+#include "cycle.h"
+#include "jet_base.h"
+#include "jet_clock.h"
 
 #define STEP 4
 
-#include "../modules/types.h"
-#include "../modules/tokenKind.h"
-#include "../modules/token.h"
+#include "types.h"
+#include "tokenKind.h"
+#include "token.h"
 
 #define JOIN(x, y) x##y
 
@@ -170,7 +170,7 @@ typedef struct ASTExpr {
     union {
         struct ASTExpr* left;
         List(ASTVar*) vars; // for tkString
-        ASTTypeSpec* tSpec; // for tkListLiteral, tkDictLiteral only!!
+        struct ASTType* elementType; // for tkListLiteral, tkDictLiteral only!!
     };
     union {
         // ASTEvalInfo eval;
@@ -647,8 +647,8 @@ ASTFunc* ASTModule_getFunc(ASTModule* module, const char* selector) {
     return NULL;
 }
 
-#include "../modules/lint.h"
-#include "../modules/emit.h"
+#include "lint.h"
+#include "emit.h"
 
 #pragma mark - PARSER
 
@@ -656,7 +656,7 @@ typedef enum ParserMode { PMLint, PMEmitC, PMGenTests } ParserMode;
 typedef struct IssueMgr {
     uint16_t errCount, warnCount, errLimit;
     uint8_t lastError /*enum type*/, warnUnusedVar : 1, warnUnusedFunc : 1,
-        warnUnusedType : 1, warnUnusedArg : 1;
+        warnUnusedType : 1, warnUnusedArg : 1, hasParseErrors : 1;
 } IssueMgr;
 
 typedef struct Parser {
@@ -772,7 +772,7 @@ static Parser* Parser_fromFile(char* filename, bool skipws) {
         ret->mode = PMEmitC; // parse args to set this
         ret->issues.errCount = 0;
         ret->issues.warnCount = 0;
-        ret->issues.errLimit = 50;
+        ret->issues.errLimit = 50000;
     } else {
         eputs("Source files larger than 16MB are not allowed.\n");
     }
@@ -781,8 +781,8 @@ static Parser* Parser_fromFile(char* filename, bool skipws) {
     return ret;
 }
 
-#include "../modules/errors.h"
-#include "../modules/stats.h"
+#include "errors.h"
+#include "stats.h"
 
 #pragma mark - PARSING BASICS
 
@@ -870,8 +870,8 @@ static void getSelector(ASTFunc* func) {
     }
 }
 
-#include "../modules/resolve.h"
-#include "../modules/analyse.h"
+#include "resolve.h"
+#include "analyse.h"
 
 // this is a global astexpr representing 0. it will be used when parsing e.g.
 // the colon op with nothing on either side. : -> 0:0 means the same as 1:end
@@ -887,7 +887,7 @@ static ASTExpr rparen[] = { { .kind = tkParenClose } };
 //     rparen.kind = tkParenClose;
 // }
 
-#include "../modules/parse.h"
+#include "parse.h"
 
 // TODO: this should be in ASTModule open/close
 static void Parser_emit_open(Parser* parser) {
@@ -910,7 +910,7 @@ static void Parser_emit_close(Parser* parser) {
 
 static void alloc_stat() { }
 
-#include "../modules/ptr2off.h"
+#include "ptr2off.h"
 
 #pragma mark - main
 int main(int argc, char* argv[]) {
@@ -940,7 +940,11 @@ int main(int argc, char* argv[]) {
     modules = parseModule(parser);
 
     if (parser->mode == PMLint) {
-        jet_foreach(ASTModule*, mod, modules) ASTModule_lint(mod, 0);
+        if (parser->issues.hasParseErrors) {
+            /* TODO: fallback to token-based linter (formatter)*/
+        } else {
+            jet_foreach(ASTModule*, mod, modules) ASTModule_lint(mod, 0);
+        }
     } else if (not(parser->issues.errCount)) {
         switch (parser->mode) {
             // case PMLint: {

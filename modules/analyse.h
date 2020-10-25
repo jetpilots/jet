@@ -180,6 +180,10 @@ static void analyseExpr(
                         typeSpec->type = init->func->returnSpec->type;
                     else if (init->kind == tkIdentifierResolved)
                         typeSpec->type = init->var->typeSpec->type;
+                    else if (init->kind == tkArrayOpen)
+                        typeSpec->type = init->elementType;
+                    else if (init->kind == tkBraceOpen)
+                        typeSpec->type = init->elementType;
                     else if (init->kind == tkPeriod) {
                         ASTExpr* e = init;
                         while (e->kind == tkPeriod) e = e->right;
@@ -268,11 +272,31 @@ static void analyseExpr(
         break;
 
     case tkArrayOpen:
+        expr->collectionType = CTYArray;
         if (expr->right) {
             analyseExpr(parser, expr->right, mod, inFuncArgs);
             expr->typeType = expr->right->typeType;
             expr->collectionType
                 = expr->right->kind == tkOpSemiColon ? CTYTensor : CTYArray;
+            if (expr->typeType == TYObject) {
+                // you need to save the exact type of the elements, it's not a
+                // primitive type. You'll find it in the first element.
+                ASTExpr* first = expr->right;
+                while (first->kind == tkOpComma or first->kind == tkOpSemiColon)
+                    first = first->left;
+                switch (first->kind) {
+                case tkIdentifierResolved:
+                    expr->elementType = first->var->typeSpec->type;
+                    break;
+                case tkFunctionCallResolved:
+                    expr->elementType = first->func->returnSpec->type;
+                    break;
+                    // TODO: object init literals
+                    // case tkObjectInitResolved:
+                    // expr->elementType = first->var->typeSpec->type;break;
+                }
+                // expr->elementType =
+            }
         }
         break;
 
@@ -284,13 +308,32 @@ static void analyseExpr(
             // all of the same type and set that type to the expr somehow.
             analyseDictLiteral(parser, expr->right, mod);
             expr->typeType = expr->right->typeType;
+            if (expr->typeType == TYObject) {
+                // you need to save the exact type of the elements, it's not a
+                // primitive type. You'll find it in the first element.
+                ASTExpr* first = expr->right;
+                while (first->kind == tkOpComma) first = first->left;
+                if (first->kind == tkOpAssign) first = first->right;
+                // we care about the value in the key-value pair. We'll figure
+                // out the key type later or not, whatever.
+                switch (first->kind) {
+                case tkIdentifierResolved:
+                    expr->elementType = first->var->typeSpec->type;
+                    break;
+                case tkFunctionCallResolved:
+                    expr->elementType = first->func->returnSpec->type;
+                    break;
+                    // TODO: object init literals
+                    // case tkObjectInitResolved:
+                    // expr->elementType = first->var->typeSpec->type;break;
+                }
+            }
+            expr->collectionType = CTYDictS;
+            // these are only Dicts! Sets are normal [] when you detect they are
+            // only used for querying membership.
+            // TODO: what were the gazillion Dict subtypes for?
         }
-        expr->collectionType = CTYDictS;
-        // these are only Dicts! Sets are normal [] when you detect they are
-        // only used for querying membership.
-        // TODO: what were the gazillion Dict subtypes for?
         break;
-
     case tkPeriod: {
         assert(expr->left->kind == tkIdentifierResolved
             or expr->left->kind == tkIdentifier);
@@ -356,8 +399,8 @@ static void analyseExpr(
             if (expr->right) analyseExpr(parser, expr->right, mod, inFuncArgs);
 
             if (expr->kind == tkKeyword_or and expr->left->typeType != TYBool) {
-                // Handle the 'or' keyword used to provide alternatives for a
-                // nullable expression.
+                // Handle the 'or' keyword used to provide alternatives for
+                // a nullable expression.
                 ;
             } else if (isCmpOp(expr) or isBoolOp(expr)
                 or expr->kind == tkKeyword_in) {
@@ -368,8 +411,8 @@ static void analyseExpr(
                     ? TYErrorType
                     : TYBool;
             } else {
-                // Set the type from the ->right expr for now. if an error type
-                // is on the right, this is accounted for.
+                // Set the type from the ->right expr for now. if an error
+                // type is on the right, this is accounted for.
                 if (expr->right) {
                     expr->typeType = expr->right->typeType;
                     expr->collectionType = expr->right->collectionType;
@@ -388,10 +431,10 @@ static void analyseExpr(
                 and not(inFuncArgs
                     and (expr->kind == tkOpComma
                         or expr->kind == tkOpAssign))) {
-                // ignore , and = inside function call arguments. thing is array
-                // or dict literals passed as args will have , and = which
-                // should be checked. so when you descend into their args, unset
-                // inFuncArgs.
+                // ignore , and = inside function call arguments. thing is
+                // array or dict literals passed as args will have , and =
+                // which should be checked. so when you descend into their
+                // args, unset inFuncArgs.
                 TypeTypes leftType = expr->left->typeType;
                 TypeTypes rightType = expr->right->typeType;
 
@@ -401,17 +444,17 @@ static void analyseExpr(
                     // <= 1.
                     ;
                 } else if (leftType != rightType) {
-                    // Type mismatch for left and right operands is always an
-                    // error.
+                    // Type mismatch for left and right operands is always
+                    // an error.
                     Parser_errorTypeMismatchBinOp(parser, expr);
                     expr->typeType = TYErrorType;
                 } else if (leftType == TYString
                     and (expr->kind == tkOpAssign or expr->kind == tkOpEQ
                         or expr->kind == tkOpNE)) {
                     // Allow assignment, equality test and != for strings.
-                    // TODO: might even allow comparison operators, and perhaps
-                    // allow +=, or better .= or something. Or perhaps
-                    // append(x!) is clearer
+                    // TODO: might even allow comparison operators, and
+                    // perhaps allow +=, or better .= or something. Or
+                    // perhaps append(x!) is clearer
                     ;
                 } else if (leftType == TYBool
                     and (expr->kind == tkOpAssign //
@@ -420,11 +463,12 @@ static void analyseExpr(
                         or expr->kind == tkKeyword_or))
                     ;
                 else if (not TypeType_isnum(leftType)) {
-                    // Arithmetic operators are only relevant for numeric types.
+                    // Arithmetic operators are only relevant for numeric
+                    // types.
                     Parser_errorInvalidTypeForOp(parser, expr);
                 }
-                // check if an error type is on the left, if yes, set the expr
-                // type
+                // check if an error type is on the left, if yes, set the
+                // expr type
                 if (leftType == TYErrorType) expr->typeType = leftType;
             }
             // TODO: here statements like return etc. that are not binary
@@ -476,8 +520,8 @@ static void ASTFunc_hashExprs(/* Parser* parser,  */ ASTFunc* func);
 ///////////////////////////////////////////////////////////////////////////
 static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod) {
     if (func->analysed) return;
-    // eprintf("analyseExpr: %s at ./%s:%d\n", func->selector, parser->filename,
-    // func->line);
+    // eprintf("analyseExpr: %s at ./%s:%d\n", func->selector,
+    // parser->filename, func->line);
 
     bool isCtor = false;
     // Check if the function is a constructor call and identify the type.

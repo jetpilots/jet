@@ -1,18 +1,38 @@
 #!/bin/sh
-rm -r *.gcno *.gcda
-make -B checkc-cov.bin # because it generates .gcno
-# ./checkc-cov.bin simptest0.fp
-for f in `find . -name '*.fp'`
+rm -f *.gcno *.gcda
+make -B jetc-cov # because it generates .gcno
+# ./jetc-cov.bin simptest0.jet
+# mkdir .covtest 2>/dev/null
+# cd .covtest
+# for f in ../../programs/*.c
+# do ln -sf $f .
+# done
+# for f in ../../modules/*.h
+# do ln -sf $f .
+# done
+#  ln -sf ../../main.gcno .
+#  ln -sf ../../main.gcda .
+
+for f in `find tests -name '*.jet'`
 do
-    printf "\r$f" 1>&2
-    ./checkc-cov.bin $f d > /dev/null 2>&1
-    ./checkc-cov.bin $f l > /dev/null 2>&1
-    ./checkc-cov.bin $f t > /dev/null 2>&1
+    echo "$f" 1>&2
+    ./jetc-cov $f d > /dev/null  2>&1
+    ./jetc-cov $f > /dev/null  2>&1
+    ./jetc-cov $f l > /dev/null  2>&1
+    ./jetc-cov $f t > /dev/null  2>&1
 done
-echo "Unit                                        Unexec      Lines   Branches    Taken1+" > coverage.txt
+
+cd programs
+ln -sf ../main.gcno .
+ln -sf ../main.gcda .
+cd -
+
+# rm ../main.c
+echo >  coverage.txt
+echo "Unit                                        Unexec      Lines   Branches    Taken1+" >> coverage.txt
 echo "----                                        ------      -----   --------    -------" >> coverage.txt
 
-gcov -f -b -a main.c | awk '
+gcov -f -b -a programs/main.c | awk '
 
 $1=="File" || $1=="Function" {
     printf "\n%s %-36s ",tolower(substr($1,1,4)), substr($2,2,length($2)-2)
@@ -42,4 +62,5 @@ $1=="Taken" {
 }
 
 ' | sort >> coverage.txt
-less -S coverage.txt
+[ $? -ne 0 ] || less -S coverage.txt
+# cd -

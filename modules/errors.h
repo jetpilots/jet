@@ -7,7 +7,8 @@
     }
 
 static void Parser_errorIncrement(Parser* const parser) {
-    if (++parser->issues.errCount >= parser->issues.errLimit)
+    if (++parser->issues.errCount >= parser->issues.errLimit
+        and parser->mode != PMLint)
         fatal("\ntoo many errors (%d), quitting\n", parser->issues.errLimit);
 }
 
@@ -26,6 +27,7 @@ static void Parser_errorParsingExpr(Parser* const parser, ASTExpr* expr) {
             "    probably around %d:%d\n",
         parser->issues.errCount + 1, RELF(parser->filename),
         parser->token.line - 1, parser->token.line, expr->line, expr->col);
+    parser->issues.hasParseErrors = 1;
     Parser_errorIncrement(parser);
 }
 
@@ -308,6 +310,7 @@ static void Parser_errorMissingInit(
             "\e[34m%s\e[0m at %s%s:%d-%d\n",
         parser->issues.errCount + 1, expr->var->name, RELF(parser->filename),
         expr->line - 1, expr->line);
+    parser->issues.hasParseErrors = 1;
     Parser_errorIncrement(parser);
 }
 
@@ -416,6 +419,7 @@ static void Parser_errorArgTypeMismatch(
         parser->issues.errCount + 1, var->name, RELF(parser->filename),
         expr->line, expr->col, ASTTypeSpec_name(var->typeSpec),
         var->typeSpec->typeType, ASTExpr_typeName(expr), expr->typeType);
+    parser->issues.hasParseErrors = 1;
     Parser_errorIncrement(parser);
 }
 
