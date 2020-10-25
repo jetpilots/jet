@@ -189,8 +189,8 @@ static void ASTExpr_lint(
     case tkIdentifier:
     case tkArgumentLabel:
     case tkIdentifierResolved: {
-        char* tmp = (expr->kind == tkIdentifierResolved) ? expr->var->name
-                                                         : expr->string;
+        char* tmp
+            = (expr->kind == tkIdentifier) ? expr->string : expr->var->name;
         printf("%s", tmp);
     } break;
 
