@@ -1,11 +1,11 @@
 
-static void setStmtFuncTypeInfo(Parser* self, ASTFunc* func) {
+static void setStmtFuncTypeInfo(Parser* parser, ASTFunc* func) {
     // this assumes that setExprTypeInfo has been called on the func body
     const ASTExpr* stmt = func->body->stmts->item;
     if (not func->returnSpec->typeType)
         func->returnSpec->typeType = stmt->typeType;
     else if (func->returnSpec->typeType != stmt->typeType)
-        Parser_errorTypeMismatchBinOp(self, stmt);
+        Parser_errorTypeMismatchBinOp(parser, stmt);
 }
 
 // TODO make sempassModule -> same as analyseModule now
@@ -143,7 +143,10 @@ static void analyseExpr(
                                 "arguments is not viable.\e[0m\n",
                             parser->filename, func->line, func->selector,
                             func->argCount);
-                    if (leven(expr->string, func->name) < 3
+                    if (not func->intrinsic
+                        and leven(expr->string, func->name, expr->slen,
+                                func->nameLen)
+                            < 3
                         and func->argCount == jet_PtrList_count(func->args))
                         eprintf(" Did you mean: \e[;1m%s\e[0m (%s at "
                                 "./%s:%d)\n",
@@ -176,11 +179,16 @@ static void analyseExpr(
             if (typeSpec->typeType == TYUnresolved) {
                 typeSpec->typeType = init->typeType;
                 if (init->typeType == TYObject) {
-                    if (init->kind == tkFunctionCallResolved)
+                    if (init->kind == tkFunctionCallResolved) {
+                        expr->var->typeSpec = init->func->returnSpec;
+                        // ^ TODO: DROP old expr->var->typeSpec!!
                         typeSpec->type = init->func->returnSpec->type;
-                    else if (init->kind == tkIdentifierResolved)
+                        // typeSpec->dims = init->func->returnSpec->dims;
+                    } else if (init->kind == tkIdentifierResolved) {
+                        expr->var->typeSpec = init->var->typeSpec;
                         typeSpec->type = init->var->typeSpec->type;
-                    else if (init->kind == tkArrayOpen)
+                        // typeSpec->dims = init->var->typeSpec->dims;
+                    } else if (init->kind == tkArrayOpen)
                         typeSpec->type = init->elementType;
                     else if (init->kind == tkBraceOpen)
                         typeSpec->type = init->elementType;
@@ -234,9 +242,12 @@ static void analyseExpr(
     } break;
 
         // -------------------------------------------------- //
-    case tkSubscriptResolved:
-        if (ASTExpr_countCommaList(expr->left) != expr->var->typeSpec->dims)
-            Parser_errorIndexDimsMismatch(parser, expr);
+    case tkSubscriptResolved: {
+        assert(expr->left->kind == tkArrayOpen);
+        int nhave = ASTExpr_countCommaList(expr->left->right);
+        if (nhave != expr->var->typeSpec->dims)
+            Parser_errorIndexDimsMismatch(parser, expr, nhave);
+    }
         // fallthru
     case tkSubscript:
         if (expr->left) analyseExpr(parser, expr->left, mod, inFuncArgs);
@@ -287,9 +298,17 @@ static void analyseExpr(
                 switch (first->kind) {
                 case tkIdentifierResolved:
                     expr->elementType = first->var->typeSpec->type;
+                    if (first->var->typeSpec->dims
+                        or first->var->typeSpec->collectionType != CTYNone)
+                        unreachable("trying to make array of arrays", "");
                     break;
                 case tkFunctionCallResolved:
                     expr->elementType = first->func->returnSpec->type;
+                    if (first->func->returnSpec->dims
+                        or first->var->typeSpec->collectionType != CTYNone)
+                        unreachable("trying to make array of arrays line", "");
+                    break;
+                default:
                     break;
                     // TODO: object init literals
                     // case tkObjectInitResolved:
@@ -322,6 +341,8 @@ static void analyseExpr(
                     break;
                 case tkFunctionCallResolved:
                     expr->elementType = first->func->returnSpec->type;
+                    break;
+                default:
                     break;
                     // TODO: object init literals
                     // case tkObjectInitResolved:

@@ -1,4 +1,7 @@
 
+function Type1()
+end function
+
 type Type1
     var f = 33
 end type
@@ -18,7 +21,7 @@ type Type2 extends Type1
     #    ]
     #       3 , # ~ed4
     # 4, 5, 6 ]
-    # var b = unhex('5e43efc2')
+    var b = unhex('5e43efc2')
     var gmap = {} #
     # } # comment allez-vous
         # "first" = 42} #,
@@ -35,6 +38,7 @@ declare function unhex(s as String) as Byte[:,:]
 
 sets(g as Number) := g  #
 
+
 function start()
     var arg1=sets(5)
     maisn("k",b="jk")
@@ -43,9 +47,9 @@ function start()
     var t1 = Type1()
     var t2 = Type2()
     var td = {"t1"= t1, "t2"= t2}
-    var ts = [1, 2, no]
-    var gg as String = ts[3]
-    var t3 = { "reted" = 34, "res" = no }
+    var ts = [1, 2, 1]
+    var gg = ts[3]
+    var t3 = { "reted" = 34, "res" = 2 }
     t2.g = "8"
 end function
 
@@ -59,9 +63,11 @@ function maisn(n as String, b as String)
 print(6)
 end function
 
-function redt(n as String) as String
-    return n
-end function
+# function redt(n as String) as String
+#     return n
+# end function
+
+redt(n as String) := n
 
 test 'basics'
     let x = 34

@@ -23,6 +23,7 @@ static void ASTTypeSpec_lint(ASTTypeSpec* spec, int level) {
         printf("[DICTK]");
         break;
     case CTYArray:
+        printf("[]");
         break;
     case CTYTensor:
         if (spec->dims) {
@@ -43,11 +44,12 @@ static void ASTTypeSpec_lint(ASTTypeSpec* spec, int level) {
             printf("[?]");
         }
         break;
+    default:;
     }
 }
 
 static void ASTExpr_lint(
-    ASTExpr* self, int level, bool spacing, bool escapeStrings);
+    ASTExpr* expr, int level, bool spacing, bool escapeStrings);
 
 static void ASTVar_lint(ASTVar* var, int level) {
     printf("%.*s%s%s", level, spaces,

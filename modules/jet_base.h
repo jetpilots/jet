@@ -583,11 +583,13 @@ STATIC int str_getSomeOccurences(
 #define MIN3(a, b, c)                                                          \
     ((a) < (b) ? ((a) < (c) ? (a) : (c)) : ((b) < (c) ? (b) : (c)))
 
-unsigned long leven(char* s1, char* s2) {
-    unsigned long s1len, s2len, x, y, lastdiag, olddiag;
-    s1len = strlen(s1);
-    s2len = strlen(s2);
-    unsigned long* column = malloc(s1len + 1);
+unsigned long leven(
+    char* s1, char* s2, unsigned long s1len, unsigned long s2len) {
+    unsigned long x, y, lastdiag, olddiag;
+    // s1len = strlen(s1);
+    // s2len = strlen(s2);
+    assert(s1len < 64 && s2len < 64);
+    unsigned long column[64]; // = malloc(s1len + 1);
     for (y = 1; y <= s1len; y++) column[y] = y;
     for (x = 1; x <= s2len; x++) {
         column[0] = x;

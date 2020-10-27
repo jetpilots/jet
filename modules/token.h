@@ -144,16 +144,16 @@ typedef struct Token {
 } Token;
 
 // Peek at the char after the current (complete) token
-static char Token_peekCharAfter(Token* self) {
-    char* s = self->pos + self->matchlen;
-    if (self->skipWhiteSpace)
+static char Token_peekCharAfter(Token* token) {
+    char* s = token->pos + token->matchlen;
+    if (token->skipWhiteSpace)
         while (*s == ' ') s++;
     return *s;
 }
 
 #define Token_compareKeyword(tok)                                              \
     if (sizeof(#tok) - 1 == l and not strncasecmp(#tok, s, l)) {               \
-        self->kind = tkKeyword_##tok;                                          \
+        token->kind = tkKeyword_##tok;                                         \
         return;                                                                \
     }
 
@@ -161,12 +161,12 @@ static char Token_peekCharAfter(Token* self) {
 
 // Check if an (ident) self->token matches a keyword and return its type
 // accordingly.
-static void Token_tryKeywordMatch(Token* self) {
+static void Token_tryKeywordMatch(Token* token) {
     // TODO: USE A DICT OR MPH FOR THIS!
-    if (self->kind != tkIdentifier) return;
+    if (token->kind != tkIdentifier) return;
 
-    const char* s = self->pos;
-    const int l = self->matchlen;
+    const char* s = token->pos;
+    const int l = token->matchlen;
 
     Token_compareKeyword(and)
     Token_compareKeyword(cheater)
@@ -196,13 +196,13 @@ static void Token_tryKeywordMatch(Token* self) {
 
     if (not strncasecmp("else if ", s, 8))
     {
-        self->kind = tkKeyword_elif;
-        self->matchlen = 7;
+        token->kind = tkKeyword_elif;
+        token->matchlen = 7;
         return;
     }
     if (not strncasecmp("not in ", s, 7)) {
-        self->kind = tkKeyword_notin;
-        self->matchlen = 6;
+        token->kind = tkKeyword_notin;
+        token->matchlen = 6;
         return;
     }
     Token_compareKeyword(else) Token_compareKeyword(not )
@@ -219,9 +219,9 @@ static void Token_tryKeywordMatch(Token* self) {
 
 // Get the token kind based only on the char at the current position
 // (or an offset).
-static TokenKind Token_getType(Token* self, const size_t offset) {
-    const char c = self->pos[offset];
-    const char cn = c ? self->pos[1 + offset] : 0;
+static TokenKind Token_getType(Token* token, const size_t offset) {
+    const char c = token->pos[offset];
+    const char cn = c ? token->pos[1 + offset] : 0;
     TokenKind ret = (TokenKind)TokenKindTable[(unsigned char)c];
     switch (c) {
     case '<':
@@ -301,15 +301,15 @@ static TokenKind Token_getType(Token* self, const size_t offset) {
     }
 }
 
-static void Token_detect(Token* self) {
-    TokenKind tt = Token_getType(self, 0);
+static void Token_detect(Token* token) {
+    TokenKind tt = Token_getType(token, 0);
     TokenKind tt_ret = tkUnknown; // = tt;
     static TokenKind tt_last
         = tkUnknown; // the previous self->token that was found
     static TokenKind tt_lastNonSpace
         = tkUnknown; // the last non-space self->token found
     TokenKind tmp;
-    char* start = self->pos;
+    char* start = token->pos;
     bool found_e = false, found_dot = false; //, found_cmt = false;
     //    uint8_t found_spc = 0;
 
@@ -323,18 +323,18 @@ static void Token_detect(Token* self) {
         while (tt != tkNullChar) {
             // here we want to consume the ending " so we move next
             // before
-            self->pos++;
-            tt = Token_getType(self, 0);
+            token->pos++;
+            tt = Token_getType(token, 0);
             if (tt == tkNullChar or tt == tmp) {
-                *self->pos = 0;
-                self->pos++;
+                *token->pos = 0;
+                token->pos++;
                 break;
             }
-            if (tt == tkBackslash and Token_getType(self, 1) == tmp)
-                self->pos++;
+            if (tt == tkBackslash and Token_getType(token, 1) == tmp)
+                token->pos++;
             if (tt == tkNewline) {
-                self->line++;
-                self->col = 0;
+                token->line++;
+                token->col = 0;
             }
         }
         switch (tmp) {
@@ -359,12 +359,12 @@ static void Token_detect(Token* self) {
             while (tt != tkNullChar) {
                 // here we dont want to consume the end char, so break
                 // before
-                tt = Token_getType(self, 1);
-                self->pos++;
+                tt = Token_getType(token, 1);
+                token->pos++;
                 if (tt != tkSpaces) break;
             }
         else
-            self->pos++;
+            token->pos++;
         // else its a single space
         tt_ret = tkSpaces;
         break;
@@ -376,15 +376,16 @@ static void Token_detect(Token* self) {
         tt_ret = tt;
 
         while (tt != tkNullChar) {
-            tt = Token_getType(self, 1);
-            self->pos++;
+            tt = Token_getType(token, 1);
+            token->pos++;
             if (tt == tkHash) {
-                while (*self->pos != '\n' and *self->pos != '\0') self->pos++;
-                tt = Token_getType(self, 0);
+                while (*token->pos != '\n' and *token->pos != '\0')
+                    token->pos++;
+                tt = Token_getType(token, 0);
             }
             if (tt == tkNewline) {
-                self->line++;
-                self->col = 0;
+                token->line++;
+                token->col = 0;
             }
             if (tt != tkSpaces and tt != tkNewline and tt != tkHash) break;
         }
@@ -396,40 +397,40 @@ static void Token_detect(Token* self) {
         // token
         //        self->pos++;
 
-        while (self->pos and *self->pos) {
-            self->pos++;
-            if (*self->pos == '#')
-                while (*self->pos and *self->pos != '\n') self->pos++;
+        while (token->pos and *token->pos) {
+            token->pos++;
+            if (*token->pos == '#')
+                while (*token->pos and *token->pos != '\n') token->pos++;
 
-            if (*self->pos == '\n') {
-                self->line++;
-                self->col = 0;
+            if (*token->pos == '\n') {
+                token->line++;
+                token->col = 0;
             }
-            if (*self->pos != ' ' and *self->pos != '\n'
-                and *self->pos != '#') {
-                self->pos--;
+            if (*token->pos != ' ' and *token->pos != '\n'
+                and *token->pos != '#') {
+                token->pos--;
                 break;
             }
         }
         // tt_ret = tt == tkArrayOpen ? tkListLiteral : tkDictLiteral;
 
         // mergearraydims should be set only when reading func args
-        if (not self->mergeArrayDims) goto defaultToken;
+        if (not token->mergeArrayDims) goto defaultToken;
 
         // during mergeDims [:,:] is considered 1 token.
         // hopefully nobody embeds spaces and comments here, but...
         // TODO: parse comments and spaces embedded in tkArrayDims
         while (tt != tkNullChar) {
-            tt = Token_getType(self, 1);
-            self->pos++;
+            tt = Token_getType(token, 1);
+            token->pos++;
             if (tt != tkOpColon and tt != tkOpComma) break;
         }
-        tt = Token_getType(self, 0);
+        tt = Token_getType(token, 0);
         if (tt != tkArrayClose) {
             unreachable(
-                "expected a ']', found a '%c'. now what?\n", *self->pos);
+                "expected a ']', found a '%c'. now what?\n", *token->pos);
         }
-        self->pos++;
+        token->pos++;
         tt_ret = tkArrayDims;
         break;
 
@@ -437,8 +438,8 @@ static void Token_detect(Token* self) {
         // case tkPeriod:
     case tkUnderscore:
         while (tt != tkNullChar) {
-            tt = Token_getType(self, 1);
-            self->pos++;
+            tt = Token_getType(token, 1);
+            token->pos++;
             if (tt != tkAlphabet and tt != tkDigit and tt != tkUnderscore)
                 // and tt != tkPeriod)
                 break; /// validate in parser not here
@@ -448,8 +449,8 @@ static void Token_detect(Token* self) {
 
     case tkHash: // tkExclamation:
         while (tt != tkNullChar) {
-            tt = Token_getType(self, 1);
-            self->pos++;
+            tt = Token_getType(token, 1);
+            token->pos++;
             if (tt == tkNewline) break;
         }
         tt_ret = tkLineComment;
@@ -457,8 +458,8 @@ static void Token_detect(Token* self) {
 
     case tkPipe:
         while (tt != tkNullChar) {
-            tt = Token_getType(self, 1);
-            self->pos++;
+            tt = Token_getType(token, 1);
+            token->pos++;
             if (tt != tkAlphabet and tt != tkDigit and tt != tkSlash
                 and tt != tkPeriod)
                 break;
@@ -471,13 +472,13 @@ static void Token_detect(Token* self) {
 
         while (tt != tkNullChar) // EOF, basically null char
         {
-            tt = Token_getType(self, 1);
+            tt = Token_getType(token, 1);
             // numbers such as 1234500.00 are allowed
             // very crude, error-checking is parser's job not tokenizer's
-            self->pos++;
+            token->pos++;
 
-            if (*self->pos == 'e' or *self->pos == 'E' or *self->pos == 'd'
-                or *self->pos == 'D') { // will all be changed to e btw
+            if (*token->pos == 'e' or *token->pos == 'E' or *token->pos == 'd'
+                or *token->pos == 'D') { // will all be changed to e btw
                 found_e = true;
                 continue;
             }
@@ -491,7 +492,7 @@ static void Token_detect(Token* self) {
             }
             if (found_dot and tt == tkPeriod) tt_ret = tkMultiDotNumber;
 
-            if (tt != tkDigit and tt != tkPeriod and *self->pos != 'i') break;
+            if (tt != tkDigit and tt != tkPeriod and *token->pos != 'i') break;
         }
         break;
 
@@ -510,12 +511,12 @@ static void Token_detect(Token* self) {
             tt_ret = tkUnaryMinus;
             break;
         }
-        self->pos++;
+        token->pos++;
         break;
 
     case tkOpNotResults:
         // 3-char tokens
-        self->pos++;
+        token->pos++;
     case tkOpEQ:
     case tkOpGE:
     case tkOpLE:
@@ -531,30 +532,31 @@ static void Token_detect(Token* self) {
     case tkOpModEq:
 
         // 2-char tokens
-        self->pos++;
+        token->pos++;
     default:
     defaultToken:
         tt_ret = tt;
-        self->pos++;
+        token->pos++;
         break;
     }
 
-    self->matchlen = (uint32_t)(self->pos - start);
-    self->pos = start;
-    self->kind = tt_ret;
+    token->matchlen = (uint32_t)(token->pos - start);
+    token->pos = start;
+    token->kind = tt_ret;
 
-    if (self->kind == tkIdentifier) Token_tryKeywordMatch(self);
+    if (token->kind == tkIdentifier) Token_tryKeywordMatch(token);
 
-    if (self->kind == tkSpaces and self->matchlen == 1) self->kind = tkOneSpace;
+    if (token->kind == tkSpaces and token->matchlen == 1)
+        token->kind = tkOneSpace;
 
-    tt_last = self->kind;
+    tt_last = token->kind;
     if (tt_last != tkOneSpace and tt_last != tkSpaces)
         tt_lastNonSpace = tt_last;
 }
 
 // Advance to the next self->token (skip whitespace if `skipws` is set).
-static void Token_advance(Token* self) {
-    switch (self->kind) {
+static void Token_advance(Token* token) {
+    switch (token->kind) {
     case tkNullChar:
         return;
     case tkIdentifier:
@@ -594,23 +596,23 @@ static void Token_advance(Token* self) {
         //    case tkBraceOpen:
         break;
     default:
-        *self->pos = 0; // trample it so that idents etc. can be assigned
-                        // in-situ
+        *token->pos = 0; // trample it so that idents etc. can be assigned
+                         // in-situ
     }
 
-    self->pos += self->matchlen;
-    self->col += self->matchlen;
-    self->matchlen = 0;
-    Token_detect(self);
+    token->pos += token->matchlen;
+    token->col += token->matchlen;
+    token->matchlen = 0;
+    Token_detect(token);
 
-    if (self->kind == tkNewline) {
+    if (token->kind == tkNewline) {
         // WHY don't you do self->token advance here?
-        self->line++;
-        self->col = 0; // position of the nl itself is 0
+        token->line++;
+        token->col = 0; // position of the nl itself is 0
     }
-    if (self->skipWhiteSpace
-        and (self->kind == tkSpaces
-            or (self->strictSpacing and self->kind == tkOneSpace)))
-        Token_advance(self);
+    if (token->skipWhiteSpace
+        and (token->kind == tkSpaces
+            or (token->strictSpacing and token->kind == tkOneSpace)))
+        Token_advance(token);
 }
 //

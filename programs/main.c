@@ -39,35 +39,50 @@ typedef struct ASTUnits {
     char* label;
 } ASTUnits;
 
+typedef struct {
+    double start, end;
+} Interval;
+// TODO: replace this with the generic RealRange
+
 typedef struct ASTTypeSpec {
     union {
         struct ASTType* type;
         char* name;
+        Interval* intv;
+        // ^ e.g. var x in [1:250]
+        // this does not make x integer. it only provides a constraint, you need
+        // other clues to decide if x should really be integer.
+        // e.g. var x in [1:1:256] -> now its an integer
         ASTUnits* units;
+        // not keeping units on vars; move them to exprs instead. that way | is
+        // simply a check/multiply op. in tthe AST | is a tkDimensionedExpr, or
+        // simply every expr has a ASTUnits* member.
     };
     uint32_t dims : 24, col : 8;
     uint16_t line;
+    CollectionTypes collectionType : 6;
+    bool hasRange : 1, hasUnits : 1;
     TypeTypes typeType : 7;
     bool nullable : 1;
-    CollectionTypes collectionType : 8;
 } ASTTypeSpec;
 
 typedef struct ASTVar {
     char* name;
     ASTTypeSpec* typeSpec;
     struct ASTExpr* init;
-    struct ASTExpr* lastUsed; // last expr in owning scope that refers to this
-    // var. Note that you should dive to search for the last expr, it may be
-    // within an inner scope. The drop call should go at the end of such
+    // struct ASTExpr* lastUsed; // last expr in owning scope that refers to
+    // this var. Note that you should dive to search for the last expr, it may
+    // be within an inner scope. The drop call should go at the end of such
     // subscope, NOT within the subscope itself after the actual expr. (so set
     // the if/for/while as the lastref, not the actual lastref)
     // WHY NOT JUST SAVE THE LINE NUMBER OF THE LAST USE?
-    uint16_t line;
+    uint16_t line, lineLastUsed;
     struct {
         bool used : 1, //
             changed : 1, //
             isLet : 1, //
             isVar : 1, //
+            isArg : 1, // a function arg, not a local var
             stackAlloc : 1, // this var is of a ref type, but it will be
                             // stack allocated. it will be passed around by
                             // reference as usual.
@@ -169,13 +184,16 @@ typedef struct ASTExpr {
     };
     union {
         struct ASTExpr* left;
-        List(ASTVar*) vars; // for tkString
+        List(ASTVar*) * vars; // for tkString
         struct ASTType* elementType; // for tkListLiteral, tkDictLiteral only!!
     };
     union {
         // ASTEvalInfo eval;
-        uint32_t hash; // why do you need the hash in the expr? just add to the
-                       // dict using the computed hash!
+        struct {
+            uint32_t hash, slen;
+        }; // str len for strings, idents, unresolved funcs/vars etc.
+        // why do you need the hash in the expr? just add to the dict using the
+        // computed hash! TO COMPUTE HASH OF EXPR TREES
     };
     union {
         char* string;
@@ -228,9 +246,10 @@ typedef struct ASTFunc {
     struct {
         uint16_t line;
         struct {
-            uint16_t usesIO : 1, throws : 1, isRecursive : 1, usesNet : 1,
-                usesGUI : 1, usesSerialisation : 1, isExported : 1,
-                usesReflection : 1, nodispatch : 1, isStmt : 1, isDeclare : 1,
+            uint16_t throws : 1,
+                isRecursive : 1, // usesNet : 1,usesIO : 1, usesGUI : 1,
+                usesSerialisation : 1, isExported : 1, usesReflection : 1,
+                nodispatch : 1, isStmt : 1, isDeclare : 1,
                 isCalledFromWithinLoop : 1, elemental : 1, isDefCtor : 1,
                 intrinsic : 1, // intrinsic: print, describe, json, etc. not to
                                // be output by linter
@@ -249,7 +268,7 @@ typedef struct ASTFunc {
             // return paths and not all of them may call the constructor; in
             // this case set returnsNewObjectAlways accordingly.
         };
-        uint8_t argCount;
+        uint8_t argCount, nameLen;
     };
 } ASTFunc;
 
@@ -700,7 +719,7 @@ static const char* const jet_banner = //
     "_____  /_  _ \\  __/ _|  %s %s %4d-%02d-%02d\n"
     "____  / /  __/ /_  __|\n"
     "___  /  \\___/\\__/ ___|  https://github.com/jetpilots/jet\n"
-    "/___/ -----------------------------------------------------\n\n";
+    "/___/ ______________________________________________________\n\n";
 
 static void Parser_fini(Parser* parser) {
     free(parser->data);
@@ -936,6 +955,10 @@ int main(int argc, char* argv[]) {
     if (argc > 2 && *argv[2] == 't') parser->mode = PMGenTests;
 
     parser->generateCommentExprs = (parser->mode == PMLint);
+
+    // If you ar not linting, even a single error is enough to stop and tell the
+    // user to LINT THE DAMN FILE FIRST.
+    if (parser->mode != PMLint) parser->issues.errLimit = 1;
 
     modules = parseModule(parser);
 

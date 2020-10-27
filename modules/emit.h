@@ -62,7 +62,7 @@ static void ASTTypeSpec_emit(ASTTypeSpec* typeSpec, int level, bool isconst) {
     //        }
 }
 
-static void ASTExpr_emit(ASTExpr* self, int level);
+static void ASTExpr_emit(ASTExpr* expr, int level);
 
 ///////////////////////////////////////////////////////////////////////////
 static void ASTVar_emit(ASTVar* var, int level, bool isconst) {

@@ -280,8 +280,13 @@ static void Parser_errorArgsCountMismatch(
 }
 
 static void Parser_errorIndexDimsMismatch(
-    Parser* const parser, const ASTExpr* const expr) {
+    Parser* const parser, const ASTExpr* const expr, int nhave) {
     assert(expr->kind == tkSubscriptResolved);
+    if (expr->var->typeSpec->typeType == TYErrorType
+        or expr->var->typeSpec->typeType == TYUnresolved)
+        return;
+    // ^ type resolution failed (and must have raised error) so don't process
+    // further
     int reqdDims = expr->var->typeSpec->dims;
     if (not reqdDims)
         eprintf("\n(%d) \e[31merror:\e[0m not an array: "
@@ -289,17 +294,16 @@ static void Parser_errorIndexDimsMismatch(
                 "          indexing a non-array with %d dims, var defined "
                 "at %s%s:%d\n",
             parser->issues.errCount + 1, expr->var->name,
-            RELF(parser->filename), expr->line, expr->col,
-            ASTExpr_countCommaList(expr->left), RELF(parser->filename),
-            expr->var->typeSpec->line);
-    else
+            RELF(parser->filename), expr->line, expr->col, nhave,
+            RELF(parser->filename), expr->var->typeSpec->line);
+    else {
         eprintf("(%d) \e[31merror:\e[0m index dims mismatch for "
                 "\e[34m%s\e[0m at %s%s:%d:%d\n"
                 "          have %d indexes, need %d, var defined at %s%s:%d\n",
             parser->issues.errCount + 1, expr->var->name,
-            RELF(parser->filename), expr->line, expr->col,
-            ASTExpr_countCommaList(expr->left), reqdDims,
+            RELF(parser->filename), expr->line, expr->col, nhave, reqdDims,
             RELF(parser->filename), expr->var->typeSpec->line);
+    }
     Parser_errorIncrement(parser);
 }
 
@@ -364,6 +368,20 @@ static void Parser_errorInitMismatch(
     const char* const leftTypeName = ASTTypeSpec_name(expr->var->typeSpec);
     const char* const rightTypeName = ASTExpr_typeName(expr->var->init);
     //    if (*leftTypeName == '<' or *rightTypeName == '<') return;
+
+    // for collections, RHS is allowed to be an empty [] or {} to indicate that
+    // the array starts out empty. Any-dim arrays can be initialized with [].
+    // e.g. var arr[:,:,:] as Number = []
+    // of course, the LHS must have a type, you cannot have
+    // e.g. var arr[:,:,:] = []
+    // that would be an error.
+    if ((expr->var->init->kind == tkArrayOpen
+            or expr->var->init->kind == tkBraceOpen)
+        and expr->var->typeSpec->collectionType != CTYNone
+        and not expr->var->init->right
+        and expr->var->typeSpec->typeType != TYUnresolved)
+        return;
+
     eprintf("\n(%d) \e[31merror:\e[0m initializer mismatch at %s%s:%d:%d\n"
             "             can't init \e[34m%s\e[0m with an expression of "
             "type \e[34m%s\e[0m\n"
@@ -404,6 +422,9 @@ static void Parser_errorReadOnlyVar(
 
 static void Parser_errorInvalidTypeForOp(
     Parser* const parser, const ASTExpr* const expr) {
+    if (expr->left->typeType == TYErrorType
+        or expr->right->typeType == TYErrorType)
+        return;
     eprintf("\n(%d) \e[31merror:\e[0m invalid types for operator '"
             "\e[34m%s\e[0m' at %s%s:%d:%d\n",
         parser->issues.errCount + 1, TokenKind_repr(expr->kind, false),
