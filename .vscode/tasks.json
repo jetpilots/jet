@@ -2,11 +2,15 @@
     "tasks": [
         {
             "type": "shell",
-            "label": "C/C++: gcc build active file",
-            "command": "/usr/bin/gcc",
+            "label": "Run make jetc-dbg",
+            "command": "make",
             "args": [
+                "jetc-dbg"
+            ],
+            "argse": [
                 "-g",
                 "${file}",
+                "-Imodules",
                 "-o",
                 "${fileDirname}/${fileBasenameNoExtension}"
             ],

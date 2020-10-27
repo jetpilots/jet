@@ -1,4 +1,7 @@
 {
+    "C_Cpp.default.includePath": [
+        "modules"
+    ],
     "files.associations": {
         "*.lzz": "cpp",
         "*.ac": "java",
