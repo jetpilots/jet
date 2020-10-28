@@ -7,13 +7,6 @@
             "args": [
                 "jetc-dbg"
             ],
-            "argse": [
-                "-g",
-                "${file}",
-                "-Imodules",
-                "-o",
-                "${fileDirname}/${fileBasenameNoExtension}"
-            ],
             "options": {
                 "cwd": "${workspaceFolder}"
             },
@@ -23,6 +16,22 @@
             "group": {
                 "kind": "build",
                 "isDefault": true
+            }
+        },
+        {
+            "label": "gcc build current",
+            "type": "shell",
+            "command": "gcc",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "args": [
+                "-g",
+                "${file}",
+                "-lcurl"
+            ],
+            "options": {
+                "cwd": "${fileDirname}"
             }
         }
     ],

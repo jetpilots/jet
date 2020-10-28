@@ -5,10 +5,22 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Debug current file",
+            "programe": "${fileDirname}/${fileBasenameNoExtension}",
+            "program": "${fileDirname}/a.out",
+            "args": [
+                "tests/fddns.jet"
+            ],
+            "cwd": "${fileDirname}",
+            "MIMode": "lldb",
+            "request": "launch",
+            "type": "cppdbg",
+            "preLaunchTask": "gcc build current"
+        },
+        {
             "name": "Debug jetc-dbg",
             "type": "cppdbg",
             "request": "launch",
-            "programe": "${fileDirname}/${fileBasenameNoExtension}",
             "program": "${workspaceRoot}/jetc-dbg",
             "args": [
                 "tests/fddns.jet",

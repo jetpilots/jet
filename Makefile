@@ -1,13 +1,15 @@
-all: jetc
 
 CCFLAGS=-std=c99  -Imodules -ferror-limit=999
 CC=gcc
 
-modules/TokenKindDefs.h: modules/makeTokens.sh
-	cd modules && ./makeTokens.sh
 
 jetc: programs/main.c modules/*.h
 	$(CC)  $(CCFLAGS) $< -lc -o $@
+
+modules/TokenKindDefs.h: modules/makeTokens.sh
+	cd modules && ./makeTokens.sh
+
+all: jetc jetc-fast jetc-dbg jetc-cov
 
 jetc-fast: programs/main.c modules/*.h
 	$(CC) -Os $(CCFLAGS) $< -lc -o $@

@@ -76,7 +76,10 @@ typedef struct ASTVar {
     // subscope, NOT within the subscope itself after the actual expr. (so set
     // the if/for/while as the lastref, not the actual lastref)
     // WHY NOT JUST SAVE THE LINE NUMBER OF THE LAST USE?
-    uint16_t line, lineLastUsed;
+    uint16_t line; //
+    //, lineLastUsed;
+    // ^ YOu canot use the last used line no to decide drops etc. because code
+    // motion can rearrange statements and leave the line numbers stale.
     struct {
         bool used : 1, //
             changed : 1, //
@@ -91,6 +94,7 @@ typedef struct ASTVar {
                          // var more than once.
             escapes : 1, // does it escape the owning SCOPE?
             canInplace : 1,
+            isPromise : 1, // is it an async var (transparently a Promise<T>)?
             hasRefs : 1, // there are other vars/lets that reference this var or
                          // overlap with its storage. e.g. simply pointers that
                          // refer to this var, or slices or filters taken if
@@ -254,6 +258,7 @@ typedef struct ASTFunc {
                 intrinsic : 1, // intrinsic: print, describe, json, etc. not to
                                // be output by linter
                 analysed : 1, // semantic pass has been done, don't repeat
+                isCalledAsync : 1, // is this func called async at least once?
                 returnsNewObjectSometimes : 1,
                 returnsNewObjectAlways : 1; // what this func returns is an
                                             // object that was obtained by a
