@@ -300,13 +300,15 @@ static void analyseExpr(
                     expr->elementType = first->var->typeSpec->type;
                     if (first->var->typeSpec->dims
                         or first->var->typeSpec->collectionType != CTYNone)
-                        unreachable("trying to make array of arrays", "");
+                        unreachable(
+                            "trying to make array of arrays %d", expr->line);
                     break;
                 case tkFunctionCallResolved:
                     expr->elementType = first->func->returnSpec->type;
                     if (first->func->returnSpec->dims
                         or first->var->typeSpec->collectionType != CTYNone)
-                        unreachable("trying to make array of arrays line", "");
+                        unreachable("trying to make array of arrays line %d",
+                            expr->line);
                     break;
                 default:
                     break;

@@ -1,3 +1,76 @@
+/*
+enum CollTypes {
+    CYNone,
+    CYSet,
+    CYDict,
+    CYArray,
+    CYSlice,
+    CYFilter,
+    CYSelection,
+    CYRealRange,
+    CYIntRange
+};
+
+enum CollSubTypesArray {
+    CYStackArray,
+    CYStaticArray,
+    CYStackPtrArray,
+    CYStaticPtrArray,
+    // ^ Stack/static arrays are non-resizable and of compile-time known size
+    CYHeapArray,
+    CYHeapPtrArray,
+    CYHeapSet,
+    CYHeapSortedSet,
+    CYHeapOrderedSet,
+    // ^ Set is grouped with Array and not Dict since "feels like" an array
+    CYHeapKDTree
+    // ^ independent KD-tree (1D). Otherwise arrays may have a ref to a KD-tree
+    // when you want both structured array AND fast neighbour search. However
+    // sometimes you just want search (e.g. point cloud), so you can use this
+};
+
+enum CollSubTypesDict {
+    CYHeapDict,
+    CYHeapKDDict,
+    CYHeapSortedDict,
+    CYHeapOrderedDict
+};
+
+enum TypeTypes_basic {
+    TYUnresolved,
+    TYVoid,
+    TYError,
+    TYObject,
+    TYSizeInt,
+    TYString,
+    TYNumber,
+    TYBool
+};
+
+// enum TypeSubTypes_String {
+
+// };
+
+enum TypeSubTypes_Number {
+    TYNumberInt64,
+    TYNumberInt32,
+    TYNumberInt16,
+    TYNumberInt8,
+    TYNumberUInt64,
+    TYNumberUInt32,
+    TYNumberUInt16,
+    TYNumberUInt8,
+    TYNumberReal32,
+    TYNumberReal64,
+    TYNumberDualReal64,
+    TYNumberDualInt64,
+    TYNumberDualReal32,
+    TYNumberDualInt32,
+    TYNumberComplex,
+    TYNumberBigInt
+};
+*/
+// enum TypeSubTypes_ {};
 
 // TODO: ASTTypeSpecs will have a TypeTypes typeType; that can be used
 // to determine quickly if it is a primitive. fits in 4bits btw

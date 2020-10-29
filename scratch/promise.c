@@ -75,15 +75,24 @@ void String_append(String* str, String* str2) {
     String_appendCString(str, str2->ref, str2->len);
 }
 
-static size_t curlcb_collect(
-    void* data, size_t size, size_t nmemb, void* target) {
-    String* str = target;
-    String_appendCString(str, data, nmemb * size);
+int String_len(String* str) { return str->len; }
+
+void String_justPush(String* str, char ch) { str->ref[str->len++] = ch; }
+
+void String_push(String* str, char ch) {
+    String_growBy(str, 1);
+    String_justPush(str, ch);
+}
+
+typedef enum { TextEncoding_ascii, TextEncoding_utf8 } TextEncoding;
+String* String_iconv(String* str, TextEncoding from, TextEncoding to) { }
+
+static size_t curlcbfn(void* data, size_t size, size_t nmemb, void* tgt) {
+    String_appendCString(tgt, data, nmemb * size);
     return nmemb * size;
 }
 
-static size_t curlcb_headfn(
-    void* data, size_t size, size_t nmemb, void* target) {
+static size_t curlcbhead(void* data, size_t size, size_t nmemb, void* target) {
     if (!strncmp("Content-Length: ", data, 16)) {
         // printf("*** found len: (%d) %s\n", atoi(data + 16), data + 16);
         String_growTo(target, atoi(data + 16));
@@ -107,10 +116,10 @@ String* httpget(char* url, int header, int debug, String* ret) {
     curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1L);
     // curl_easy_setopt(curl_handle, CURLOPT_VERBOSE, 1L);
     curl_easy_setopt(curl_handle, CURLOPT_NOPROGRESS, 1L);
-    curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, curlcb_collect);
+    curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, curlcbfn);
     curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, ret);
     curl_easy_setopt(curl_handle, CURLOPT_HEADER, !!header);
-    curl_easy_setopt(curl_handle, CURLOPT_HEADERFUNCTION, curlcb_headfn);
+    curl_easy_setopt(curl_handle, CURLOPT_HEADERFUNCTION, curlcbhead);
     curl_easy_setopt(curl_handle, CURLOPT_HEADERDATA, ret);
 
     if (header) String_resize(ret, 512);
@@ -175,6 +184,37 @@ void* _async_wrap_httpget(void* a) {
     String* ret = httpget(args->url, args->header, args->debug, args->ret);
     return ret;
 }
+
+typedef enum {
+    HTTPMethods_get,
+    HTTPMethods_post,
+    HTTPMethods_put,
+    HTTPMethods_delete
+} HTTPMethods;
+
+typedef enum {
+    MIMETypes_plain,
+    MIMETypes_json,
+    MIMETypes_xml,
+    MIMETypes_yaml
+} MIMETypes;
+
+typedef struct {
+    char* url;
+    HTTPMethods method;
+    TextEncoding dataEncoding;
+    MIMETypes dataType;
+    char* data;
+} Request;
+
+typedef struct {
+    const char** headers;
+    String body;
+    uint16_t time, code;
+    TextEncoding encoding : 8;
+} Response;
+
+httpdo(Request* req, Response* resp) { }
 
 void* jet__noop(void* arg) { return NULL; }
 

@@ -70,12 +70,18 @@ typedef struct ASTVar {
     char* name;
     ASTTypeSpec* typeSpec;
     struct ASTExpr* init;
-    // struct ASTExpr* lastUsed; // last expr in owning scope that refers to
-    // this var. Note that you should dive to search for the last expr, it may
-    // be within an inner scope. The drop call should go at the end of such
-    // subscope, NOT within the subscope itself after the actual expr. (so set
-    // the if/for/while as the lastref, not the actual lastref)
-    // WHY NOT JUST SAVE THE LINE NUMBER OF THE LAST USE?
+    // List(ASTVar*) deps; // TODO: keep deps of each var so you can tell when a
+    // dependency of an async var is changed before the async is awaited. First
+    // you will have to figure out how to analyze array members and type members
+    // (e.g. init an instance for each compound type and array for each array
+    // and then set the member of that as dep...)
+    // struct ASTExpr* lastUsed; //
+    // last expr in owning scope that refers to this var. Note that you should
+    // dive to search for the last expr, it may be within an inner scope. The
+    // drop call should go at the end of such subscope, NOT within the subscope
+    // itself after the actual expr. (so set the if/for/while as the lastref,
+    // not the actual lastref) WHY NOT JUST SAVE THE LINE NUMBER OF THE LAST
+    // USE?
     uint16_t line; //
     //, lineLastUsed;
     // ^ YOu canot use the last used line no to decide drops etc. because code
