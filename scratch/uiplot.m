@@ -330,18 +330,51 @@ NSBezierPath* path =  [NSBezierPath bezierPath];
 @interface ScatterPlotView: NSView {
     @private
       double *x,*y,*r;
- int count;
- struct {double xmin,xmax,ymin,ymax,rmin,rmax,rspan,xspan,yspan;} bounds;
+    int count;
+    struct {double xmin,xmax,ymin,ymax,rmin,rmax,rspan,xspan,yspan;} bounds;
+     int marginleft,marginbottom,marginright,margintop;
+     NSSize plotSize;
+     NSMutableArray<NSColor*> * colors;
  }
 @end
 @implementation ScatterPlotView
 - (id)initWithFrame:(NSRect)frame {
     count=0;x=y=r=NULL;
+    marginleft=100,marginbottom=80,marginright=60,margintop=40;
+    colors = [NSMutableArray new];
+    [colors addObject:[NSColor systemBlueColor]];
+    [colors addObject:[NSColor systemRedColor]];
+    [colors addObject:[NSColor systemTealColor]];
+    [colors addObject:[NSColor systemYellowColor]];
+    [colors addObject:[NSColor systemBrownColor]];
+    [colors addObject:[NSColor systemGreenColor]];
+    [colors addObject:[NSColor systemIndigoColor]];
+    [colors addObject:[NSColor systemOrangeColor]];
+    [colors addObject:[NSColor systemPinkColor]];
+    [colors addObject:[NSColor systemPurpleColor]];
+
      return [super initWithFrame:frame] ;
+}
+- (void)setRandomData:(int)n {
+    x=malloc(sizeof(double)*n);
+    y=malloc(sizeof(double)*n);
+    r=malloc(sizeof(double)*n);
+    count=n;
+    unsigned short st[3] = {};
+    for(int i=0;i<n;i++) {
+        x[i] = erand48(st)*100;
+        y[i] = erand48(st)*100;
+        r[i] = (erand48(st)+1) *5;
+    }
+   [self computeBounds];
 }
 - (void)setData {
     x=sx;y=sy;r=sr;count=5;
    [self computeBounds];
+}
+- (void)mouseDown:(NSEvent *)event {
+    NSPoint loc = [event locationInWindow];
+printf("%g %g\n",(loc.x-marginleft)/plotSize.width*bounds.xspan+bounds.xmin, (loc.y-marginbottom)/plotSize.height*bounds.yspan+bounds.ymin);
 }
 // - (BOOL)isOpaque {return YES;}
 - (void)drawRect:(NSRect)dirtyRect {
@@ -350,12 +383,9 @@ NSBezierPath* path =  [NSBezierPath bezierPath];
 
     // the following statements trace two polygons with n sides
     // and connect all of the vertices with lines
-
-    const int marginleft=100,marginbottom=80;
-    const int marginright=40,margintop=40;
     // double scale =  dirtyRect.size.width /bounds.xspan;
 
-    NSSize plotSize = {dirtyRect.size.width - marginleft - marginright, dirtyRect.size.height-margintop-marginbottom};
+      plotSize = NSMakeSize(dirtyRect.size.width - marginleft - marginright, dirtyRect.size.height-margintop-marginbottom);
 
     double scalex = plotSize.width/bounds.xspan;
     double scaley = plotSize.height/bounds.yspan;
@@ -408,14 +438,15 @@ NSBezierPath* path =  [NSBezierPath bezierPath];
     }
 
 
-    [[NSColor systemBlueColor] set];   // set the drawing color to black
 
     NSAffineTransform* xform = [NSAffineTransform transform];
     [xform scaleXBy:scalex  yBy:scaley ];
     [xform translateXBy:-bounds.xmin+(marginleft)/scalex  yBy:-bounds.ymin+marginbottom/scaley ];
     // printf("%f %f %f\n" ,bounds.xspan,dirtyRect.size.width, scale);
     [xform concat];
+    int icolor=0;
     for (int i=0;i<count;i++) {
+    [colors[icolor++ % [colors count]]  set];   // set the drawing color to black
         // double rad = r[i]/scalex;//,hrad=rad/2;
         NSPoint p;
         p.x = x[i];//(x[i]-bounds.xmin)/bounds.xspan;
@@ -595,7 +626,7 @@ NSMenu* makeMainMenu() {
     // id nsv = [[KaleidoView alloc] initWithTrackingInFrame:NSMakeRect(0,0,200,200)];
     id nsv = [[ScatterPlotView alloc] initWithFrame:NSMakeRect(0,0,200,200)];
     // [nsv setAutoresizingMask: NSViewHeightSizable|NSViewWidthSizable];
-    [nsv setData];
+    [nsv setRandomData:30000];
     [nsv setNeedsDisplay:YES];
     // [[window contentView] addSubview: nsv];
     window.contentView = nsv; //<< you can do this too
