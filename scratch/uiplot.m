@@ -351,62 +351,70 @@ NSBezierPath* path =  [NSBezierPath bezierPath];
     // the following statements trace two polygons with n sides
     // and connect all of the vertices with lines
 
-    const int marginleft=80,marginbottom=80;
-    const int marginright=80,margintop=80;
+    const int marginleft=100,marginbottom=80;
+    const int marginright=40,margintop=40;
     // double scale =  dirtyRect.size.width /bounds.xspan;
-    double scalex = (dirtyRect.size.width-marginleft-marginright)/bounds.xspan;
-    double scaley = (dirtyRect.size.height-margintop-marginbottom)/bounds.yspan;
-    NSAffineTransform* xform = [NSAffineTransform transform];
-    [xform scaleXBy:scalex  yBy:scaley ];
-    [xform translateXBy:-bounds.xmin+(marginleft)/scalex  yBy:-bounds.ymin+marginbottom/scaley ];
-    // printf("%f %f %f\n" ,bounds.xspan,dirtyRect.size.width, scale);
-    [xform concat];
+
+    NSSize plotSize = {dirtyRect.size.width - marginleft - marginright, dirtyRect.size.height-margintop-marginbottom};
+
+    double scalex = plotSize.width/bounds.xspan;
+    double scaley = plotSize.height/bounds.yspan;
+
     // Draw content...
 
     [[NSColor tertiaryLabelColor] set];   // set the drawing color to black
 
-    const int ngridx=10,ngridy=10;
+    const int ngridx=10,ngridy=10*scaley/scalex;
+
+
     for (int i=0;i<ngridx;i++)
     {
-        NSPoint point1={bounds.xmin+i*(bounds.xspan)/ngridx,bounds.ymin}, point2={bounds.xmin+i*(bounds.xspan)/ngridx,bounds.ymax};
-        [NSBezierPath strokeLineFromPoint: point1
-                        toPoint: point2];
-                        }
+        NSPoint point1={marginleft+i*plotSize.width/ngridx, marginbottom},
+                point2={point1.x, marginbottom+plotSize.height};
+        [NSBezierPath strokeLineFromPoint: point1 toPoint: point2];
+    }
     for (int i=0;i<ngridy;i++)
     {
-        NSPoint point1={bounds.xmin,bounds.ymin+i*(bounds.yspan)/ngridy}, point2={bounds.xmax,bounds.ymin+i*(bounds.yspan)/ngridy};
-        [NSBezierPath strokeLineFromPoint: point1
-                        toPoint: point2];
-                        }
+        NSPoint point1={marginleft, marginbottom+i*plotSize.height/ngridy},
+                point2={plotSize.width+marginleft,point1.y};
+        [NSBezierPath strokeLineFromPoint: point1  toPoint: point2];
+    }
 
     [[NSColor textColor] set];   // set the drawing color to black
-    [NSBezierPath strokeRect: NSMakeRect(bounds.xmin,bounds.ymin,bounds.xspan,bounds.yspan)];
+    [NSBezierPath strokeRect:
+        NSMakeRect(marginleft, marginbottom, plotSize.width, plotSize.height)];
 
-    [[NSFont fontWithName:@"Helvetica" size:12.0] set];
+    NSFont *font = [NSFont fontWithName:@"Helvetica" size:14.0];
     NSDictionary* fontInfo = @{
+        NSFontAttributeName: font,
         NSForegroundColorAttributeName: [NSColor textColor]
     };
+    // [font set];
 
     for (int i=0;i<=ngridx;i++)
     {
-        NSPoint point1={bounds.xmin+i*(bounds.xspan)/ngridx,bounds.ymin};
-        NSString* label = [[NSString alloc] initWithFormat:@"%g" , point1.x];
-        NSSize labelsize = [label sizeWithAttributes:nil ];
-        [label drawAtPoint:NSMakePoint(point1.x-labelsize.width/2,point1.y-labelsize.height) withAttributes:fontInfo];
+        NSPoint point1 = {marginleft+i*plotSize.width/ngridx, marginbottom};
+        NSString* label = [[NSString alloc] initWithFormat:@"%g" , bounds.xmin+i*bounds.xspan/ngridx];
+        NSSize labelsize = [label sizeWithAttributes:fontInfo ];
+        [label drawAtPoint:NSMakePoint(point1.x-labelsize.width/2,point1.y-labelsize.height*1.5) withAttributes:fontInfo];
     }
 
     for (int i=0;i<=ngridy;i++)
     {
-        NSPoint point2={bounds.xmin, bounds.ymin+i*(bounds.yspan)/ngridy};
-        NSString* label = [[NSString alloc] initWithFormat:@"%g" , point2.y];
-        NSSize labelsize = [label sizeWithAttributes:nil ];
-        [label drawAtPoint:NSMakePoint(point2.x-labelsize.width,point2.y-labelsize.height/2)  withAttributes:fontInfo];
+        NSPoint point2={marginleft, marginbottom+i*plotSize.height/ngridy};
+        NSString* label = [[NSString alloc] initWithFormat:@"%g" , bounds.ymin+i*bounds.yspan/ngridy];
+        NSSize labelsize = [label sizeWithAttributes:fontInfo ];
+        [label drawAtPoint:NSMakePoint(point2.x-labelsize.width-labelsize.height/2,point2.y-labelsize.height/2)  withAttributes:fontInfo];
     }
 
 
     [[NSColor systemBlueColor] set];   // set the drawing color to black
 
-
+    NSAffineTransform* xform = [NSAffineTransform transform];
+    [xform scaleXBy:scalex  yBy:scaley ];
+    [xform translateXBy:-bounds.xmin+(marginleft)/scalex  yBy:-bounds.ymin+marginbottom/scaley ];
+    // printf("%f %f %f\n" ,bounds.xspan,dirtyRect.size.width, scale);
+    [xform concat];
     for (int i=0;i<count;i++) {
         // double rad = r[i]/scalex;//,hrad=rad/2;
         NSPoint p;
@@ -414,6 +422,8 @@ NSBezierPath* path =  [NSBezierPath bezierPath];
         p.y = y[i];//(y[i]-bounds.ymin)/bounds.yspan;
         drawOval(p.x, p.y, r[i]/scalex, r[i]/scaley);
     }
+    [xform invert];
+    [xform concat];
 
 }
 - (void) computeBounds {
