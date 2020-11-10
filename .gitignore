@@ -16,3 +16,4 @@ jetc-cov
 *.o
 *.s
 doxy/
+.ccls-cache/
