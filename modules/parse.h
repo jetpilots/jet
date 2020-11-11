@@ -277,6 +277,10 @@ exitloop:
         case tkSubscript:
             if (result.used > 0) {
                 arg = jet_PtrArray_pop(&result);
+                if (p->kind == tkSubscript) {
+                    assert(arg->kind == tkArrayOpen);
+                    arg = arg->right;
+                }
                 p->left = arg;
             }
             break;
@@ -469,7 +473,7 @@ static ASTVar* parseVar(Parser* parser) {
         var->typeSpec->col = parser->token.col;
         var->typeSpec->name = "";
     }
-    var->typeSpec->dims = dims;
+    // var->typeSpec->dims = dims;
 
     Parser_ignore(parser, tkOneSpace);
     if (Parser_ignore(parser, tkOpAssign)) //
@@ -574,8 +578,8 @@ static ASTScope* parseScope(Parser* parser, ASTScope* parent, bool isTypeBody) {
             // hack an ASTVar out of it.
             if (tt == tkKeyword_for) {
                 // TODO: new Parser_error
-                if (expr->left->kind != tkOpAssign)
-                    eprintf("Invalid for-loop condition: %s\n",
+                if (expr->left->kind != tkKeyword_in)
+                    unreachable("Invalid for-loop condition: %s\n",
                         TokenKind_repr(expr->left->kind, false));
                 resolveVars(parser, expr->left->right, scope, false);
 

@@ -1,0 +1,16 @@
+
+var w = Window("My Best Collection", size=800x600)
+
+var m = Menu("File", key="q")
+var mi = MenuItem("Shared")
+&m.add(mi)
+
+var b = Button("Click Me!", pos=100x20, size=100x20, parent=w.view)
+&w.add(b)
+
+var b = &w.add(Button("Click Me!", pos=100x20, size=100x20))
+
+var h = HStack()
+var lbS = Outline(...)
+var docV = Table(...)
+&h.add([lbS.view, docV.view])

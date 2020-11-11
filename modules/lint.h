@@ -129,7 +129,7 @@ static void ASTScope_lint(ASTScope* scope, int level) {
                         or next->kind == tkKeyword_elif)
                         break;
                 }
-            printf("%.*send %s\n", level, spaces, tok);
+            printf("%.*send %s\n", level, spaces, ""); // tok);
         } break;
         default:
             ASTExpr_lint(expr, level, true, false);
@@ -153,7 +153,7 @@ static void ASTType_lint(ASTType* type, int level) {
         ASTExpr_lint(stmt, level + STEP, true, false);
         puts("");
     }
-    puts("end type\n");
+    puts("end\n");
 }
 
 static void ASTFunc_lint(ASTFunc* func, int level) {
@@ -178,7 +178,7 @@ static void ASTFunc_lint(ASTFunc* func, int level) {
     } else if (not func->isStmt) {
         puts("");
         ASTScope_lint(func->body, level + STEP);
-        puts("end function\n");
+        puts("end\n");
     } else {
         ASTExpr* def = func->body->stmts->item;
         def = def->right; // its a return expr
@@ -191,7 +191,7 @@ static void ASTFunc_lint(ASTFunc* func, int level) {
 static void ASTTest_lint(ASTTest* test, int level) {
     printf("test '%s'\n", test->name);
     ASTScope_lint(test->body, level + STEP);
-    puts("end test\n");
+    puts("end\n");
 }
 
 static void ASTExpr_lint(
@@ -349,7 +349,7 @@ static void ASTExpr_lint(
 }
 
 static void ASTModule_lint(ASTModule* module, int level) {
-    printf("! module %s\n", module->name);
+    printf("# module %s\n", module->name);
 
     jet_foreach(ASTImport*, import, module->imports)
         ASTImport_lint(import, level);

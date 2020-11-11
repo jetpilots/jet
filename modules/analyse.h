@@ -57,6 +57,7 @@ static void analyseExpr(
             ? expr->func->returnSpec->collectionType
             : CTYNone; // should actually be TYVoid
         expr->elemental = expr->func->elemental;
+        if (expr->func->returnSpec) expr->dims = expr->func->returnSpec->dims;
         // isElementalFunc means the func is only defined for (all)
         // Number arguments and another definition for vector args
         // doesn't exist. Basically during typecheck this should see
@@ -175,6 +176,7 @@ static void analyseExpr(
             expr->elemental = init->elemental;
             expr->throws = init->throws;
             expr->impure = init->impure;
+            expr->dims = init->dims;
 
             if (typeSpec->typeType == TYUnresolved) {
                 typeSpec->typeType = init->typeType;
@@ -183,11 +185,11 @@ static void analyseExpr(
                         expr->var->typeSpec = init->func->returnSpec;
                         // ^ TODO: DROP old expr->var->typeSpec!!
                         typeSpec->type = init->func->returnSpec->type;
-                        // typeSpec->dims = init->func->returnSpec->dims;
+                        typeSpec->dims = init->func->returnSpec->dims;
                     } else if (init->kind == tkIdentifierResolved) {
                         expr->var->typeSpec = init->var->typeSpec;
                         typeSpec->type = init->var->typeSpec->type;
-                        // typeSpec->dims = init->var->typeSpec->dims;
+                        typeSpec->dims = init->var->typeSpec->dims;
                     } else if (init->kind == tkArrayOpen)
                         typeSpec->type = init->elementType;
                     else if (init->kind == tkBraceOpen)
@@ -198,6 +200,8 @@ static void analyseExpr(
                         // at this point, it must be a resolved ident or
                         // subscript
                         typeSpec->type = e->var->typeSpec->type;
+                        typeSpec->dims = e->var->typeSpec->dims;
+
                     } else {
                         unreachable("%s", "var type inference failed");
                     }
@@ -210,9 +214,9 @@ static void analyseExpr(
 
             if (typeSpec->dims == 0) {
                 typeSpec->collectionType = init->collectionType;
-                typeSpec->dims = init->collectionType == CTYTensor
-                    ? 2
-                    : init->collectionType == CTYArray ? 1 : 0;
+                typeSpec->dims = init->collectionType == CTYTensor ? init->dims
+                    : init->collectionType == CTYArray             ? 1
+                                                                   : 0;
             } else if (typeSpec->dims != 1
                 and init->collectionType == CTYArray) {
                 Parser_errorInitDimsMismatch(parser, expr, 1);
@@ -243,8 +247,8 @@ static void analyseExpr(
 
         // -------------------------------------------------- //
     case tkSubscriptResolved: {
-        assert(expr->left->kind == tkArrayOpen);
-        int nhave = ASTExpr_countCommaList(expr->left->right);
+        // assert(expr->left->kind == tkArrayOpen);
+        int nhave = ASTExpr_countCommaList(expr->left);
         if (nhave != expr->var->typeSpec->dims)
             Parser_errorIndexDimsMismatch(parser, expr, nhave);
     }
@@ -260,6 +264,16 @@ static void analyseExpr(
             expr->elemental = expr->left ? expr->left->elemental : true;
             // TODO: check args in the same way as for funcs below, not
             // directly checking expr->left.}
+            // TODO: dims is actually a bit complicated here. For each dim
+            // indexed with a scalar (not a range), you reduce the dim of the
+            // subscript result by 1. For now the default is to keep the dims at
+            // 0, which is what it would be if you indexed something with a
+            // scalar index in each dimension.
+            // analyseExpr for a : op should set dims to 1. Then you just walk
+            // the comma op in expr->right here and check which index exprs have
+            // dims=0.
+            // Special case is when the index expr is a logical, meaning you are
+            // filtering the array, in this case the result's dims is always 1.
         }
         break;
 
@@ -280,6 +294,7 @@ static void analyseExpr(
         expr->typeType = expr->var->typeSpec->typeType;
         expr->collectionType = expr->var->typeSpec->collectionType;
         expr->elemental = expr->collectionType != CTYNone;
+        expr->dims = expr->var->typeSpec->dims;
         break;
 
     case tkArrayOpen:
@@ -289,6 +304,8 @@ static void analyseExpr(
             expr->typeType = expr->right->typeType;
             expr->collectionType
                 = expr->right->kind == tkOpSemiColon ? CTYTensor : CTYArray;
+            expr->dims = expr->right->kind == tkOpSemiColon ? 2 : 1;
+            // using array literals you can only init 1D or 2D
             if (expr->typeType == TYObject) {
                 // you need to save the exact type of the elements, it's not a
                 // primitive type. You'll find it in the first element.
@@ -401,6 +418,7 @@ static void analyseExpr(
         expr->typeType = expr->right->typeType;
         expr->collectionType = expr->right->collectionType;
         expr->elemental = expr->right->elemental;
+        expr->dims = expr->right->dims;
     } break;
 
     case tkLineComment:
@@ -447,9 +465,72 @@ static void analyseExpr(
             // TODO: actually, indexing by an array of integers is also an
             // indication of an elemental op
 
-            if (not expr->unary)
+            if (not expr->unary) {
                 expr->elemental = expr->elemental or expr->left->elemental;
+                expr->dims = expr->right->dims;
+                // if (expr->kind == tkOpColon and expr->right->kind ==
+                // tkOpColon)
+                //     expr->right->dims = 0; // temporarily set it to 0 to
+                //     allow
+                // parsing stepped ranges 1:s:n
 
+                if (expr->dims != expr->left->dims
+                    and not(inFuncArgs
+                        and (expr->kind == tkOpComma
+                            or expr->kind == tkOpAssign))) {
+                    // if either one has 0 dims (scalar) it is an elemental op
+                    // with a scalar.
+                    if (expr->left->dims != 0 and expr->right->dims != 0) {
+                        Parser_errorBinOpDimsMismatch(parser, expr);
+                        //                         unreachable("TODO: make
+                        //                         error: dims mismatch at line
+                        //                         "
+                        //         "%d col %d\n    %d vs %d\n",
+                        // expr->line, expr->col, expr->left->dims,
+                        // expr->right->dims);
+                        expr->right->typeType = TYErrorType;
+                    } else if (expr->kind == tkPlus or expr->kind == tkMinus
+                        or expr->kind == tkTimes or expr->kind == tkSlash
+                        or expr->kind == tkPower or expr->kind == tkOpMod) {
+                        expr->dims = expr->left->dims + expr->right->dims;
+                        expr->collectionType = max(expr->left->collectionType,
+                            expr->right->collectionType);
+                        // todo: stop distinguishing array and tensor!!! then
+                        // you dont need this. this strongly depends on the op &
+                        // is too much repeated work
+                        // eprintf("ok `[+-*/^%]` dims@ %d %d %d %d\n",
+                        // expr->line,
+                        //     expr->col, expr->left->dims, expr->right->dims);
+                    } else if (expr->kind == tkKeyword_in
+                        and expr->left->dims == 0 and expr->right->dims == 1) {
+                        // eprintf("ok `in` dims@ %d %d %d %d\n", expr->line,
+                        //     expr->col, expr->left->dims, expr->right->dims);
+                    } else if (expr->kind == tkOpColon //
+                        and expr->left->dims == 1
+                        and expr->left->kind == tkOpColon
+                        and expr->right->dims == 0) {
+                        // eprintf("ok `:` dims@ %d %d %d %d\n", expr->line,
+                        //     expr->col, expr->left->dims, expr->right->dims);
+                        // expr->dims = 1;
+                    } else {
+                        // unreachable(
+                        //     "TODO: make error: dims mismatch for op '%s' line
+                        //     "
+                        //     "%d col %d\n    %d vs %d\n",
+                        //     tkrepr[expr->kind], expr->line, expr->col,
+                        //     expr->left->dims, expr->right->dims);
+                        Parser_errorBinOpDimsMismatch(parser, expr);
+                    }
+
+                    // ^ TODO: but you can also have some ops on 2D and 1D
+                    // operands e.g. linear solve. what about those?
+                } else {
+                    // eprintf("(ignore) dims@ %d %d %d %d\n", expr->line,
+                    //     expr->col, expr->left->dims, expr->right->dims);
+                }
+                // ranges always create a 1D entity (not always array, but 1D)
+                if (expr->kind == tkOpColon) expr->dims = 1;
+            }
             if (not expr->unary
                 and not(inFuncArgs
                     and (expr->kind == tkOpComma

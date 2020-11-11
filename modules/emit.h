@@ -432,7 +432,7 @@ static void ASTScope_emit(ASTScope* scope, int level) {
             puts("");
         // convert this into a flag which is set in the resolution pass
         if (ASTExpr_throws(stmt))
-            puts("    if (_err_ == ERROR_TRACE) goto backtrace;");
+            printf("%.*sTRACE_IF_ERROR;\n", level, spaces);
     }
 }
 
@@ -530,7 +530,7 @@ static void ASTFunc_printStackUsageDef(size_t stackUsage) {
 
 ///////////////////////////////////////////////////////////////////////////
 static void ASTType_emit(ASTType* type, int level) {
-    if (not type->body or not type->analysed) return;
+    // if (not type->body or not type->analysed) return;
     const char* const name = type->name;
     printf("#define FIELDS_%s \\\n", name);
     jet_foreach(ASTVar*, var, type->body->locals) {
@@ -578,7 +578,7 @@ static void ASTType_emit(ASTType* type, int level) {
     ASTFunc_printStackUsageDef(48);
     puts(functionEntryStuff_UNESCAPED);
     printf("    %s ret = %s_alloc_(); %s_init_(ret);\n"
-           "    if (_err_==ERROR_TRACE) goto backtrace;\n"
+           "    TRACE_IF_ERROR;\n"
            "    _err_ = NULL; STACKDEPTH_DOWN; return ret;\n",
         name, name, name);
     puts(functionExitStuff_UNESCAPED);
@@ -663,7 +663,7 @@ static void ASTFunc_emit(ASTFunc* func, int level) {
 
 ///////////////////////////////////////////////////////////////////////////
 static void ASTFunc_genh(ASTFunc* func, int level) {
-    if (not func->body or not func->analysed) return;
+    // if (not func->body or not func->analysed) return;
     if (not func->isExported) printf("static ");
     if (func->returnSpec) {
         ASTTypeSpec_emit(func->returnSpec, level, false);
@@ -698,6 +698,7 @@ static void ASTExpr_emit_tkSubscriptResolved(ASTExpr* expr, int level) {
     char* name = expr->var->name;
     ASTExpr* index = expr->left;
     assert(index);
+    // index = index->right;
     switch (index->kind) {
     case tkNumber: // indexing with a single number, can be a -ve number
         printf("Array_get_%s(%s, %s)", ASTTypeSpec_cname(expr->var->typeSpec),
@@ -892,6 +893,15 @@ static void ASTExpr_prepareInterp(
         break;
     case tkVarAssign:
         ASTExpr_prepareInterp(expr->var->init, scope);
+        break;
+    case tkKeyword_for:
+    case tkKeyword_if:
+    case tkKeyword_else:
+    case tkKeyword_elif:
+    case tkKeyword_while:
+        ASTExpr_prepareInterp(expr->left, scope);
+        jet_foreach(ASTExpr*, subexpr, expr->body->stmts)
+            ASTExpr_prepareInterp(subexpr, expr->body);
         break;
     default:
         if (expr->prec) {
@@ -1406,15 +1416,17 @@ static void ASTModule_emit(ASTModule* module, int level) {
     puts("");
 
     jet_foreach(ASTType*, type, module->types) {
-        if (type->body) {
+        if (type->body and type->analysed) {
             ASTType_genh(type, level);
             ASTType_genTypeInfoDecls(type);
         }
     }
-    jet_foreach(ASTFunc*, func, module->funcs) ASTFunc_genh(func, level);
+    jet_foreach(ASTFunc*, func, module->funcs) {
+        if (func->body and func->analysed) { ASTFunc_genh(func, level); }
+    }
 
     jet_foreach(ASTType*, type, module->types) {
-        if (type->body) {
+        if (type->body and type->analysed) {
             jet_foreach(ASTExpr*, expr, type->body->stmts)
                 ASTExpr_prepareInterp(expr, type->body);
             // ^ MOVE THIS INTO ASTType_emit
@@ -1424,11 +1436,13 @@ static void ASTModule_emit(ASTModule* module, int level) {
         }
     }
     jet_foreach(ASTFunc*, func, module->funcs) {
-        if (func->body)
-            jet_foreach(ASTExpr*, expr, func->body->stmts)
+        if (func->body and func->analysed) {
+            jet_foreach(ASTExpr*, expr, func->body->stmts) {
                 ASTExpr_prepareInterp(expr, func->body);
-        // ^ MOVE THIS INTO ASTFunc_emit
-        ASTFunc_emit(func, level);
+            }
+            // ^ MOVE THIS INTO ASTFunc_emit
+            ASTFunc_emit(func, level);
+        }
     }
     jet_foreach(ASTImport*, import, module->imports) ASTImport_undefc(import);
 

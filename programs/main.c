@@ -58,18 +58,44 @@ typedef struct ASTTypeSpec {
         // simply a check/multiply op. in tthe AST | is a tkDimensionedExpr, or
         // simply every expr has a ASTUnits* member.
     };
-    uint32_t dims : 24, col : 8;
+    struct { // todo: this must be named TypeInfo & reused in ASTExpr not copy
+             // pasted
+        uint16_t dims; // more than 65535 dims will not be handled at compile
+                       // time (size check, shape check etc) but at runtime. if
+                       // collectionType is tensor but dims is 0, it means too
+                       // many dims or ct-unknown dims, in any case it is then
+                       // the generic ArrayND.
+        CollectionTypes collectionType : 6;
+        bool hasRange : 1, hasUnits : 1;
+        TypeTypes typeType : 7;
+        bool nullable : 1;
+    };
     uint16_t line;
-    CollectionTypes collectionType : 6;
-    bool hasRange : 1, hasUnits : 1;
-    TypeTypes typeType : 7;
-    bool nullable : 1;
+    uint8_t col;
 } ASTTypeSpec;
 
 typedef struct ASTVar {
     char* name;
     ASTTypeSpec* typeSpec;
-    struct ASTExpr* init;
+    union {
+        struct ASTExpr* init;
+        // when you move to having return var, there wont be a returnSpec on
+        // funcs anymore, only on vars. then you can get rid of asttypespec and
+        // move its stuff here. When there is an init, you take typeinfo from
+        // the expr, else directly here. check lower dword of the init ptr to be
+        // null to know that init is null. playing with fire, but its safe play
+        // imho. well its all for later.
+        struct {
+            unsigned _init_lower32;
+            struct {
+                uint16_t dims;
+                CollectionTypes collectionType : 6;
+                bool hasRange : 1, hasUnits : 1;
+                TypeTypes typeType : 7;
+                bool nullable : 1;
+            };
+        };
+    };
     // List(ASTVar*) deps; // TODO: keep deps of each var so you can tell when a
     // dependency of an async var is changed before the async is awaited. First
     // you will have to figure out how to analyze array members and type members
@@ -150,7 +176,6 @@ typedef struct ASTVar {
 
 typedef struct ASTExpr {
     struct {
-        uint16_t line;
         union {
             struct {
                 uint16_t typeType : 8, // typeType of this expression -> must
@@ -177,13 +202,18 @@ typedef struct ASTExpr {
             };
             uint16_t allTypeInfo; // set this to set everything about the type
         };
+        uint16_t line;
+
         // blow this bool to bits to store more flags
-        bool promote : 1, // should this expr be promoted, e.g.
-                          // count(arr[arr<34]) or sum{arr[3:9]}. does not
-                          // propagate.
+        uint8_t dims : 5, // hack for now so you can set upto 32 dims. figure it
+                          // out later how to have a common typeinfo struct
+                          // between astexpr & astvar
+            promote : 1, // should this expr be promoted, e.g.
+                         // count(arr[arr<34]) or sum{arr[3:9]}. does not
+                         // propagate.
             canEval : 1, // the value is known (computable) at compile time,
                          // either by jetc or by backend cc.
-            didEval : 1;
+            didEval : 1; //
         uint8_t prec : 6, // operator precedence for this expr
             unary : 1, // for an operator, is it unary (negation, not,
                        // return, check, array literal, ...)

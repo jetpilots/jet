@@ -112,6 +112,9 @@ static ticks _lprof_[NUMLINES] = {};
 // doesn't track ANY info (stack depth, function name etc.) other than
 // showing "stack overflow" instead of "segmentation fault".
 
+#define TRACE_IF_ERROR                                                         \
+    if (_err_ == ERROR_TRACE) goto backtrace;
+
 #define CHECK_HELP_OPEN printf("Here's some help:\n");
 #define CHECK_HELP_CLOSE                                                       \
     printf("\n");                                                              \

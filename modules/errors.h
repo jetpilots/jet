@@ -7,9 +7,15 @@
     }
 
 static void Parser_errorIncrement(Parser* const parser) {
-    if (++parser->issues.errCount >= parser->issues.errLimit
-        and parser->mode != PMLint)
-        fatal("\ntoo many errors (%d), quitting\n", parser->issues.errLimit);
+    if (++parser->issues.errCount >= parser->issues.errLimit) {
+        if (parser->mode == PMLint) {
+            fatal("\n*** too many errors (%d), quitting\n",
+                parser->issues.errLimit);
+        } else {
+            fatal("\n*** %s has errors, please lint it first.\n",
+                parser->filename);
+        }
+    }
 }
 
 static void Parser_errorExpectedToken(
@@ -408,6 +414,17 @@ static void Parser_errorInitDimsMismatch(
             "care of it.\n",
         parser->issues.errCount + 1, RELF(parser->filename), expr->line,
         expr->col, expr->var->typeSpec->dims, expr->var->name, dims);
+    Parser_errorIncrement(parser);
+}
+
+static void Parser_errorBinOpDimsMismatch(
+    Parser* const parser, const ASTExpr* const expr) {
+
+    eprintf("\n(%d) \e[31merror:\e[0m dimensions mismatch at %s%s:%d:%d\n"
+            "             operator '%s' has \e[34m%dD\e[0m on left, "
+            "\e[34m%dD\e[0m on right\n",
+        parser->issues.errCount + 1, RELF(parser->filename), expr->line,
+        expr->col, tkrepr[expr->kind], expr->left->dims, expr->right->dims);
     Parser_errorIncrement(parser);
 }
 
