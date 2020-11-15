@@ -1,0 +1,1 @@
+// like NSImage or Xojo Picture

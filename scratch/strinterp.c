@@ -66,9 +66,7 @@ char* __strinterp__s(int size, char* buf, const char* fmt, ...) {
     va_start(args, fmt);
     int l = vsnprintf(buf, size, fmt, args);
     va_end(args);
-    if (l > size) {
-        printf("*** %s: size %d, needed %d bytes\n", __func__, size, l);
-    }
+    if (l > size) printf("*** %s: size %d, needed %d\n", __func__, size, l);
     return buf;
 }
 

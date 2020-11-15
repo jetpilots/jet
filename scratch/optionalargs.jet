@@ -26,12 +26,11 @@ var eMsg::EmailMessage = imapFetch("imaps://tytu", id = 673, auth = {user = "him
 
 var dat = read(csv = "data.csv", options = { .sep = ";", .skip = 10, .headers = no })
 
-var dat = read(csv = "data.csv",
-                   options = CSVOptions {
-                        .sep = ";",
-                        .skipLines = 10,
-                        .headers = ["x", "y", "z", "color"]
-                    })
+var dat = read(csv = "data.csv", options = CSVOptions {
+                                                .sep = ";",
+                                                .skipLines = 10,
+                                                .headers = ["x", "y", "z", "color"]
+                                            })
 
 
 plot(xM, axis = xgrid, colors = cols)

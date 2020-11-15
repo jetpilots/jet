@@ -87,7 +87,7 @@ type KEpsilon extends MomentumTransport
         eps!.boundaryField.updateCoeffs()
 
         # Dissipation equation
-        var epsEqn as FVScalarMatrix = (
+        var epsEqn as FVScalarMatrix =
             fvm.ddt(alpha, rho, eps)
             + fvm.div(alphaRhoPhi, eps)
             - fvm.laplacian(alpha * rho * dEpsilonEff(), eps)
@@ -96,7 +96,6 @@ type KEpsilon extends MomentumTransport
             - fvm.Sp(kC2 * alpha * rho * eps/k, eps)
             + epsilonSource(self)
             + fvOptions(alpha, rho, eps)
-        )
 
         epsEqn!.relax()
         epsEqn!.constrain(fvOptions)
@@ -108,13 +107,19 @@ type KEpsilon extends MomentumTransport
         epsEqn!.relax().constrain(fvOptions).
             boundaryManipulate(eps.boundaryField).solve()
 
+        &epsEqn.relax().constrain(fvOptions).
+            boundaryManipulate(eps.boundaryField).solve()
+
         epsEqn!.
             relax().
             constrain(fvOptions).
             boundaryManipulate(eps.boundaryField).
             solve()
 
-        eps!.correct(fvOptions).bound(epsilonMin)
+        solve(boundaryManipulate(constrain(relax(epsEqn!), using=fvOptions), field=eps.boundary))
+
+        &eps.correct(fvOptions).bound(epsilonMin)
+        bound(correct(eps!, fvOptions), epsilonMin)
 
         # Turbulent kinetic energy equation
         var kEqn as FVScalarMatrix = (

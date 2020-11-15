@@ -1,8 +1,9 @@
+import fvm, fvc, fvo.opts, solvers
 
 type KEpsilon
     var visc as MomentumTransport
     var mesh as Mesh3D
-    set (value as Mesh3D)
+    set mesh(value as Mesh3D)
         mesh = value
         mesh!.updateCoeffs()
     end set
@@ -71,7 +72,8 @@ type KEpsilon
 
     # template<BasicMomentumTransportModel>
     func correct()
-        if not turbulence then return
+        if isTurbulent == no then return
+        # dont allow implicit boolean conditions e.g. if not isTurbulent then ...
 
         # Local references
         # const alphaField& alpha = alpha_
@@ -81,20 +83,19 @@ type KEpsilon
         # volScalarField& nut = nut
         var fvOptions = FVOptions(mesh)
 
-        visc!.correct()
+        &visc.correct()
 
         volScalarField.Internal divU
         (
             fvc.div(fvc.absolute(phi(self), U))()
         )
 
-        tmp<volTensorField> tgradU = fvc.grad(U)
+        var gradU = fvc.grad(U)
         volScalarField.Internal gG
         (
             GName(self),
-            nut  * (dev(twoSymm(tgradU.v)) && tgradU.v)
+            nut  * (dev(twoSymm(gradU.v)) and tgradU.v)
         )
-        tgradU!.clear()
 
         # Update eps and gG at the wall
         eps!.boundaryField.updateCoeffs()

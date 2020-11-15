@@ -158,9 +158,7 @@ void jet_pwrite(jet_PipedProcess proc, void* data, ssize_t size) {
 }
 
 void jet_close(jet_PipedProcess* proc) {
-    close(proc->p_read);
-    close(proc->p_write);
-    close(proc->p_err);
+    close(proc->p_read), close(proc->p_write), close(proc->p_err);
     proc->p_read = proc->p_write = proc->p_err = -1;
 }
 

@@ -5,7 +5,7 @@ function ASTType.genNameAccessors(typ as ASTType)
     # TODO: skip bitfield members in this loop or it wont compile
     for va as ASTVar in typ.body.locals #
         write("if (str_equals(name, \"$va.name\")) return &(self->$va.name);")
-    end for
+    end
     write("}")
 
     # this func sets bools or ints that may be part of bitfields
@@ -15,8 +15,8 @@ function ASTType.genNameAccessors(typ as ASTType)
             var ctype = cname(var.typeSpec)
             var ctype as Text = ASTTypeSpec.cname(var.typeSpec)
             write("if (str_equals(name, \"$va.name\")) {self->$va.name = *($ctype*)&value; return;}")
-        end if
-    end for
+        end
+    end
     write("}")
-end function
+end
 

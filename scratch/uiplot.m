@@ -190,6 +190,18 @@ NSString* EXAMPLE_TOOL_TEST_ID = @"EXAMPLE/TOOL/TEST";
 @end
 //-------------------------------------------------------------------------
 
+void fillOval(jet_Point p, jet_Size s) {
+    // NSBezierPath* thePath = ;
+    NSRect ovalRect = NSMakeRect(p.x - s.w / 2, p.y - s.h / 2, s.w, s.h);
+    [[NSBezierPath bezierPathWithOvalInRect:ovalRect] fill];
+}
+void fillRect(jet_Rect r) {
+    // jet_Rect should have same layout as NSRect
+    [[NSBezierPath rectangle:r] fill];
+}
+// void drawCircle(jet_Point p, double r) { drawOval(p.x, p.y, r, r); }
+
+
 void drawOval(double x, double y, double r1, double r2) {
     // NSBezierPath* thePath = ;
     NSRect ovalRect = NSMakeRect(x - r1 / 2, y - r2 / 2, r1, r2);
@@ -387,7 +399,8 @@ static NSPoint spoints[] = { { 0, 65 }, { 100, 313 }, { 200, 166 },
     int icolor = 0;
     for (int i = 0; i < count; i++) {
         [colors[icolor++ % [colors count]]
-            set]; // set the drawing color to black
+            set];
+            // set the drawing color to black
         // double rad = r[i]/scalex;//,hrad=rad/2;
         NSPoint p;
         p.x = x[i]; //(x[i]-bounds.xmin)/bounds.xspan;

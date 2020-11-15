@@ -1,5 +1,5 @@
 #include <stdio.h>
-#define jet_countof(x) (sizeof(x) / sizeof(x[0]))
+#define countof(x) (sizeof(x) / sizeof(x[0]))
 
 int sub2ind(int sub[], int sz[], int n) {
     int acc = 1, ind = 0;
@@ -89,8 +89,8 @@ int main() {
     int sz[] = { 6, 2, 4, 8 };
     int sub[] = { 2, 3, 6, 1 };
 
-    ind2subc(382, sz, sub, jet_countof(sz));
-    for (int i = 0; i < jet_countof(sz); i++) printf("%d ", sub[i]);
-    printf("\n%d\n", sub2indc(sub, sz, jet_countof(sz)));
+    ind2subc(382, sz, sub, countof(sz));
+    for (int i = 0; i < countof(sz); i++) printf("%d ", sub[i]);
+    printf("\n%d\n", sub2indc(sub, sz, countof(sz)));
     return 0;
 }

@@ -64,7 +64,7 @@ end function
 
 # template<BasicMomentumTransportModel>
 function correct(self! as KEpsilon)
-    if not self.turbulence then return
+    if self.turbulent == no then return
 
     # Local references
     # const alphaField& alpha = self.alpha_
@@ -126,7 +126,7 @@ function correct(self! as KEpsilon)
     # constrain(kEqn!, options=fvOptions)
     # solve(kEqn!)
     solve(constrain(relax(kEqn!), options=fvOptions))
-    kEqn = solve(constrain(relax(kEqn), options=fvOptions))
+    # kEqn = solve(constrain(relax(kEqn), options=fvOptions))
 
     # correct(k!, options=fvOptions)
     # bound(k!, limit=self.kMin)
