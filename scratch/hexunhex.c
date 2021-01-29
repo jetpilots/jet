@@ -71,6 +71,7 @@ static void unhex(const char* inp, char* out, size_t inlen) {
     *out = '\0';
 }
 
+// trying out gcc computed gotos
 size_t jet_strlen(const char* str) {
     const char* orig = str;
     while (*str) str++;
@@ -119,7 +120,6 @@ int main() {
     // double tme = jet_clock_clockSpanMicro(t0);
     // printf("%zu %f\n", l, tme / 1e3);
     JET_TIMEIT(unhex(fs, fs, l));
-
 
     // t0 = jet_clock_getTime();
     // hex(fs, fs, l / 2);

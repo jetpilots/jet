@@ -441,8 +441,8 @@ scrollToFirstEventIfNeeded() :=
   end
 
   # MARK as UIPageViewControllerDelegate
-  export function pageViewController(pageViewController as UIPageViewController, didFinishAnimating finished as Bool, previousViewControllers[] as UIViewController, transitionCompleted completed as Bool)
-    guard completed else  returnend
+  export function pageViewController(pageViewController as UIPageViewController, finished as Bool, previousViewControllers[] as UIViewController, completed as Bool)
+    guard completed else return end
     if let timelineContainerController = pageViewController.viewControllers?.first as? TimelineContainerController
       let selectedDate = timelineContainerController.timeline.date
       timelinePager(delegate?, timelinePager=self, willMoveTo=selectedDate)

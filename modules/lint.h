@@ -242,9 +242,9 @@ static void ASTExpr_lint(
     case tkSubscriptResolved: {
         char* tmp = (expr->kind == tkSubscriptResolved) ? expr->var->name
                                                         : expr->string;
-        printf("%s", tmp);
+        printf("%s[", tmp);
         if (expr->left) ASTExpr_lint(expr->left, 0, false, escapeStrings);
-        // printf("]");
+        printf("]");
     } break;
 
     case tkObjectInit:

@@ -3,7 +3,7 @@ type Complex
     var im = 0
 end type
 
-export function init(&c as Complex, re as Number, im as Number)
+function init(c as Complex, re as Number, im as Number)
     c.re = re
     c.im = im
     check conjugate(c) == 7 + 4i

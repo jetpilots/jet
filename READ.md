@@ -41,9 +41,9 @@ Message passing using, well, the [Message Passing Interface](), is built-in to J
 [async] gather(&loc, part=glob) // allgather
 
 [async] alltoall(&loc, data=glob) // alltoall
-    
+
 [async] broadcast(&c)
-    
+
 barrier()
 
 ```
@@ -64,9 +64,9 @@ barrier()
 
 > **Internal note**
 >
-> `sum`, `product`, `mean`, `count`, etc. are all global by default unless you pass `local=yes`. 
+> `sum`, `product`, `mean`, `count`, etc. are all global by default unless you pass `local=yes`.
 >
-> Or have separate functions `mpsum`, `mpmean`, etc. 
+> Or have separate functions `mpsum`, `mpmean`, etc.
 
 
 
@@ -82,7 +82,7 @@ async var x = sum(myarr[:])
 print(x)
 ```
 
-Unlike in most other languages, *functions* are not declared `async`, *variables* are. 
+Unlike in most other languages, *functions* are not declared `async`, *variables* are.
 
 It simply means whatever is in the initialization of the variable is dispatched to a new *pthread*. The initializer need not be a function, it can be any expression: you can even do `async x = 1 + 1` or `async x = 0` just for the fun of it[^0].
 
@@ -95,7 +95,7 @@ Actually, you don't have to write your code explicitly like that, nor should you
 ```csharp
 async var x = sum(myarr[:])
 print(x)
-... some unrelated work ...	
+... some unrelated work ...
 ```
 
 This means you can group your code chunks logically, rather than having to manually interleave them to make the pipelining explicit. During compilation, statements are moved up as far as their dependencies permit. The current example is therefore implicitly pipelined: it will be transformed by the compiler into the previous example.
@@ -104,12 +104,12 @@ When using `async` variables, it's strongly recommended to just keep your code i
 
 
 
-> **Implementation notes** 
+> **Implementation notes**
 >
 > - The async variable is indeed a *promise* until it is fully computed, but the promise *object* itself is never accessible. Instead, accessing it directly gives you the value behind the promise (after waiting). In most other languages, the promise object is part of the language; in Jet it is abstracted away.
-> - Since it cannot be accessed, the promise *object* cannot be treated like a value, passed around, waited on separately, polled for intermediate progress[^1], etc. 
-> - All async variables are either awaited in their defining function (in the same scope or an inner scope) or discarded.  
-> - If you don't use the result of an async variable, the compiler will attempt to not generate the definition in the first place, unless it contains side effects (I/O), in which case the dispatched thread will simply do its work and terminate with no joining overhead[^2]. 
+> - Since it cannot be accessed, the promise *object* cannot be treated like a value, passed around, waited on separately, polled for intermediate progress[^1], etc.
+> - All async variables are either awaited in their defining function (in the same scope or an inner scope) or discarded.
+> - If you don't use the result of an async variable, the compiler will attempt to not generate the definition in the first place, unless it contains side effects (I/O), in which case the dispatched thread will simply do its work and terminate with no joining overhead[^2].
 
 
 

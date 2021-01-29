@@ -144,12 +144,14 @@ jet_PipedProcess jet_pipe(char* args[], int capture) {
     // you can do read(pp.p_read, buf, bufsize), write(pp.p_write, buf, bufsize)
     // then jet_close(pp)
 }
-
+char wrote(int fd, void* data, unsigned int size) {
+    return write(fd, data, size) == size;
+}
 void jet_pwrite(jet_PipedProcess proc, void* data, ssize_t size) {
     static const unsigned int maxsz = 1 << 30;
     do {
         ssize_t sz = size > maxsz ? maxsz : size;
-        if (write(proc.p_write, data, sz) != sz) {
+        if (!wrote(proc.p_write, data, sz)) {
             // deal with errro
             printf("err: write\n");
         }

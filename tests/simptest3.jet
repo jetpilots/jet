@@ -1,11 +1,18 @@
 declare type Strings
-function main(args as Strings) result Number
+
+function main(args as Strings) as Number
     # check 0 < proc < 65536
     var strTable = [ "first" = 4, "second" = 5, "third" = 42 ]
     var list = [ 1, 2, 3, 4, 5; 6, 7, 8, 9, 0 ]
     strTable["fourth"] = 31337
     print(strTable)
-    list[list%2==0] = 8
-    print(list)
+    # list[list%2==0] = 8
+    # where list%2==0 do list = 8
+    for item in list
+      if item%2==0
+        item = 8
+     end
+     end
+    print(list[9])
     # for var x = list[list%2==0] do x -= 1
- end function
+ end

@@ -593,9 +593,7 @@ int main() {
         fx_object(5, //
             "six", fx_number(6), //
             "five", fx_number(5), //
-            "four",
-            fx_object(1, //
-                "kuy", fx_number(4)), //
+            "four", fx_object(1, "kuy", fx_number(4)), //
             "three", fx_number(3), //
             "two", fx_number(2));
 

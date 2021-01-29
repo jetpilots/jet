@@ -1,5 +1,5 @@
 
-const char* foo = "The quick brown fox";
+static const char* const foo = "The quick brown fox";
 
 typedef enum TestEnum { TE1 = foo } TestEnum;
 

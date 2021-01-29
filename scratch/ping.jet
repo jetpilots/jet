@@ -1,9 +1,9 @@
-func ping(ip::IPAddr) := ping(ip, times=4)
-func ping(ip::IPAddr, times::Int) := ping(ip, times=times, timeout=3)
-func ping(ip::IPAddr, times::Int, timeout::Int) -> Number[]
+function ping(ip as IPAddr) := ping(ip, times=4)
+function ping(ip as IPAddr, times as Int) := ping(ip, times=times, timeout=3)
+function ping(ip as IPAddr, times as Int, timeout as Int) as Number[]
 
-# if the definition of the main ping func is more than N lines away, the statement
-# func return type should be annotated. How about using this rule also for vars etc.
+# if the definition of the main ping function is more than N lines away, the statement
+# function return type should be annotated. How about using this rule also for vars etc.
 # if the ref var or whatever it is the RHS comes from is defined within N lines
 # then don't annotate. or within the same scope.
 
@@ -21,13 +21,14 @@ func ping(ip::IPAddr, times::Int, timeout::Int) -> Number[]
 # Int[2D Text]
 # or is sparse matrix handled fully behind the scenes?
 
-func push(a!::Any[], a2::Any[])
-    if a.size+a2.size >= a.space then grow(a!, by=a2.size)
-    a[end-a2.size:end] = a2[1:end]
-end func
+function push!(a as Any[], a2 as Any[])
+    if a.size + a2.size >= a.space then grow!(a, by = a2.size)
 
-a = a!.trim().split() # this a = f(a!) should not be allowed, so funcs must
+    a[end-a2.size:end] = a2[:]
+end
+
+a = &a.trim().split() # this a = f(&a) should not be allowed, so funcs must
 # not be able to return the mutated arg
 
-push(&a::Any[], item::Any) := push(a!, a2=[item])
+function push!(a as Any[], item as Any) := push!(a, a2=[item])
 
