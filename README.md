@@ -1,5 +1,34 @@
 
+
+[![Gitter](https://img.shields.io/gitter/room/jetpilots/jet?logo=gitter&style=flat)]()
+[![Discord](https://img.shields.io/discord/808407017710026774?label=Discord&logo=discord&style=flat)]()
+[![Twitter](https://img.shields.io/twitter/follow/JetpilotsDev?label=JetPilots&logo=twitter&style=flat)]()
+
+![Logo](https://avatars.githubusercontent.com/u/71646691?s=200&v=4)
+
 # Jet
+
+
+
+[![CircleCI](https://img.shields.io/circleci/build/gh/jetpilots/jet?logo=circleci&label=&style=flat)]()
+[![Travis](https://img.shields.io/travis/com/github/jetpilots/jet?logo=travis&label=&style=flat)]()
+[![Appveyor](https://img.shields.io/appveyor/build/sushpa/jet?logo=appveyor&label=&style=flat)]()
+[![Codecov](https://img.shields.io/codecov/c/gh/jetpilots/jet?logo=codecov&label=&style=flat)]()
+[![Coveralls](https://img.shields.io/coveralls/github/jetpilots/jet?logo=coveralls&label=&style=flat)]()
+
+[![Coverity](https://img.shields.io/coverity/scan/22583?logo=coverity&label=coverity&style=flat)]()
+[![Codacy](https://img.shields.io/codacy/grade/91cc254e45394a278c96de0f02151661?label=quality&style=flat)]()
+[![Codeclimate](https://img.shields.io/codeclimate/maintainability/jetpilots/jet?style=flat)]()
+
+
+
+
+[![Issues](https://img.shields.io/github/issues-raw/jetpilots/jet?&style=flat)]()
+[![Closed](https://img.shields.io/github/issues-closed-raw/jetpilots/jet?style=flat)]()
+[![License](https://img.shields.io/github/license/jetpilots/jet?&style=flat)]()
+[![Lines](https://img.shields.io/tokei/lines/github/jetpilots/jet?style=flat)]()
+## A high-performance language for science
+
 
 
 A modern, simple language with all the features you need for scientific computing. Fast multidimensional arrays with slicing syntax, simple modular program structure, powerful assertions and implied contracts, and in-depth compile-time analysis for all major classes of bugs.

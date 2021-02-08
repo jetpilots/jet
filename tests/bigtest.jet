@@ -60,7 +60,7 @@ enum Enum1
 end enum
 
 function maisn(n as String, b as String)
-print(6)
+    print(6)
 end function
 
 # function redt(n as String) as String

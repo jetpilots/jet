@@ -2,7 +2,7 @@
 type Complex
     var re = 0
     var im = 0
-end type
+end
 
 Complex(x as Number) :=
     Complex(re = 0, im = x)

@@ -35,7 +35,7 @@ let x = XYZ {
     [a-z] [A-Z]+
 ```
 
-function some(&mainWindow as Window, order as Int, relativeTo as View)
+function some!(mainWindow as Window, order as Int, relativeTo as View)
 
 end function
 
@@ -43,10 +43,10 @@ end function
 func main()
 # null refs cannot be created anywhre except for passing into funcs who explicitly allow null args.
 # Nope. THERE IS NO NIL AT ALL!!
-    addSubView(&mainWindow, order = -1, relativeTo = nil)
+    addSubView!(mainWindow, order = -1, relativeTo = nil)
     # let x = mainWindow!addSubView(order=-1, relativeTo=nil)
     # let x = mainWindow.addSubView(order=-1, relativeTo=nil)
-    addSubView(&mainWindow, zIndex = -1) # linter will add & if you forget
+    addSubView!(mainWindow, zIndex = -1) # linter will add & if you forget
     # v = st!strip().split(sep=' ').join(sep='$')
     st = join(split(strip(st), sep=' '), sep='$')
 
@@ -57,7 +57,7 @@ func main()
 
     # but func returned values when nil must be handled
     let rs = nilreturner(67) or skip
-    let rs:Button = nilreturner(67) or return
+    let rs as Button = nilreturner(67) or return
     let rs = nilreturner(67) or break
     let rs = nilreturner(67) or throw # i.e return and throw to caller
     rs[s] = nilreturner(67) or DefaultObject()

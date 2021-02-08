@@ -27,21 +27,21 @@ function central2d(vQ as Real[3D], by as Real[2D], axis as Real) result (dQ as R
             # func for each element.
         else
             dQ[j,:] = central1d(vQ[j,:], by = by)
-        end if
-    end for
+        end
+    end
 
     for j = 1:vQ.shape[nonaxis]
         for i = 1:vQ.shape[axis]
             dQ[i,j] = (vQ[i+1,j] - vQ[i-1,j]) / (by[i+1]-by[i-1])
-        end for
-    end for
+        end
+    end
 
 
     # return dQ
-end function
+end
 
 type berta
-end type
+end
 
 # Funcs that take an array:arg always receive a Slice. Passing the entire
 # array translates to passing a slice with 1:1:size. The actual array structure
@@ -67,7 +67,7 @@ function central1d(vQ as Real[1D], by as Real[]) result dQ as Real[]
         # since you have a dependence on the array that dQ "comes from",
         # dQ REQUIRES an alloc; it cannot be the same as vQ
         # in small cases can use stack alloc
-    end for i
+    end i
 
     dQ = boundary(dQ) # no clone dQ here since its not needed later
 # implicit reurn: fill mq with dq
