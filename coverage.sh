@@ -1,6 +1,6 @@
 #!/bin/sh
 rm -f *.gcno *.gcda
-# make -B jetc-cov # because it generates .gcno
+make -B jetc-cov # because it generates .gcno
 # ./jetc-cov.bin simptest0.jet
 # mkdir .covtest 2>/dev/null
 # cd .covtest

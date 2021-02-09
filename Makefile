@@ -21,7 +21,7 @@ jetc-dbg: programs/main.c modules/*.h
 jetc-cov: programs/main.c modules/*.h
 	$(CC) -g -fprofile-arcs -ftest-coverage -O3 $(CCFLAGS) $< $(CCLIBS) -o $@
 
-test: jetc-cov
+test:  #jetc-cov
 	./coverage.sh
 
 clean:
