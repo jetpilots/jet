@@ -1,0 +1,13 @@
+language: c
+compiler:
+  - clang
+  - gcc
+matrix:
+  include:
+    - os: linux
+jobs:
+  include:
+    - stage: build
+      script: make
+    - stage: test
+      script: make test
