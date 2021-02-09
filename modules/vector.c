@@ -2,7 +2,8 @@
 #include "jet_clock.h"
 
 #define N 1000
-int main() {
+
+int mainf() {
     srand(time(0));
     Vector m0[1] = {}, mr[1] = {};
     jet_Vector_resize(m0, N);
