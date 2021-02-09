@@ -1,7 +1,6 @@
 dist: focal
 os:
   - linux
-  - windows
   - osx
 arch:
   - amd64
