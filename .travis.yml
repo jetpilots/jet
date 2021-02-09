@@ -1,5 +1,11 @@
 dist: focal
-os: linux
+os:
+  - linux
+  - windows
+  - osx
+arch:
+  - amd64
+  - arm64
 language: c
 jobs:
   include:
