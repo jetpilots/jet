@@ -16,10 +16,10 @@ rm -f *.gcno *.gcda
 for f in `find tests -name '*.jet'`
 do
     echo "$f" 1>&2
-    ./jetc-cov $f d > /dev/null  2>&1
-    ./jetc-cov $f > /dev/null  2>&1
-    ./jetc-cov $f l > /dev/null  2>&1
-    ./jetc-cov $f t > /dev/null  2>&1
+    ./jetc-cov "$f" d > /dev/null  2>&1
+    ./jetc-cov "$f" > /dev/null  2>&1
+    ./jetc-cov "$f" l > /dev/null  2>&1
+    ./jetc-cov "$f" t > /dev/null  2>&1
 done
 
 cd programs
