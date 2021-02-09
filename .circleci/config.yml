@@ -1,0 +1,23 @@
+version: 2.1
+
+# Define the jobs we want to run for this project
+jobs:
+  build:
+    docker:
+      - image: ubuntu/latest 
+    steps:
+      - checkout
+      - run: make
+  test:
+    docker:
+      - image: ubuntu/latest 
+    steps:
+      - checkout
+      - run: make test
+
+# Orchestrate our job run sequence
+workflows:
+  build_and_test:
+    jobs:
+      - build
+      - test
