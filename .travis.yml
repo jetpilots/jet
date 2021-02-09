@@ -6,6 +6,7 @@ os:
 arch:
   - amd64
   - arm64
+language: c
 
 jobs:
   include:
@@ -13,3 +14,7 @@ jobs:
       script: make
     - stage: test
       script: make test
+
+stages:
+  - build
+  - test
