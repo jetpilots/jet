@@ -1,5 +1,5 @@
 
-CCFLAGS=-std=c99  -Imodules -ferror-limit=999
+CCFLAGS=-std=c99  -Imodules
 CC=gcc
 
 
