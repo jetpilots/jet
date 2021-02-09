@@ -20,6 +20,9 @@ jetc-dbg: programs/main.c modules/*.h
 jetc-cov: programs/main.c modules/*.h
 	$(CC) -g -fprofile-arcs -ftest-coverage -O3 $(CCFLAGS) $< -lc -o $@
 
+test: jetc-cov
+	./coverage.sh
+
 clean:
 	@rm -r jetc jetc-fast jetc-dbg jetc-cov \
 	*.gcda *.gcno *.gcov \
