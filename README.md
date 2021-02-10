@@ -5,13 +5,13 @@
 ![Logo](https://avatars.githubusercontent.com/u/71646691?s=200&v=4)
 
 # Jet
-> This project is in active development **and is pre-alpha**. Completed items are marked with a checkbox below.
+> This project is in active development, **meaning it doesn't yet work**. Completed tasks are marked with a checkbox below.
 
-[![CircleCI](https://img.shields.io/circleci/build/gh/jetpilots/jet?logo=circleci&label=&style=flat)]()
-[![Travis](https://img.shields.io/travis/com/jetpilots/jet?logo=travis&label=&style=flat)]()
-[![Appveyor](https://img.shields.io/appveyor/build/sushpa/jet?logo=appveyor&label=&style=flat)]()
-[![GitHub-Build](https://img.shields.io/github/workflow/status/jetpilots/jet/build?logo=github&label=)]()
-[![Codecov](https://img.shields.io/codecov/c/gh/jetpilots/jet?logo=codecov&label=&style=flat)]()
+[![CircleCI](https://img.shields.io/circleci/build/gh/jetpilots/jet?label=circleci&style=flat)]()
+[![Travis](https://img.shields.io/travis/com/jetpilots/jet?label=travis&style=flat)]()
+[![Appveyor](https://img.shields.io/appveyor/build/sushpa/jet?label=appveyor&style=flat)]()
+[![GitHub-Build](https://img.shields.io/github/workflow/status/jetpilots/jet/build?label=github)]()
+[![Codecov](https://img.shields.io/codecov/c/gh/jetpilots/jet?logo=coverage&style=flat)]()
 [![Coveralls](https://img.shields.io/coveralls/github/jetpilots/jet?logo=coveralls&label=&style=flat)]()
 
 [![Coverity](https://img.shields.io/coverity/scan/22583?logo=coverity&label=coverity&style=flat)]()
