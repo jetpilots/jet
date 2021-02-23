@@ -114,9 +114,7 @@ void SpVector_scalev(SpVector* svec, Vector* other) {
 }
 /// Finds (with binary search) and returns the position of the requested index
 /// if present, or else the length of the input vector.
-UInt32 Vector_hasIndex(Vector* vec, UInt32 idx) {
-
-};
+UInt32 Vector_hasIndex(Vector* vec, UInt32 idx) { return 0; };
 /// Norm with respect to a scalar. When this is the mean, you get stddev
 Real64 SpVector_distsqr1(SpVector* svec, Real64 ref) {
     Real64 sum = sq(ref) * (svec->counttot - svec->countnz);

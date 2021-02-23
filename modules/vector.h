@@ -409,13 +409,13 @@ void Vector_fillrandoms(Vector* vec) {
 }
 
 /// Uses binary search to locate the given number in the vector.
-bool Vector_binsearch(Vector* vec, Real64 num) { }
-bool Vector_binsearch_tol(Vector* vec, Real64 num) { }
+bool Vector_binsearch(Vector* vec, Real64 num) { return 0; }
+bool Vector_binsearch_tol(Vector* vec, Real64 num) { return 0; }
 
-Vector* Vector_smake() { }
-Vector* Vector_hmake() { }
-Vector* Vector_smake_fromCArray() { }
-Vector* Vector_hmake_fromCArray() { }
-Vector* Vector_hmake_clone() { }
+Vector* Vector_smake() { return NULL; }
+Vector* Vector_hmake() { return NULL; }
+Vector* Vector_smake_fromCArray() { return NULL; }
+Vector* Vector_hmake_fromCArray() { return NULL; }
+Vector* Vector_hmake_clone() { return NULL; }
 
 // TODO: upwind, linearUpwind, QUICK, whatnot

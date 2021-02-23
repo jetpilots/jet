@@ -448,7 +448,7 @@ static void ASTType_genJson(ASTType* type) {
     // TODO: move this part into its own func so that subclasses can ask the
     // superclass to add in their fields inline
     jet_foreachn(ASTVar*, var, vars, type->body->locals) {
-        if (not var or not var->used) continue;
+        if (not var /*or not var->used*/) continue;
         printf("    printf(\"%%.*s\\\"%s\\\": \", nspc+4, _spaces_);\n",
             var->name);
         const char* valueType = ASTExpr_typeName(var->init);
@@ -534,7 +534,11 @@ static void ASTType_emit(ASTType* type, int level) {
     const char* const name = type->name;
     printf("#define FIELDS_%s \\\n", name);
     jet_foreach(ASTVar*, var, type->body->locals) {
-        if (not var or not var->used) continue;
+        if (not var /*or not var->used*/) continue;
+        // It's not so easy to just skip 'unused' type members.
+        // what if I just construct an object and print it?
+        // I expect to see the default members. But if they
+        // haven't been otherwise accessed, they are left out.
         ASTVar_emit(var, level + STEP, false);
         printf("; \\\n");
     }
@@ -553,12 +557,12 @@ static void ASTType_emit(ASTType* type, int level) {
         name, name, name);
     printf("static %s %s_init_(%s self) {\n", name, name, name);
 
-    jet_foreach(ASTVar*, var, type->body->locals) if (var->used)
+    jet_foreach(ASTVar*, var, type->body->locals) // if (var->used)
         printf("#define %s self->%s\n", var->name, var->name);
 
     jet_foreach(ASTExpr*, stmt, type->body->stmts) {
-        if (not stmt or stmt->kind != tkVarAssign or not stmt->var->init
-            or not stmt->var->used)
+        if (not stmt or stmt->kind != tkVarAssign or not stmt->var->init)
+            //            or not stmt->var->used)
             continue;
         printf("%.*s%s = ", level + STEP, spaces, stmt->var->name);
         ASTExpr_emit(stmt->var->init, 0);
@@ -566,7 +570,7 @@ static void ASTType_emit(ASTType* type, int level) {
         if (ASTExpr_throws(stmt->var->init))
             puts("    if (_err_ == ERROR_TRACE) return NULL;");
     }
-    jet_foreach(ASTVar*, var, type->body->locals) if (var->used)
+    jet_foreach(ASTVar*, var, type->body->locals) // if (var->used)
         printf("#undef %s \n", var->name);
 
     printf("    return self;\n}\n\n");
@@ -583,10 +587,10 @@ static void ASTType_emit(ASTType* type, int level) {
         name, name, name);
     puts(functionExitStuff_UNESCAPED);
     puts("#undef DEFAULT_VALUE\n#undef MYSTACKUSAGE\n}\n");
-    printf("#define %s_print_(p) %s_print__(p, STR(p))\n", name, name);
+    printf("#define %s_print(p) %s_print__(p, STR(p))\n", name, name);
     printf("void %s_print__(%s self, const char* name) {\n    printf(\"<%s "
-           "'%%s' at %%p\\n>\",name,self);\n}\n",
-        name, name, name);
+           "'%%s' at %%p size %%luB>\\n\",name, self, sizeof(struct %s));\n}\n",
+        name, name, name, name);
     puts("");
 
     ASTType_genJson(type);
@@ -1468,19 +1472,19 @@ void ASTType_genNameAccessors(ASTType* type) {
 
     // ASTType_genMemberRecognizer( type, "Int64 value",  )
 
-    printf("static void* %s__memberNamed(%s* self, const char* name) {\n",
+    printf("static void* %s__memberNamed(%s self, const char* name) {\n",
         type->name, type->name);
     // TODO: skip bitfield members in this loop or it wont compile
-    jet_foreach(ASTVar*, var, type->body->locals) if (var->used) //
+    jet_foreach(ASTVar*, var, type->body->locals) /*if (var->used) */ //
         printf("    if (str_equals(name, \"%s\")) return &(self->%s);\n",
             var->name, var->name);
-    printf("}\n");
+    printf("    return NULL;\n}\n");
 
     // this func sets bools or ints that may be part of bitfields
-    printf("static void %s__setMemberNamed(%s* self, const char* name, Int64 "
+    printf("static void %s__setMemberNamed(%s self, const char* name, Int64 "
            "value) {\n",
         type->name, type->name);
-    jet_foreach(ASTVar*, var, type->body->locals) if (var->used) //
+    jet_foreach(ASTVar*, var, type->body->locals) // if (var->used) //
         if (var->typeSpec->typeType >= TYBool
             and var->typeSpec->typeType <= TYReal64)
             printf("    if (str_equals(name, \"%s\"))  {self->%s = *(%s*) "

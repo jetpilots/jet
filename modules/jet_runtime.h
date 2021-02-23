@@ -32,9 +32,9 @@ size_t sys_pageSize() {
 // FIXME
 #define _Pool_alloc_(x, y) malloc(y)
 
-#define GB *1024 MB
-#define MB *1024 KB
-#define KB *1024UL
+// #define GB *1024 MB
+// #define MB *1024 KB
+// #define KB *1024UL
 
 #include <sys/resource.h>
 static size_t sys_stackSize() {
@@ -220,11 +220,11 @@ static const char* const _fp_bools_yn_[2] = { "no", "yes" };
 
 #define Boolean_json_(x, _) printf("%s", _fp_bools_tf_[x])
 #define Number_json_(x, _) printf("%g", x)
-#define String_json_(x, _) printf("\"%s\"", x) // should be escape(x)
+#define CString_json_(x, _) printf("\"%s\"", x) // should be escape(x)
 
 #define Boolean_json(x) printf("\"%s\": %s\n", #x, _fp_bools_tf_[x])
 #define Number_json(x) printf("\"%s\": %g\n", #x, x)
-#define String_json(x) printf("\"%s\": \"%s\"\n", #x, x) // should be escape(x)
+#define CString_json(x) printf("\"%s\": \"%s\"\n", #x, x) // should be escape(x)
 
 static const char* _spaces_ = //
     "                                                                    ";
@@ -258,18 +258,19 @@ MAKE_cmp3way(Number)
 
 // output funcs: print -> normal print, debug -> only prints (to stderr) in
 // debug mode, error -> print to stderr, fatal -> print to stderr and exit
+#define str_equals !strcmp
 #define print printf
 #define String_print puts
+#define CString_print puts
 #define Boolean_print(x) printf("%g\n", _fp_bools_yn_[x])
 #define Number_print(x) printf("%g\n", x)
-#define String_describe(x) printf("%s String =\n    \"%s\"\n", #x, x)
-#define Number_describe(x) printf("%s Number =\n    %g\n", #x, x)
+#define CString_describe(x) printf("%s as String =\n    \"%s\"\n", #x, x)
+#define Number_describe(x) printf("%s as Number =\n    %g\n", #x, x)
 #define Boolean_describe(x)                                                    \
-    printf("%s Boolean =\n    %s\n", #x, _fp_bools_yn_[x])
+    printf("%s as Boolean =\n    %s\n", #x, _fp_bools_yn_[x])
 
-    static Number Strings_main(const Strings a
+    static void start(
 #ifdef DEBUG
-        ,
         const char* callsite_
 #endif
     );
@@ -337,9 +338,8 @@ int main(int argc, char* argv[]) {
     // you can statically disallow unrestrained recursive or mutually
     // recursive funcs.
     jet_lineprofile_begin();
-    Strings_main(NULL
+    start(
 #ifdef DEBUG
-        ,
         "\e[0mmain\n"
 #endif
     );

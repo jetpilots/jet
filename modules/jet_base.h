@@ -39,7 +39,8 @@
 #define min(a, b) ((a) < (b)) ? (a) : (b)
 #define max(a, b) ((a) > (b)) ? (a) : (b)
 #define KB *1024UL
-#define MB *1024UL * 1024UL
+#define MB *1024 KB
+#define GB *1024 GB
 
 #define eprintf(fmt, ...) fprintf(stderr, fmt, __VA_ARGS__)
 #define eputs(str) fputs(str, stderr)

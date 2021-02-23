@@ -1,0 +1,15 @@
+
+
+type XTy
+    var cs3 = "C3PO is here"
+    var mm = 34
+end
+
+function start()
+    var cs = "Hello world"
+    var cd = 34 + 8
+    var xt = xTY()
+    print(xt)
+    json(xt)
+    # describe(xt)
+end
