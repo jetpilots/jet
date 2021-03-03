@@ -36,6 +36,7 @@
 #include <curl/curl.h>
 #include <string.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 typedef struct {
     char* ref;
@@ -87,6 +88,12 @@ void String_push(String* str, char ch) {
 typedef enum { TextEncoding_ascii, TextEncoding_utf8 } TextEncoding;
 String* String_iconv(String* str, TextEncoding from, TextEncoding to) { }
 
+static int curldbgcbfn(
+    CURL* handle, curl_infotype type, char* data, size_t size, void* userptr) {
+    if (type == CURLINFO_HEADER_IN) String_appendCString(userptr, data, size);
+    return 0;
+}
+
 static size_t curlcbfn(void* data, size_t size, size_t nmemb, void* tgt) {
     String_appendCString(tgt, data, nmemb * size);
     return nmemb * size;
@@ -123,6 +130,33 @@ String* httpget(char* url, int header, int debug, String* ret) {
     curl_easy_setopt(curl_handle, CURLOPT_HEADERDATA, ret);
 
     if (header) String_resize(ret, 512);
+    curl_easy_perform(curl_handle);
+    curl_easy_cleanup(curl_handle);
+    return ret;
+}
+
+String* imaplist(char* url, char* user, char* pass, char* cmd, String* ret) {
+    CURL* curl_handle = curl_easy_init(); // find a way to reuse the handle
+    curl_easy_setopt(curl_handle, CURLOPT_URL, url);
+    // curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl_handle, CURLOPT_VERBOSE, 1L);
+    curl_easy_setopt(curl_handle, CURLOPT_NOPROGRESS, 1L);
+
+    // curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, curlcbfn);
+    // curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, ret);
+
+    curl_easy_setopt(curl_handle, CURLOPT_DEBUGFUNCTION, curldbgcbfn);
+    curl_easy_setopt(curl_handle, CURLOPT_DEBUGDATA, ret);
+
+    curl_easy_setopt(curl_handle, CURLOPT_USERNAME, user);
+    curl_easy_setopt(curl_handle, CURLOPT_PASSWORD, pass);
+    curl_easy_setopt(curl_handle, CURLOPT_CUSTOMREQUEST, cmd);
+
+    // curl_easy_setopt(curl_handle, CURLOPT_HEADER, !!header);
+    // curl_easy_setopt(curl_handle, CURLOPT_HEADERFUNCTION, curlcbhead);
+    // curl_easy_setopt(curl_handle, CURLOPT_HEADERDATA, ret);
+
+    // if (header) String_resize(ret, 512);
     curl_easy_perform(curl_handle);
     curl_easy_cleanup(curl_handle);
     return ret;
@@ -319,8 +353,8 @@ int threadFunction(void* data) {
     uint64_t threadSeed = time(NULL) ^ id;
 
     int32_t n = lcg64_temper(&threadSeed) % 20 + 1;
-    thrd_sleep(&(struct timespec) { .tv_sec = n },
-        NULL); // Sleep for a random number of seconds.
+    // thrd_sleep(&(struct timespec) { .tv_sec = n },
+    //    NULL); // Sleep for a random number of seconds.
 
     printf("%d-th thread done\n", id);
     return 0;
@@ -407,10 +441,235 @@ void* _async_wrap_avgsqrt(void* a) {
     return NULL;
 }
 
+typedef struct {
+    boolean_t imap4, imap4rev1, authPlain, authXOAuth2, saslIR, uidPlus, id,
+        unselect, children, idle, namespace, literalPlus;
+} IMAPServerCapabilities;
+
+typedef struct {
+    int count;
+    char* first;
+} StringString;
+
+typedef struct {
+    char* name;
+    StringString flags, permanentFlags;
+    int uidValidity;
+    int uidNext;
+    int messageCount;
+    int recentCount;
+} IMAPFolderInfo;
+
+typedef struct {
+    char *name, *email;
+} IMAPUserAddress;
+
+typedef struct {
+    // make all these char* instead of stringstring
+    StringString flags;
+    char* subject;
+    StringString unsubscribe;
+    int id, uid;
+    // DateTime date, internalDate;
+    int size, rfc822Size;
+    IMAPUserAddress from, to;
+} IMAPMessageHeader;
+
+IMAPMessageHeader* parseImapHeader(char* pos, int len);
+
+void parseImapFetch(char* pos, int len) {
+    char* end = pos + len;
+    while (pos < end) {
+        switch (*pos) {
+        case ' ':
+        case '\r':
+        case '\n':
+            break;
+        case '*': {
+            char* w1 = pos + 2;
+            char* eo = strpbrk(w1, " \r\n");
+            if (eo) {
+                *eo++ = 0;
+                pos = eo;
+            }
+            if (!strcmp(w1, "CAPABILITY")) {
+            } else {
+                char* w2 = pos;
+                eo = strpbrk(w2, " \r\n");
+                if (eo) {
+                    *eo++ = 0;
+                    pos = eo;
+                }
+                if (!strcmp(w2, "EXISTS")) {
+                    int exi = atoi(w1);
+                    printf("exi --> %d\n", exi);
+                } else if (!strcmp(w2, "RECENT")) {
+                    int recent = atoi(w1);
+                    printf("recent --> %d\n", recent);
+                } else if (!strcmp(w2, "[UNSEEN")) {
+                    int unseen = atoi(pos);
+                    printf("unseen --> %d\n", unseen);
+                } else if (!strcmp(w2, "[UIDVALIDITY")) {
+                    int uidvali = atoi(pos);
+                    printf("uidvali --> %d\n", uidvali);
+                } else if (!strcmp(w2, "[UIDNEXT")) {
+                    int uidnext = atoi(pos);
+                    printf("uidnext --> %d\n", uidnext);
+                } else if (!strcmp(w2, "FETCH")) {
+                    int idx = atoi(w1);
+                    printf("fetch idx --> %d\n", idx);
+                }
+            }
+        }
+            continue;
+        case '{': {
+            char* num = ++pos;
+            while (isdigit(*pos)) pos++;
+            if (*pos != '}') perror("expected '}', not found");
+            *pos++ = 0;
+            int sz = atoi(num);
+            printf("parse %d B --- \n", sz);
+            IMAPMessageHeader* header = parseImapHeader(pos, sz);
+            pos += sz;
+        }
+        case '(':
+        case '[':
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9':;
+        }
+        pos++;
+    }
+}
+
+char* imaptst
+    = "* 4379 EXISTS\r\n"
+      "* 0 RECENT\r\n"
+      "* FLAGS (\\Seen \\Answered \\Flagged \\Deleted \\Draft $MDNSent)\r\n"
+      "* OK [PERMANENTFLAGS (\\Seen \\Answered \\Flagged \\Deleted \\Draft "
+      "$MDNSent)]Permanent flags\r\n"
+      "* OK [UNSEEN 4379] Is the first unseen message\r\n"
+      "* OK [UIDVALIDITY 14] UIDVALIDITY value\r\n"
+      "* OK [UIDNEXT 24868] The next unique identifier value\r\n"
+      "A003 OK [READ-WRITE] SELECT completed.\r\n"
+      "* 119 FETCH (UID 7508 RFC822.SIZE 102161 FLAGS (\Seen) "
+      "BODY[HEADER.FIELDS (From Date Subject List-Unsubscribe)] {451}\r\n"
+      "Subject: "
+      "=?utf-8?Q?Fantastic=20Weekend=20Deals=20at=20Domino=27s=20Pizza=C2=A0="
+      "F0=9F=91=8C?=\r\n"
+      "From: =?utf-8?Q?Domino=27s=20Pizza?= <no-reply@dominos.ch>, "
+      " =?utf-8?Q?Domino=27s=20Pizza?= <no-reply@dominos.co.uk>\r\n"
+      "Date: Sat, 3 Jun 2017 09:16:01 +0000\r\n"
+      "List-Unsubscribe: "
+      "<http://dominos.us12.list-manage1.com/"
+      "unsubscribe?u=0a3531a6a054617a5478d1324&id=8dcc978ca9&e=895bfd4899&c="
+      "016c232dbc>, "
+      "<mailto:unsubscribe-mc.us12_0a3531a6a054617a5478d1324.016c232dbc-"
+      "895bfd4899@mailin1.us2.mcsv.net?subject=unsubscribe>\r\n"
+      "\r\n"
+      ")\r\n"
+      "* 120 FETCH (UID 7513 RFC822.SIZE 48069 FLAGS (\Seen) "
+      "BODY[HEADER.FIELDS (From Date Subject List-Unsubscribe)] {127}\r\n"
+      "From: <Notification@Jio.com>\r\n"
+      "Subject: Data quota exhausted for Jio Number 8169236325\r\n"
+      "Date: Sat, 3 Jun 2017 09:05:52 -0700\r\n"
+      "\r\n"
+      ")\r\n"
+      "* 121 FETCH (UID 7535 RFC822.SIZE 64661 FLAGS (\Seen) "
+      "BODY[HEADER.FIELDS (From Date Subject List-Unsubscribe)] {184}\r\n"
+      "From: LC <mail@executive-learning.co.in>\r\n"
+      "Subject: Letter of Credit Transactions International Trade UCP 600, "
+      "ISBP 745 INCOTERMS  2010 & URBPO\r\n"
+      "Date: Mon, 5 Jun 2017 06:08:55 +0530\r\n"
+      "\r\n"
+      ")\r\n"
+      "* 122 FETCH (UID 7536 RFC822.SIZE 84459 FLAGS (\Seen) "
+      "BODY[HEADER.FIELDS (From Date Subject List-Unsubscribe)] {143}\r\n"
+      "From: Princeton Academy <mail@executive-learning.co.in>\r\n"
+      "Subject: Workshop on Key Account Management\r\n"
+      "Date: Mon, 05 Jun 2017 06:12:57 +0530\r\n"
+      "\r\n"
+      ")\r\n"
+      "* 123 FETCH (UID 7547 RFC822.SIZE 50492 FLAGS (\Seen) "
+      "BODY[HEADER.FIELDS (From Date Subject List-Unsubscribe)] {144}\r\n"
+      "From: Jio Notifications <Notification@Jio.com>\r\n"
+      "Subject: Recharge successful for Jio Number 8169236325\r\n"
+      "Date: Tue, 6 Jun 2017 01:56:30 -0700\r\n"
+      "\r\n"
+      ")";
+
+#include "bqdecode.c"
+
+IMAPMessageHeader* parseImapHeader(char* pos, int len) {
+    char* end = pos + len;
+    IMAPMessageHeader* head = calloc(1, sizeof(IMAPMessageHeader));
+    while (pos < end) {
+        while (*pos == ' ' || *pos == '\r' || *pos == '\n') pos++;
+        char* col = strpbrk(pos, ":\r\n");
+        if (col && col[0] == ':' && col[1] == ' ') {
+            // line is a (new) header field
+            char* fld = pos;
+            *col = 0;
+            char* val = col + 2;
+            col = strpbrk(val, "\r\n");
+            while (col && col < end - 2
+                && col[2] == ' ') // start with space means continuation
+                col = strpbrk(col, "\r\n");
+            if (!col)
+                col = end;
+            else
+                *col = 0;
+
+            if (!strcmp(fld, "Date")) {
+                struct tm dttm = {};
+                strptime(val, "%a, %d %b %Y %H:%M:%S", &dttm);
+                char redate[128];
+                strftime(redate, 128, "%a %d-%m-%Y %H:%M:%S ", &dttm);
+                printf("  date --> %s\n", redate);
+            } else if (!strcmp(fld, "From")) {
+            } else if (!strcmp(fld, "Subject")) {
+            } else if (!strcmp(fld, "List-Unsubscribe")) {
+            }
+
+            // TODO: now val may be multiline (softwrap) in which case unwrap it
+
+            // TODO: ewdecode should also handle multiline or does it?
+            if (*val == '=') ewdecode(val, col - val);
+
+            printf("field: [%s = %s]\n", fld, val);
+
+            pos = col + 1;
+
+        } else {
+            // continuation of an existing header, most likely
+        }
+    }
+}
+
 int main(int argc, char* argv[]) {
     // Promise(MyObj*) objp = asyncFunc(400);
     // MyObj* obj = Promise_resolve(MyObj*, objp);
+
+    parseImapFetch(strdup(imaptst), strlen(imaptst));
+    return 0;
+
     curl_global_init(CURL_GLOBAL_ALL);
+    String simapresp[1] = {};
+    imaplist("imaps://imap.outlook.com/Inbox", "sushpa@hotmail.com",
+        "kojHiw-2sepfi-wiwgob",
+        "fetch 1:* (uid flags body.peek[header.fields (subject from date "
+        "list-unsubscribe)])",
+        simapresp);
+    // puts("\nOutput:");
+    // String_print(simapresp);
+    return 0;
     srand(time(0));
     jet_threads_init();
     int nnum = argc > 2 ? atoi(argv[2]) : 20000000;
@@ -428,13 +687,13 @@ int main(int argc, char* argv[]) {
     //     printf("%d %p\n", i, sums + i);
     // async(sums[i], avgsqrt, nnum, &sums[i]);
     // you cannot dispatch async items in a loop because async creates a
-    // temporary literal object to hold the args. You should have an array of
-    // those objects in the parent scope, of type void*, and each of them should
-    // be init'd ON THE HEAP from within the async macro, at the right index .
-    // Until then you can only have async vars by themselves, not in an array
-    // (unless you want to unroll the dispatch loop fully yourself like so)
-    // IF YOU FORBID making arrays of async vars you should be fine.
-    // async var results[] as Number = .... NOOOOPE
+    // temporary literal object to hold the args. You should have an array
+    // of those objects in the parent scope, of type void*, and each of them
+    // should be init'd ON THE HEAP from within the async macro, at the
+    // right index . Until then you can only have async vars by themselves,
+    // not in an array (unless you want to unroll the dispatch loop fully
+    // yourself like so) IF YOU FORBID making arrays of async vars you
+    // should be fine. async var results[] as Number = .... NOOOOPE
     async(sums[0], avgsqrt, nnum, &sums[0]);
     async(sums[1], avgsqrt, nnum, &sums[1]);
     async(sums[2], avgsqrt, nnum, &sums[2]);
@@ -458,9 +717,8 @@ int main(int argc, char* argv[]) {
 
     // String_print(&s);
 
-    // the args struct must be on the stack frame of the real caller (who calls
-    // the async function)
-    // typedef struct {
+    // the args struct must be on the stack frame of the real caller (who
+    // calls the async function) typedef struct {
     //     char* url;
     //     int header;
     //     int debug;
@@ -487,12 +745,13 @@ int main(int argc, char* argv[]) {
     //     fprintf(stderr, "Couldn't run thread\n");
     // }
 
-    // detached threads take about 7-10us overhead per thread regardless of how
-    // many you are creating. joinables take about 10us/thr upto 1000 threads,
-    // 50us/thr at 10k threads without join, and 20-50us/thr upto 1000 threads
-    // and 800us/thr!!! at 10K threads, with join. since joinables are pointless
-    // if you aren't really joining them, the choice is either detached (large
-    // no of threads) or joinable and actually join.
+    // detached threads take about 7-10us overhead per thread regardless of
+    // how many you are creating. joinables take about 10us/thr upto 1000
+    // threads, 50us/thr at 10k threads without join, and 20-50us/thr upto
+    // 1000 threads and 800us/thr!!! at 10K threads, with join. since
+    // joinables are pointless if you aren't really joining them, the choice
+    // is either detached (large no of threads) or joinable and actually
+    // join.
 
     // for small no of threads: 10-100, 10 us/thr w/o join, 20 w/join, 9
     // detached. So it doesn't matter unless you have a large no of threads.
@@ -504,9 +763,9 @@ int main(int argc, char* argv[]) {
 
 // x :: T = f(y)
 // await x: or Promise resolve: is pthread_join(prom, &x)
-// async f: or Promise create: is pthread_create with the dispatcher for f with
-// arg y the dispatcher writes its result (T*) in pthread_exit and it becomes
-// avbl to pthread_join. Promise struct is a single pthread_t.
+// async f: or Promise create: is pthread_create with the dispatcher for f
+// with arg y the dispatcher writes its result (T*) in pthread_exit and it
+// becomes avbl to pthread_join. Promise struct is a single pthread_t.
 
 // Wrap a thread_t struct which can run in pthread mode or just normal async
 // mode?
