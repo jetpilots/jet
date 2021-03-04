@@ -54,16 +54,16 @@ static inline Real32 Complex4_imag(Complex4 c) { return cimagf(c); };
 static inline Real32 Complex4_real(Complex4 c) { return crealf(c); };
 
 int psz() {
-    printf("int: %lu\n", sizeof(int));
-    printf("char: %lu\n", sizeof(char));
-    printf("long: %lu\n", sizeof(long));
-    printf("double: %lu\n", sizeof(double));
-    printf("float: %lu\n", sizeof(float));
-    printf("unsigned int: %lu\n", sizeof(unsigned int));
-    printf("unsigned: %lu\n", sizeof(unsigned));
-    printf("unsigned long: %lu\n", sizeof(unsigned long));
-    printf("long long: %lu\n", sizeof(long long));
-    printf("long long int: %lu\n", sizeof(long long int));
-    printf("short: %lu\n", sizeof(short));
+    printf("int: %zu\n", sizeof(int));
+    printf("char: %zu\n", sizeof(char));
+    printf("long: %zu\n", sizeof(long));
+    printf("double: %zu\n", sizeof(double));
+    printf("float: %zu\n", sizeof(float));
+    printf("unsigned int: %zu\n", sizeof(unsigned int));
+    printf("unsigned: %zu\n", sizeof(unsigned));
+    printf("unsigned long: %zu\n", sizeof(unsigned long));
+    printf("long long: %zu\n", sizeof(long long));
+    printf("long long int: %zu\n", sizeof(long long int));
+    printf("short: %zu\n", sizeof(short));
     return 0;
 }

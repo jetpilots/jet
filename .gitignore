@@ -17,3 +17,7 @@ jetc-cov
 *.s
 doxy/
 .ccls-cache/
+*.run
+*.run.c
+*.jetr
+*.app/

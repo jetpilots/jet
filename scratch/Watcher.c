@@ -131,7 +131,7 @@ static void fsevents_callback(FSEventStreamRef streamRef,
         // First, make a copy of the event path so we can modify it.
         //
         strcpy(path_buff, eventPaths[i]);
-        len = strlen(path_buff);
+        len = CString_length(path_buff);
         if (path_buff[len - 1] == '/') {
             // chop off a trailing slash so that scan_directory() works
             path_buff[--len] = '\0';
@@ -345,7 +345,7 @@ int main(int argc, const char* argv[]) {
             int len;
 
             getcwd(fullpath, sizeof(fullpath));
-            len = strlen(fullpath);
+            len = CString_length(fullpath);
             fullpath[len] = '/';
             strlcpy(&fullpath[len + 1], settings->fullpath,
                 sizeof(fullpath) - (len + 1));

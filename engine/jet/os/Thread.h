@@ -192,7 +192,7 @@ int main(int argc, char* argv[]) {
     // Promise(MyObj*) objp = asyncFunc(400);
     // MyObj* obj = Promise_resolve(MyObj*, objp);
 
-    parseImapFetch(strdup(imaptst), strlen(imaptst));
+    parseImapFetch(strdup(imaptst), ctstrlen(imaptst));
     return 0;
 
     curl_global_init(CURL_GLOBAL_ALL);

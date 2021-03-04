@@ -772,7 +772,7 @@ static void Parser_fini(Parser* parser) {
 
 static Parser* Parser_fromFile(char* filename, bool skipws) {
 
-    size_t flen = strlen(filename);
+    size_t flen = CString_length(filename);
 
     // Error: the file might not end in .ch
     if (not CString_endsWith(filename, flen, ".jet", 4)) {

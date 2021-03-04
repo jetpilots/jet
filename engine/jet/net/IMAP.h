@@ -107,7 +107,7 @@ void parseImapFetch(char* pos, int len) {
     }
 }
 
-char* imaptst
+const char imaptst[]
     = "* 4379 EXISTS\r\n"
       "* 0 RECENT\r\n"
       "* FLAGS (\\Seen \\Answered \\Flagged \\Deleted \\Draft $MDNSent)\r\n"

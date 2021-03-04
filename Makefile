@@ -1,5 +1,5 @@
 
-CCFLAGS=-std=c99 -Icore -Imodules
+CCFLAGS=-std=c99 -Iengine -Imodules
 CCLIBS=-lc -lm
 CC=gcc
 

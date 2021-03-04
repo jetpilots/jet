@@ -256,8 +256,8 @@ static size_t readLineFromFile(char* buf, size_t len, FILE* file) {
     if (len <= 1) return 0;
     CONTROL(fgets(buf, (int)len, file));
     {
-        size_t linelen = strlen(buf);
-        if (strlen(buf) == 0) return 0;
+        size_t linelen = CString_length(buf);
+        if (!linelen) return 0;
         if (buf[linelen - 1] == '\n') linelen--;
         buf[linelen] = '\0';
         return linelen + 1;

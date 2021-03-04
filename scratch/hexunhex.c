@@ -99,13 +99,13 @@ int main() {
     hex(f, buf, sizeof(f) - 1);
     // can work in place!
     printf("%s\n%s\n", f, buf);
-    unhex(buf, f, strlen(buf));
-    unhex(buf, buf, strlen(buf));
+    unhex(buf, f, CString_length(buf));
+    unhex(buf, buf, CString_length(buf));
 
     printf("%s\n", buf);
-    hex(buf, buf, strlen(buf));
+    hex(buf, buf, CString_length(buf));
     printf("%s\n", buf);
-    printf("%zu\n", strlen(f));
+    printf("%zu\n", CString_length(f));
 
     // #ifdef HEYDIDNTWORK
     char* fs = malloc(256 * 1024 * 1024);
@@ -113,7 +113,7 @@ int main() {
     fs[256 * 1024 * 1024 - 1] = '\0';
     fs[256 * 1024 * 1024 - 2] = '\0';
 
-    size_t l = strlen(fs);
+    size_t l = CString_length(fs);
     // clock_Time t0;
     // t0 = clock_getTime();
     // unhex(fs, fs, l);

@@ -169,18 +169,18 @@ int maain() {
         = "U2llLCAyOSwgVmVyd2FsdHVuZ3Nhbmdlc3RlbGx0ZS9TdHVkZW50aW4gTUFTLCBs5GNo"
           "ZWx0IFNpZSBhbiA";
     puts(t);
-    qdecode(t, t, strlen(t));
+    qdecode(t, t, ctstrlen(t));
     puts(t);
     puts("");
     puts(b);
-    bdecode(b, b, strlen(b));
+    bdecode(b, b, ctstrlen(b));
     puts(b);
     puts("");
 
     for (int i = 0; i < 5; i++) {
         char* ts = strdup(testsjhgh[i]);
         puts(ts);
-        ewdecode(ts, strlen(testsjhgh[i]));
+        ewdecode(ts, ctstrlen(testsjhgh[i]));
         puts(ts);
         puts("");
     }

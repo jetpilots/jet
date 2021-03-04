@@ -85,7 +85,7 @@ monostatic XMLAttr* XMLAttr_new(const char* key, const char* value) {
 
 monostatic XMLParser* XMLParser_fromStringClone(const char* str) {
     XMLParser* par = NEW(XMLParser);
-    size_t len = strlen(str);
+    size_t len = CString_length(str);
     par->data = pstrndup(str, len);
     par->pos = par->data;
     par->end = par->data + len;
@@ -94,7 +94,7 @@ monostatic XMLParser* XMLParser_fromStringClone(const char* str) {
 }
 
 monostatic XMLParser* XMLParser_fromFile(char* filename) {
-    size_t flen = strlen(filename);
+    size_t flen = CString_length(filename);
 
     struct stat sb;
     if (stat(filename, &sb) != 0) {

@@ -159,6 +159,7 @@ typedef int64_t Int64;
 // typedef const char* CString;
 typedef float Real32;
 typedef double Real64;
+#define ctstrlen(s) (sizeof(s) - 1)
 
 // #define PtrArray_topAs(T, self) Array_topAs(T, self)
 

@@ -934,7 +934,7 @@ static void ASTExpr_emit_tkString(ASTExpr* expr, int level) {
 /// Emits the equivalent C code for a (literal) numeric expression. Complex
 /// numbers follow C99 literal syntax, e.g. 1i generates `_Complex_I * 1`.
 static void ASTExpr_emit_tkNumber(ASTExpr* expr, int level) {
-    size_t ls = strlen(expr->string);
+    size_t ls = CString_length(expr->string);
     if (expr->string[ls - 1] == 'i') {
         printf("_Complex_I*");
         expr->string[ls - 1] = 0;

@@ -317,7 +317,7 @@ static uint32_t fasthash32(const void* buf, size_t len, uint32_t seed) {
 #undef mix
 
 uint64_t strhash(char* str) {
-    size_t l = strlen(str);
+    size_t l = CString_length(str);
     return fasthash64(str, l, 31337);
 }
 
