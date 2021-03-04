@@ -1,5 +1,5 @@
 
-#include "jet/Dict.h"
+#include "jet/core/Dict.h"
 
 static void ASTExpr_hash(
     /* Parser* parser, */ ASTExpr* expr, Dict(UInt32, Ptr) * cseDict) {

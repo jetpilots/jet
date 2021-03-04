@@ -210,13 +210,13 @@ static int human_readable(char* buf, double num) {
     return len;
 }
 
-#include "jet/Array.h"
-#include "jet/Pool.h"
-#include "jet/CString.h"
+#include "jet/core/Array.h"
+#include "jet/core/Pool.h"
+#include "jet/core/CString.h"
 #include "jet/math/Vector.h"
 #include "jet/math/SpVector.h"
 MKSTAT(PtrList)
-#include "jet/List.h"
+#include "jet/core/List.h"
 
 #include "jet/os/clock.h"
 // FIXME: this should go into runtime.h

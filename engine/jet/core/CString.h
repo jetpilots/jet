@@ -117,7 +117,7 @@ monostatic int CString_getSomeOccurences(
     return 0;
 }
 
-#include "_strcasecmp.h"
+#include "jet/_ext/strcasecmp.h"
 
 #define CString_endsWith(str, lenstr, suffix, lensuffix)                       \
     !strncmp(str + lenstr - lensuffix, suffix, lensuffix)
@@ -125,7 +125,7 @@ monostatic int CString_getSomeOccurences(
 #define CString_startsWith(str, prefix, lenprefix)                             \
     !strncmp(str, prefix, lenprefix)
 
-ulong leven(char* s1, char* s2, ulong s1len, ulong s2len) {
+monostatic ulong leven(char* s1, char* s2, ulong s1len, ulong s2len) {
 #define NCBUF 64
     ulong x, y, lastdiag, olddiag;
     ulong _c[NCBUF], *column = _c;
@@ -170,7 +170,7 @@ ulong leven(char* s1, char* s2, ulong s1len, ulong s2len) {
 /// Follows the usual printf format. Size can be provided if known, if you guess
 /// too low, the buffer will incur a resize. It's better to set size=0 if you
 /// don't have a better guess at all.
-CString strinterp_h(int size, const CString fmt, ...) {
+monostatic CString strinterp_h(int size, const CString fmt, ...) {
     va_list args;
 
     // TODO: mark branch unlikely
@@ -220,7 +220,7 @@ monostatic CString __strinterp__s(
     return buf;
 }
 
-int sadsmain() {
+monostatic int CString__test() {
     CString fmt = "%s is the name of this city with %d people\n";
     CString val = strinterp_h(41, fmt, "zurche", 300500);
     // CString v = gets("buf:");
