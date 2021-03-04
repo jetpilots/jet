@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define jet_countof(x) (sizeof(x) / sizeof(x[0]))
+#define countof(x) (sizeof(x) / sizeof(x[0]))
 #define endof(x) (x + sizeof(x) / sizeof(x[0]))
 
 long int arr[] = { 3, 4, 5, 5, 6, 7, 8, 9 };

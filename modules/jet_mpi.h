@@ -1,5 +1,5 @@
-jet_mpi_send jet_mpi_recv jet_mpi_isend jet_mpi_irecv jet_mpi_gather
-    jet_mpi_scatter jet_mpi_allToAll jet_mpi_broadcast jet_mpi_barrier
+mpi_send mpi_recv mpi_isend mpi_irecv mpi_gather mpi_scatter mpi_allToAll
+    mpi_broadcast mpi_barrier
 
         function scatter(arr[:, :] as Number, source as Number)
             result(out as Number)
@@ -11,6 +11,6 @@ jet_mpi_send jet_mpi_recv jet_mpi_isend jet_mpi_irecv jet_mpi_gather
 
     function scatter(arr as Number[:, :], source as Number) as Number[]
 
-    jet_mpi_Array2D_scatter(Array2D arr, )
+    mpi_Array2D_scatter(Array2D arr, )
 
         var str as String = firstName(5)

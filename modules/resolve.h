@@ -60,16 +60,17 @@ static void resolveTypeSpec(
 // end function
 
 static void ASTScope_checkUnusedVars(Parser* parser, ASTScope* scope) {
-    jet_foreach(ASTVar*, var, scope->locals) if (not var->used)
-        Parser_warnUnusedVar(parser, var);
+    foreach (ASTVar*, var, scope->locals)
+        if (not var->used) Parser_warnUnusedVar(parser, var);
 
-    jet_foreach(ASTExpr*, stmt, scope->stmts) if (isCtrlExpr(stmt)
-        and stmt->body) ASTScope_checkUnusedVars(parser, stmt->body);
+    foreach (ASTExpr*, stmt, scope->stmts)
+        if (isCtrlExpr(stmt) and stmt->body)
+            ASTScope_checkUnusedVars(parser, stmt->body);
 }
 
 static void ASTFunc_checkUnusedVars(Parser* parser, ASTFunc* func) {
-    jet_foreach(ASTVar*, arg, func->args) if (not arg->used)
-        Parser_warnUnusedArg(parser, arg);
+    foreach (ASTVar*, arg, func->args)
+        if (not arg->used) Parser_warnUnusedArg(parser, arg);
 
     ASTScope_checkUnusedVars(parser, func->body);
 }

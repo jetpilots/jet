@@ -1,5 +1,5 @@
 #define JET_MEM_NOMEMPOOL
-#include "jet_mem.h"
+#include "mem.h"
 
 double* func() {
     double* t = malloc(1000 * sizeof(double));

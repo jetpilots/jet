@@ -28,8 +28,7 @@
 #define STOP 1.0e-8
 #define TINY 1.0e-30
 
-double incbeta(double a, double b, double x)
-{
+double incbeta(double a, double b, double x) {
     if (x < 0.0 || x > 1.0) return 1.0 / 0.0;
 
     /*The continued fraction converges nicely for x < (a+1)/(a+b+2)*/
@@ -85,12 +84,11 @@ double incbeta(double a, double b, double x)
 #define NM 1001 // array size
 #define NP (PEAKDAY * (NX + 1)) // number of days + 1
 
-#define jet_countof(x) (sizeof(x) / sizeof(x[0]))
+#define countof(x) (sizeof(x) / sizeof(x[0]))
 #define foreach(idx, arr) for (int idx = 0; idx < NP; idx++)
 
 #define max(x, y) ((y > x) ? (y) : (x))
-int main()
-{
+int main() {
     double x[NM] = {};
     x[0] = 0;
     for (int i = 1; i < NP; i++) x[i] = 1.0 * i / (NP - 1);
@@ -102,7 +100,7 @@ int main()
     foreach (i, x)
         x[i] *= (NP - 1);
 
-    for (int i = jet_countof(y) - 1; i > 0; i--) y[i] -= y[i - 1];
+    for (int i = countof(y) - 1; i > 0; i--) y[i] -= y[i - 1];
 
     // double maxy = 0.0;
     // foreach (i, y)

@@ -1,5 +1,5 @@
 
-#include "hash.h"
+#include "jet/Dict.h"
 
 static void ASTExpr_hash(
     /* Parser* parser, */ ASTExpr* expr, Dict(UInt32, Ptr) * cseDict) {
@@ -136,7 +136,7 @@ static void ASTFunc_hashExprs(/* Parser* parser,  */ ASTFunc* func) {
     if (not cseDict) cseDict = Dict_init(UInt32, Ptr)();
     Dict_clear(UInt32, Ptr)(cseDict);
 
-    jet_foreach(ASTExpr*, stmt, func->body->stmts) {
+    foreach (ASTExpr*, stmt, func->body->stmts) {
         ASTExpr_hash(/* parser, */ stmt, cseDict);
         ASTExpr_checkHashes(/* parser, */ stmt, cseDict);
 
@@ -155,7 +155,7 @@ static void ASTFunc_hashExprs(/* Parser* parser,  */ ASTFunc* func) {
         //            //        idx =
         //            Dict_val(cseDict, idx) = stmt;
     }
-    //    jet_foreach (ASTExpr*, stmt, func->body->stmts) {
+    //    foreach (ASTExpr*, stmt, func->body->stmts) {
     //        int status = 0;
     //        UInt32 idx = Dict_put(UInt32, Ptr)(cseDict, stmt->hash, &status);
     //        // Dict_get(UInt32, Ptr)(cseDict, stmt->hash);

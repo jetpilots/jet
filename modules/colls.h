@@ -27,14 +27,17 @@
         T* start;                                                              \
         unsigned count, free;                                                  \
     }
-#define Array_for(T, v, a)                                                     \
-    for (const T *_i_##v = (a).start,                                          \
-                 const *const _e_##v = (a).start + (a).count;                  \
-         _i_##v < _e_##v; _i_##v++)
+#define Array_foreach(T, v, a)                                                 \
+    if ((a).count)                                                             \
+        for (const T *_i_##v = (a).start, v = *_i_##v,                         \
+                     const *const _e_##v = (a).start + (a).count;              \
+             _i_##v < _e_##v; v = *++_i_##v)
 
-#define Array_mfor(T, v, a)                                                    \
-    for (T* _i_##v = (a).start, const* const _e_##v = (a).start + (a).count;   \
-         _i_##v < _e_##v; _i_##v++)
+#define Array_mforeach(T, v, a)                                                \
+    if ((a).count)                                                             \
+        for (T* _i_##v = (a).start, v = *_i_##v,                               \
+                const* const _e_##v = (a).start + (a).count;                   \
+             _i_##v < _e_##v; v = *++_i_##v)
 
 #define Array_slots(arr) ((arr).count + (arr).free)
 #define Array_sizeof(T, arr) (Array_slots(arr) * sizeof(T))

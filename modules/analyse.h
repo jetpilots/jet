@@ -66,7 +66,7 @@ static void analyseExpr(
         expr->elemental = expr->elemental and expr->left->elemental;
         expr->throws = expr->left->throws or expr->func->throws;
         ASTExpr* currArg = expr->left;
-        jet_foreach(ASTVar*, arg, expr->func->args) {
+        foreach (ASTVar*, arg, expr->func->args) {
             ASTExpr* cArg
                 = (currArg->kind == tkOpComma) ? currArg->left : currArg;
             if (cArg->kind == tkOpAssign) cArg = cArg->right;
@@ -86,7 +86,7 @@ static void analyseExpr(
                 // of the function's arguments and set it to tkArgumentLabel.
                 assert(cArg->left->kind == tkIdentifier);
                 ASTVar* theArg = NULL;
-                jet_foreach(ASTVar*, arg, expr->func->args) {
+                foreach (ASTVar*, arg, expr->func->args) {
                     if (!strcasecmp(cArg->left->string, arg->name))
                         theArg = arg;
                 }
@@ -138,7 +138,7 @@ static void analyseExpr(
             Parser_errorUnrecognizedFunc(parser, expr, buf);
 
             if (*buf != '<') // not invalid type
-                jet_foreach(ASTFunc*, func, mod->funcs) {
+                foreach (ASTFunc*, func, mod->funcs) {
                     if (not strcasecmp(expr->string, func->name))
                         eprintf("\e[;2m ./%s:%d: \e[;1;2m%s\e[0;2m with %d "
                                 "arguments is not viable.\e[0m\n",
@@ -148,7 +148,7 @@ static void analyseExpr(
                         and leven(expr->string, func->name, expr->slen,
                                 func->nameLen)
                             < 3
-                        and func->argCount == jet_PtrList_count(func->args))
+                        and func->argCount == PtrList_count(func->args))
                         eprintf(" Did you mean: \e[;1m%s\e[0m (%s at "
                                 "./%s:%d)\n",
                             func->name, func->selector, parser->filename,
@@ -241,7 +241,7 @@ static void analyseExpr(
     case tkKeyword_elif:
     case tkKeyword_while: {
         if (expr->left) analyseExpr(parser, expr->left, mod, false);
-        jet_foreach(ASTExpr*, stmt, expr->body->stmts)
+        foreach (ASTExpr*, stmt, expr->body->stmts)
             analyseExpr(parser, stmt, mod, inFuncArgs);
     } break;
 
@@ -597,7 +597,7 @@ static void analyseType(Parser* parser, ASTType* type, ASTModule* mod) {
             Parser_errorTypeInheritsSelf(parser, type);
     }
     // TODO: this should be replaced by a dict query
-    jet_foreach(ASTType*, type2, mod->types) {
+    foreach (ASTType*, type2, mod->types) {
         if (type2 == type) break;
         if (not strcasecmp(type->name, type2->name))
             Parser_errorDuplicateType(parser, type, type2);
@@ -616,7 +616,7 @@ static void analyseType(Parser* parser, ASTType* type, ASTModule* mod) {
     type->analysed = true;
     // nothing to do for declared/empty types etc. with no body
     if (type->body) //
-        jet_foreach(ASTExpr*, stmt, type->body->stmts)
+        foreach (ASTExpr*, stmt, type->body->stmts)
             analyseExpr(parser, stmt, mod, false);
 }
 static void ASTFunc_hashExprs(/* Parser* parser,  */ ASTFunc* func);
@@ -630,7 +630,7 @@ static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod) {
     bool isCtor = false;
     // Check if the function is a constructor call and identify the type.
     // TODO: this should be replaced by a dict query
-    jet_foreach(ASTType*, type, mod->types) {
+    foreach (ASTType*, type, mod->types) {
         if (not strcasecmp(func->name, type->name)) {
             if (func->returnSpec and not(func->isStmt or func->isDefCtor))
                 Parser_errorCtorHasType(parser, func, type);
@@ -669,7 +669,7 @@ static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod) {
 
     // Check for duplicate functions (same selectors) and report errors.
     // TODO: this should be replaced by a dict query
-    jet_foreach(ASTFunc*, func2, mod->funcs) {
+    foreach (ASTFunc*, func2, mod->funcs) {
         if (func == func2) break;
         if (not strcasecmp(func->selector, func2->selector))
             Parser_errorDuplicateFunc(parser, func, func2);
@@ -683,7 +683,7 @@ static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod) {
     func->analysed = true;
 
     // Run the statement-level semantic pass on the function body.
-    jet_foreach(ASTExpr*, stmt, func->body->stmts)
+    foreach (ASTExpr*, stmt, func->body->stmts)
         analyseExpr(parser, stmt, mod, false);
 
     // Statement functions are written without an explicit return type.
@@ -712,7 +712,7 @@ static void analyseTest(Parser* parser, ASTTest* test, ASTModule* mod) {
 
     // Check for duplicate test names and report errors.
     // TODO: this should be replaced by a dict query
-    jet_foreach(ASTTest*, test2, mod->tests) {
+    foreach (ASTTest*, test2, mod->tests) {
         if (test == test2) break;
         if (not strcasecmp(test->name, test2->name))
             Parser_errorDuplicateTest(parser, test, test2);
@@ -722,7 +722,7 @@ static void analyseTest(Parser* parser, ASTTest* test, ASTModule* mod) {
     ASTTest_checkUnusedVars(parser, test);
 
     // Run the statement-level semantic pass on the function body.
-    jet_foreach(ASTExpr*, stmt, test->body->stmts)
+    foreach (ASTExpr*, stmt, test->body->stmts)
         analyseExpr(parser, stmt, mod, false);
 
     // Do optimisations or ANY lowering only if there are no errors

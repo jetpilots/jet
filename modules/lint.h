@@ -53,7 +53,10 @@ static void ASTExpr_lint(
 
 static void ASTVar_lint(ASTVar* var, int level) {
     printf("%.*s%s%s", level, spaces,
-        var->isVar ? "var " : var->isLet ? "let " : "", var->name);
+        var->isVar       ? "var "
+            : var->isLet ? "let "
+                         : "",
+        var->name);
     TokenKind kind = var->init ? var->init->kind : tkUnknown;
 
     bool genType = true; // set it here to override
@@ -105,7 +108,7 @@ static void ASTVar_lint(ASTVar* var, int level) {
 }
 
 static void ASTScope_lint(ASTScope* scope, int level) {
-    jet_foreachn(ASTExpr*, expr, exprList, scope->stmts) {
+    foreachn(ASTExpr*, expr, exprList, scope->stmts) {
         switch (expr->kind) {
         case tkKeyword_for:
         case tkKeyword_if:
@@ -148,7 +151,7 @@ static void ASTType_lint(ASTType* type, int level) {
     puts("");
     if (not type->body) return;
 
-    jet_foreach(ASTExpr*, stmt, type->body->stmts) {
+    foreach (ASTExpr*, stmt, type->body->stmts) {
         if (not stmt) continue;
         ASTExpr_lint(stmt, level + STEP, true, false);
         puts("");
@@ -162,7 +165,7 @@ static void ASTFunc_lint(ASTFunc* func, int level) {
 
     printf("%s%s(", func->isStmt ? "\n" : "function ", func->name);
 
-    jet_foreachn(ASTVar*, arg, args, func->args) {
+    foreachn(ASTVar*, arg, args, func->args) {
         ASTVar_lint(arg, level);
         printf(args->next ? ", " : "");
     }
@@ -351,14 +354,17 @@ static void ASTExpr_lint(
 static void ASTModule_lint(ASTModule* module, int level) {
     printf("# module %s\n", module->name);
 
-    jet_foreach(ASTImport*, import, module->imports)
+    foreach (ASTImport*, import, module->imports)
         ASTImport_lint(import, level);
 
     puts("");
 
-    jet_foreach(ASTType*, type, module->types) ASTType_lint(type, level);
+    foreach (ASTType*, type, module->types)
+        ASTType_lint(type, level);
 
-    jet_foreach(ASTFunc*, func, module->funcs) ASTFunc_lint(func, level);
+    foreach (ASTFunc*, func, module->funcs)
+        ASTFunc_lint(func, level);
 
-    jet_foreach(ASTTest*, test, module->tests) ASTTest_lint(test, level);
+    foreach (ASTTest*, test, module->tests)
+        ASTTest_lint(test, level);
 }

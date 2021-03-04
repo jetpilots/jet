@@ -72,7 +72,7 @@ static void unhex(const char* inp, char* out, size_t inlen) {
 }
 
 // trying out gcc computed gotos
-size_t jet_strlen(const char* str) {
+size_t strlen(const char* str) {
     const char* orig = str;
     while (*str) str++;
     return str - orig;
@@ -87,7 +87,7 @@ ret:
     return sz;
 }
 
-#include "../modules/jet_clock.h"
+#include "../modules/clock.h"
 
 int main() {
     // this is a mutable string on the stack!!! well fixed size but ok
@@ -114,16 +114,16 @@ int main() {
     fs[256 * 1024 * 1024 - 2] = '\0';
 
     size_t l = strlen(fs);
-    // jet_clock_Time t0;
-    // t0 = jet_clock_getTime();
+    // clock_Time t0;
+    // t0 = clock_getTime();
     // unhex(fs, fs, l);
-    // double tme = jet_clock_clockSpanMicro(t0);
+    // double tme = clock_clockSpanMicro(t0);
     // printf("%zu %f\n", l, tme / 1e3);
     JET_TIMEIT(unhex(fs, fs, l));
 
-    // t0 = jet_clock_getTime();
+    // t0 = clock_getTime();
     // hex(fs, fs, l / 2);
-    // tme = jet_clock_clockSpanMicro(t0);
+    // tme = clock_clockSpanMicro(t0);
     // printf("%zu %f\n", l, tme / 1e3);
     JET_TIMEIT(hex(fs, fs, l / 2));
 

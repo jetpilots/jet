@@ -4,12 +4,12 @@
 
 ///////////////////////////////////////////////////////////////////////////
 static void ASTImport_emit(ASTImport* import, int level) {
-    str_tr_ip(import->importFile, '.', '_', 0);
+    CString_tr_ip(import->importFile, '.', '_', 0);
     printf("\n#include \"%s.h\"\n", import->importFile);
     if (import->hasAlias)
         printf("#define %s %s\n", import->importFile + import->aliasOffset,
             import->importFile);
-    str_tr_ip(import->importFile, '_', '.', 0);
+    CString_tr_ip(import->importFile, '_', '.', 0);
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -240,7 +240,7 @@ static bool isComparatorExpr(ASTExpr* expr) { return false; }
 
 ///////////////////////////////////////////////////////////////////////////
 static void ASTScope_lowerElementalOps(ASTScope* scope) {
-    jet_foreach(ASTExpr*, stmt, scope->stmts) {
+    foreach (ASTExpr*, stmt, scope->stmts) {
 
         if (isCtrlExpr(stmt) and stmt->body)
             ASTScope_lowerElementalOps(stmt->body);
@@ -248,9 +248,9 @@ static void ASTScope_lowerElementalOps(ASTScope* scope) {
         if (not stmt->elemental) continue;
 
         // wrap it in an empty block (or use if true)
-        ASTExpr* ifblk = jet_new(ASTExpr);
+        ASTExpr* ifblk = NEW(ASTExpr);
         ifblk->kind = tkKeyword_if;
-        ifblk->left = jet_new(ASTExpr);
+        ifblk->left = NEW(ASTExpr);
         ifblk->left->kind = tkNumber;
         ifblk->string = "1";
 
@@ -309,7 +309,7 @@ static void ASTScope_promoteCandidates(ASTScope* scope) {
     int tmpCount = 0;
     ASTExpr* pc = NULL;
     List(ASTExpr)* prev = NULL;
-    jet_foreachn(ASTExpr*, stmt, stmts, scope->stmts) {
+    foreachn(ASTExpr*, stmt, stmts, scope->stmts) {
         // TODO:
         // if (not stmt->promote) {prev=stmts;continue;}
 
@@ -329,16 +329,16 @@ static void ASTScope_promoteCandidates(ASTScope* scope) {
             continue;
         }
 
-        ASTExpr* pcClone = jet_new(ASTExpr);
+        ASTExpr* pcClone = NEW(ASTExpr);
         *pcClone = *pc;
 
         // 1. add a temp var to the scope
-        ASTVar* tmpvar = jet_new(ASTVar);
+        ASTVar* tmpvar = NEW(ASTVar);
         tmpvar->name = newTmpVarName(++tmpCount, 'p');
-        tmpvar->typeSpec = jet_new(ASTTypeSpec);
+        tmpvar->typeSpec = NEW(ASTTypeSpec);
         //        tmpvar->typeSpec->typeType = TYReal64; // FIXME
         // TODO: setup tmpvar->typeSpec
-        jet_PtrList_append(&scope->locals, tmpvar);
+        PtrList_append(&scope->locals, tmpvar);
 
         // 2. change the original to an ident
         pc->kind = tkIdentifierResolved;
@@ -351,7 +351,7 @@ static void ASTScope_promoteCandidates(ASTScope* scope) {
             pcClone->left = pc;
         else if (pcClone->left->kind != tkOpComma) {
             // single arg
-            ASTExpr* com = jet_new(ASTExpr);
+            ASTExpr* com = NEW(ASTExpr);
             // TODO: really should have an astexpr ctor
             com->prec = TokenKind_getPrecedence(tkOpComma);
             com->kind = tkOpComma;
@@ -362,7 +362,7 @@ static void ASTScope_promoteCandidates(ASTScope* scope) {
             ASTExpr* argn = pcClone->left;
             while (argn->kind == tkOpComma and argn->right->kind == tkOpComma)
                 argn = argn->right;
-            ASTExpr* com = jet_new(ASTExpr);
+            ASTExpr* com = NEW(ASTExpr);
             // TODO: really should have an astexpr ctor
             com->prec = TokenKind_getPrecedence(tkOpComma);
             com->kind = tkOpComma;
@@ -376,11 +376,11 @@ static void ASTScope_promoteCandidates(ASTScope* scope) {
         //        PtrList* tmp = prev->next;
         // THIS SHOULD BE in PtrList as insertAfter method
         if (not prev) {
-            scope->stmts = jet_PtrList_with(pcClone);
+            scope->stmts = PtrList_with(pcClone);
             scope->stmts->next = stmts;
             prev = scope->stmts;
         } else {
-            prev->next = jet_PtrList_with(pcClone);
+            prev->next = PtrList_with(pcClone);
             prev->next->next = stmts;
             prev = prev->next;
         } // List(ASTExpr)* insertionPos = prev ? prev->next : self->stmts;
@@ -395,11 +395,12 @@ static void ASTScope_promoteCandidates(ASTScope* scope) {
 
 ///////////////////////////////////////////////////////////////////////////
 static void ASTScope_emit(ASTScope* scope, int level) {
-    jet_foreach(ASTVar*, local, scope->locals) if (local->used) {
-        ASTVar_emit(local, level, false);
-        puts(";");
-    } // these will be declared at top and defined within the expr list
-    jet_foreach(ASTExpr*, stmt, scope->stmts) {
+    foreach (ASTVar*, local, scope->locals)
+        if (local->used) {
+            ASTVar_emit(local, level, false);
+            puts(";");
+        } // these will be declared at top and defined within the expr list
+    foreach (ASTExpr*, stmt, scope->stmts) {
         if (stmt->kind == tkLineComment) continue;
 
         if (genLineNumbers) printf("#line %d\n", stmt->line);
@@ -447,7 +448,7 @@ static void ASTType_genJson(ASTType* type) {
 
     // TODO: move this part into its own func so that subclasses can ask the
     // superclass to add in their fields inline
-    jet_foreachn(ASTVar*, var, vars, type->body->locals) {
+    foreachn(ASTVar*, var, vars, type->body->locals) {
         if (not var /*or not var->used*/) continue;
         printf("    printf(\"%%.*s\\\"%s\\\": \", nspc+4, _spaces_);\n",
             var->name);
@@ -533,7 +534,7 @@ static void ASTType_emit(ASTType* type, int level) {
     // if (not type->body or not type->analysed) return;
     const char* const name = type->name;
     printf("#define FIELDS_%s \\\n", name);
-    jet_foreach(ASTVar*, var, type->body->locals) {
+    foreach (ASTVar*, var, type->body->locals) {
         if (not var /*or not var->used*/) continue;
         // It's not so easy to just skip 'unused' type members.
         // what if I just construct an object and print it?
@@ -557,10 +558,10 @@ static void ASTType_emit(ASTType* type, int level) {
         name, name, name);
     printf("static %s %s_init_(%s self) {\n", name, name, name);
 
-    jet_foreach(ASTVar*, var, type->body->locals) // if (var->used)
+    foreach (ASTVar*, var, type->body->locals) // if (var->used)
         printf("#define %s self->%s\n", var->name, var->name);
 
-    jet_foreach(ASTExpr*, stmt, type->body->stmts) {
+    foreach (ASTExpr*, stmt, type->body->stmts) {
         if (not stmt or stmt->kind != tkVarAssign or not stmt->var->init)
             //            or not stmt->var->used)
             continue;
@@ -570,7 +571,7 @@ static void ASTType_emit(ASTType* type, int level) {
         if (ASTExpr_throws(stmt->var->init))
             puts("    if (_err_ == ERROR_TRACE) return NULL;");
     }
-    jet_foreach(ASTVar*, var, type->body->locals) // if (var->used)
+    foreach (ASTVar*, var, type->body->locals) // if (var->used)
         printf("#undef %s \n", var->name);
 
     printf("    return self;\n}\n\n");
@@ -630,7 +631,7 @@ static void ASTFunc_emit(ASTFunc* func, int level) {
         printf("void");
     }
     printf(" %s(", func->selector);
-    jet_foreachn(ASTVar*, arg, args, func->args) {
+    foreachn(ASTVar*, arg, args, func->args) {
         ASTVar_emit(arg, level, true);
         printf(args->next ? ", " : "");
     }
@@ -645,7 +646,7 @@ static void ASTFunc_emit(ASTFunc* func, int level) {
     printf("    IFDEBUG(static const char* sig_ = \"");
     printf("%s%s(", func->isStmt ? "" : "function ", func->name);
 
-    jet_foreachn(ASTVar*, arg, args, func->args) {
+    foreachn(ASTVar*, arg, args, func->args) {
         ASTVar_lint(arg, level);
         printf(args->next ? ", " : "");
     }
@@ -675,7 +676,7 @@ static void ASTFunc_genh(ASTFunc* func, int level) {
         printf("void");
     }
     printf(" %s(", func->selector);
-    jet_foreachn(ASTVar*, arg, args, func->args) {
+    foreachn(ASTVar*, arg, args, func->args) {
         ASTVar_emit(arg, level, true);
         printf(args->next ? ", " : "");
     }
@@ -817,7 +818,7 @@ static void ASTExpr_emit_tkFunctionCallResolved(ASTExpr* expr, int level) {
     printf(")");
 }
 
-char* jet_strchrnul(char* str, char ch) {
+char* strchrnul(char* str, char ch) {
     while (*str && *str != ch) str++;
     return str;
 }
@@ -836,7 +837,7 @@ static void ASTExpr_prepareInterp(
     // 1. compute the format string
     // 2. compute a guess for the size
     // 3. keep a stack of vars that are in the string in the right order
-    static jet_Array(Ptr) vars;
+    static Array(Ptr) vars;
 
     //     char* pos = expr->string - 1,*last = expr->string;
     //     while (*++pos) {
@@ -849,14 +850,14 @@ static void ASTExpr_prepareInterp(
             while (*pos) {
                 // in this loop you print the text preceding a $, then text
                 // suceeding a $, then loop. Here's the text before the $
-                char* dollar = jet_strchrnul(pos, '$');
+                char* dollar = strchrnul(pos, '$');
                 // not using $..., using {...}
                 long lentxt = dollar - pos;
                 // printf(",\"%.*s\"", lentxt, pos);
                 if (!*dollar) break;
                 // after the $ is a variable, so look it up etc.
                 char* varname = dollar + 1;
-                char* varend = jet_strchrnul(varname, ' ');
+                char* varend = strchrnul(varname, ' ');
                 *varend = 0;
                 ASTVar* var = ASTScope_getVar(scope, varname);
                 // ^ TODO: this should be getQualVar which looks up a.b.c and
@@ -904,7 +905,7 @@ static void ASTExpr_prepareInterp(
     case tkKeyword_elif:
     case tkKeyword_while:
         ASTExpr_prepareInterp(expr->left, scope);
-        jet_foreach(ASTExpr*, subexpr, expr->body->stmts)
+        foreach (ASTExpr*, subexpr, expr->body->stmts)
             ASTExpr_prepareInterp(subexpr, expr->body);
         break;
     default:
@@ -1330,7 +1331,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
             printf(")");
             break;
         } else if (expr->right->typeType == TYString) {
-            printf("str_cmp(%s, ", tksrepr[expr->kind]);
+            printf("CString_cmp(%s, ", tksrepr[expr->kind]);
             ASTExpr_emit(expr->left, 0);
             printf(", ");
             ASTExpr_emit(expr->right, 0);
@@ -1369,8 +1370,8 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
 
 // WARNING: DO NOT USE THESE STRINGS WITH PRINTF(...) USE PUTS(...).
 // static const char* coverageFunc[] = { //
-//     "static void jet_coverage_report() { /* unused */ }",
-//     "static void jet_coverage_report() {\n"
+//     "static void coverage_report() { /* unused */ }",
+//     "static void coverage_report() {\n"
 //     "    int count=0,l=NUMLINES;\n"
 //     "    while(--l>0) count+=!!_cov_[l];\n"
 //     "    printf(\"coverage: %d/%d lines = %.2f%%\\n\","
@@ -1380,9 +1381,9 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
 // WARNING: DO NOT USE THESE STRINGS WITH PRINTF(...) USE PUTS(...).
 // static const char* lineProfileFunc[] = {
 //     //
-//     "static void jet_lineprofile_report() { /* unused */ }\n"
-//     "static void jet_lineprofile_begin() { /* unused */ }\n",
-//     "static void jet_lineprofile_report() {\n"
+//     "static void lineprofile_report() { /* unused */ }\n"
+//     "static void lineprofile_begin() { /* unused */ }\n",
+//     "static void lineprofile_report() {\n"
 //     // "    printf(\"profiler: %llu cycles\\n\","
 //     // "        _lprof_[NUMLINES-1]-_lprof_[0]);\n"
 //     "    FILE* fd = fopen(\".\" THISFILE \"r\", \"w\");\n"
@@ -1404,7 +1405,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
 //     "THISFILE "
 //     "\"r\" );"
 //     "}\n"
-//     "static void jet_lineprofile_begin() {_lprof_last_=getticks();}\n"
+//     "static void lineprofile_begin() {_lprof_last_=getticks();}\n"
 // };
 ///////////////////////////////////////////////////////////////////////////
 // TODO: why do you need to pass level here?
@@ -1414,24 +1415,24 @@ void ASTType_genTypeInfoDefs(ASTType* type);
 void ASTType_genNameAccessors(ASTType* type);
 static void ASTModule_emit(ASTModule* module, int level) {
     // puts("");
-    jet_foreach(ASTImport*, import, module->imports)
+    foreach (ASTImport*, import, module->imports)
         ASTImport_emit(import, level);
 
     puts("");
 
-    jet_foreach(ASTType*, type, module->types) {
+    foreach (ASTType*, type, module->types) {
         if (type->body and type->analysed) {
             ASTType_genh(type, level);
             ASTType_genTypeInfoDecls(type);
         }
     }
-    jet_foreach(ASTFunc*, func, module->funcs) {
+    foreach (ASTFunc*, func, module->funcs) {
         if (func->body and func->analysed) { ASTFunc_genh(func, level); }
     }
 
-    jet_foreach(ASTType*, type, module->types) {
+    foreach (ASTType*, type, module->types) {
         if (type->body and type->analysed) {
-            jet_foreach(ASTExpr*, expr, type->body->stmts)
+            foreach (ASTExpr*, expr, type->body->stmts)
                 ASTExpr_prepareInterp(expr, type->body);
             // ^ MOVE THIS INTO ASTType_emit
             ASTType_emit(type, level);
@@ -1439,16 +1440,17 @@ static void ASTModule_emit(ASTModule* module, int level) {
             ASTType_genNameAccessors(type);
         }
     }
-    jet_foreach(ASTFunc*, func, module->funcs) {
+    foreach (ASTFunc*, func, module->funcs) {
         if (func->body and func->analysed) {
-            jet_foreach(ASTExpr*, expr, func->body->stmts) {
+            foreach (ASTExpr*, expr, func->body->stmts) {
                 ASTExpr_prepareInterp(expr, func->body);
             }
             // ^ MOVE THIS INTO ASTFunc_emit
             ASTFunc_emit(func, level);
         }
     }
-    jet_foreach(ASTImport*, import, module->imports) ASTImport_undefc(import);
+    foreach (ASTImport*, import, module->imports)
+        ASTImport_undefc(import);
 
     // puts(coverageFunc[genCoverage]);
     // puts(lineProfileFunc[genLineProfile]);
@@ -1456,10 +1458,11 @@ static void ASTModule_emit(ASTModule* module, int level) {
 
 static void ASTModule_genTests(ASTModule* module, int level) {
     ASTModule_emit(module, level);
-    jet_foreach(ASTTest*, test, module->tests) ASTTest_emit(test);
+    foreach (ASTTest*, test, module->tests)
+        ASTTest_emit(test);
     // generate a func that main will call
     printf("\nvoid tests_run_%s() {\n", module->name);
-    jet_foreach(ASTTest*, test, module->tests)
+    foreach (ASTTest*, test, module->tests)
         printf("    test_%s();\n", test->name);
     puts("}");
 }
@@ -1475,8 +1478,8 @@ void ASTType_genNameAccessors(ASTType* type) {
     printf("static void* %s__memberNamed(%s self, const char* name) {\n",
         type->name, type->name);
     // TODO: skip bitfield members in this loop or it wont compile
-    jet_foreach(ASTVar*, var, type->body->locals) /*if (var->used) */ //
-        printf("    if (str_equals(name, \"%s\")) return &(self->%s);\n",
+    foreach (ASTVar*, var, type->body->locals) /*if (var->used) */ //
+        printf("    if (CString_equals(name, \"%s\")) return &(self->%s);\n",
             var->name, var->name);
     printf("    return NULL;\n}\n");
 
@@ -1484,10 +1487,10 @@ void ASTType_genNameAccessors(ASTType* type) {
     printf("static void %s__setMemberNamed(%s self, const char* name, Int64 "
            "value) {\n",
         type->name, type->name);
-    jet_foreach(ASTVar*, var, type->body->locals) // if (var->used) //
+    foreach (ASTVar*, var, type->body->locals) // if (var->used) //
         if (var->typeSpec->typeType >= TYBool
             and var->typeSpec->typeType <= TYReal64)
-            printf("    if (str_equals(name, \"%s\"))  {self->%s = *(%s*) "
+            printf("    if (CString_equals(name, \"%s\"))  {self->%s = *(%s*) "
                    "&value;return;}\n",
                 var->name, var->name, ASTTypeSpec_cname(var->typeSpec));
     printf("}\n");
@@ -1498,7 +1501,7 @@ void ASTType_genNameAccessors(ASTType* type) {
 void ASTType_genTypeInfoDecls(ASTType* type) {
     printf("static const char* const %s__memberNames[] = {\n    ", type->name);
     if (type->body) //
-        jet_foreachn(ASTVar*, var, varn, type->body->locals) {
+        foreachn(ASTVar*, var, varn, type->body->locals) {
             if (not var or not var->used) continue;
             printf("\"%s\", ", var->name);
             // ASTVar_emit(var, level + STEP, false);
@@ -1508,7 +1511,7 @@ void ASTType_genTypeInfoDecls(ASTType* type) {
 
 void ASTType_genTypeInfoDefs(ASTType* type) {
     // printf("static const char* const %s__memberNames[] = {\n", type->name);
-    // jet_foreachn(ASTVar*, var, varn, type->body->locals)
+    // foreachn(ASTVar*, var, varn, type->body->locals)
     // {
     //     if (not var) continue;
     //     printf("\"%s\",\n", var->name);

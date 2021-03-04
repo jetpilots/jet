@@ -14,7 +14,7 @@ typedef struct ListMgr {
         *latest; // last inserted item
 } ListMgr; // now write wrappers  ListMgr_push() and so on
 
-STATIC void ListMgr_push(ListMgr* mgr, void* value) {
+monostatic void ListMgr_push(ListMgr* mgr, void* value) {
     List* item = List_with(value);
     if (!mgr->last) { // first push call
         mgr->last = mgr->first = item;
@@ -24,12 +24,12 @@ STATIC void ListMgr_push(ListMgr* mgr, void* value) {
     mgr->count++;
 }
 
-STATIC void ListMgr_insertBeforeLatest(ListMgr* mgr, void* value) {
+monostatic void ListMgr_insertBeforeLatest(ListMgr* mgr, void* value) {
     // mgr->latest = *
     List_insertBeforeItem(&mgr->latest, value);
 }
 
-STATIC void ListMgr_insertAfterLatest(ListMgr* mgr, void* value) {
+monostatic void ListMgr_insertAfterLatest(ListMgr* mgr, void* value) {
     //  List* afterPos = mgr->latest->next;
     // // FIXME: what if afterPos is NULL?
     // afterPos = * List_insertBeforeItem(&afterPos, value);
@@ -42,7 +42,7 @@ STATIC void ListMgr_insertAfterLatest(ListMgr* mgr, void* value) {
 // insertAfterLatest(mgr:ListMgr, value:Ptr) :=
 //     insertAfterItem(mgr.latest, value)
 
-// STATIC
+// function
 static List* List_with(void* value) {
     // TODO: how to get separate alloc counts of List_ASTType
     // List_ASTFunc etc.?
@@ -51,7 +51,7 @@ static List* List_with(void* value) {
     return li;
 }
 
-// STATIC
+// function
 static List* List_with_next(void* value, void* next) {
     // TODO: how to get separate alloc counts of List_ASTType
     // List_ASTFunc etc.?
@@ -62,7 +62,7 @@ static List* List_with_next(void* value, void* next) {
     return li;
 }
 
-STATIC int List_count(List* list) {
+monostatic int List_count(List* list) {
     int i;
     for (i = 0; list; list = list->next, ++i) (void)i;
     return i;
@@ -70,7 +70,7 @@ STATIC int List_count(List* list) {
 
 // returns the a ref to the last listitem so you can use that for
 // repeated pushs in O(1) and not O(N)
-STATIC List** List_push(List** selfp, void* value) {
+monostatic List** List_push(List** selfp, void* value) {
     if (*selfp == NULL) { // first push call
         *selfp = List_with(value);
         return selfp;
@@ -95,7 +95,7 @@ void List_insertAfterItem(List** selfp, void* value) {
     }
 }
 
-STATIC void List_insertBeforeItem(List** selfp, void* value) {
+monostatic void List_insertBeforeItem(List** selfp, void* value) {
     *selfp = List_with_next(value, *selfp);
 }
 
