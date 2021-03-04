@@ -24,7 +24,7 @@
 
 ## A modern high-performance language for science
 
-A modern, simple language with all the features you need for scientific computing. Fast multidimensional arrays with slicing and broadcasting syntax, simple modular program structure, powerful assertions and implied contracts, and in-depth compile-time analysis for several major classes of bugs, combined with low-overhead run-time diagnostics. 
+A modern, simple language with all the features you need for scientific computing. Fast multidimensional arrays with slicing and broadcasting syntax, simple modular program structure, powerful assertions and implied contracts, and in-depth compile-time analysis for several major classes of bugs, combined with low-overhead run-time diagnostics.
 
 Easily create native console or GUI applications for Linux, Windows, macOS on x86-64 or ARM, with blazing-fast performance, while maintaining a single, low-friction codebase.
 
@@ -33,7 +33,7 @@ Easily create native console or GUI applications for Linux, Windows, macOS on x8
 - [ ] Array notation, slicing, broadcast and manipulation as in Fortran90, MATLAB, numpy, Julia
 - [x] Language syntax designed to minimise complexity and reduce reader's cognitive load
 - [x] Clearly defined universal structure makes code and projects instantly understandable
-- [x] Language elements (operators, builtin functions, etc.) are predictable and unambiguous 
+- [x] Language elements (operators, builtin functions, etc.) are predictable and unambiguous
 - [x] Write code sloppily and let the linter add types, apply fixes, enforce standard format
 - [ ] Builtin unit testing with test dependencies and 1-command build and test
 
@@ -101,6 +101,10 @@ Easily create native console or GUI applications for Linux, Windows, macOS on x8
 - [ ] Docker images
 
 ## Licensing
-The project is licensed under GPLv3. Contributors are required to assign copyright to the lead developer to help ensure license enforcement. 
 
-Commercial licensing will be available upon request once we are closer to release.
+The source code is provided for reference only. You may not redistribute it or
+reuse any part of it, including in other projects of any kind or license.
+
+You can download and build it for personal, non-commercial or academic use.
+
+I may move to a suitable open-source license once development has reached a satisfactory stage.
