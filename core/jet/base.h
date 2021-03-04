@@ -9,12 +9,12 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "jet/include.h"
+// #include "jet/include.h"
 
-#ifdef JET_MATHLIB_SLEEF
+#ifdef SLEEF
 #include "sleef.h"
 #else
-#ifdef JET_MATHLIB_YEPPP
+#ifdef YEPPP
 #include "yeppp.h"
 #else
 #include <math.h>

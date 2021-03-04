@@ -1,17 +1,18 @@
 #ifndef FPLUS_RUNTIME_H
 #define FPLUS_RUNTIME_H
 
-#include <stdio.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-#include <assert.h>
-#include <math.h>
-#include <unistd.h> /* sysconf(3) */
+// #include <stdio.h>
+// #include <stdint.h>
+// #include <stdlib.h>
+// #include <string.h>
+// #include <assert.h>
+// #include <math.h>
+// #include <unistd.h> /* sysconf(3) */
 
-#include "base.h"
+#include "jet/base.h"
 
-#include "hash.h"
+#include "jet/Dict.h"
+#include "jet/os/Ticks.h"
 
 #ifdef WINDOWS
 #include <windows.h>
@@ -27,7 +28,7 @@ size_t sys_pageSize() {
 #endif
 }
 
-#include "cycle.h"
+// #include "jet/os/cycle.h"
 
 // FIXME
 #define _Pool_alloc_(x, y) malloc(y)
@@ -87,8 +88,8 @@ static size_t _scUsage_ = 0; // current depth, updated in each function
 static size_t _scPrintAbove_ = 0; // used for truncating long backtraces
 
 static UInt64 _cov_[NUMLINES] = {};
-static ticks _lprof_last_, _lprof_tmp_;
-static ticks _lprof_[NUMLINES] = {};
+static Ticks _lprof_last_, _lprof_tmp_;
+static Ticks _lprof_[NUMLINES] = {};
 
 #ifndef NOSTACKCHECK
 // define these unconditionally, they are needed for both debug and release
@@ -285,7 +286,7 @@ static const char* _undersc72_ = "------------------------"
     { _cov_[l - 1]++; }
 #define JET_PROFILE_LINE(l)                                                    \
     {                                                                          \
-        _lprof_tmp_ = getticks();                                              \
+        _lprof_tmp_ = Ticks_get();                                             \
         _lprof_[l - 1] += (_lprof_tmp_ - _lprof_last_) / 100;                  \
         _lprof_last_ = _lprof_tmp_;                                            \
     }
@@ -302,7 +303,7 @@ static void coverage_report() {
 }
 static void lineprofile_report() {
     FILE* fd = fopen("." THISFILE "r", "w");
-    ticks sum = 0;
+    Ticks sum = 0;
     for (int i = 0; i < NUMLINES; i++) sum += _lprof_[i];
     for (int i = 0; i < NUMLINES; i++) {
         double pct = _lprof_[i] * 100.0 / sum;
@@ -317,11 +318,11 @@ static void lineprofile_report() {
     system("paste -d ' ' ." THISFILE "r " THISFILE " > " THISFILE "r");
 }
 
-static void lineprofile_begin() { _lprof_last_ = getticks(); }
+static void lineprofile_begin() { _lprof_last_ = Ticks_get(); }
 
 int main(int argc, char* argv[]) {
     srand(time(0));
-    ticks t0 = getticks();
+    Ticks t0 = Ticks_get();
 
     // _scStart_ = (char*)&argc;
     _scSize_ = sys_stackSize() - 1024; //- 8192;
@@ -344,7 +345,7 @@ int main(int argc, char* argv[]) {
 #endif
     );
 
-    double dt = elapsed(getticks(), t0) / 1e9;
+    double dt = Ticks_elapsed(Ticks_get(), t0) / 1e9;
     if (_err_ == ERROR_TRACE) {
         printf("[%.3fs] Terminated due to an unhandled error.\n", dt);
 #ifndef DEBUG

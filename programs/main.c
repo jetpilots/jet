@@ -1020,7 +1020,7 @@ int main(int argc, char* argv[]) {
             Parser_emit_open(parser);
             // ^ This is called before including the runtime, so that the
             // runtime can know THISFILE NUMLINES etc.
-            printf("#include \"runtime.h\"\n");
+            printf("#include \"jet/runtime.h\"\n");
             foreach (ASTModule*, mod, modules)
                 ASTModule_emit(mod, 0);
             Parser_emit_close(parser);

@@ -2,7 +2,7 @@
 DIAG=
 
 CFLOPT=-O3 -Wall -Wno-unused-function -Wno-unused-label
-CFLDBG=-O0 -g -Werror -DDEBUG -Imodules
+CFLDBG=-O0 -g -Werror -DDEBUG -Icore
 CFLFAST=-O3 -march=native -ffast-math -funroll-loops -DNOSTACKCHECK -DNONULLCHECK -DNOBOUNDSCHECK
 
 %.run: %.jet *.[ch]

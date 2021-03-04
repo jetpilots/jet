@@ -7,3 +7,6 @@
 #else
 #define assert(e)
 #endif
+
+void qsort(void* __base, size_t __nel, size_t __width,
+    int (*__compar)(const void*, const void*));

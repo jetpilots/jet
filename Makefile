@@ -30,5 +30,6 @@ clean:
 	@rm -r jetc jetc-fast jetc-dbg jetc-cov \
 	*.gcda *.gcno *.gcov \
 	tests/*.gcda tests/*.gcno tests/*.gcov \
+	programs/*.gcda programs/*.gcno programs/*.gcov \
 	*.dSYM \
 	> /dev/null 2>&1; true

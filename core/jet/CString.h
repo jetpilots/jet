@@ -117,7 +117,7 @@ monostatic int CString_getSomeOccurences(
     return 0;
 }
 
-#include "strcasecmp.h"
+#include "_strcasecmp.h"
 
 #define CString_endsWith(str, lenstr, suffix, lensuffix)                       \
     !strncmp(str + lenstr - lensuffix, suffix, lensuffix)

@@ -36,6 +36,8 @@
         "__string": "cpp",
         "utility": "c",
         "*.txt": "plaintext",
-        "__locale": "c"
+        "__locale": "c",
+        "__threading_support": "c",
+        "__functional_03": "c"
     }
 }
