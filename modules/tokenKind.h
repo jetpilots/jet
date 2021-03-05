@@ -70,8 +70,8 @@ static bool TokenKind_isRightAssociative(TokenKind kind) {
 
 static uint8_t TokenKind_getPrecedence(TokenKind kind) {
     static const uint8_t prec[sizeof(TokenKind_str)] = { //
-        [tkUnaryMinus] = 57,
-        [tkPeriod] = 55,
+        [tkPeriod] = 57,
+        [tkUnaryMinus] = 55,
         [tkPipe] = 53,
         [tkPower] = 51,
 

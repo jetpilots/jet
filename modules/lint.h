@@ -184,7 +184,7 @@ static void ASTFunc_lint(ASTFunc* func, int level) {
         puts("end\n");
     } else {
         ASTExpr* def = func->body->stmts->item;
-        def = def->right; // its a return expr
+         def = def->right; // its a return expr
         printf(" := ");
         ASTExpr_lint(def, 0, true, false);
         puts("\n");

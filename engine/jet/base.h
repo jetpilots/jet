@@ -55,12 +55,12 @@
 // *** Move this to the compiler header. But what about jet's own
 // unreachable?
 #define unreachable(fmt, ...)                                                  \
-    eprintf("\n\e[31m*** COMPILER INTERNAL ERROR\e[0m at ./%s:%d\n"            \
+    (eprintf("\n\e[31m*** COMPILER INTERNAL ERROR\e[0m at ./%s:%d\n"            \
             "    in %s\n"                                                      \
             "    unreachable location hit, quitting\n"                         \
             "    msg: " fmt "\n",                                              \
         __FILE__, __LINE__, __func__, __VA_ARGS__),                            \
-        _InternalErrs++;
+        _InternalErrs++)
 
 #define countof(x) (sizeof(x) / sizeof(x[0]))
 

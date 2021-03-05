@@ -305,9 +305,11 @@ static void Token_detect(Token* token) {
     TokenKind tt = Token_getType(token, 0);
     TokenKind tt_ret = tkUnknown; // = tt;
     static TokenKind tt_last
-        = tkUnknown; // the previous self->token that was found
+        = tkUnknown;
+    // the previous self->token that was found
     static TokenKind tt_lastNonSpace
-        = tkUnknown; // the last non-space self->token found
+        = tkUnknown;
+    // the last non-space self->token found
     TokenKind tmp;
     char* start = token->pos;
     bool found_e = false, found_dot = false; //, found_cmt = false;
@@ -369,6 +371,10 @@ static void Token_detect(Token* token) {
         tt_ret = tkSpaces;
         break;
 
+        case tkColEq:
+            token->pos++; // 2-char token
+            // fallthrough, since tkColEq is also a line continuation token
+          // like , and ;
     case tkOpComma:
     case tkOpSemiColon:
 
@@ -522,7 +528,6 @@ static void Token_detect(Token* token) {
     case tkOpNE:
     case tkOpResults:
     case tkBackslash:
-    case tkColEq:
     case tkPlusEq:
     case tkMinusEq:
     case tkTimesEq:

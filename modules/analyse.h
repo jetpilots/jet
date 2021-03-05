@@ -401,7 +401,17 @@ static void analyseExpr(
         // the left must be a resolved ident
         if (expr->left->kind != tkIdentifierResolved) break;
 
+        if (expr->left->var->typeSpec->typeType == TYErrorType) {
+            expr->typeType = TYErrorType;
+            break;
+        }
+        
         ASTType* type = expr->left->var->typeSpec->type;
+        if (!type) {
+            expr->typeType = TYErrorType;
+            break;
+        }
+
         // Resolve the member in the scope of the type definition.
         resolveMember(parser, member, type);
         // Name resolution may fail...
@@ -445,8 +455,8 @@ static void analyseExpr(
                 || expr->kind == tkKeyword_in) {
                 // Handle comparison and logical operators (always return a
                 // bool)
-                expr->typeType = (expr->left->typeType == TYErrorType
-                                     || expr->right->typeType == TYErrorType)
+                expr->typeType = (expr->right->typeType == TYErrorType
+                                     || (!expr->unary && expr->left->typeType == TYErrorType))
                     ? TYErrorType
                     : TYBool;
             } else {

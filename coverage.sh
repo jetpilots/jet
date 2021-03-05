@@ -13,6 +13,8 @@ make -B jetc-cov # because it generates .gcno
 #  ln -sf ../../main.gcno .
 #  ln -sf ../../main.gcda .
 
+NTOT=0
+NERR=0
 for f in `find tests -name '*.jet'`
 do
     RET=0
@@ -24,10 +26,12 @@ do
     RET=$((RET+$?))
     ./jetc-cov "$f" t > /dev/null  2>&1
     RET=$((RET+$?))
-    [ $RET == 0 ] && ST="\e[33mOK\e[0m" || ST="$\e[31mERR\e[0m $RET"
+    [ $RET == 0 ] && ST="\e[33mOK\e[0m" || ST="\e[31mERR\e[0m:$RET"
+    [ $RET == 0 ] || NERR=$((NERR+1))
     printf "[$ST] $f\n" 1>&2
+    NTOT=$((NTOT+1))
 done
-
+echo "*** $NERR of $NTOT failed"
 cd programs
 ln -sf ../main.gcno .
 ln -sf ../main.gcda .

@@ -84,7 +84,7 @@ function main()
         end for
     end for
 
-    yIdict={}
+    var yIdict={}
     yIdict["cSource"] = yI[:,:,:,0]
     yIdict["yI"] = yI[:,:,:,1:]
     yIdict["cVar"] = cCV2.var

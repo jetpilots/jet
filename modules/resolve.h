@@ -228,20 +228,26 @@ static void resolveVars(Parser* parser, ASTExpr* expr, ASTScope* scope,
 
             if (isSelfMutOp(expr)) {
                 ASTVar* var = NULL;
-                if (expr->left->kind == tkIdentifierResolved
-                    || expr->left->kind == tkSubscriptResolved)
-                    var = expr->left->var;
-                else if (expr->left->kind == tkPeriod
-                    && expr->left->left->kind == tkIdentifierResolved)
-                    var = expr->left->left->var;
+                ASTExpr *varExpr=expr->left;
+                if (varExpr->kind == tkIdentifierResolved
+                    || varExpr->kind == tkSubscriptResolved)
+                    {
+                        var = varExpr->var;
+                    }
+                else if (varExpr->kind == tkPeriod
+                    && varExpr->left->kind == tkIdentifierResolved)
+                {varExpr = varExpr->left;
+                    var = varExpr->var;}
                 if (var) {
                     // TODO: If you will allow changing the first arg of a
                     // function, using an & op or whatever, check for those
                     // mutations here BTW this marks entire arrays as used
+                    // for a.x = ... it marks all of a as used. Instead should
+                    // traverse the . sequence left to right and check which the first read-only variable in that sequence
                     var->changed = true;
                     if (expr->kind == tkOpAssign) var->reassigned = true;
                     if (!var->isVar)
-                        Parser_errorReadOnlyVar(parser, expr->left);
+                        Parser_errorReadOnlyVar(parser, varExpr);
                 }
             }
         }

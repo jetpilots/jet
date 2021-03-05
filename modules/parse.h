@@ -569,30 +569,34 @@ static ASTScope* parseScope(Parser* parser, ASTScope* parent, bool isTypeBody) {
             Token_advance(&parser->token);
 
             // if(parser->token.pos)
-            // TODO: for must parse its expr as a VarDecl, because it can have
+            // TODO: for must <parse its expr as a VarDecl, because it can have
             // 'as Type' etc. Now you parse an assignment Expr and
             // hack an ASTVar out of it.
             if (tt == tkKeyword_for) {
                 // TODO: new Parser_error
-                if (expr->left->kind != tkKeyword_in)
+                ASTVar* fvar=NULL;
+                if (!expr->left )
+                    unreachable("Missing for-loop condition at %d:%d\n",expr->line, expr->col);
+                else {if (expr->left->kind != tkKeyword_in)
                     unreachable("Invalid for-loop condition: %s\n",
-                        TokenKind_repr(expr->left->kind, false));
+                                TokenKind_repr(expr->left->kind, false));
+                
                 resolveVars(parser, expr->left->right, scope, false);
 
-                var = NEW(ASTVar);
-                var->name = expr->left->left->string;
-                var->line = expr->left->line;
-                var->col = expr->left->left->col;
-                var->isVar = true;
-                var->init = expr->left->right;
-                var->typeSpec = NEW(ASTTypeSpec);
-                var->typeSpec->typeType = TYReal64;
-
-                if ((orig = ASTScope_getVar(scope, var->name)))
-                    Parser_errorDuplicateVar(parser, var, orig);
-
+                 fvar = NEW(ASTVar);
+                fvar->name = expr->left->left->string;
+                fvar->line = expr->left->line;
+                fvar->col = expr->left->left->col;
+                fvar->isVar = true;
+                fvar->init = expr->left->right;
+                fvar->typeSpec = NEW(ASTTypeSpec);
+                fvar->typeSpec->typeType = TYReal64;
+               
+                if ((orig = ASTScope_getVar(scope, fvar->name)))
+                    Parser_errorDuplicateVar(parser, fvar, orig);
+                }
                 forScope = NEW(ASTScope);
-                PtrList_shift(&forScope->locals, var);
+                if(fvar) PtrList_shift(&forScope->locals, fvar);
                 forScope->parent = scope;
 
                 // scope = forScope; // so that when parseScope is called for
@@ -688,7 +692,8 @@ static ASTScope* parseEnumBody(Parser* parser) {
             Token_advance(&parser->token);
             break;
 
-        default:
+        case tkIdentifier:
+
             expr = parseExpr(parser);
             if (expr->kind != tkIdentifier && expr->kind != tkOpAssign) {
                 Parser_errorInvalidTypeMember(parser);
@@ -701,6 +706,11 @@ static ASTScope* parseEnumBody(Parser* parser) {
             if (expr->kind == tkOpAssign)
                 resolveVars(parser, expr->right, scope, false);
             break;
+                
+                default:
+                Parser_errorExpectedToken(parser, parser->token.kind);
+                goto exitloop;
+
         }
     }
 exitloop:
@@ -886,7 +896,7 @@ static ASTEnum* parseEnum(Parser* parser) {
         Parser_errorInvalidIdent(parser);
     en->name = parseIdent(parser);
 
-    Parser_ignore(parser, tkNewline);
+    discard(parser, tkNewline);
 
     if (TypeType_byName(en->name) != TYUnresolved) {
         // conflicts with a primitive type name
@@ -1256,7 +1266,7 @@ static int ASTExpr_markTypesVisited(Parser* parser, ASTExpr* expr) {
             if (ret) return ret;
         } else
             unreachable("unknown expr kind: %s at %d:%d\n",
-                TokenKind_str[expr->kind], expr->line, expr->col)
+                        TokenKind_str[expr->kind], expr->line, expr->col);
     }
     if (!type) return 0;
     if (type->visited) {
