@@ -273,9 +273,9 @@ exitloop:
         case tkSubscript:
             if (result.used > 0) {
                 arg = PtrArray_pop(&result);
-                if (p->kind == tkSubscript) {
-                    assert(arg->kind == tkArrayOpen);
-                    arg = arg->right;
+                if (arg && p->kind == tkSubscript) {
+                    // assert(arg->kind == tkArrayOpen);
+                    if (arg->kind == tkArrayOpen) arg = arg->right;
                 }
                 p->left = arg;
             }

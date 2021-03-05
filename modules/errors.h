@@ -366,8 +366,8 @@ static void Parser_errorInvalidTestName(Parser* parser) {
 static void Parser_errorTypeMismatchBinOp(Parser* parser, ASTExpr* expr) {
     // if one of the types is "<invalid>", an error has already been
     // reported for it; so don't bother
-    char* leftTypeName = ASTExpr_typeName(expr->left);
-    char* rightTypeName = ASTExpr_typeName(expr->right);
+    const char* leftTypeName = ASTExpr_typeName(expr->left);
+    const char* rightTypeName = ASTExpr_typeName(expr->right);
     if (*leftTypeName == '<' || *rightTypeName == '<') return;
     eprintf("\n(%d) \e[31merror:\e[0m type mismatch at %s%s:%d:%d\n"
             "             can't apply '\e[34m%s\e[0m' to \e[34m%s\e[0m"
@@ -381,8 +381,8 @@ static void Parser_errorTypeMismatchBinOp(Parser* parser, ASTExpr* expr) {
 static void Parser_errorInitMismatch(Parser* parser, ASTExpr* expr) {
     // if one of the types is "<invalid>", an error has already been
     // reported for it; so don't bother
-    char* leftTypeName = ASTTypeSpec_name(expr->var->typeSpec);
-    char* rightTypeName = ASTExpr_typeName(expr->var->init);
+    const char* leftTypeName = ASTTypeSpec_name(expr->var->typeSpec);
+    const char* rightTypeName = ASTExpr_typeName(expr->var->init);
     //    if (*leftTypeName == '<' or *rightTypeName == '<') return;
 
     // for collections, RHS is allowed to be an empty [] or {} to indicate that

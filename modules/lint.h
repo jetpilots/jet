@@ -350,20 +350,20 @@ static void ASTExpr_lint(
     }
 }
 
-static void ASTModule_lint(ASTModule* module, int level) {
+static void ASTModule_lint(ASTModule* module) {
     printf("# module %s\n", module->name);
 
     foreach (ASTImport*, import, module->imports)
-        ASTImport_lint(import, level);
+        ASTImport_lint(import, 0);
 
     puts("");
 
     foreach (ASTType*, type, module->types)
-        ASTType_lint(type, level);
+        ASTType_lint(type, 0);
 
     foreach (ASTFunc*, func, module->funcs)
-        ASTFunc_lint(func, level);
+        ASTFunc_lint(func, 0);
 
     foreach (ASTTest*, test, module->tests)
-        ASTTest_lint(test, level);
+        ASTTest_lint(test, 0);
 }

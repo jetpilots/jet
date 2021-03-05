@@ -49,6 +49,8 @@ monostatic void PtrList_shift(PtrList** selfp, void* item) {
     *selfp = PtrList_withNext(item, *selfp);
 }
 
+// FIXME: it seems like foreachn will stop at the first NULL item in the list.
+//        This will not allow you to have NULL objects in a list.
 #define foreach(T, var, listSrc) foreachn(T, var, _listp_, listSrc)
 #define foreachn(T, var, listp, listSrc)                                       \
     for (PtrList* listp = listSrc; listp; listp = NULL)                        \

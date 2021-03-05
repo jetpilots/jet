@@ -67,10 +67,10 @@ static void printstats(Parser* const parser, double tms) {
           "\n");
 #ifdef DEBUG
     eputs("\e[1mMemory-related calls\e[0m\n");
-    eprintf("  calloc: %-7d | malloc: %-7d | realloc: %-7d\n", _called_calloc,
-        _called_malloc, _called_realloc);
+    eprintf("  calloc: %-7zu | malloc: %-7zu | realloc: %-7zu\n",
+        _called_calloc, _called_malloc, _called_realloc);
     eprintf(
-        "  strlen: %-7d | strdup: %-7d |\n", _called_strlen, _called_strdup);
+        "  strlen: %-7zu | strdup: %-7zu |\n", _called_strlen, _called_strdup);
     eputs("-------------------------------------------------------"
           "\n");
 #endif

@@ -44,6 +44,7 @@ typedef struct {
 } Interval;
 // TODO: replace this with the generic RealRange
 
+// TODO: somewhere in the typespec or in the ASTVar need a flag refCounted
 typedef struct ASTTypeSpec {
     union {
         struct ASTType* type;
@@ -66,7 +67,8 @@ typedef struct ASTTypeSpec {
                        // many dims or ct-unknown dims, in any case it is then
                        // the generic ArrayND.
         CollectionTypes collectionType : 6;
-        bool hasRange : 1, hasUnits : 1;
+        bool hasRange : 1, //
+            hasUnits : 1;
         TypeTypes typeType : 7;
         bool nullable : 1;
     };
@@ -288,9 +290,15 @@ typedef struct ASTFunc {
         struct {
             uint16_t throws : 1,
                 isRecursive : 1, // usesNet : 1,usesIO : 1, usesGUI : 1,
-                usesSerialisation : 1, isExported : 1, usesReflection : 1,
-                nodispatch : 1, isStmt : 1, isDeclare : 1,
-                isCalledFromWithinLoop : 1, elemental : 1, isDefCtor : 1,
+                usesSerialisation : 1, //
+                isExported : 1, //
+                usesReflection : 1, //
+                nodispatch : 1, //
+                isStmt : 1, //
+                isDeclare : 1, //
+                isCalledFromWithinLoop : 1, //
+                elemental : 1, //
+                isDefCtor : 1, //
                 intrinsic : 1, // intrinsic: print, describe, json, etc. not to
                                // be output by linter
                 analysed : 1, // semantic pass has been done, don't repeat
@@ -973,14 +981,13 @@ static void alloc_stat() { }
 
 #pragma mark - main
 int main(int argc, char* argv[]) {
-    fprintf(stderr, banner, "v0.2.2", "asd762345asd", 2020, 9, 21);
+    // fprintf(stderr, banner, "v0.2.2", "asd762345asd", 2020, 9, 21);
     if (argc == 1) {
         eputs("jet: no input files. What are you trying to do?\n");
         return 1;
     }
     bool printDiagnostics = (argc > 2 && *argv[2] == 'd') || false;
 
-    // ticks t0 = getticks();
     clock_Time t0 = clock_getTime();
     List(ASTModule) * modules;
     Parser* parser;
@@ -1007,7 +1014,7 @@ int main(int argc, char* argv[]) {
             /* TODO: fallback to token-based linter (formatter)*/
         } else {
             foreach (ASTModule*, mod, modules)
-                ASTModule_lint(mod, 0);
+                ASTModule_lint(mod);
         }
     } else if (!(parser->issues.errCount)) {
         switch (parser->mode) {
@@ -1022,19 +1029,19 @@ int main(int argc, char* argv[]) {
             // runtime can know THISFILE NUMLINES etc.
             printf("#include \"jet/runtime.h\"\n");
             foreach (ASTModule*, mod, modules)
-                ASTModule_emit(mod, 0);
+                ASTModule_emit(mod);
             Parser_emit_close(parser);
         } break;
 
         case PMGenTests: {
-            printf("#include \"tester.h\"\n");
+            printf("#include \"jet/tester.h\"\n");
             // TODO : THISFILE must be defined since function callsites need
             // it, but the other stuff in Parser_emit_open isn't required.
             // Besides, THISFILE should be the actual module's file not the
             // test file
 
             foreach (ASTModule*, mod, modules)
-                ASTModule_genTests(mod, 0);
+                ASTModule_genTests(mod);
         } break;
 
         default:
@@ -1044,7 +1051,8 @@ int main(int argc, char* argv[]) {
 
     // if (printDiagnostics) printstats(parser, elapsed(getticks(), t0) /
     // 1e6);
-    if (printDiagnostics) printstats(parser, clock_clockSpanMicro(t0) / 1.0e3);
+    double elap = clock_clockSpanMicro(t0) / 1.0e3;
+    if (printDiagnostics) printstats(parser, elap);
 
     if (parser->issues.errCount) {
         eprintf("\n\e[31;1;4m THERE ARE %2d ERRORS.                        "
@@ -1057,6 +1065,8 @@ int main(int argc, char* argv[]) {
 
     if (parser->issues.warnCount)
         eprintf("\n\e[33m*** %d warnings\e[0m\n", parser->issues.warnCount);
+
+    if (!printDiagnostics) eprintf("*** cgen in %.2f ms\n", elap);
 
     // returns the last error kind (from enum ParserErrors) so that test
     // scripts can check for specific errors raised.

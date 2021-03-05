@@ -5,23 +5,23 @@ CC=gcc
 
 
 jetc: programs/main.c modules/*.h
-	$(CC)  $(CCFLAGS) $< $(CCLIBS) -o $@
+	@ $(CC)  $(CCFLAGS) $< $(CCLIBS) -o $@
 
 modules/TokenKindDefs.h: modules/makeTokens.sh
-	cd modules && ./makeTokens.sh
+	@ cd modules && ./makeTokens.sh
 
 all: jetc jetc-fast jetc-dbg jetc-cov
 
 # Each build mode (except the default) should define a specific macro.
 
 jetc-fast: programs/main.c modules/*.h
-	$(CC) -Os -DFAST $(CCFLAGS) $< $(CCLIBS) -o $@
+	@ $(CC) -Os -DFAST $(CCFLAGS) $< $(CCLIBS) -o $@
 
 jetc-dbg: programs/main.c modules/*.h
-	$(CC) -g -O0 -DDEBUG $(CCFLAGS) $< $(CCLIBS) -o $@
+	@ $(CC) -g -O0 -DDEBUG $(CCFLAGS) $< $(CCLIBS) -o $@
 
 jetc-cov: programs/main.c modules/*.h
-	$(CC) -g -DCOVERAGE -fprofile-arcs -ftest-coverage -O3 $(CCFLAGS) $< $(CCLIBS) -o $@
+	@ $(CC) -g -DCOVERAGE -fprofile-arcs -ftest-coverage -O3 $(CCFLAGS) $< $(CCLIBS) -o $@
 
 test:  #jetc-cov
 	./coverage.sh

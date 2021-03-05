@@ -1,7 +1,7 @@
 
 static void setStmtFuncTypeInfo(Parser* parser, ASTFunc* func) {
     // this assumes that setExprTypeInfo has been called on the func body
-    const ASTExpr* stmt = func->body->stmts->item;
+    ASTExpr* stmt = func->body->stmts->item;
     if (!func->returnSpec->typeType)
         func->returnSpec->typeType = stmt->typeType;
     else if (func->returnSpec->typeType != stmt->typeType)

@@ -1412,21 +1412,21 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
 void ASTType_genTypeInfoDecls(ASTType* type);
 void ASTType_genTypeInfoDefs(ASTType* type);
 void ASTType_genNameAccessors(ASTType* type);
-static void ASTModule_emit(ASTModule* module, int level) {
+static void ASTModule_emit(ASTModule* module) {
     // puts("");
     foreach (ASTImport*, import, module->imports)
-        ASTImport_emit(import, level);
+        ASTImport_emit(import, 0);
 
     puts("");
 
     foreach (ASTType*, type, module->types) {
         if (type->body && type->analysed) {
-            ASTType_genh(type, level);
+            ASTType_genh(type, 0);
             ASTType_genTypeInfoDecls(type);
         }
     }
     foreach (ASTFunc*, func, module->funcs) {
-        if (func->body && func->analysed) { ASTFunc_genh(func, level); }
+        if (func->body && func->analysed) { ASTFunc_genh(func, 0); }
     }
 
     foreach (ASTType*, type, module->types) {
@@ -1434,7 +1434,7 @@ static void ASTModule_emit(ASTModule* module, int level) {
             foreach (ASTExpr*, expr, type->body->stmts)
                 ASTExpr_prepareInterp(expr, type->body);
             // ^ MOVE THIS INTO ASTType_emit
-            ASTType_emit(type, level);
+            ASTType_emit(type, 0);
             ASTType_genTypeInfoDefs(type);
             ASTType_genNameAccessors(type);
         }
@@ -1445,7 +1445,7 @@ static void ASTModule_emit(ASTModule* module, int level) {
                 ASTExpr_prepareInterp(expr, func->body);
             }
             // ^ MOVE THIS INTO ASTFunc_emit
-            ASTFunc_emit(func, level);
+            ASTFunc_emit(func, 0);
         }
     }
     foreach (ASTImport*, import, module->imports)
@@ -1455,8 +1455,8 @@ static void ASTModule_emit(ASTModule* module, int level) {
     // puts(lineProfileFunc[genLineProfile]);
 }
 
-static void ASTModule_genTests(ASTModule* module, int level) {
-    ASTModule_emit(module, level);
+static void ASTModule_genTests(ASTModule* module) {
+    ASTModule_emit(module);
     foreach (ASTTest*, test, module->tests)
         ASTTest_emit(test);
     // generate a func that main will call

@@ -32,9 +32,21 @@ static const char* TokenKind_ascrepr(const TokenKind kind, bool spacing) {
 }
 
 static bool TokenKind_isUnary(TokenKind kind) {
-    return kind == tkKeyword_not || kind == tkUnaryMinus
-        || kind == tkKeyword_return || kind == tkArrayOpen
-        || kind == tkKeyword_check || kind == tkBraceOpen;
+    static const uint8_t unop[sizeof(TokenKind_str)] = { //
+        [tkKeyword_not] = 1,
+        [tkUnaryMinus] = 1,
+        [tkKeyword_return] = 1,
+        [tkArrayOpen] = 1,
+        [tkKeyword_check] = 1,
+        [tkBraceOpen] = 1
+    };
+    return unop[kind];
+    // return kind == tkKeyword_not //
+    //     || kind == tkUnaryMinus //
+    //     || kind == tkKeyword_return //
+    //     || kind == tkArrayOpen //
+    //     || kind == tkKeyword_check //
+    //     || kind == tkBraceOpen;
     // tkArrayOpen is "unary" because it's EXPR is unary i.e.
     // it has one field `->right`, a list/dict literal expr
     // same goes for tkDictLiteral
@@ -43,70 +55,129 @@ static bool TokenKind_isUnary(TokenKind kind) {
 }
 
 static bool TokenKind_isRightAssociative(TokenKind kind) {
-    return kind == tkPeriod || kind == tkPower || kind == tkOpComma
-        || kind == tkOpSemiColon;
+    static const uint8_t rassoc[sizeof(TokenKind_str)] = { //
+        [tkPeriod] = 1,
+        [tkPower] = 1,
+        [tkOpComma] = 1,
+        [tkOpSemiColon] = 1
+    };
+    return rassoc[kind];
+    // kind == tkPeriod //
+    // || kind == tkPower //
+    // || kind == tkOpComma //
+    // || kind == tkOpSemiColon;
 }
 
-static uint8_t TokenKind_getPrecedence(
-    TokenKind kind) { // if templateStr then precedence of < and > should be 0
+static uint8_t TokenKind_getPrecedence(TokenKind kind) {
+    static const uint8_t prec[sizeof(TokenKind_str)] = { //
+        [tkUnaryMinus] = 57,
+        [tkPeriod] = 55,
+        [tkPipe] = 53,
+        [tkPower] = 51,
+
+        [tkTimes] = 49,
+        [tkSlash] = 49,
+        [tkOpMod] = 49,
+
+        [tkPlus] = 47,
+        [tkMinus] = 47,
+
+        [tkOpColon] = 45,
+
+        [tkOpLE] = 41,
+        [tkOpLT] = 41,
+        [tkOpGT] = 41,
+        [tkOpGE] = 41,
+        [tkKeyword_in] = 41,
+
+        [tkOpEQ] = 40,
+        [tkTilde] = 40, // regex match op e.g. sIdent ~ '[a-zA-Z_][a-zA-Z0-9_]'
+        [tkOpNE] = 40,
+
+        [tkKeyword_not] = 32,
+        [tkKeyword_and] = 31,
+        [tkKeyword_or] = 30,
+
+        [tkKeyword_check] = 25,
+        [tkKeyword_return] = 25,
+
+        [tkOpAssign] = 22,
+
+        [tkPlusEq] = 20,
+        [tkColEq] = 20,
+        [tkMinusEq] = 20,
+        [tkTimesEq] = 20,
+        [tkSlashEq] = 20,
+
+        [tkOpComma] = 10, // list separator
+        [tkOpSemiColon] = 9, // 2-D array / matrix row separator
+
+        [tkKeyword_do] = 5, // for i in arr do ...
+
+        [tkArrayOpen] = 1,
+        [tkBraceOpen] = 1
+    };
+
+    return prec[kind];
+    // if templateStr then precedence of < and > should be 0
     // functions and subscripts are set to 60, so stay below that
-    switch (kind) {
-    case tkUnaryMinus:
-        return 57;
-    case tkPeriod:
-        return 55;
-    case tkPipe:
-        return 53;
-    case tkPower:
-        return 51;
-    case tkTimes:
-    case tkSlash:
-    case tkOpMod:
-        return 49;
-    case tkPlus:
-    case tkMinus:
-        return 47;
-    case tkOpColon:
-        return 45;
-    case tkOpLE:
-    case tkOpLT:
-    case tkOpGT:
-    case tkOpGE:
-    case tkKeyword_in:
-        return 41;
-    case tkOpEQ:
-    case tkTilde: // regex match op e.g. sIdent ~ '[a-zA-Z_][a-zA-Z0-9_]'
-    case tkOpNE:
-        return 40;
-    case tkKeyword_not:
-        return 32;
-    case tkKeyword_and:
-        return 31;
-    case tkKeyword_or:
-        return 30;
-    case tkKeyword_check:
-    case tkKeyword_return:
-        return 25;
-    case tkOpAssign:
-        return 22;
-    case tkPlusEq:
-    case tkColEq:
-    case tkMinusEq:
-    case tkTimesEq:
-    case tkSlashEq:
-        return 20;
-    case tkOpComma: // list separator
-        return 10;
-    case tkOpSemiColon: // 2-D array / matrix row separator
-        return 9;
-    case tkKeyword_do:
-        return 5;
-    case tkArrayOpen:
-    case tkBraceOpen:
-        return 1;
-    default:
-        return 0;
-    }
+    // switch (kind) {
+    // case tkUnaryMinus:
+    //     return 57;
+    // case tkPeriod:
+    //     return 55;
+    // case tkPipe:
+    //     return 53;
+    // case tkPower:
+    //     return 51;
+    // case tkTimes:
+    // case tkSlash:
+    // case tkOpMod:
+    //     return 49;
+    // case tkPlus:
+    // case tkMinus:
+    //     return 47;
+    // case tkOpColon:
+    //     return 45;
+    // case tkOpLE:
+    // case tkOpLT:
+    // case tkOpGT:
+    // case tkOpGE:
+    // case tkKeyword_in:
+    //     return 41;
+    // case tkOpEQ:
+    // case tkTilde: // regex match op e.g. sIdent ~ '[a-zA-Z_][a-zA-Z0-9_]'
+    // case tkOpNE:
+    //     return 40;
+    // case tkKeyword_not:
+    //     return 32;
+    // case tkKeyword_and:
+    //     return 31;
+    // case tkKeyword_or:
+    //     return 30;
+    // case tkKeyword_check:
+    // case tkKeyword_return:
+    //     return 25;
+    // case tkOpAssign:
+    //     return 22;
+    // case tkPlusEq:
+    // case tkColEq:
+    // case tkMinusEq:
+    // case tkTimesEq:
+    // case tkSlashEq:
+    //     return 20;
+    // case tkOpComma: // list separator
+    //     return 10;
+    // case tkOpSemiColon: // 2-D array / matrix row separator
+    //     return 9;
+    // case tkKeyword_do:
+    //     return 5;
+    // case tkArrayOpen:
+    // case tkBraceOpen:
+    //     return 1;
+    // default:
+    //     return 0;
+    // }
 }
 
 static TokenKind TokenKind_reverseBracket(TokenKind kind) {

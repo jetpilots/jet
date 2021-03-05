@@ -15,17 +15,23 @@ make -B jetc-cov # because it generates .gcno
 
 for f in `find tests -name '*.jet'`
 do
-    echo "$f" 1>&2
+    RET=0
     ./jetc-cov "$f" d > /dev/null  2>&1
+    RET=$((RET+$?))
     ./jetc-cov "$f" > /dev/null  2>&1
+    RET=$((RET+$?))
     ./jetc-cov "$f" l > /dev/null  2>&1
+    RET=$((RET+$?))
     ./jetc-cov "$f" t > /dev/null  2>&1
+    RET=$((RET+$?))
+    [ $RET == 0 ] && ST="\e[33mOK\e[0m" || ST="$\e[31mERR\e[0m $RET"
+    printf "[$ST] $f\n" 1>&2
 done
 
 cd programs
 ln -sf ../main.gcno .
 ln -sf ../main.gcda .
-cd -
+cd - > /dev/null 2>&1
 
 # rm ../main.c
 echo >  coverage.txt
