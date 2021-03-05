@@ -21,14 +21,14 @@ static ASTExpr* parseExpr(Parser* parser) {
     // ******* STEP 1 CONVERT TOKENS INTO RPN
 
     while (parser->token.kind != tkNullChar //
-        and parser->token.kind != tkNewline
-        and parser->token.kind != tkLineComment) { // build RPN
+        && parser->token.kind != tkNewline
+        && parser->token.kind != tkLineComment) { // build RPN
 
         // you have to ensure that ops have a space around them, etc.
         // so don't just skip the one spaces like you do now.
         if (parser->token.kind == tkOneSpace) Token_advance(&parser->token);
         if (parser->token.kind == tkIdentifier
-            and memchr(parser->token.pos, '_', parser->token.matchlen))
+            && memchr(parser->token.pos, '_', parser->token.matchlen))
             Parser_errorInvalidIdent(parser); // but continue parsing
 
         ASTExpr* expr;
@@ -78,8 +78,8 @@ static ASTExpr* parseExpr(Parser* parser) {
 
         case tkParenOpen:
             PtrArray_push(&ops, expr);
-            if (not PtrArray_empty(&ops)
-                and PtrArray_topAs(ASTExpr*, &ops)->kind == tkFunctionCall)
+            if (!PtrArray_empty(&ops)
+                && PtrArray_topAs(ASTExpr*, &ops)->kind == tkFunctionCall)
                 PtrArray_push(&rpn, expr);
             if (lookAheadChar == ')') PtrArray_push(&rpn, NULL);
             // for empty func() push null for no args
@@ -89,8 +89,8 @@ static ASTExpr* parseExpr(Parser* parser) {
 
         case tkArrayOpen:
             PtrArray_push(&ops, expr);
-            if (not PtrArray_empty(&ops)
-                and PtrArray_topAs(ASTExpr*, &ops)->kind == tkSubscript)
+            if (!PtrArray_empty(&ops)
+                && PtrArray_topAs(ASTExpr*, &ops)->kind == tkSubscript)
                 PtrArray_push(&rpn, expr);
             if (lookAheadChar == ']') PtrArray_push(&rpn, NULL);
             // for empty arr[] push null for no args
@@ -98,8 +98,8 @@ static ASTExpr* parseExpr(Parser* parser) {
 
         case tkBraceOpen:
             PtrArray_push(&ops, expr);
-            if (not PtrArray_empty(&ops)
-                and PtrArray_topAs(ASTExpr*, &ops)->kind == tkObjectInit)
+            if (!PtrArray_empty(&ops)
+                && PtrArray_topAs(ASTExpr*, &ops)->kind == tkObjectInit)
                 PtrArray_push(&rpn, expr);
             if (lookAheadChar == '}') PtrArray_push(&rpn, NULL);
             // for empty Obj {} push null for no args
@@ -117,22 +117,22 @@ static ASTExpr* parseExpr(Parser* parser) {
             }
 
             else
-                while (not PtrArray_empty(&ops)) {
+                while (!PtrArray_empty(&ops)) {
                     p = PtrArray_pop(&ops);
                     if (p->kind == revBrkt) break;
                     PtrArray_push(&rpn, p);
                 }
 
             // tkArrayOpen is a unary op.
-            if ((p and p->kind == tkArrayOpen))
+            if ((p && p->kind == tkArrayOpen))
                 if ((PtrArray_empty(&ops)
-                        or (PtrArray_top(&rpn)
-                            and PtrArray_topAs(ASTExpr*, &ops)->kind
+                        || (PtrArray_top(&rpn)
+                            && PtrArray_topAs(ASTExpr*, &ops)->kind
                                 != tkSubscript))
                     // don't do this if its part of a subscript
-                    or (PtrArray_empty(&rpn)
-                        or (PtrArray_top(&rpn)
-                            and PtrArray_topAs(ASTExpr*, &rpn)->kind
+                    || (PtrArray_empty(&rpn)
+                        || (PtrArray_top(&rpn)
+                            && PtrArray_topAs(ASTExpr*, &rpn)->kind
                                 != tkOpColon)))
                     // or aa range. range exprs are handled separately. by
                     // themselves they don't need a surrounding [], but for
@@ -140,10 +140,10 @@ static ASTExpr* parseExpr(Parser* parser) {
                     PtrArray_push(&rpn, p);
 
             // a dict literal (another unary op).
-            if ((p and p->kind == tkBraceOpen)
-                and (PtrArray_empty(&ops)
-                    or (PtrArray_top(&rpn)
-                        and PtrArray_topAs(ASTExpr*, &ops)->kind
+            if ((p && p->kind == tkBraceOpen)
+                && (PtrArray_empty(&ops)
+                    || (PtrArray_top(&rpn)
+                        && PtrArray_topAs(ASTExpr*, &ops)->kind
                             != tkObjectInit)))
                 // again, not if it is an object init
                 PtrArray_push(&rpn, p);
@@ -160,7 +160,7 @@ static ASTExpr* parseExpr(Parser* parser) {
 
         case tkExclamation:
             if (PtrArray_empty(&rpn)
-                or PtrArray_topAs(ASTExpr*, &rpn)->kind != tkIdentifier) {
+                || PtrArray_topAs(ASTExpr*, &rpn)->kind != tkIdentifier) {
                 Parser_errorParsingExpr(parser, expr);
                 // TODO: change error to "invalid use of ! operator or
                 // something"
@@ -170,7 +170,7 @@ static ASTExpr* parseExpr(Parser* parser) {
         case tkKeyword_return:
             // for empty return, push a NULL if there is no expr coming.
             PtrArray_push(&ops, expr);
-            if (lookAheadChar == '!' or lookAheadChar == '\n')
+            if (lookAheadChar == '!' || lookAheadChar == '\n')
                 PtrArray_push(&rpn, NULL);
             break;
         default:
@@ -178,14 +178,14 @@ static ASTExpr* parseExpr(Parser* parser) {
 
                 if (expr->kind == tkOpColon) {
                     if (PtrArray_empty(&rpn)
-                        or (!PtrArray_top(&rpn) and !PtrArray_empty(&ops)
-                            and PtrArray_topAs(ASTExpr*, &ops)->kind
+                        || (!PtrArray_top(&rpn) && !PtrArray_empty(&ops)
+                            && PtrArray_topAs(ASTExpr*, &ops)->kind
                                 != tkOpColon)
-                        or (PtrArray_topAs(ASTExpr*, &rpn)->kind == tkOpColon
-                            and !PtrArray_empty(&ops)
-                            and (PtrArray_topAs(ASTExpr*, &ops)->kind
+                        || (PtrArray_topAs(ASTExpr*, &rpn)->kind == tkOpColon
+                            && !PtrArray_empty(&ops)
+                            && (PtrArray_topAs(ASTExpr*, &ops)->kind
                                     == tkOpComma
-                                or PtrArray_topAs(ASTExpr*, &ops)->kind
+                                || PtrArray_topAs(ASTExpr*, &ops)->kind
                                     == tkArrayOpen)))
                         // TODO: better way to parse :, 1:, :-1, etc.
                         // while passing tokens to RPN, if you see a :
@@ -196,24 +196,24 @@ static ASTExpr* parseExpr(Parser* parser) {
                         PtrArray_push(&rpn, &expr_const_0);
                     // indicates empty operand
                 }
-                while (not PtrArray_empty(&ops)) {
+                while (!PtrArray_empty(&ops)) {
                     prec_top = PtrArray_topAs(ASTExpr*, &ops)->prec;
-                    if (not prec_top) break; // left parenthesis
+                    if (!prec_top) break; // left parenthesis
                     if (prec > prec_top) break;
-                    if (prec == prec_top and rassoc) break;
+                    if (prec == prec_top && rassoc) break;
                     p = PtrArray_pop(&ops);
 
-                    if (p->kind != tkOpComma and p->kind != tkOpSemiColon
-                        and p->kind != tkFunctionCall and p->kind != tkSubscript
-                        and PtrArray_topAs(ASTExpr*, &rpn)
-                        and PtrArray_topAs(ASTExpr*, &rpn)->kind == tkOpComma) {
+                    if (p->kind != tkOpComma && p->kind != tkOpSemiColon
+                        && p->kind != tkFunctionCall && p->kind != tkSubscript
+                        && PtrArray_topAs(ASTExpr*, &rpn)
+                        && PtrArray_topAs(ASTExpr*, &rpn)->kind == tkOpComma) {
                         Parser_errorUnexpectedToken(parser);
                         goto error;
                     }
 
-                    if (not(p->prec or p->unary) and p->kind != tkFunctionCall
-                        and p->kind != tkOpColon and p->kind != tkSubscript
-                        and rpn.used < 2) {
+                    if (!(p->prec || p->unary) && p->kind != tkFunctionCall
+                        && p->kind != tkOpColon && p->kind != tkSubscript
+                        && rpn.used < 2) {
                         Parser_errorUnexpectedToken(parser);
                         goto error;
                     }
@@ -226,8 +226,8 @@ static ASTExpr* parseExpr(Parser* parser) {
                     goto error;
                 }
                 if (expr->kind == tkOpColon
-                    and (lookAheadChar == ',' or lookAheadChar == ':'
-                        or lookAheadChar == ']' or lookAheadChar == ')'))
+                    && (lookAheadChar == ',' || lookAheadChar == ':'
+                        || lookAheadChar == ']' || lookAheadChar == ')'))
                     PtrArray_push(&rpn, &expr_const_0);
 
                 PtrArray_push(&ops, expr);
@@ -240,20 +240,20 @@ static ASTExpr* parseExpr(Parser* parser) {
     }
 exitloop:
 
-    while (not PtrArray_empty(&ops)) {
+    while (!PtrArray_empty(&ops)) {
         p = PtrArray_pop(&ops);
 
-        if (p->kind != tkOpComma and p->kind != tkFunctionCall
-            and p->kind != tkSubscript and p->kind != tkArrayOpen
-            and PtrArray_topAs(ASTExpr*, &rpn)
-            and PtrArray_topAs(ASTExpr*, &rpn)->kind == tkOpComma) {
+        if (p->kind != tkOpComma && p->kind != tkFunctionCall
+            && p->kind != tkSubscript && p->kind != tkArrayOpen
+            && PtrArray_topAs(ASTExpr*, &rpn)
+            && PtrArray_topAs(ASTExpr*, &rpn)->kind == tkOpComma) {
             Parser_errorUnexpectedExpr(parser, PtrArray_topAs(ASTExpr*, &rpn));
             goto error;
         }
 
-        if (not(p->prec or p->unary)
-            and (p->kind != tkFunctionCall and p->kind != tkSubscript)
-            and rpn.used < 2) {
+        if (!(p->prec || p->unary)
+            && (p->kind != tkFunctionCall && p->kind != tkSubscript)
+            && rpn.used < 2) {
             Parser_errorParsingExpr(parser, p);
             goto error;
             // TODO: even if you have more than two, neither of the top
@@ -267,7 +267,7 @@ exitloop:
 
     ASTExpr* arg;
     for (int i = 0; i < rpn.used; i++) {
-        if (not(p = rpn.ref[i])) goto justpush;
+        if (!(p = rpn.ref[i])) goto justpush;
         switch (p->kind) {
         case tkFunctionCall:
         case tkSubscript:
@@ -294,7 +294,7 @@ exitloop:
 
         default:
             // everything else is a nonterminal, needs left/right
-            if (not p->prec) {
+            if (!p->prec) {
                 Parser_errorParsingExpr(parser, p);
                 goto error;
             }
@@ -306,7 +306,7 @@ exitloop:
 
             p->right = PtrArray_pop(&result);
 
-            if (not p->unary) {
+            if (!p->unary) {
                 if (PtrArray_empty(&result)) {
                     Parser_errorParsingExpr(parser, p);
                     goto error;
@@ -335,9 +335,9 @@ exitloop:
 error:
 
     while (parser->token.pos < parser->end
-        and (parser->token.kind != tkNewline
-            and parser->token.kind != tkLineComment
-            and parser->token.kind != tkNullChar))
+        && (parser->token.kind != tkNewline
+            && parser->token.kind != tkLineComment
+            && parser->token.kind != tkNullChar))
         Token_advance(&parser->token);
 
     if (ops.used) {
@@ -350,7 +350,7 @@ error:
     if (rpn.used) {
         printf("      rpn: ");
         for (int i = 0; i < rpn.used; i++)
-            if (not rpn.ref[i])
+            if (!rpn.ref[i])
                 printf("NUL ");
             else {
                 ASTExpr* e = rpn.ref[i];
@@ -363,7 +363,7 @@ error:
     if (result.used) {
         printf("      result: ");
         for (int i = 0; i < result.used; i++)
-            if (not result.ref[i])
+            if (!result.ref[i])
                 printf("NUL ");
             else {
                 ASTExpr* e = result.ref[i];
@@ -405,7 +405,7 @@ static ASTTypeSpec* parseTypeSpec(Parser* parser) {
         } else {
             for (int i = 0; i < parser->token.matchlen; i++)
                 if (parser->token.pos[i] == ':') typeSpec->dims++;
-            if (not typeSpec->dims) typeSpec->dims = 1;
+            if (!typeSpec->dims) typeSpec->dims = 1;
             typeSpec->collectionType
                 = typeSpec->dims == 1 ? CTYArray : CTYTensor;
         }
@@ -429,7 +429,7 @@ static ASTVar* parseVar(Parser* parser) {
 
     if (var->isVar) discard(parser, tkKeyword_var);
     if (var->isLet) discard(parser, tkKeyword_let);
-    if (var->isVar or var->isLet) discard(parser, tkOneSpace);
+    if (var->isVar || var->isLet) discard(parser, tkOneSpace);
 
     var->line = parser->token.line;
     var->col = parser->token.col;
@@ -438,7 +438,7 @@ static ASTVar* parseVar(Parser* parser) {
 
     if (memchr(parser->token.pos, '_', parser->token.matchlen))
         Parser_errorInvalidIdent(parser);
-    if (*parser->token.pos < 'a' or *parser->token.pos > 'z')
+    if (*parser->token.pos < 'a' || *parser->token.pos > 'z')
         Parser_errorInvalidIdent(parser);
     var->name = parseIdent(parser);
 
@@ -454,13 +454,13 @@ static ASTVar* parseVar(Parser* parser) {
     // if (matches(parser, tkArrayDims)) {
     //     for (int i = 0; i < parser->token.matchlen; i++)
     //         if (parser->token.pos[i] == ':') dims++;
-    //     if (not dims) dims = 1;
+    //     if (! dims) dims = 1;
     //     Token_advance(&parser->token);
     // }
     parser->token.mergeArrayDims = false;
 
     if (Parser_ignore(parser, tkOneSpace)
-        and Parser_ignore(parser, tkKeyword_as)) {
+        && Parser_ignore(parser, tkKeyword_as)) {
         discard(parser, tkOneSpace);
         var->typeSpec = parseTypeSpec(parser);
     } else {
@@ -520,7 +520,7 @@ static ASTScope* parseScope(Parser* parser, ASTScope* parent, bool isTypeBody) {
         case tkKeyword_var:
         case tkKeyword_let:
             var = parseVar(parser);
-            if (not var)
+            if (!var)
                 continue;
             else
                 Token_advance(&parser->token);
@@ -554,7 +554,7 @@ static ASTScope* parseScope(Parser* parser, ASTScope* parent, bool isTypeBody) {
 
         case tkKeyword_else:
         case tkKeyword_elif:
-            if (not startedElse) goto exitloop;
+            if (!startedElse) goto exitloop;
 
         case tkKeyword_if:
         case tkKeyword_for:
@@ -623,13 +623,13 @@ static ASTScope* parseScope(Parser* parser, ASTScope* parent, bool isTypeBody) {
             }
 
             if (matches(parser, tkKeyword_else)
-                or matches(parser, tkKeyword_elif)) {
+                || matches(parser, tkKeyword_elif)) {
                 startedElse = true;
             } else {
                 discard(parser, tkKeyword_end);
                 Parser_ignore(parser, tkOneSpace);
                 Parser_ignore(parser,
-                    tt == tkKeyword_else or tt == tkKeyword_elif ? tkKeyword_if
+                    tt == tkKeyword_else || tt == tkKeyword_elif ? tkKeyword_if
                                                                  : tt);
             }
             stmts = PtrList_append(stmts, expr);
@@ -650,11 +650,11 @@ static ASTScope* parseScope(Parser* parser, ASTScope* parent, bool isTypeBody) {
 
         default:
             expr = parseExpr(parser);
-            if (expr and isTypeBody) {
+            if (expr && isTypeBody) {
                 Parser_errorInvalidTypeMember(parser);
                 expr = NULL;
             }
-            if (not expr) break;
+            if (!expr) break;
             stmts = PtrList_append(stmts, expr);
             Token_advance(&parser->token); // eat the newline
             resolveVars(parser, expr, scope, false);
@@ -690,12 +690,12 @@ static ASTScope* parseEnumBody(Parser* parser) {
 
         default:
             expr = parseExpr(parser);
-            if (expr->kind != tkIdentifier and expr->kind != tkOpAssign) {
+            if (expr->kind != tkIdentifier && expr->kind != tkOpAssign) {
                 Parser_errorInvalidTypeMember(parser);
                 unreachable("%s\n", TokenKind_str[expr->kind]);
                 expr = NULL;
             }
-            if (not expr) break;
+            if (!expr) break;
             PtrList_append(&scope->stmts, expr);
             Token_advance(&parser->token); // eat the newline
             if (expr->kind == tkOpAssign)
@@ -736,13 +736,13 @@ static ASTFunc* parseFunc(Parser* parser, bool shouldParseBody) {
     if (memchr(parser->token.pos, '_', parser->token.matchlen))
         Parser_errorInvalidIdent(parser);
     func->name = parseIdent(parser);
-    func->isDeclare = not shouldParseBody;
+    func->isDeclare = !shouldParseBody;
 
     func->args = parseArgs(parser);
     func->argCount = PtrList_count(func->args);
 
     if (Parser_ignore(parser, tkOneSpace)
-        and Parser_ignore(parser, tkKeyword_as)) {
+        && Parser_ignore(parser, tkKeyword_as)) {
         discard(parser, tkOneSpace);
         func->returnSpec = parseTypeSpec(parser);
     }
@@ -812,7 +812,7 @@ static ASTTest* parseTest(Parser* parser) {
 
     test->line = parser->token.line;
 
-    if (parser->token.kind != tkString and parser->token.kind != tkRawString)
+    if (parser->token.kind != tkString && parser->token.kind != tkRawString)
         Parser_errorInvalidTestName(parser);
     test->name = parser->token.pos + 1;
     Token_advance(&parser->token);
@@ -843,12 +843,12 @@ static ASTType* parseType(Parser* parser, bool shouldParseBody) {
 
     if (memchr(parser->token.pos, '_', parser->token.matchlen))
         Parser_errorInvalidIdent(parser);
-    if (*parser->token.pos < 'A' or *parser->token.pos > 'Z')
+    if (*parser->token.pos < 'A' || *parser->token.pos > 'Z')
         Parser_errorInvalidIdent(parser);
     type->name = parseIdent(parser);
 
     if (Parser_ignore(parser, tkOneSpace)
-        and Parser_ignore(parser, tkKeyword_extends)) {
+        && Parser_ignore(parser, tkKeyword_extends)) {
         discard(parser, tkOneSpace);
         type->super = parseTypeSpec(parser);
     }
@@ -860,7 +860,7 @@ static ASTType* parseType(Parser* parser, bool shouldParseBody) {
         return type;
     }
 
-    if (not shouldParseBody) return type;
+    if (!shouldParseBody) return type;
 
     type->body = parseScope(parser, NULL, true);
 
@@ -882,7 +882,7 @@ static ASTEnum* parseEnum(Parser* parser) {
 
     if (memchr(parser->token.pos, '_', parser->token.matchlen))
         Parser_errorInvalidIdent(parser);
-    if (*parser->token.pos < 'A' or *parser->token.pos > 'Z')
+    if (*parser->token.pos < 'A' || *parser->token.pos > 'Z')
         Parser_errorInvalidIdent(parser);
     en->name = parseIdent(parser);
 
@@ -935,10 +935,10 @@ static ASTImport* parseImport(Parser* parser) {
 
     Parser_ignore(parser, tkOneSpace);
 
-    if (parser->token.kind != tkLineComment and parser->token.kind != tkNewline)
+    if (parser->token.kind != tkLineComment && parser->token.kind != tkNewline)
         Parser_errorUnexpectedToken(parser);
     while (
-        parser->token.kind != tkLineComment and parser->token.kind != tkNewline)
+        parser->token.kind != tkLineComment && parser->token.kind != tkNewline)
         Token_advance(&parser->token);
     return import;
 }
@@ -1077,8 +1077,8 @@ static PtrList* parseModule(Parser* parser) {
         default:
             Parser_errorUnexpectedToken(parser);
             while (parser->token.kind != tkNewline
-                and parser->token.kind != tkLineComment
-                and parser->token.kind != tkNullChar)
+                && parser->token.kind != tkLineComment
+                && parser->token.kind != tkNullChar)
                 Token_advance(&parser->token);
         }
     }
@@ -1131,7 +1131,7 @@ void analyseModule(Parser* parser, ASTModule* mod) {
     // don't break on the first match, keep looking so that duplicate starts
     // can be found
     foreach (ASTFunc*, func, mod->funcs)
-        if (not strcmp(func->name, "start")) fstart = func;
+        if (!strcmp(func->name, "start")) fstart = func;
 
     /* TODO: what if you have tests and a start()? Now you will have to analyse
      the tests anyway */
@@ -1140,10 +1140,10 @@ void analyseModule(Parser* parser, ASTModule* mod) {
         ASTFunc_analyse(parser, fstart, mod);
         // Check dead code -- unused funcs and types, and report warnings.
         foreach (ASTFunc*, func, mod->funcs)
-            if (not func->analysed and not func->isDefCtor)
+            if (!func->analysed && !func->isDefCtor)
                 Parser_warnUnusedFunc(parser, func);
         foreach (ASTType*, type, mod->types)
-            if (not type->analysed) Parser_warnUnusedType(parser, type);
+            if (!type->analysed) Parser_warnUnusedType(parser, type);
 
     } else { // TODO: new error, unless you want to get rid of start
         eputs(
@@ -1153,7 +1153,7 @@ void analyseModule(Parser* parser, ASTModule* mod) {
 
     // If we are linting, the whole file must be analysed. this happens
     // regardless of whether start was found or not
-    if (parser->mode == PMGenTests or parser->mode == PMLint) {
+    if (parser->mode == PMGenTests || parser->mode == PMLint) {
         foreach (ASTTest*, test, mod->tests)
             analyseTest(parser, test, mod);
         foreach (ASTFunc*, func, mod->funcs)
@@ -1170,7 +1170,7 @@ void analyseModule(Parser* parser, ASTModule* mod) {
     // seem that this would be easy to do iteratively (not recursively), as it
     // can be done for just checking supers.
     // foreach (ASTType*, type, mod->types) {
-    //     if (not type->analysed or not type->super) continue;
+    //     if (! type->analysed or not type->super) continue;
     //     assert(type->super->typeType == TYObject);
 
     //     // traverse the type hierarchy for this type and see if you revisit
@@ -1180,7 +1180,7 @@ void analyseModule(Parser* parser, ASTModule* mod) {
     //             break;
     //         }
     //         superType->visited = true;
-    //         if (not superType->super) break;
+    //         if (! superType->super) break;
     //         assert(superType->super->typeType == TYObject);
     //         superType = superType->super->type;
     //     }
@@ -1192,7 +1192,7 @@ void analyseModule(Parser* parser, ASTModule* mod) {
 
     // check each stmt in each type to find cycles.
     foreach (ASTType*, type, mod->types)
-        if (type->analysed and type->body and not type->visited) {
+        if (type->analysed && type->body && !type->visited) {
             if (ASTType_checkCycles(parser, type)) {
                 // cycle was detected. err has been reported along with a
                 // backtrace. now just unset the dim control codes.
@@ -1235,7 +1235,7 @@ static int ASTExpr_markTypesVisited(Parser* parser, ASTExpr* expr) {
         // if (expr->func->isDefCtor) type =
         // expr->func->returnSpec->type;
         if (expr->func->returnSpec->typeType == TYObject
-            and expr->func->returnsNewObjectAlways)
+            && expr->func->returnsNewObjectAlways)
             type = expr->func->returnSpec->type;
         break;
     case tkSubscript:
@@ -1250,7 +1250,7 @@ static int ASTExpr_markTypesVisited(Parser* parser, ASTExpr* expr) {
     default:
         if (expr->prec) {
             int ret = 0;
-            if (not expr->unary)
+            if (!expr->unary)
                 ret += ASTExpr_markTypesVisited(parser, expr->left);
             ret += ASTExpr_markTypesVisited(parser, expr->right);
             if (ret) return ret;
@@ -1258,7 +1258,7 @@ static int ASTExpr_markTypesVisited(Parser* parser, ASTExpr* expr) {
             unreachable("unknown expr kind: %s at %d:%d\n",
                 TokenKind_str[expr->kind], expr->line, expr->col)
     }
-    if (not type) return 0;
+    if (!type) return 0;
     if (type->visited) {
         Parser_errorConstructorHasCycle(parser, type);
         eprintf("%s", "\e[;2m"); // Backtrace (innermost first):\n");

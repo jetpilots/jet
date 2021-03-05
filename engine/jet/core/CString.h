@@ -46,7 +46,7 @@ monostatic CString CString_noext(CString str) {
     const size_t len = strlen(str);
     CString s = pstrndup(str, len);
     CString sc = s + len;
-    while (sc > s and *sc != '.') sc--;
+    while (sc > s && *sc != '.') sc--;
     if (sc >= s) *sc = '\0';
     return s;
 }
@@ -60,7 +60,7 @@ monostatic CString CString_base(CString str, char sep, size_t slen) {
                     // came in.
     CString s = str;
     CString sc = s + slen;
-    while (sc > s and sc[-1] != sep) sc--;
+    while (sc > s && sc[-1] != sep) sc--;
     if (sc >= s) s = sc;
     return s;
 }
@@ -69,7 +69,7 @@ monostatic CString CString_dir(CString str) {
     const size_t len = strlen(str);
     CString s = pstrndup(str, len);
     CString sc = s + len;
-    while (sc > s and *sc != '/') sc--;
+    while (sc > s && *sc != '/') sc--;
     if (sc >= s) *sc = '\0';
     return s;
 }
@@ -78,7 +78,7 @@ monostatic CString CString_upper(CString str) {
     CString s = pstrdup(str);
     CString sc = s - 1;
     while (*++sc)
-        if (*sc >= 'a' and *sc <= 'z') *sc -= 32;
+        if (*sc >= 'a' && *sc <= 'z') *sc -= 32;
     return s;
 }
 

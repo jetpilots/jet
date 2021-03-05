@@ -52,5 +52,5 @@ monostatic void PtrList_shift(PtrList** selfp, void* item) {
 #define foreach(T, var, listSrc) foreachn(T, var, _listp_, listSrc)
 #define foreachn(T, var, listp, listSrc)                                       \
     for (PtrList* listp = listSrc; listp; listp = NULL)                        \
-        for (T var = (T)listp->item; listp and (var = (T)listp->item);         \
+        for (T var = (T)listp->item; listp && (var = (T)listp->item);          \
              listp = listp->next)

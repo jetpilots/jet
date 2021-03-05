@@ -1,3 +1,4 @@
+/* Jet | jetpilots.dev | github.com/jetpilots/jet | GPLv3 (see LICENSE) */
 
 #include <assert.h>
 #include <stdlib.h>
@@ -36,9 +37,9 @@
 #define unlikely(x) (x)
 #endif
 
-#define and &&
-#define or ||
-#define not !
+// #define and &&
+// #define or ||
+// #define not !
 
 #ifndef monostatic
 #define monostatic

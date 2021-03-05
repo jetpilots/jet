@@ -3,7 +3,7 @@
 
 static void ASTExpr_hash(
     /* Parser* parser, */ ASTExpr* expr, Dict(UInt32, Ptr) * cseDict) {
-    if (not expr) unreachable("%s", "expr is NULL");
+    if (!expr) unreachable("%s", "expr is NULL");
     switch (expr->kind) {
     case tkString:
     case tkRawString:
@@ -56,7 +56,7 @@ static void ASTExpr_hash(
             }
             UInt32 tmphash = UInt64_hash(str.h64);
 
-            if (not expr->unary) {
+            if (!expr->unary) {
                 ASTExpr_hash(/* parser, */ expr->left, cseDict);
                 str.hash[0] = expr->left->hash;
                 str.hash[1] = tmphash;
@@ -73,8 +73,8 @@ static void ASTExpr_hash(
     //    expr->line, expr->col,
     //        TokenKind_str[expr->kind], expr->hash);
 
-    if (expr->kind != tkNumber and expr->kind != tkIdentifierResolved
-        and expr->kind != tkVarAssign) {
+    if (expr->kind != tkNumber && expr->kind != tkIdentifierResolved
+        && expr->kind != tkVarAssign) {
         // we don't want to put every small thing in the table, esp not literals
         // and idents. We'll put strings, so that they are effectively uniq'd
         // within the func. Also regexes. What we really want are binops, calls,
@@ -95,10 +95,8 @@ static void ASTExpr_checkHashes(
 
     if (idx < Dict_end(cseDict)) {
         ASTExpr* orig = Dict_val(cseDict, idx);
-        if (orig != expr
-            and orig->kind == expr->kind) // unfortunately there ARE collisions,
-                                          // so check again
-        {
+        if (orig != expr && orig->kind == expr->kind) {
+            // unfortunately there ARE collisions, so check again
             eprintf("\n-- found same exprs at\n%02d:%02d hash %d and\n",
                 /* parser->filename, */ expr->line, expr->col, expr->hash);
             // TODO: make gen print to stderr
@@ -123,7 +121,7 @@ static void ASTExpr_checkHashes(
         break;
     default:
         if (expr->prec) {
-            if (not expr->unary)
+            if (!expr->unary)
                 ASTExpr_checkHashes(/* parser, */ expr->left, cseDict);
             if (expr->right)
                 ASTExpr_checkHashes(/* parser, */ expr->right, cseDict);
@@ -133,7 +131,7 @@ static void ASTExpr_checkHashes(
 
 static void ASTFunc_hashExprs(/* Parser* parser,  */ ASTFunc* func) {
     static Dict(UInt32, Ptr)* cseDict = NULL; // FIXME: will leak
-    if (not cseDict) cseDict = Dict_init(UInt32, Ptr)();
+    if (!cseDict) cseDict = Dict_init(UInt32, Ptr)();
     Dict_clear(UInt32, Ptr)(cseDict);
 
     foreach (ASTExpr*, stmt, func->body->stmts) {

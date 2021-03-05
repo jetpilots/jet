@@ -46,8 +46,8 @@ _1 = arr[12:16] + arr[4:8] + arr[2:6]
 print(_1)
 # and then the assignment to _1 can be optimised as above.
 
-push(mj, item = 32)
-push(modules!, item = 32)
+push!(mj, item = 32)
+push!(modules, item = 32)
 
 
 # --- FREE MALLOC QUICKLY

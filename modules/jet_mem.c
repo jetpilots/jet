@@ -26,7 +26,7 @@ void mem__heapfree(void* ptr, const char* desc) {
 
     if (d < Dict_end(mem__ptrDict)) {
         // else {
-        if (not Dict_val(mem__ptrDict, d).heap) {
+        if (!Dict_val(mem__ptrDict, d).heap) {
             printf("free non-heap pointer at %s\n", desc);
         } else {
             LIBC_FREE(ptr);
@@ -90,7 +90,7 @@ void* mem__alloc(UInt64 size, const char* desc)
         ? Pool_alloc(gPool, size)
         // else fall back to the heap allocator.
         : LIBC_MALLOC(size); // mem__heapmalloc(size, desc);
-    if (not fromPool) mem__heapTotal += size;
+    if (!fromPool) mem__heapTotal += size;
 #else
     bool fromPool = false;
     void* ret = LIBC_MALLOC(size);

@@ -243,12 +243,12 @@ static unsigned int TypeType_size(TypeTypes tyty) {
 // but this is needed as long as there is ANY type annotation somewhere.
 // (e.g. func args)
 static TypeTypes TypeType_byName(const char* spec) {
-    if (not spec) return TYUnresolved;
-    if (not strcasecmp(spec, "Number"))
+    if (!spec) return TYUnresolved;
+    if (!strcasecmp(spec, "Number"))
         return TYReal64; // this is default, analysis might change it to
                          // more specific
-    if (not strcasecmp(spec, "String")) return TYString;
-    if (not strcasecmp(spec, "Boolean")) return TYBool;
+    if (!strcasecmp(spec, "String")) return TYString;
+    if (!strcasecmp(spec, "Boolean")) return TYBool;
     // note that Vector, Matrix, etc. are actually types, so they should
     // resolve to TYObject.
     return TYUnresolved;

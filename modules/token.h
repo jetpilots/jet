@@ -91,7 +91,7 @@ static const uint8_t TokenKindTable[256] = {
     /* 253 */ tkUnknown, /* 254 */ tkUnknown, /* 255 */ tkUnknown
 };
 #define Token_matchesKeyword(tok)                                              \
-    if (sizeof(#tok) - 1 == l and not strncmp(#tok, s, l)) return true;
+    if (sizeof(#tok) - 1 == l && !strncmp(#tok, s, l)) return true;
 
 static bool doesKeywordMatch(const char* s, const int l) {
     //        const char* s = pos;
@@ -152,7 +152,7 @@ static char Token_peekCharAfter(Token* token) {
 }
 
 #define Token_compareKeyword(tok)                                              \
-    if (sizeof(#tok) - 1 == l and not strncasecmp(#tok, s, l)) {               \
+    if (sizeof(#tok) - 1 == l && !strncasecmp(#tok, s, l)) {                   \
         token->kind = tkKeyword_##tok;                                         \
         return;                                                                \
     }
@@ -194,13 +194,13 @@ static void Token_tryKeywordMatch(Token* token) {
     Token_compareKeyword(result)
     Token_compareKeyword(as)
 
-    if (not strncasecmp("else if ", s, 8))
+    if (! strncasecmp("else if ", s, 8))
     {
         token->kind = tkKeyword_elif;
         token->matchlen = 7;
         return;
     }
-    if (not strncasecmp("not in ", s, 7)) {
+    if (!strncasecmp("not in ", s, 7)) {
         token->kind = tkKeyword_notin;
         token->matchlen = 6;
         return;
@@ -325,12 +325,12 @@ static void Token_detect(Token* token) {
             // before
             token->pos++;
             tt = Token_getType(token, 0);
-            if (tt == tkNullChar or tt == tmp) {
+            if (tt == tkNullChar || tt == tmp) {
                 *token->pos = 0;
                 token->pos++;
                 break;
             }
-            if (tt == tkBackslash and Token_getType(token, 1) == tmp)
+            if (tt == tkBackslash && Token_getType(token, 1) == tmp)
                 token->pos++;
             if (tt == tkNewline) {
                 token->line++;
@@ -379,15 +379,14 @@ static void Token_detect(Token* token) {
             tt = Token_getType(token, 1);
             token->pos++;
             if (tt == tkHash) {
-                while (*token->pos != '\n' and *token->pos != '\0')
-                    token->pos++;
+                while (*token->pos != '\n' && *token->pos != '\0') token->pos++;
                 tt = Token_getType(token, 0);
             }
             if (tt == tkNewline) {
                 token->line++;
                 token->col = 0;
             }
-            if (tt != tkSpaces and tt != tkNewline and tt != tkHash) break;
+            if (tt != tkSpaces && tt != tkNewline && tt != tkHash) break;
         }
         break;
 
@@ -397,17 +396,17 @@ static void Token_detect(Token* token) {
         // token
         //        self->pos++;
 
-        while (token->pos and *token->pos) {
+        while (token->pos && *token->pos) {
             token->pos++;
             if (*token->pos == '#')
-                while (*token->pos and *token->pos != '\n') token->pos++;
+                while (*token->pos && *token->pos != '\n') token->pos++;
 
             if (*token->pos == '\n') {
                 token->line++;
                 token->col = 0;
             }
-            if (*token->pos != ' ' and *token->pos != '\n'
-                and *token->pos != '#') {
+            if (*token->pos != ' ' && *token->pos != '\n'
+                && *token->pos != '#') {
                 token->pos--;
                 break;
             }
@@ -415,7 +414,7 @@ static void Token_detect(Token* token) {
         // tt_ret = tt == tkArrayOpen ? tkListLiteral : tkDictLiteral;
 
         // mergearraydims should be set only when reading func args
-        if (not token->mergeArrayDims) goto defaultToken;
+        if (!token->mergeArrayDims) goto defaultToken;
 
         // during mergeDims [:,:] is considered 1 token.
         // hopefully nobody embeds spaces and comments here, but...
@@ -423,7 +422,7 @@ static void Token_detect(Token* token) {
         while (tt != tkNullChar) {
             tt = Token_getType(token, 1);
             token->pos++;
-            if (tt != tkOpColon and tt != tkOpComma) break;
+            if (tt != tkOpColon && tt != tkOpComma) break;
         }
         tt = Token_getType(token, 0);
         if (tt != tkArrayClose) {
@@ -440,7 +439,7 @@ static void Token_detect(Token* token) {
         while (tt != tkNullChar) {
             tt = Token_getType(token, 1);
             token->pos++;
-            if (tt != tkAlphabet and tt != tkDigit and tt != tkUnderscore)
+            if (tt != tkAlphabet && tt != tkDigit && tt != tkUnderscore)
                 // and tt != tkPeriod)
                 break; /// validate in parser not here
         }
@@ -460,8 +459,8 @@ static void Token_detect(Token* token) {
         while (tt != tkNullChar) {
             tt = Token_getType(token, 1);
             token->pos++;
-            if (tt != tkAlphabet and tt != tkDigit and tt != tkSlash
-                and tt != tkPeriod)
+            if (tt != tkAlphabet && tt != tkDigit && tt != tkSlash
+                && tt != tkPeriod)
                 break;
         }
         tt_ret = tkUnits;
@@ -477,8 +476,8 @@ static void Token_detect(Token* token) {
             // very crude, error-checking is parser's job not tokenizer's
             token->pos++;
 
-            if (*token->pos == 'e' or *token->pos == 'E' or *token->pos == 'd'
-                or *token->pos == 'D') { // will all be changed to e btw
+            if (*token->pos == 'e' || *token->pos == 'E' || *token->pos == 'd'
+                || *token->pos == 'D') { // will all be changed to e btw
                 found_e = true;
                 continue;
             }
@@ -490,9 +489,9 @@ static void Token_detect(Token* token) {
                 found_dot = true;
                 continue;
             }
-            if (found_dot and tt == tkPeriod) tt_ret = tkMultiDotNumber;
+            if (found_dot && tt == tkPeriod) tt_ret = tkMultiDotNumber;
 
-            if (tt != tkDigit and tt != tkPeriod and *token->pos != 'i') break;
+            if (tt != tkDigit && tt != tkPeriod && *token->pos != 'i') break;
         }
         break;
 
@@ -546,12 +545,11 @@ static void Token_detect(Token* token) {
 
     if (token->kind == tkIdentifier) Token_tryKeywordMatch(token);
 
-    if (token->kind == tkSpaces and token->matchlen == 1)
+    if (token->kind == tkSpaces && token->matchlen == 1)
         token->kind = tkOneSpace;
 
     tt_last = token->kind;
-    if (tt_last != tkOneSpace and tt_last != tkSpaces)
-        tt_lastNonSpace = tt_last;
+    if (tt_last != tkOneSpace && tt_last != tkSpaces) tt_lastNonSpace = tt_last;
 }
 
 // Advance to the next self->token (skip whitespace if `skipws` is set).
@@ -611,8 +609,8 @@ static void Token_advance(Token* token) {
         token->col = 0; // position of the nl itself is 0
     }
     if (token->skipWhiteSpace
-        and (token->kind == tkSpaces
-            or (token->strictSpacing and token->kind == tkOneSpace)))
+        && (token->kind == tkSpaces
+            || (token->strictSpacing && token->kind == tkOneSpace)))
         Token_advance(token);
 }
 //

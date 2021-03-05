@@ -175,8 +175,8 @@ monostatic List(XMLAttr) * XMLParser_parseAttrs(XMLParser* parser) {
     List(XMLAttr)* list = NULL;
     List(XMLAttr)** listp = &list;
 
-    while (*parser->pos and *parser->pos != '>' and *parser->pos != '/'
-        and *parser->pos != '?') {
+    while (*parser->pos && *parser->pos != '>' && *parser->pos != '/'
+        && *parser->pos != '?') {
         const char* name = parser->pos;
         while (*parser->pos != '=') parser->pos++;
         *parser->pos++ = 0; // trample =
@@ -191,8 +191,8 @@ monostatic List(XMLAttr) * XMLParser_parseAttrs(XMLParser* parser) {
 
         const char* value = parser->pos;
 
-        while (not isAnyOf(*parser->pos, markers)) parser->pos++;
-        if (not isAnyOf(*parser->pos, "/?>"))
+        while (!isAnyOf(*parser->pos, markers)) parser->pos++;
+        if (!isAnyOf(*parser->pos, "/?>"))
             *parser->pos++ = 0; // trample the marker if " or ' or spaces
         // ^ DON't trample the markers / or > here, because in the case of
         // e.g. <meta name=content-type content=utf8/> it will trample the /
@@ -243,11 +243,10 @@ monostatic List(XMLNode) * XMLParser_parseTags(XMLParser* parser) {
             if (*parser->pos == '/') { // closing tag here means empty content
                 parser->pos++; // note that will be past </
                 return list; // null if no elements were found at this level
-            } else if (not strncasecmp(parser->pos, "[CDATA[", 6)) { // cdata
+            } else if (!strncasecmp(parser->pos, "[CDATA[", 6)) { // cdata
             } else { // opening tag
                 XMLNode* node = XMLNode_new(parser->pos);
-                while (not isAnyOf(*parser->pos, " />\n\t"))
-                    parser->pos++; // SSE?
+                while (!isAnyOf(*parser->pos, " />\n\t")) parser->pos++; // SSE?
 
                 if (isAnyOf(
                         *parser->pos, " \t\n")) { // TODO can you not refactor
@@ -280,7 +279,7 @@ monostatic List(XMLNode) * XMLParser_parseTags(XMLParser* parser) {
                 case '>':
                     // tag has ended. parse children
                     *parser->pos++ = 0;
-                    if (not noChild) {
+                    if (!noChild) {
                         node->children = XMLParser_parseTags(parser);
 
                         char* closingTag = parser->pos;
@@ -290,7 +289,7 @@ monostatic List(XMLNode) * XMLParser_parseTags(XMLParser* parser) {
                         *parser->pos++ = 0;
 
 #ifndef FP_XML_SKIP_CLOSING_CHECKS // this is about 10% runtime for a large file
-                        if (not *closingTag) {
+                        if (!*closingTag) {
                             printf("error: found end of file, expected "
                                    "</%s>\n",
                                 node->tag);
@@ -341,9 +340,9 @@ monostatic List(XMLNode) * XMLParser_parseTags(XMLParser* parser) {
 monostatic void FMLAttr_print(XMLAttr* attr, int indent) {
     // const char* quo = strpbrk(attr->val, " =&") || 1 ? "'" : "";
     if (strcmp(attr->key, "id") && strcmp(attr->key, "class"))
-        if (strcmp(attr->val, "no") and strcmp(attr->val, "yes")
-            and (*attr->val < '0' or *attr->val > '9'
-                or strpbrk(attr->val, "-: ")))
+        if (strcmp(attr->val, "no") && strcmp(attr->val, "yes")
+            && (*attr->val < '0' or *attr->val > '9'
+                || strpbrk(attr->val, "-: ")))
             printf(" %s='%s'", attr->key, attr->val);
         else
             printf(" %s=%s", attr->key, attr->val);
@@ -382,7 +381,7 @@ monostatic void XMLNode_print(XMLNode* node, int indent) {
 }
 
 monostatic void FMLStr_print(const char* str, int indent, bool skipws) {
-    // if (not skipws)
+    // if (! skipws)
     //     printf("`\n%.*s", indent, spaces);
     // else
     printf("`");
@@ -419,13 +418,13 @@ monostatic void FMLStr_print(const char* str, int indent, bool skipws) {
 }
 monostatic void FMLAttrList_print(List(XMLAttr) * attributes, int indent) {
     foreach (XMLAttr*, attr, attributes) //
-        if (not strcmp(attr->key, "id")) {
+        if (!strcmp(attr->key, "id")) {
             printf(" #%s", attr->val);
             break;
         }
 
     foreach (XMLAttr*, attr, attributes) //
-        if (not strcmp(attr->key, "class")) {
+        if (!strcmp(attr->key, "class")) {
             char* now = attr->val;
             char* nxt = strchr(attr->val, ' ');
             while (nxt) {
@@ -450,8 +449,8 @@ monostatic void FMLNode_print(XMLNode* node, int indent, bool skipws) {
         // if (node->attributes)
         // PARENT MUST PRINT INDENTATION if you want to collapse single-child
         // tags with no attributes like div > div > div and so on.
-        bool skipw = strcmp(node->tag, "script") and strcmp(node->tag, "style");
-        if (node->attributes or (node->children and node->children->next)) {
+        bool skipw = strcmp(node->tag, "script") && strcmp(node->tag, "style");
+        if (node->attributes or (node->children && node->children->next)) {
             if (node->children) {
                 printf("\n%.*s", indent + istep, spaces);
                 FMLNodeList_print(node->children, indent + istep, skipw);

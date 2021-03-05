@@ -66,17 +66,17 @@ static void ASTVar_lint(ASTVar* var, int level) {
     //                or var->init->kind == tkRegexp or var->init->kind ==
     //                tkString or var->init->kind == tkRawString)) {
     if (kind == tkFunctionCall // unresolved constructor
-        and !strcmp(var->init->string, var->typeSpec->name)) {
+        && !strcmp(var->init->string, var->typeSpec->name)) {
     } else if (kind == tkFunctionCallResolved
-        and var->typeSpec->typeType == TYObject
-        and !strcmp(var->init->func->name, var->typeSpec->type->name)) {
+        && var->typeSpec->typeType == TYObject
+        && !strcmp(var->init->func->name, var->typeSpec->type->name)) {
         // resolved constructor, so type is also resolved
-    } else if ((kind == tkNumber or kind == tkRegexp or kind == tkString
-                   or kind == tkRawString)) { // simple literals
+    } else if ((kind == tkNumber || kind == tkRegexp || kind == tkString
+                   || kind == tkRawString)) { // simple literals
     } else if (var->typeSpec->typeType == TYErrorType
-        or var->typeSpec->typeType == TYNoType
-        or (var->typeSpec->typeType == TYUnresolved
-            and *var->typeSpec->name == '\0')) {
+        || var->typeSpec->typeType == TYNoType
+        || (var->typeSpec->typeType == TYUnresolved
+            && *var->typeSpec->name == '\0')) {
         genType = false;
     } else {
         genType = true;
@@ -123,13 +123,13 @@ static void ASTScope_lint(ASTScope* scope, int level) {
                 ASTScope_lint(
                     expr->body, level + STEP); //, true, escapeStrings);
             const char* tok = TokenKind_repr(expr->kind, false);
-            if (expr->kind == tkKeyword_else or expr->kind == tkKeyword_elif)
+            if (expr->kind == tkKeyword_else || expr->kind == tkKeyword_elif)
                 tok = "if";
-            if (expr->kind == tkKeyword_if or expr->kind == tkKeyword_elif)
+            if (expr->kind == tkKeyword_if || expr->kind == tkKeyword_elif)
                 if (exprList->next) {
                     ASTExpr* next = exprList->next->item;
                     if (next->kind == tkKeyword_else
-                        or next->kind == tkKeyword_elif)
+                        || next->kind == tkKeyword_elif)
                         break;
                 }
             printf("%.*send %s\n", level, spaces, ""); // tok);
@@ -142,17 +142,17 @@ static void ASTScope_lint(ASTScope* scope, int level) {
 }
 
 static void ASTType_lint(ASTType* type, int level) {
-    if (not type->body) printf("declare ");
+    if (!type->body) printf("declare ");
     printf("type %s", type->name);
     if (type->super) {
         printf(" extends ");
         ASTTypeSpec_lint(type->super, level);
     }
     puts("");
-    if (not type->body) return;
+    if (!type->body) return;
 
     foreach (ASTExpr*, stmt, type->body->stmts) {
-        if (not stmt) continue;
+        if (!stmt) continue;
         ASTExpr_lint(stmt, level + STEP, true, false);
         puts("");
     }
@@ -160,7 +160,7 @@ static void ASTType_lint(ASTType* type, int level) {
 }
 
 static void ASTFunc_lint(ASTFunc* func, int level) {
-    if (func->isDefCtor or func->intrinsic) return;
+    if (func->isDefCtor || func->intrinsic) return;
     if (func->isDeclare) printf("declare ");
 
     printf("%s%s(", func->isStmt ? "\n" : "function ", func->name);
@@ -171,14 +171,14 @@ static void ASTFunc_lint(ASTFunc* func, int level) {
     }
     printf(")");
 
-    if (func->returnSpec and not func->isStmt) {
+    if (func->returnSpec && !func->isStmt) {
         printf(" as ");
         ASTTypeSpec_lint(func->returnSpec, level);
     }
     if (func->isDeclare) {
         puts("");
         return;
-    } else if (not func->isStmt) {
+    } else if (!func->isStmt) {
         puts("");
         ASTScope_lint(func->body, level + STEP);
         puts("end\n");
@@ -271,13 +271,13 @@ static void ASTExpr_lint(
         break;
 
     default:
-        if (not expr->prec) break;
+        if (!expr->prec) break;
         // not an operator, but this should be error if you reach here
         bool leftBr
-            = expr->left and expr->left->prec and expr->left->prec < expr->prec;
-        bool rightBr = expr->right and expr->right->prec
-            and expr->right->kind != tkKeyword_return // found in 'or return'
-            and expr->right->prec < expr->prec;
+            = expr->left && expr->left->prec && expr->left->prec < expr->prec;
+        bool rightBr = expr->right && expr->right->prec
+            && expr->right->kind != tkKeyword_return // found in 'or return'
+            && expr->right->prec < expr->prec;
 
         if (expr->kind == tkOpColon) {
             // expressions like arr[a:x-3:2] should become
@@ -324,28 +324,27 @@ static void ASTExpr_lint(
         //            }
         //        }
 
-        if (expr->kind == tkPower and not spacing) putc('(', stdout);
+        if (expr->kind == tkPower && !spacing) putc('(', stdout);
 
-        char lpo = leftBr and expr->left->kind == tkOpColon ? '[' : '(';
-        char lpc = leftBr and expr->left->kind == tkOpColon ? ']' : ')';
+        char lpo = leftBr && expr->left->kind == tkOpColon ? '[' : '(';
+        char lpc = leftBr && expr->left->kind == tkOpColon ? ']' : ')';
         if (leftBr) putc(lpo, stdout);
         if (expr->left)
             ASTExpr_lint(expr->left, 0,
-                spacing and !leftBr and expr->kind != tkOpColon, escapeStrings);
+                spacing && !leftBr && expr->kind != tkOpColon, escapeStrings);
         if (leftBr) putc(lpc, stdout);
 
         printf("%s", TokenKind_repr(expr->kind, spacing));
 
-        char rpo = rightBr and expr->right->kind == tkOpColon ? '[' : '(';
-        char rpc = rightBr and expr->right->kind == tkOpColon ? ']' : ')';
+        char rpo = rightBr && expr->right->kind == tkOpColon ? '[' : '(';
+        char rpc = rightBr && expr->right->kind == tkOpColon ? ']' : ')';
         if (rightBr) putc(rpo, stdout);
         if (expr->right)
             ASTExpr_lint(expr->right, 0,
-                spacing and !rightBr and expr->kind != tkOpColon,
-                escapeStrings);
+                spacing && !rightBr && expr->kind != tkOpColon, escapeStrings);
         if (rightBr) putc(rpc, stdout);
 
-        if (expr->kind == tkPower and not spacing) putc(')', stdout);
+        if (expr->kind == tkPower && !spacing) putc(')', stdout);
         // if (expr->kind == tkArrayOpen) putc(']', stdout);
         // if (expr->kind == tkBraceOpen) putc('}', stdout);
     }

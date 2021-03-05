@@ -428,7 +428,7 @@ static const char* ASTTypeSpec_cname(ASTTypeSpec* self) {
 }
 
 static const char* getDefaultValueForType(ASTTypeSpec* type) {
-    if (not type) return "";
+    if (!type) return "";
     switch (type->typeType) {
     case TYUnresolved:
         unreachable(
@@ -481,7 +481,7 @@ static ASTExpr* ASTExpr_fromToken(const Token* self) {
 static bool ASTExpr_throws(ASTExpr* self) { // NOOO REMOVE This func and set the
                                             // throws flag recursively like the
     // other flags (during e.g. the type resolution dive)
-    if (not self) return false;
+    if (!self) return false;
     switch (self->kind) {
     case tkNumber:
     case tkMultiDotNumber:
@@ -500,14 +500,14 @@ static bool ASTExpr_throws(ASTExpr* self) { // NOOO REMOVE This func and set the
     case tkSubscriptResolved:
         return ASTExpr_throws(self->left);
     case tkVarAssign:
-        return self->var->used and ASTExpr_throws(self->var->init);
+        return self->var->used && ASTExpr_throws(self->var->init);
     case tkKeyword_for:
     case tkKeyword_if:
     case tkKeyword_while:
         return false; // actually the condition could throw.
     default:
-        if (not self->prec) return false;
-        return ASTExpr_throws(self->left) or ASTExpr_throws(self->right);
+        if (!self->prec) return false;
+        return ASTExpr_throws(self->left) || ASTExpr_throws(self->right);
     }
 }
 
@@ -540,7 +540,7 @@ static size_t ASTScope_calcSizeUsage(ASTScope* self) {
 static ASTVar* ASTScope_getVar(ASTScope* self, const char* name) {
     // stupid linear search, no dictionary yet
     foreach (ASTVar*, local, self->locals) //
-        if (not strcasecmp(name, local->name)) return local;
+        if (!strcasecmp(name, local->name)) return local;
     if (self->parent) return ASTScope_getVar(self->parent, name);
     return NULL;
 }
@@ -548,9 +548,9 @@ static ASTVar* ASTScope_getVar(ASTScope* self, const char* name) {
 static ASTVar* ASTType_getVar(ASTType* self, const char* name) {
     // stupid linear search, no dictionary yet
     foreach (ASTVar*, var, self->body->locals) //
-        if (not strcasecmp(name, var->name)) return var;
+        if (!strcasecmp(name, var->name)) return var;
 
-    if (self->super and self->super->typeType == TYObject)
+    if (self->super && self->super->typeType == TYObject)
         return ASTType_getVar(self->super->type, name);
     return NULL;
 }
@@ -608,7 +608,7 @@ static size_t ASTType_calcSizeUsage(ASTType* self) {
 #pragma mark - AST EXPR IMPL.
 
 static const char* ASTExpr_typeName(const ASTExpr* const self) {
-    if (not self) return "";
+    if (!self) return "";
     const char* ret = TypeType_name(self->typeType);
     if (!ret) return "<unknown>"; // unresolved
     if (*ret) return ret; // primitive type
@@ -669,7 +669,7 @@ static int ASTExpr_strarglabels(ASTExpr* self, char* buf, int bufsize) {
 static int ASTExpr_countCommaList(ASTExpr* expr) {
     int i = 0;
     if (expr)
-        for (i = 1; expr->right and expr->kind == tkOpComma; i++)
+        for (i = 1; expr->right && expr->kind == tkOpComma; i++)
             expr = expr->right;
     return i;
 }
@@ -681,7 +681,7 @@ static ASTType* ASTModule_getType(ASTModule* module, const char* name) {
     // module mm instead. actually the caller should have bothered about
     // that.
     foreach (ASTType*, type, module->types) //
-        if (not strcasecmp(type->name, name)) return type;
+        if (!strcasecmp(type->name, name)) return type;
     // type specs must be fully qualified, so there's no need to look in
     // other modules.
     return NULL;
@@ -694,13 +694,13 @@ static ASTType* ASTModule_getType(ASTModule* module, const char* name) {
 // for the actual file.
 static bool ASTModule_hasImportAlias(ASTModule* module, const char* alias) {
     foreach (ASTImport*, imp, module->imports) //
-        if (not strcmp(imp->importFile + imp->aliasOffset, alias)) return true;
+        if (!strcmp(imp->importFile + imp->aliasOffset, alias)) return true;
     return false;
 }
 
 ASTFunc* ASTModule_getFunc(ASTModule* module, const char* selector) {
     foreach (ASTFunc*, func, module->funcs) //
-        if (not strcasecmp(func->selector, selector)) return func;
+        if (!strcasecmp(func->selector, selector)) return func;
     //  no looking anywhere else. If the name is of the form
     // "mm.func" you should have bothered to look in mm instead.
     return NULL;
@@ -775,7 +775,7 @@ static Parser* Parser_fromFile(char* filename, bool skipws) {
     size_t flen = CString_length(filename);
 
     // Error: the file might not end in .ch
-    if (not CString_endsWith(filename, flen, ".jet", 4)) {
+    if (!CString_endsWith(filename, flen, ".jet", 4)) {
         eprintf("jet: file '%s' invalid: name must end in '.jet'.\n", filename);
         return NULL;
     }
@@ -856,7 +856,7 @@ static ASTExpr* next_token_node(
     if (parser->token.kind == expected) {
         return exprFromCurrentToken(parser);
     } else {
-        if (not ignore_error) Parser_errorExpectedToken(parser, expected);
+        if (!ignore_error) Parser_errorExpectedToken(parser, expected);
         return NULL;
     }
 }
@@ -884,7 +884,7 @@ static bool Parser_ignore(Parser* parser, TokenKind expected) {
 
 // this is same as match without return
 static void discard(Parser* parser, TokenKind expected) {
-    if (not Parser_ignore(parser, expected))
+    if (!Parser_ignore(parser, expected))
         Parser_errorExpectedToken(parser, expected);
 }
 
@@ -978,7 +978,7 @@ int main(int argc, char* argv[]) {
         eputs("jet: no input files. What are you trying to do?\n");
         return 1;
     }
-    bool printDiagnostics = (argc > 2 && *argv[2] == 'd') or false;
+    bool printDiagnostics = (argc > 2 && *argv[2] == 'd') || false;
 
     // ticks t0 = getticks();
     clock_Time t0 = clock_getTime();
@@ -988,7 +988,7 @@ int main(int argc, char* argv[]) {
     // initStaticExprs();
 
     parser = Parser_fromFile(argv[1], true);
-    if (not parser) return 2;
+    if (!parser) return 2;
     if (argc > 3 && *argv[3] == 'l') parser->mode = PMLint;
     if (argc > 2 && *argv[2] == 'l') parser->mode = PMLint;
     if (argc > 3 && *argv[3] == 't') parser->mode = PMGenTests;
@@ -1009,7 +1009,7 @@ int main(int argc, char* argv[]) {
             foreach (ASTModule*, mod, modules)
                 ASTModule_lint(mod, 0);
         }
-    } else if (not(parser->issues.errCount)) {
+    } else if (!(parser->issues.errCount)) {
         switch (parser->mode) {
             // case PMLint: {
             //     foreach(ASTModule*, mod, modules) ASTModule_lint(mod, 0);
@@ -1060,7 +1060,7 @@ int main(int argc, char* argv[]) {
 
     // returns the last error kind (from enum ParserErrors) so that test
     // scripts can check for specific errors raised.
-    int ret = (parser->issues.errCount or _InternalErrs);
+    int ret = (parser->issues.errCount || _InternalErrs);
     // eprintf("ret: %d\n", ret);
     return ret; // or parser->warnCount);
     // TODO: what about last warning?

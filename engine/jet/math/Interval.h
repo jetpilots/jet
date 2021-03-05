@@ -158,7 +158,7 @@ static void IntRange_rev(IntRange* range) {
     // printf("reversing ");
     // IntRange_print(range);
     IntRange* orig = range;
-    while (range and range->next) range = range->next;
+    while (range && range->next) range = range->next;
     IntRange tmp = *range;
     range = orig;
     while (range) {
@@ -174,7 +174,7 @@ static void RealRange_rev(RealRange* range) {
     // printf("reversing ");
     // IntRange_print(range);
     RealRange* orig = range;
-    while (range and range->next) range = range->next;
+    while (range && range->next) range = range->next;
     RealRange tmp = *range;
     range = orig;
     while (range) {
@@ -191,8 +191,8 @@ static void IntRange_snap(IntRange* range) {
     // printf("snapping ");
     // IntRange_print(range);
     while (range) {
-        while (range->next and range->lo <= range->next->lo
-            and range->hi + 1 >= range->next->lo) {
+        while (range->next && range->lo <= range->next->lo
+            && range->hi + 1 >= range->next->lo) {
             range->hi = max1(range->hi, range->next->hi);
             range->lo = min1(range->lo, range->next->lo);
             range->next = range->next->next;
@@ -211,8 +211,8 @@ static void RealRange_snap(RealRange* range) {
     // printf("snapping ");
     // IntRange_print(range);
     while (range) {
-        while (range->next and range->lo <= range->next->lo
-            and nextafter(range->hi, DBL_MAX) >= range->next->lo) {
+        while (range->next && range->lo <= range->next->lo
+            && nextafter(range->hi, DBL_MAX) >= range->next->lo) {
             range->hi = fmax1(range->hi, range->next->hi);
             range->lo = fmin1(range->lo, range->next->lo);
             range->next = range->next->next;
@@ -316,7 +316,7 @@ static void RealRange_mul(RealRange* range, RealRange* other) {
         range = range->next;
     }
 
-    if (other->lo <= 0 and other->hi <= 0) RealRange_rev(orig);
+    if (other->lo <= 0 && other->hi <= 0) RealRange_rev(orig);
     RealRange_snap(orig);
 }
 
@@ -366,8 +366,7 @@ static RealRange* RealRange_find(RealRange* range, Real value) {
 }
 
 static void IntRange_ins1(IntRange* range, Int value) {
-    while (range and range->next and range->next->lo < value)
-        range = range->next;
+    while (range && range->next && range->next->lo < value) range = range->next;
     IntRange_print1(range);
 
     // range->next = PtrIist_with_next(other, range->next);
@@ -441,7 +440,7 @@ static RealRange* RealRange_clone(RealRange* other) {
 
 static void IntRange_jins(IntRange* range, IntRange* other) {
     // you'll need to make a copy of other, since the next ptr is embeddded
-    // if (not*intvp) {
+    // if (!*intvp) {
     //     *intvp = IntRange_new(other->lo, other->hi, NULL);
     //     // (*intvp)->lo = other->lo;
     //     // (*intvp)->hi = other->hi;
@@ -450,9 +449,9 @@ static void IntRange_jins(IntRange* range, IntRange* other) {
     // IntRange* range = *intvp;
     // IntRange_desc(range);
     IntRange* orig = range;
-    while (range and range->next and range->next->lo < other->lo)
+    while (range && range->next && range->next->lo < other->lo)
         range = range->next;
-    if (range == orig and other->lo < range->lo) {
+    if (range == orig && other->lo < range->lo) {
         range->next = IntRange_clone1(range);
         range->lo = other->lo;
         range->hi = other->hi;
@@ -467,9 +466,9 @@ static void IntRange_jins(IntRange* range, IntRange* other) {
 
 static void RealRange_jins(RealRange* range, RealRange* other) {
     RealRange* orig = range;
-    while (range and range->next and range->next->lo < other->lo)
+    while (range && range->next && range->next->lo < other->lo)
         range = range->next;
-    if (range == orig and other->lo < range->lo) {
+    if (range == orig && other->lo < range->lo) {
         range->next = RealRange_clone1(range);
         range->lo = other->lo;
         range->hi = other->hi;
@@ -509,8 +508,8 @@ static void IntRange_del1(IntRange* range, Int value) {
     // IntRange_print(range);
 
     IntRange* iv = IntRange_find(range, value);
-    if (not iv) return; // value isn't in the list at all? get out
-    if (iv->lo == value and iv->hi == value)
+    if (!iv) return; // value isn't in the list at all? get out
+    if (iv->lo == value && iv->hi == value)
         // value is in a subinterval by itself
         *iv = *iv->next;
     // the old IntRange will go out of scope and should be freed
@@ -538,8 +537,8 @@ static void RealRange_del1(RealRange* range, Real value) {
     // IntRange_print(range);
 
     RealRange* fiv = RealRange_find(range, value);
-    if (not fiv) return; // value isn't in the list at all? get out
-    if (fiv->lo == value and fiv->hi == value)
+    if (!fiv) return; // value isn't in the list at all? get out
+    if (fiv->lo == value && fiv->hi == value)
         // value is in a subinterval by itself
         *fiv = *fiv->next;
     // the old IntRange will go out of scope and should be freed
@@ -576,14 +575,14 @@ IntRange* parse(const char* str) {
     IntRange* range = NULL;
     // const char* buf = "[-2:2, 5:6, 7:9, 8:10]";
     char* ptr = strchr(str, '[');
-    if (not ptr) {
+    if (!ptr) {
         printf("parser error\n");
         return NULL;
     } else {
         ptr++;
     }
     Int a, b;
-    while (ptr and *ptr) {
+    while (ptr && *ptr) {
         a = strtoll(ptr, &ptr, 0);
         if (*ptr != ':') {
             printf("parser error: expecting ':'\n");
@@ -593,7 +592,7 @@ IntRange* parse(const char* str) {
         b = strtoll(ptr, &ptr, 0);
 
         // printf("found %lld:%lld\n", a, b);
-        if (not range) {
+        if (!range) {
             range = IntRange_new(a, b, NULL);
         } else {
             IntRange tmp = { .lo = a, .hi = b };

@@ -2,7 +2,7 @@
 static void setStmtFuncTypeInfo(Parser* parser, ASTFunc* func) {
     // this assumes that setExprTypeInfo has been called on the func body
     const ASTExpr* stmt = func->body->stmts->item;
-    if (not func->returnSpec->typeType)
+    if (!func->returnSpec->typeType)
         func->returnSpec->typeType = stmt->typeType;
     else if (func->returnSpec->typeType != stmt->typeType)
         Parser_errorTypeMismatchBinOp(parser, stmt);
@@ -15,18 +15,18 @@ static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod);
 ///////////////////////////////////////////////////////////////////////////
 static bool isCmpOp(ASTExpr* expr) {
     return expr->kind == tkOpLE //
-        or expr->kind == tkOpLT //
-        or expr->kind == tkOpGT //
-        or expr->kind == tkOpGE //
-        or expr->kind == tkOpEQ //
-        or expr->kind == tkOpNE;
+        || expr->kind == tkOpLT //
+        || expr->kind == tkOpGT //
+        || expr->kind == tkOpGE //
+        || expr->kind == tkOpEQ //
+        || expr->kind == tkOpNE;
 }
 
 ///////////////////////////////////////////////////////////////////////////
 static bool isBoolOp(ASTExpr* expr) {
     return expr->kind == tkKeyword_and //
-        or expr->kind == tkKeyword_or //
-        or expr->kind == tkKeyword_not;
+        || expr->kind == tkKeyword_or //
+        || expr->kind == tkKeyword_not;
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -62,9 +62,9 @@ static void analyseExpr(
         // Number arguments and another definition for vector args
         // doesn't exist. Basically during typecheck this should see
         // if a type mismatch is only in terms of collectionType.
-        if (not expr->left) break;
-        expr->elemental = expr->elemental and expr->left->elemental;
-        expr->throws = expr->left->throws or expr->func->throws;
+        if (!expr->left) break;
+        expr->elemental = expr->elemental && expr->left->elemental;
+        expr->throws = expr->left->throws || expr->func->throws;
         ASTExpr* currArg = expr->left;
         foreach (ASTVar*, arg, expr->func->args) {
             ASTExpr* cArg
@@ -74,7 +74,7 @@ static void analyseExpr(
                 Parser_errorArgTypeMismatch(parser, cArg, arg);
             // TODO: check dims mismatch
             // TODO: check units mismatch
-            if (not(currArg = currArg->right)) break;
+            if (!(currArg = currArg->right)) break;
         }
 
         currArg = expr->left;
@@ -114,7 +114,7 @@ static void analyseExpr(
 
         // TODO: need a function to make and return selector
         ASTExpr* arg1 = expr->left;
-        if (arg1 and arg1->kind == tkOpComma) arg1 = arg1->left;
+        if (arg1 && arg1->kind == tkOpComma) arg1 = arg1->left;
         const char* typeName = ASTExpr_typeName(arg1);
         //        const char* collName = "";
         //        if (arg1)
@@ -132,23 +132,23 @@ static void analyseExpr(
             analyseExpr(parser, expr, mod, inFuncArgs);
             return;
         }
-        if (not strncmp(buf, "Void_", 5))
+        if (!strncmp(buf, "Void_", 5))
             Parser_errorCallingFuncWithVoid(parser, expr, arg1);
         else {
             Parser_errorUnrecognizedFunc(parser, expr, buf);
 
             if (*buf != '<') // not invalid type
                 foreach (ASTFunc*, func, mod->funcs) {
-                    if (not strcasecmp(expr->string, func->name))
+                    if (!strcasecmp(expr->string, func->name))
                         eprintf("\e[;2m ./%s:%d: \e[;1;2m%s\e[0;2m with %d "
                                 "arguments is not viable.\e[0m\n",
                             parser->filename, func->line, func->selector,
                             func->argCount);
-                    if (not func->intrinsic
-                        and leven(expr->string, func->name, expr->slen,
-                                func->nameLen)
+                    if (!func->intrinsic
+                        && leven(expr->string, func->name, expr->slen,
+                               func->nameLen)
                             < 3
-                        and func->argCount == PtrList_count(func->args))
+                        && func->argCount == PtrList_count(func->args))
                         eprintf(" Did you mean: \e[;1m%s\e[0m (%s at "
                                 "./%s:%d)\n",
                             func->name, func->selector, parser->filename,
@@ -162,7 +162,7 @@ static void analyseExpr(
         ASTExpr* const init = expr->var->init;
         ASTTypeSpec* const typeSpec = expr->var->typeSpec;
 
-        if (not init)
+        if (!init)
             Parser_errorMissingInit(parser, expr);
         else {
             if (typeSpec->typeType == TYUnresolved)
@@ -218,16 +218,15 @@ static void analyseExpr(
                     : init->collectionType == CTYArray             ? 1
                                                                    : 0;
             } else if (typeSpec->dims != 1
-                and init->collectionType == CTYArray) {
+                && init->collectionType == CTYArray) {
                 Parser_errorInitDimsMismatch(parser, expr, 1);
                 expr->typeType = TYErrorType;
             } else if (typeSpec->dims != 2
-                and init->collectionType == CTYTensor) {
+                && init->collectionType == CTYTensor) {
                 Parser_errorInitDimsMismatch(parser, expr, 2);
                 expr->typeType = TYErrorType;
 
-            } else if (typeSpec->dims != 0
-                and init->collectionType == CTYNone) {
+            } else if (typeSpec->dims != 0 && init->collectionType == CTYNone) {
                 Parser_errorInitDimsMismatch(parser, expr, 0);
                 expr->typeType = TYErrorType;
             }
@@ -310,20 +309,20 @@ static void analyseExpr(
                 // you need to save the exact type of the elements, it's not a
                 // primitive type. You'll find it in the first element.
                 ASTExpr* first = expr->right;
-                while (first->kind == tkOpComma or first->kind == tkOpSemiColon)
+                while (first->kind == tkOpComma || first->kind == tkOpSemiColon)
                     first = first->left;
                 switch (first->kind) {
                 case tkIdentifierResolved:
                     expr->elementType = first->var->typeSpec->type;
                     if (first->var->typeSpec->dims
-                        or first->var->typeSpec->collectionType != CTYNone)
+                        || first->var->typeSpec->collectionType != CTYNone)
                         unreachable(
                             "trying to make array of arrays %d", expr->line);
                     break;
                 case tkFunctionCallResolved:
                     expr->elementType = first->func->returnSpec->type;
                     if (first->func->returnSpec->dims
-                        or first->var->typeSpec->collectionType != CTYNone)
+                        || first->var->typeSpec->collectionType != CTYNone)
                         unreachable("trying to make array of arrays line %d",
                             expr->line);
                     break;
@@ -376,11 +375,11 @@ static void analyseExpr(
         break;
     case tkPeriod: {
         assert(expr->left->kind == tkIdentifierResolved
-            or expr->left->kind == tkIdentifier);
+            || expr->left->kind == tkIdentifier);
         analyseExpr(parser, expr->left, mod, inFuncArgs);
 
         // The name/type resolution of expr->left may have failed.
-        if (not expr->left->typeType) break;
+        if (!expr->left->typeType) break;
 
         ASTExpr* member = expr->right;
         if (member->kind == tkPeriod) {
@@ -391,7 +390,7 @@ static void analyseExpr(
             }
         }
 
-        if (member->kind != tkIdentifier and member->kind != tkSubscript) {
+        if (member->kind != tkIdentifier && member->kind != tkSubscript) {
             Parser_errorUnexpectedExpr(parser, member);
             break;
         }
@@ -434,21 +433,20 @@ static void analyseExpr(
         // -------------------------------------------------- //
     default:
         if (expr->prec) {
-            if (not expr->unary)
-                analyseExpr(parser, expr->left, mod, inFuncArgs);
+            if (!expr->unary) analyseExpr(parser, expr->left, mod, inFuncArgs);
             // some exprs like return can be used without any args
             if (expr->right) analyseExpr(parser, expr->right, mod, inFuncArgs);
 
-            if (expr->kind == tkKeyword_or and expr->left->typeType != TYBool) {
+            if (expr->kind == tkKeyword_or && expr->left->typeType != TYBool) {
                 // Handle the 'or' keyword used to provide alternatives for
                 // a nullable expression.
                 ;
-            } else if (isCmpOp(expr) or isBoolOp(expr)
-                or expr->kind == tkKeyword_in) {
+            } else if (isCmpOp(expr) || isBoolOp(expr)
+                || expr->kind == tkKeyword_in) {
                 // Handle comparison and logical operators (always return a
                 // bool)
                 expr->typeType = (expr->left->typeType == TYErrorType
-                                     or expr->right->typeType == TYErrorType)
+                                     || expr->right->typeType == TYErrorType)
                     ? TYErrorType
                     : TYBool;
             } else {
@@ -461,12 +459,12 @@ static void analyseExpr(
             }
             if (expr->right)
                 expr->elemental
-                    = expr->right->elemental or expr->kind == tkOpColon;
+                    = expr->right->elemental || expr->kind == tkOpColon;
             // TODO: actually, indexing by an array of integers is also an
             // indication of an elemental op
 
-            if (not expr->unary) {
-                expr->elemental = expr->elemental or expr->left->elemental;
+            if (!expr->unary) {
+                expr->elemental = expr->elemental || expr->left->elemental;
                 expr->dims = expr->right->dims;
                 // if (expr->kind == tkOpColon and expr->right->kind ==
                 // tkOpColon)
@@ -475,12 +473,12 @@ static void analyseExpr(
                 // parsing stepped ranges 1:s:n
 
                 if (expr->dims != expr->left->dims
-                    and not(inFuncArgs
-                        and (expr->kind == tkOpComma
-                            or expr->kind == tkOpAssign))) {
+                    && !(inFuncArgs
+                        && (expr->kind == tkOpComma
+                            || expr->kind == tkOpAssign))) {
                     // if either one has 0 dims (scalar) it is an elemental op
                     // with a scalar.
-                    if (expr->left->dims != 0 and expr->right->dims != 0) {
+                    if (expr->left->dims != 0 && expr->right->dims != 0) {
                         Parser_errorBinOpDimsMismatch(parser, expr);
                         //                         unreachable("TODO: make
                         //                         error: dims mismatch at line
@@ -489,9 +487,12 @@ static void analyseExpr(
                         // expr->line, expr->col, expr->left->dims,
                         // expr->right->dims);
                         expr->right->typeType = TYErrorType;
-                    } else if (expr->kind == tkPlus or expr->kind == tkMinus
-                        or expr->kind == tkTimes or expr->kind == tkSlash
-                        or expr->kind == tkPower or expr->kind == tkOpMod) {
+                    } else if (expr->kind == tkPlus //
+                        || expr->kind == tkMinus //
+                        || expr->kind == tkTimes //
+                        || expr->kind == tkSlash //
+                        || expr->kind == tkPower //
+                        || expr->kind == tkOpMod) {
                         expr->dims = expr->left->dims + expr->right->dims;
                         expr->collectionType = max(expr->left->collectionType,
                             expr->right->collectionType);
@@ -502,13 +503,13 @@ static void analyseExpr(
                         // expr->line,
                         //     expr->col, expr->left->dims, expr->right->dims);
                     } else if (expr->kind == tkKeyword_in
-                        and expr->left->dims == 0 and expr->right->dims == 1) {
+                        && expr->left->dims == 0 && expr->right->dims == 1) {
                         // eprintf("ok `in` dims@ %d %d %d %d\n", expr->line,
                         //     expr->col, expr->left->dims, expr->right->dims);
                     } else if (expr->kind == tkOpColon //
-                        and expr->left->dims == 1
-                        and expr->left->kind == tkOpColon
-                        and expr->right->dims == 0) {
+                        && expr->left->dims == 1
+                        && expr->left->kind == tkOpColon
+                        && expr->right->dims == 0) {
                         // eprintf("ok `:` dims@ %d %d %d %d\n", expr->line,
                         //     expr->col, expr->left->dims, expr->right->dims);
                         // expr->dims = 1;
@@ -531,10 +532,9 @@ static void analyseExpr(
                 // ranges always create a 1D entity (not always array, but 1D)
                 if (expr->kind == tkOpColon) expr->dims = 1;
             }
-            if (not expr->unary
-                and not(inFuncArgs
-                    and (expr->kind == tkOpComma
-                        or expr->kind == tkOpAssign))) {
+            if (!expr->unary
+                && !(inFuncArgs
+                    && (expr->kind == tkOpComma || expr->kind == tkOpAssign))) {
                 // ignore , and = inside function call arguments. thing is
                 // array or dict literals passed as args will have , and =
                 // which should be checked. so when you descend into their
@@ -543,7 +543,7 @@ static void analyseExpr(
                 TypeTypes rightType = expr->right->typeType;
 
                 if (leftType == TYBool
-                    and (expr->kind == tkOpLE or expr->kind == tkOpLT)) {
+                    && (expr->kind == tkOpLE || expr->kind == tkOpLT)) {
                     // Special case: chained LE/LT operators: e.g. 0 <= yCH4
                     // <= 1.
                     ;
@@ -553,20 +553,20 @@ static void analyseExpr(
                     Parser_errorTypeMismatchBinOp(parser, expr);
                     expr->typeType = TYErrorType;
                 } else if (leftType == TYString
-                    and (expr->kind == tkOpAssign or expr->kind == tkOpEQ
-                        or expr->kind == tkOpNE)) {
+                    && (expr->kind == tkOpAssign || expr->kind == tkOpEQ
+                        || expr->kind == tkOpNE)) {
                     // Allow assignment, equality test and != for strings.
                     // TODO: might even allow comparison operators, and
                     // perhaps allow +=, or better .= or something. Or
                     // perhaps append(x!) is clearer
                     ;
                 } else if (leftType == TYBool
-                    and (expr->kind == tkOpAssign //
-                        or expr->kind == tkOpEQ //
-                        or expr->kind == tkKeyword_and //
-                        or expr->kind == tkKeyword_or))
+                    && (expr->kind == tkOpAssign //
+                        || expr->kind == tkOpEQ //
+                        || expr->kind == tkKeyword_and //
+                        || expr->kind == tkKeyword_or))
                     ;
-                else if (not TypeType_isnum(leftType)) {
+                else if (!TypeType_isnum(leftType)) {
                     // Arithmetic operators are only relevant for numeric
                     // types.
                     Parser_errorInvalidTypeForOp(parser, expr);
@@ -599,7 +599,7 @@ static void analyseType(Parser* parser, ASTType* type, ASTModule* mod) {
     // TODO: this should be replaced by a dict query
     foreach (ASTType*, type2, mod->types) {
         if (type2 == type) break;
-        if (not strcasecmp(type->name, type2->name))
+        if (!strcasecmp(type->name, type2->name))
             Parser_errorDuplicateType(parser, type, type2);
     }
     // Mark the semantic pass as done for this type, so that recursive
@@ -631,10 +631,10 @@ static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod) {
     // Check if the function is a constructor call and identify the type.
     // TODO: this should be replaced by a dict query
     foreach (ASTType*, type, mod->types) {
-        if (not strcasecmp(func->name, type->name)) {
-            if (func->returnSpec and not(func->isStmt or func->isDefCtor))
+        if (!strcasecmp(func->name, type->name)) {
+            if (func->returnSpec && !(func->isStmt || func->isDefCtor))
                 Parser_errorCtorHasType(parser, func, type);
-            if (not func->returnSpec) {
+            if (!func->returnSpec) {
                 func->returnSpec = ASTTypeSpec_new(TYObject, CTYNone);
                 func->returnSpec->type = type;
                 // Ctors must AlWAYS return a new object.
@@ -650,7 +650,7 @@ static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod) {
             // stmt func has its return type assigned.
             // if (func->isStmt)
             //     Parser_errorCtorHasType(this, func, type);
-            if (not isupper(*func->name)) Parser_warnCtorCase(parser, func);
+            if (!isupper(*func->name)) Parser_warnCtorCase(parser, func);
 
             func->name = type->name;
             isCtor = true;
@@ -658,11 +658,11 @@ static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod) {
     }
 
     // Capitalized names are not allowed unless they are constructors.
-    if (not func->isDefCtor and not isCtor and isupper(*func->name))
+    if (!func->isDefCtor && !isCtor && isupper(*func->name))
         Parser_errorUnrecognizedCtor(parser, func);
 
     // The rest of the processing is on the contents of the function.
-    if (not func->body) {
+    if (!func->body) {
         func->analysed = true;
         return;
     }
@@ -671,7 +671,7 @@ static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod) {
     // TODO: this should be replaced by a dict query
     foreach (ASTFunc*, func2, mod->funcs) {
         if (func == func2) break;
-        if (not strcasecmp(func->selector, func2->selector))
+        if (!strcasecmp(func->selector, func2->selector))
             Parser_errorDuplicateFunc(parser, func, func2);
     }
 
@@ -693,7 +693,7 @@ static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod) {
     // have the same type as the declared return type.
 
     // Do optimisations or ANY lowering only if there are no errors
-    if (not parser->issues.errCount and parser->mode != PMLint) {
+    if (!parser->issues.errCount && parser->mode != PMLint) {
 
         // do (try) CSE
         ASTFunc_hashExprs(/* parser, */ func);
@@ -708,13 +708,13 @@ static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod) {
 }
 
 static void analyseTest(Parser* parser, ASTTest* test, ASTModule* mod) {
-    if (not test->body) return;
+    if (!test->body) return;
 
     // Check for duplicate test names and report errors.
     // TODO: this should be replaced by a dict query
     foreach (ASTTest*, test2, mod->tests) {
         if (test == test2) break;
-        if (not strcasecmp(test->name, test2->name))
+        if (!strcasecmp(test->name, test2->name))
             Parser_errorDuplicateTest(parser, test, test2);
     }
 
@@ -726,7 +726,7 @@ static void analyseTest(Parser* parser, ASTTest* test, ASTModule* mod) {
         analyseExpr(parser, stmt, mod, false);
 
     // Do optimisations or ANY lowering only if there are no errors
-    if (not parser->issues.errCount and parser->mode != PMLint) {
+    if (!parser->issues.errCount && parser->mode != PMLint) {
         ASTScope_lowerElementalOps(test->body);
         ASTScope_promoteCandidates(test->body);
     }

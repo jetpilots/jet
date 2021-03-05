@@ -15,7 +15,7 @@ void ptr2off_s_fwd(char** str) { }
 void ptr2off_fwd(void** ptr) {
     size_t pd = 0;
     pd = *ptr - gPool->ref;
-    if (pd > 0 and pd < gPool->cap) {
+    if (pd > 0 && pd < gPool->cap) {
         pd |= 0xffffUL << 48;
         *ptr = (void*)pd;
         return;
@@ -23,7 +23,7 @@ void ptr2off_fwd(void** ptr) {
 
     for_to(i, gPool->ptrs.used) {
         pd = *ptr - gPool->ptrs.ref[i];
-        if (pd > 0 and pd < gPool->caps.ref[i]) {
+        if (pd > 0 && pd < gPool->caps.ref[i]) {
             pd |= ((size_t)i) << 48;
             // high16 holds subpool index, low48 is the offset
             *ptr = (void*)pd;
@@ -101,7 +101,7 @@ void ASTTypeSpec_ptr2off(ASTTypeSpec* typeSpec) {
     if (typeSpec->typeType == TYObject) {
         ASTType_ptr2off(typeSpec->type);
         ptr2off((void**)&typeSpec->type);
-    } else if (TypeType_isnum(typeSpec->typeType) and typeSpec->units) {
+    } else if (TypeType_isnum(typeSpec->typeType) && typeSpec->units) {
         ASTUnits_ptr2off(typeSpec->units);
         ptr2off((void**)&typeSpec->units);
     } else {

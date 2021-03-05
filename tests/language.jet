@@ -47,7 +47,7 @@ var mp as Number[Text] # implies = {}. maps are never nil nor nilable.
 # second and higher arguments must be named at call sites (linter can do it)
 function myfunc(parm as Text, parm2 as Number) as Text
     ans = "empty"
-end function
+end
 # basic function definition
 
 myfunc(parm as Text, parm2 as Number) := "empty" # statement function
@@ -55,14 +55,14 @@ myfunc(parm as Text, parm2 as Number) := "empty" # statement function
 var x = myfunc("test", parm2=45) # function call
 
 ## funcs cannot mutate params, except first param if declared with "var"
-function pop(&array as Number[]) as Number
+function pop!(array as Number[]) as Number
     var tmp = array[-1]
     array.count -= 1
     ans = tmp
-end function
+end
 
 var array = [3, 4, 5, 6]
-var last = pop(array!) # callsite must be !-annotated (linter can do it)
+var last = pop!(array) # callsite must be !-annotated (linter can do it)
 
 # Types
 # type names start with caps.
@@ -71,7 +71,7 @@ type MyType
     var m = 0
     var mj = 42 # just write var mj = 42 and linter will fix
     var name = ""
-end type
+end
 ## default constructor is defined in the type body. CANNOT REDEFINE IT LATER.
 ## default construction must always be possible and defined.
 
@@ -85,11 +85,11 @@ m.m = 3 # will not crash! m has an instance
 m = MyType() # will overwrite dummy instance
 
 ## can define custom constructors, just like a function
-function MyType(mi as Number, gi as Number) as MyType
+function MyType(mi as Number, gi as Number)
     ans = MyType()
     ans.m = mi
     ans.mj = gi
-end function
+end
 var x = MyType(mi=3, gi=5)
 
 ## objects are never nil (but may be nilable).
@@ -112,8 +112,8 @@ var test4|m/s = speed + dspeed # explicit unit conversion to that of the second
 var test5|ft/min = speed + dspeed # explicit unit conversion to something else
 
 ## automatic conversion where possible when passing to funcs etc.
-function flux(rate! as Complex[:,:]|kg/s, speed as Number|m/s) as Number|kg.m3/s
-end function
+function flux!(rate as Complex[:,:]|kg/s, speed as Number|m/s) as Number|kg.m3/s
+end
 
 # Syntax specials
 var a = f(x,

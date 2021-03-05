@@ -92,7 +92,7 @@ typedef unsigned char Byte;
 static const char* const _fp_bools_tf_[2] = { "false", "true" };
 static const char* const _fp_bools_yn_[2] = { "no", "yes" };
 
-// #define CString_cmp_EQ(a, b) (not strcmp(a, b))
+// #define CString_cmp_EQ(a, b) (! strcmp(a, b))
 #define CString_cmp(op, a, b) (strcmp(a, b) op 0)
 // #define CString_cmp_GE(a, b) (strcmp(a, b) >= 0)
 // #define CString_cmp_LE(a, b) (strcmp(a, b) <= 0)

@@ -1,9 +1,9 @@
 
 static bool isSelfMutOp(ASTExpr* expr) {
-    return expr->kind == tkPlusEq or expr->kind == tkMinusEq
-        or expr->kind == tkSlashEq or expr->kind == tkTimesEq
-        or expr->kind == tkPowerEq or expr->kind == tkOpModEq
-        or expr->kind == tkOpAssign;
+    return expr->kind == tkPlusEq || expr->kind == tkMinusEq
+        || expr->kind == tkSlashEq || expr->kind == tkTimesEq
+        || expr->kind == tkPowerEq || expr->kind == tkOpModEq
+        || expr->kind == tkOpAssign;
 }
 
 // isSelfMutOp(expr as ASTExpr) := expr.kind in [
@@ -29,7 +29,7 @@ static void resolveTypeSpec(
     Parser* parser, ASTTypeSpec* typeSpec, ASTModule* mod) {
     // TODO: disallow a type that derives from itself!
     if (typeSpec->typeType != TYUnresolved) return;
-    if (not *typeSpec->name) return;
+    if (!*typeSpec->name) return;
 
     // TODO: DO THIS IN PARSE... stuff!!
 
@@ -61,16 +61,16 @@ static void resolveTypeSpec(
 
 static void ASTScope_checkUnusedVars(Parser* parser, ASTScope* scope) {
     foreach (ASTVar*, var, scope->locals)
-        if (not var->used) Parser_warnUnusedVar(parser, var);
+        if (!var->used) Parser_warnUnusedVar(parser, var);
 
     foreach (ASTExpr*, stmt, scope->stmts)
-        if (isCtrlExpr(stmt) and stmt->body)
+        if (isCtrlExpr(stmt) && stmt->body)
             ASTScope_checkUnusedVars(parser, stmt->body);
 }
 
 static void ASTFunc_checkUnusedVars(Parser* parser, ASTFunc* func) {
     foreach (ASTVar*, arg, func->args)
-        if (not arg->used) Parser_warnUnusedArg(parser, arg);
+        if (!arg->used) Parser_warnUnusedArg(parser, arg);
 
     ASTScope_checkUnusedVars(parser, func->body);
 }
@@ -85,7 +85,7 @@ static void ASTTest_checkUnusedVars(Parser* parser, ASTTest* test) {
 static void resolveMember(Parser* parser, ASTExpr* expr, ASTType* type)
 
 {
-    assert(expr->kind == tkIdentifier or expr->kind == tkSubscript);
+    assert(expr->kind == tkIdentifier || expr->kind == tkSubscript);
     TokenKind ret = (expr->kind == tkIdentifier) ? tkIdentifierResolved
                                                  : tkSubscriptResolved;
     ASTVar* found = ASTScope_getVar(type->body, expr->string);
@@ -113,7 +113,7 @@ static void resolveVars(Parser* parser, ASTExpr* expr, ASTScope* scope,
                        // basename of the func could be used to get a list of
                        // all selectors having that basename as a prefix.
 
-    if (not expr) return;
+    if (!expr) return;
     switch (expr->kind) {
     case tkIdentifierResolved:
         break;
@@ -131,7 +131,7 @@ static void resolveVars(Parser* parser, ASTExpr* expr, ASTScope* scope,
         } else {
             Parser_errorUnrecognizedVar(parser, expr);
         }
-        if (expr->kind == tkSubscriptResolved or expr->kind == tkSubscript) {
+        if (expr->kind == tkSubscriptResolved || expr->kind == tkSubscript) {
             resolveVars(parser, expr->left, scope, inFuncCall);
             // check subscript argument count
             // recheck kind since the var may have failed resolution
@@ -164,7 +164,7 @@ static void resolveVars(Parser* parser, ASTExpr* expr, ASTScope* scope,
         // besides an ident, the ->right of a . can be either another
         // dot, a subscript, or a func call if we allow member funcs
         if (expr->right->kind == tkSubscript
-            or expr->right->kind == tkSubscriptResolved)
+            || expr->right->kind == tkSubscriptResolved)
             resolveVars(parser, expr->right->left, scope, inFuncCall);
 
         break;
@@ -189,7 +189,7 @@ static void resolveVars(Parser* parser, ASTExpr* expr, ASTScope* scope,
                     buf[31] = 0;
                     //            eprintf("lookup '%s'\n", buf);
                     ASTVar* var = ASTScope_getVar(scope, buf);
-                    if (not var) {
+                    if (!var) {
                         char* orig = expr->string;
                         expr->string = buf;
                         expr->col += (pos - orig) + 1;
@@ -213,8 +213,8 @@ static void resolveVars(Parser* parser, ASTExpr* expr, ASTScope* scope,
 
     default:
         if (expr->prec) {
-            if (not expr->unary) {
-                if (inFuncCall and expr->kind == tkOpAssign) {
+            if (!expr->unary) {
+                if (inFuncCall && expr->kind == tkOpAssign) {
                     // expr->left->kind = tkArgumentLabel;
                     // Here you only set the type of the expr to
                     // tkArgumentLabel. It will be resolved later in analyse(),
@@ -229,10 +229,10 @@ static void resolveVars(Parser* parser, ASTExpr* expr, ASTScope* scope,
             if (isSelfMutOp(expr)) {
                 ASTVar* var = NULL;
                 if (expr->left->kind == tkIdentifierResolved
-                    or expr->left->kind == tkSubscriptResolved)
+                    || expr->left->kind == tkSubscriptResolved)
                     var = expr->left->var;
                 else if (expr->left->kind == tkPeriod
-                    and expr->left->left->kind == tkIdentifierResolved)
+                    && expr->left->left->kind == tkIdentifierResolved)
                     var = expr->left->left->var;
                 if (var) {
                     // TODO: If you will allow changing the first arg of a
@@ -240,7 +240,7 @@ static void resolveVars(Parser* parser, ASTExpr* expr, ASTScope* scope,
                     // mutations here BTW this marks entire arrays as used
                     var->changed = true;
                     if (expr->kind == tkOpAssign) var->reassigned = true;
-                    if (not var->isVar)
+                    if (!var->isVar)
                         Parser_errorReadOnlyVar(parser, expr->left);
                 }
             }

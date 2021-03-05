@@ -117,7 +117,7 @@ static const double Dict_HASH_UPPER = 0.77;
     }                                                                          \
     Scope void Dict_free(K, V)(Dict(K, V) * h) { free(h); }                    \
     Scope void Dict_clear(K, V)(Dict(K, V) * h) {                              \
-        if (h and h->flags) {                                                  \
+        if (h && h->flags) {                                                   \
             memset(h->flags, 0xAA,                                             \
                 Dict__flagsSize(h->nBuckets) * sizeof(UInt32));                \
             h->size = h->nOccupied = 0;                                        \
@@ -130,9 +130,8 @@ static const double Dict_HASH_UPPER = 0.77;
             k = hash(key);                                                     \
             i = k & mask;                                                      \
             last = i;                                                          \
-            while (not Dict__empty(h->flags, i)                                \
-                and (Dict__deleted(h->flags, i)                                \
-                    or not equal(h->keys[i], key))) {                          \
+            while (!Dict__empty(h->flags, i)                                   \
+                && (Dict__deleted(h->flags, i) || !equal(h->keys[i], key))) {  \
                 i = (i + (++step)) & mask;                                     \
                 if (i == last) return h->nBuckets;                             \
             }                                                                  \
@@ -157,19 +156,19 @@ static const double Dict_HASH_UPPER = 0.77;
                 j = 0; /* requested size is too small */                       \
             else { /* size to be changed (shrink or expand); rehash */         \
                 nFlags = malloc(Dict__flagsSize(nnBuckets) * sizeof(UInt32));  \
-                if (not nFlags) return -1;                                     \
+                if (!nFlags) return -1;                                        \
                 memset(nFlags, 0xAA,                                           \
                     Dict__flagsSize(nnBuckets) * sizeof(UInt32));              \
                 if (h->nBuckets < nnBuckets) { /* expand */                    \
                     K* nKeys = realloc(h->keys, nnBuckets * sizeof(K));        \
-                    if (not nKeys) {                                           \
+                    if (!nKeys) {                                              \
                         free(nFlags);                                          \
                         return -1;                                             \
                     }                                                          \
                     h->keys = nKeys;                                           \
                     if (IsMap) {                                               \
                         V* nVals = realloc(h->vals, nnBuckets * sizeof(V));    \
-                        if (not nVals) {                                       \
+                        if (!nVals) {                                          \
                             free(nFlags);                                      \
                             return -1;                                         \
                         }                                                      \
@@ -192,11 +191,11 @@ static const double Dict_HASH_UPPER = 0.77;
                         UInt32 k, i, step = 0;                                 \
                         k = hash(key);                                         \
                         i = k & new_mask;                                      \
-                        while (not Dict__empty(nFlags, i))                     \
+                        while (!Dict__empty(nFlags, i))                        \
                             i = (i + (++step)) & new_mask;                     \
                         Dict__setNotEmpty(nFlags, i);                          \
                         if (i < h->nBuckets                                    \
-                            and Dict__emptyOrDel(h->flags, i) == 0) {          \
+                            && Dict__emptyOrDel(h->flags, i) == 0) {           \
                             /* kick out the existing element */                \
                             {                                                  \
                                 K tmp = h->keys[i];                            \
@@ -256,9 +255,9 @@ static const double Dict_HASH_UPPER = 0.77;
                 x = i; /* for speed up */                                      \
             else {                                                             \
                 last = i;                                                      \
-                while (not Dict__empty(h->flags, i)                            \
-                    and (Dict__deleted(h->flags, i)                            \
-                        or not equal(h->keys[i], key))) {                      \
+                while (!Dict__empty(h->flags, i)                               \
+                    && (Dict__deleted(h->flags, i)                             \
+                        || !equal(h->keys[i], key))) {                         \
                     if (Dict__deleted(h->flags, i)) site = i;                  \
                     i = (i + (++step)) & mask;                                 \
                     if (i == last) {                                           \
@@ -267,7 +266,7 @@ static const double Dict_HASH_UPPER = 0.77;
                     }                                                          \
                 }                                                              \
                 if (x == h->nBuckets) {                                        \
-                    if (Dict__empty(h->flags, i) and site != h->nBuckets)      \
+                    if (Dict__empty(h->flags, i) && site != h->nBuckets)       \
                         x = site;                                              \
                     else                                                       \
                         x = i;                                                 \
@@ -291,7 +290,7 @@ static const double Dict_HASH_UPPER = 0.77;
         return x;                                                              \
     }                                                                          \
     Scope void Dict_delete(K, V)(Dict(K, V) * h, UInt32 x) {                   \
-        if (x != h->nBuckets and not Dict__emptyOrDel(h->flags, x)) {          \
+        if (x != h->nBuckets && !Dict__emptyOrDel(h->flags, x)) {              \
             Dict__setDeleted(h->flags, x);                                     \
             --h->size;                                                         \
         }                                                                      \
@@ -410,7 +409,7 @@ static inline UInt32 __ac_Wang_hash(UInt32 key) {
 }
 #define Dict_int_hash_func2(key) __ac_Wang_hash((UInt32)key)
 
-#define Dict_exist(h, x) (not Dict__emptyOrDel((h)->flags, (x)))
+#define Dict_exist(h, x) (!Dict__emptyOrDel((h)->flags, (x)))
 
 #define Dict_key(h, x) ((h)->keys[x])
 
@@ -427,7 +426,7 @@ static inline UInt32 __ac_Wang_hash(UInt32 key) {
 #define Dict_foreach(h, kvar, vvar, code)                                      \
     {                                                                          \
         for (UInt32 _i_ = Dict_begin(h); _i_ != Dict_end(h); ++_i_) {          \
-            if (not Dict_exist(h, _i_)) continue;                              \
+            if (!Dict_exist(h, _i_)) continue;                                 \
             kvar = Dict_key(h, _i_);                                           \
             vvar = Dict_val(h, _i_);                                           \
             code;                                                              \
@@ -437,7 +436,7 @@ static inline UInt32 __ac_Wang_hash(UInt32 key) {
 #define Dict_foreach_value(h, vvar, code)                                      \
     {                                                                          \
         for (UInt32 _i_ = Dict_begin(h); _i_ != Dict_end(h); ++_i_) {          \
-            if (not Dict_exist(h, _i_)) continue;                              \
+            if (!Dict_exist(h, _i_)) continue;                                 \
             vvar = Dict_val(h, _i_);                                           \
             code;                                                              \
         }                                                                      \
@@ -447,7 +446,7 @@ static inline UInt32 __ac_Wang_hash(UInt32 key) {
 #define Dict_foreach_key(h, kvar, code)                                        \
     {                                                                          \
         for (UInt32 _i_ = Dict_begin(h); _i_ != Dict_end(h); ++_i_) {          \
-            if (not Dict_exist(h, _i_)) continue;                              \
+            if (!Dict_exist(h, _i_)) continue;                                 \
             kvar = Dict_key(h, _i_);                                           \
             code;                                                              \
         }                                                                      \

@@ -1,5 +1,6 @@
 {
     "C_Cpp.default.includePath": [
+        "engine",
         "modules"
     ],
     "files.associations": {
