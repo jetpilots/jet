@@ -1,99 +1,85 @@
 
-m := 32
-g := 'StringValue'
-garr := [  ]
-b := unhex('5e43efc2')
-gmap := {}
-sets(g:num) := g  #
+m = 32
+g = 'StringValue'
+garr = [  ]
+b = unhex('5e43efc2')
+gmap =
+sets(g) = g  #
 
 ---
 
-kinds :=
+kinds =
     .enumVal1,
     .enumVal2,
     .enumVal3
 
-start() {
-    arg1 := sets(5)
+start()
+    arg1 = sets(5)
     maisn("k", b:"jk")
     print(arg1)
     # return
-    t1 := Type1()
-    t2 := Type2()
-    td := {"t1"= t1, "t2"= t2}
-    ts:num[] = [1, 2, 1]
-    ts:num[2D] = [1, 2; 1]
-    gg := ts[3]
-    t3:num[str] = { "reted" = 34, "res" = 2 }
+    t1 = Type1()
+    t2 = Type2()
+    td =  "t1"= t1, "t2"= t2
+    ts[] = [1, 2, 1]
+    ts[2D] = [1, 2; 1]
+    gg = ts[3]
+    t3[str] =   "reted" = 34, "res" = 2
     t2.g = "8"
-}
 
-maisn(n:str, b:str) {
+
+maisn(n, b)
     print(6)
-}
 
-# redt(n:str):str
+
+# redt(n)
 #     return n
-# }
+#
 
-redt(n:str) := n
+redt(n) = n
 
-unsetPrinted(expr:ASTExpr) {
-    ? expr.kind ~ [.idRes, .varAssign] {
+unsetPrinted(expr:ASTExpr)
+    expr.kind ~ [.idRes, .varAssign] ?
         expr.var.flags.printed = no
-    }
-    :? expr.kind ~ [.callRes, .call, .indxRes, .indx, .kwIf, .kwFor, .kwElse, .kwWhile] {
+    : expr.kind ~ [.callRes, .call, .indxRes, .indx, .kwIf, .kwFor, .kwElse, .kwWhile] ?
         unsetPrintedVarsFlag(expr.left)
-    }
-    :? expr.prec {
-        ? !expr.unary { unsetPrintedVarsFlag(expr.left) }
+    : expr.prec ?
+        !expr.unary ? unsetPrintedVarsFlag(expr.left)
         unsetPrintedVarsFlag(expr.right)
-    }
-}
+    : unreachable
 
-genPrintVars(expr:ASTExpr[str], level:num[2D]) {
-    spc:str = repeat("    ", times=level)
-    ? expr.kind ~ [.idRes, .varAssign] & !expr.var.flags.printed {
-        name: = expr.var.name
-        fmt:str = format(expr.var.init.typeType, quoted=yes)
-        print("${spc}printf('    $name = $fmt\\n', $name);")
+
+genPrintVars(expr:ASTExpr[str], level[2D])
+    spc = repeat("    ", times=level)
+    expr.kind ~ [.idRes, .varAssign] & !expr.var.flags.printed ?
+        name = expr.var.name
+        fmt = format(expr.var.init.typeType, quoted=yes)
+        print("$ spc printf('    $name = $fmt\\n', $name);")
         expr.var.flags.printed = yes
-    }
-    :? expr.kind ~ [.callRes, .call, .indxRes, .indx, .kwIf, .kwElse, .kwFor, .kwWhile] {
+    : expr.kind ~ [.callRes, .call, .indxRes, .indx, .kwIf, .kwElse, .kwFor, .kwWhile] ?
         genPrintVars(expr.left, level=level)
-    }
-    :? expr.prec {
-        ? !expr.unary { genPrintVars(expr.left, level=level) }
+    : expr.prec ?
+        !expr.unary ? genPrintVars(expr.left, level=level)
         genPrintVars(expr.right, level=level)
-    }
-    i @ [1 .. len(xx)] {
+
+    @ i [1 .. len(xx)]
         print(i)
-    }
-}
+
+
 
 promotionCandidate(expr:ASTExpr) ans:ASTExpr
-    ? expr.kind ~ [.callRes] {
-        try {
-            ans = promotionCandidate(expr.left)
-        } catch Errors.notFound {
-            ? mustPromote(expr.func.selector) { ans = expr }
-        }
-    }
-    :? expr.kind ~ [.indxRes, .indx, .kwIf, .kwElse, .kwFor, .kwWhile] {
+    expr.kind ~ [.callRes] ?
+        ans = promotionCandidate(expr.left)
+        @ Errors.notFound
+            mustPromote(expr.func.selector) ? ans = expr
+    : expr.kind ~ [.indxRes, .indx, .kwIf, .kwElse, .kwFor, .kwWhile] ?
         ans = promotionCandidate(expr.left) | throw
-    }
-    :? expr.kind ~ [.varAssign] {
+    : expr.kind ~ [.varAssign] ?
         ans = promotionCandidate(expr.left) | throw
-    }
-    :? expr.prec  {
-            try {
-                ans = promotionCandidate(expr.right)
-            } catch Errors.notFound {
-                ? !expr.unary {
-                    ans = promotionCandidate(expr.right) | throw
-                }
-            }
-        }
-    }
+    : expr.prec ?
+        ans = promotionCandidate(expr.right)
+        @ Errors.notFound
+            !expr.unary ? ans = promotionCandidate(expr.right) | throw
+
     throw Errors.notFound
-}
+

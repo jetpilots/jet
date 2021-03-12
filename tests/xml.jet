@@ -1,35 +1,35 @@
 #include "jetbase.h"
 #include "jetsys_time.h"
 
-declare type XMLAttr
+declare type Attr
     var key as TextRef
     var val as TextRef
-end type
+end
 
-declare type XMLNode
+declare type Node
     var tag as TextRef
-    var attributes as XMLAttr[]
+    var attributes as Attr[]
     var text as TextRef
-    var children as XMLNode[]
-end type
+    var children as Node[]
+end
 
-declare type XMLParser
+declare type Parser
     var filename as Text
-    var line as Number in [0:50M]    # check 0 <= line <= 50k # redundant invariant caught at comptime
-    var col as Number in [0:132]     # check 0 <= col <= 132    # data as Text
+    var line as Number #in [0:50M]    # check 0 <= line <= 50k # redundant invariant caught at comptime
+    var col as Number #in [0:132]     # check 0 <= col <= 132    # data as Text
     var data as Byte[]     # pos as TextRef     # ends as TextRef
-end type
+end
 
 var size[4D] in [6:78] = 12.4|MB
 var nonDimButScaled = 50|k or 50k
 
-XMLParser(fromText as Text) :=
-    XMLParser {
+Parser(fromText as Text) :=
+    Parser {
         .data = clone(fromText),
         .pos = 1,
         .ends = len(fromText)}
 
-function XMLParser(file as Text)
+function Parser(file as Text)
 
     var f = FileInfo(file)
     # like this and DateTime, a lot of types need to be instantiated
@@ -45,7 +45,7 @@ function XMLParser(file as Text)
     end if
     # panic(...) := write(..., to=stderr) and stop
 
-    ans = {
+    ans = Parser {
             .file = file,
             .data = read(file, encoding=.shiftJis),
             .pos = .data,
@@ -74,51 +74,47 @@ var tyt = Text(bytes, encoding=.ascii) # this is a copy if byt is used later els
 # if Text is immutable but byte array is mutable then it incurs an implicit copy
 # unless the var is not used later then it can be made a move
 
-end function
+end
 
-function parseAttrs(var par as XMLParser) result (list as XMLAttr[])
+function parseAttrs(var par as Parser) result (list as Attr[])
     # GET RID OF ALIAS/MACRO BUSINESS!
 
     while char(par) not in ">/?"
         let name as TextRef = pos
-        advance(&par, toFirst='=')
-        trample(&par)
+        advance!(par, toFirst='=')
+        trample!(par)
 
         var markers as Regex = ``
         if char(par) in ['"', "'"]
             markers = char(par)
-            advance(&par)
+            advance!(par)
         else
             markers = " >/?\t\n"
         end if
 
         var val as TextRef = pos
 
-        advance(&par, past=markers)
-        trample(&par, toFirst="[?>")
+        advance!(par, past=markers)
+        trample!(par, toFirst="[?>")
 
         # this ALIAS business is a terrible idea, you lose track of what is happening
         # when focused in a local block. how is c related to pos again?
-        trample(&par, ifCharIs=' ')
-        advance(&par, past="\s")
-        list[end+1] =
-            XMLAttr {
-                .key = name,
-                .val = val
-            }
-    end while
-end function
+        trample!(par, ifCharIs=' ')
+        advance!(par, past="\s")
+        list[end+1] = Attr { .key = name, .val = val }
+    end
+end
 
 # Trample the character at the current position to null, and advance.
-function trample(&par as XMLParser)
-    par.data[par.pos] = "\0"
+function trample!(par as Parser)
+    par.data[par.pos] = 0
     par.pos += 1
-end function
+end
 
-# skipws(&par as XMLParser) :=
-#     while par.data[par.pos] == " " do par.pos += 1
+skipws!(par as Parser) :=
+    while par.data[par.pos] == " " do par.pos += 1
 
-function parseTags(&par as XMLParser) result list as XMLNode[]
+function parseTags!(par as Parser) result (list as Node[])
 
     # ref pos as Number = par.pos
     # --> pos is generated as *pos in C, works on lhs/rhs. refs have a
@@ -134,48 +130,48 @@ function parseTags(&par as XMLParser) result list as XMLNode[]
 
     while not eof(par) #par.pos < par.ends
         match char(par) #par.data[par.pos]
-        case " ","\t","\n"
-            advance(&par)
+        case " ", "\t", "\n"
+            advance!(par)
 
         case "<"
-            trample(&par)
+            trample!(par)
             var noChild = no
 
-            if matches(&par, str='/')  # closing tag here means empty content
-                trample(&par)
+            if matches!(par, str='/')  # closing tag here means empty content
+                trample!(par)
                 return    # null if no elements were found at this level
 
              else if matches(par, str="[CDATA[")   # cdata
 
              else
-                var node as XMLNode = { .tag = str(par) }
+                var node as Node = { .tag = str(par) }
 
-                advance(&par, toLast=`[ />\n\t]`)
+                advance!(par, toLast=`[ />\n\t]`)
                 if char(par) == ' '
-                    trample(&par)
-                    advance(&par, past=" \t\n")
+                    trample!(par)
+                    advance!(par, past=" \t\n")
                     node.attributes = parseAttrs(par)
                 end if
 
-                advance(&par, past=" \t\n")
+                advance!(par, past=" \t\n")
 
                 match c
                 case `[/?]`
-                    trample(&par)
+                    trample!(par)
                     check matches(par, ">")
                     noChild = yes
                     fall
 
                 case ">"
-                    trample(&par)
+                    trample!(par)
                     if not noChild
-                        node.children = parseTags(&par)
+                        node.children = parseTags!(par)
 
                         var closingTag = str(par)
-                        advance(&par, toFirst='>') # other variants advance_past and advance_by
+                        advance!(par, toFirst='>') # other variants advance_past and advance_by
                         # i guess instead of advance_past going past the last match, it should
                         # stop at the last match. also be named differently then.
-                        trample(&par)
+                        trample!(par)
 
                         if not closingTag
                             panic("error: found end of file, expected '</$node.tag>'")
@@ -188,21 +184,21 @@ function parseTags(&par as XMLParser) result list as XMLNode[]
                     let char as TextRef = c
                     panic("oops1: unexpected '$char'")
 
-                end match
+                end
 
                 list[end+1] = node
-             end if
+             end
 
-        case else
+        else
             var text as TextRef = str(par) # still need to eliminate TextRef
-            advance(&par, toFirst='<')
-            list[end+1] = XMLNode { .text = text }
+            advance!(par, toFirst='<')
+            list[end+1] = Node { .text = text }
 
-        end match
-    end while
+        end
+    end
 
     if not eof(par) then write("error: data unparsed")
-end function
+end
 
 
 # In Jet, you don't define the write() function on the basis of the str() func
@@ -220,9 +216,9 @@ end function
 # although more work for me to write such a general inference routine.
 
 # string interps make it quite easy, dont u think
-str(x as XMLAttr) => "$x.key='$x.value'"
+str(x as Attr) => "$x.key='$x.value'"
 # compare that to the write defn
-write(x as XMLAttr) => write("$x.key='$x.value'")
+write(x as Attr) => write("$x.key='$x.value'")
 # ok, you have explicit 1-on-1 map of write() to printf() for genc. or is it?
 # you still do the same string interp. in the same sense you also have a 1on1
 # of the string itself (w/ interps) to snprintf.
@@ -265,19 +261,19 @@ var d = funcy(fx) <-- not clear to the user what func will be called, not even d
 
 function parse(p as Parser) as Node[]
     var b as Byte[] = bytes(p.text.len)
-end function
+end
 
-write(attr as XMLAttr) := write(" $attr.key='$attr.val'")
-write(node as XMLNode) := write(node, indent=0)
+write(attr as Attr) := write(" $attr.key='$attr.val'")
+write(node as Node) := write(node, indent=0)
 
-write(nodeList as XMLNode[], indent as Int) :=
-    for xn as XMLNode = nodeList[1:end] do write(child, indent=indent)
+write(nodeList as Node[], indent as Int) :=
+    for xn as Node = nodeList[1:end] do write(child, indent=indent)
 
 
 TextRef const spaces
     = "                                                 "
 
-function write(node as XMLNode, indent as Int)
+function write(node as Node, indent as Int)
     if node.tag != ""
         write("%. s<%s%s", indent, spaces, node.tag,
             node.attributes ? "" : node.children ? ">\n" : "/>\n")
@@ -289,7 +285,7 @@ function write(node as XMLNode, indent as Int)
     else
         write(" " * indent, node.text)
     end if
-end function
+end
 
 var xmlstr =
     '<?xml version="1.0"?>
@@ -338,17 +334,17 @@ function start()
 
     var t0 = clock()
     var myxml = readxml(os.args[1])
-    # var myxml = read(os.args[1]) to XMLDoc # this is then just a conversion of string to XMLDoc
+    # var myxml = read(os.args[1]) to Doc # this is then just a conversion of string to Doc
     # var mydat = read(os.args[1]) to Table with { .sep = ';', .skip = 3} # this works as well!
     # # basically `as` is an operator that is implemented by types taking some other type to convert from
     # # but what about
     # var mystr = read(os.args[1])
-    # var myxml = mystr to XML to JSON to Webpage
+    # var myxml = mystr to  to JSON to Webpage
     # if mystr is used elsewhere afterwards, WHOA it should also not have refs that
     # are used afterwrds -- this affects the whole inplacing strategy. then we have
     # to disallow refs completely.
-    # so if mystr isn't used elsewhere, this is XML__from(mystr) else it is
-    # XML__from(clone(mystr). i.e. _from (impl of as) is always written inplace.
+    # so if mystr isn't used elsewhere, this is __from(mystr) else it is
+    # __from(clone(mystr). i.e. _from (impl of as) is always written inplace.
     # BTW you also clone if it is a `let` (module global, function arg, etc)
 
     if os.args has "-d" then write(myxml)
@@ -357,7 +353,7 @@ function start()
     "\e[1mTime elapsed:\e[0m %.1f ms (%.2f GB/s)\n", tms|ms,
         1 / ((tms / 1e3)   1e9 / (par.end - par.data)), file=stdout)  # sw.write()
 
-end function
+end
 
 function stats(fileSize as Number|B within <0:2^24>,
       fileModified as YesOrNo,
@@ -387,7 +383,7 @@ function stats(fileSize as Number|B within <0:2^24>,
         Space utilisation                       = $(strSpaceUtil)(7.1) %%
     -------------------------------------------------------", to=stdout)
 
-end function
+end
 
 
     # if try os.argv[2] == "d" then write(xml)

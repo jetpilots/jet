@@ -1,25 +1,25 @@
 type Complex
     var re = 0
     var im = 0
-end type
+end
 
 function init(c as Complex, re as Number, im as Number)
     c.re = re
     c.im = im
     check conjugate(c) == 7 + 4i
-end function
+end
 
 test complexItem1
     check Complex(re=3, im=4) == 3 + 4i
     Complex(re=1, im=0) -> 1 + 0i
     Complex(re=1, im=0) => 1 + 0i
-end test
+end
 
 # function Complex(re Number, im Number) returns (out Complex)
 #     out = Complex()
 #     out.re = re
 #     out.im = im
-# end function
+# end
 
 Complex(re as Number) := Complex(re, 0)
 
@@ -52,16 +52,16 @@ function main()
     json(c)
     var q = sum(d)
     # doarr()
-end function
+end
 
 # disallow func name used as arg or ret name
 # function sum(x[:] as Number) as Number
 #     for elem in x[:] do sum += elem
-# end function
+# end
 
 function sum as Number (x as Number[])
     for elem in x[1:9] do s += elem
- end function
+ end
 
 function doarr()
     var arr[] = [3, 4, 5; 6, 7, 8; 9, 10, 11]
@@ -71,5 +71,5 @@ function doarr()
     json(arr)
     arr[2,-1] = 0
     describe(sum(arr))
-end function
+end
 

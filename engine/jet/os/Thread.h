@@ -189,22 +189,6 @@ void* _async_wrap_avgsqrt(void* a) {
 }
 
 int main(int argc, char* argv[]) {
-    // Promise(MyObj*) objp = asyncFunc(400);
-    // MyObj* obj = Promise_resolve(MyObj*, objp);
-
-    parseImapFetch(strdup(imaptst), ctstrlen(imaptst));
-    return 0;
-
-    curl_global_init(CURL_GLOBAL_ALL);
-    String simapresp[1] = {};
-    imaplist("imaps://imap.outlook.com/Inbox", "sushpa@hotmail.com",
-        "kojHiw-2sepfi-wiwgob",
-        "fetch 1:* (uid flags body.peek[header.fields (subject from date "
-        "list-unsubscribe)])",
-        simapresp);
-    // puts("\nOutput:");
-    // String_print(simapresp);
-    return 0;
     srand(time(0));
     threads_init();
     int nnum = argc > 2 ? atoi(argv[2]) : 20000000;

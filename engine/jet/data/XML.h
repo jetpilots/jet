@@ -175,8 +175,12 @@ monostatic List(XMLAttr) * XMLParser_parseAttrs(XMLParser* parser) {
     List(XMLAttr)* list = NULL;
     List(XMLAttr)** listp = &list;
 
-    while (*parser->pos && *parser->pos != '>' && *parser->pos != '/'
-        && *parser->pos != '?') {
+    while (*parser->pos //
+        && *parser->pos != '>' //
+        && *parser->pos != '/' //
+        && *parser->pos != '?' //
+        // TODO: just use isAnyOf below and test if it is right
+        && !isAnyOf(*parser->pos, ">/?")) {
         const char* name = parser->pos;
         while (*parser->pos != '=') parser->pos++;
         *parser->pos++ = 0; // trample =
@@ -248,9 +252,8 @@ monostatic List(XMLNode) * XMLParser_parseTags(XMLParser* parser) {
                 XMLNode* node = XMLNode_new(parser->pos);
                 while (!isAnyOf(*parser->pos, " />\n\t")) parser->pos++; // SSE?
 
-                if (isAnyOf(
-                        *parser->pos, " \t\n")) { // TODO can you not refactor
-                                                  // this if + while?
+                if (isAnyOf(*parser->pos, " \t\n")) {
+                    // TODO can you not refactor this if + while?
                     if (*parser->pos == '\n') {
                         parser->line++;
                         parser->col = 0;
@@ -341,7 +344,8 @@ monostatic void FMLAttr_print(XMLAttr* attr, int indent) {
     // const char* quo = strpbrk(attr->val, " =&") || 1 ? "'" : "";
     if (strcmp(attr->key, "id") && strcmp(attr->key, "class"))
         if (strcmp(attr->val, "no") && strcmp(attr->val, "yes")
-            && (*attr->val < '0' or *attr->val > '9'
+            && (*attr->val < '0' //
+                || *attr->val > '9' //
                 || strpbrk(attr->val, "-: ")))
             printf(" %s='%s'", attr->key, attr->val);
         else

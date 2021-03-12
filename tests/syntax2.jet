@@ -1,22 +1,22 @@
-@str # declare
+|str # declare
 
 # dependent (exprs) & nondep (literals) vars. init routine for each.
-# init using @mytype {.var1 := 34}
-@mytype :=
-    ix @i8 := 0
+# init using|mytype {.var1 := 34}
+|mytype :=
+    ix|i8 := 0
         0 < ix < 64
         ix % 2 == 0
-    name @str := ""
+    name|str := ""
         len(name) < 256
-    ptx @vec:r8 := [0, ix, 0]
-    lsm @vec:box := boxes(ix)
+    ptx|vec|r8 := [0, ix, 0]
+    lsm|vec|box := boxes(ix)
         len(lsm) <= 100
 
-@mytype :=
-    ix @i8 := 0
-    name @str := ""
-    ptx @vec:r8 := [0, ix, 0]
-    lsm @vec:box := boxes(ix)
+|mytype :=
+    ix|i8 := 0
+    name|str := ""
+    ptx|vec|r8 := [0, ix, 0]
+    lsm|vec|box := boxes(ix)
 
 vector<string>
 map<string, int>
@@ -35,40 +35,40 @@ vector_vector__string
 
 # collections themselves are not Myabe types, only their containees may be
 
-# @mytype(ix @i8, name @str, ptx @vec:r8, lsm @vec:box?) :=
+#|mytype(ix|i8, name|str, ptx|vec:r8, lsm|vec:box?) :=
 #     0 < ix < 64
 #     ix % 2 == 0
 
 # declared funcs are basically implemented in C, they
 # can be funcs or macros, doesn't matter here
-print(what @str) # declare
-print(what @r8)
-desc(what @str)
-desc(what @r8)
+print(what|str) # declare
+print(what|r8)
+desc(what|str)
+desc(what|r8)
 
 # define stmt func
-fxfunc(what @r8) :=
+fxfunc(what|r8) :=
     what * 1.5
         0 < fxfunc < 3
         fxfunc % 2 == 1
 
 #define normal func
-main(args @vec:str) ret @r8 :=
+main(args|vec|str) ret|r8 :=
     funky(4+2)
     ret = 0
 
-funky(scalar1 @r8) @na :=
+funky(scalar1|r8) :=
     joyce(2)
 
-    root := @json("rowx/giles.json") or return
+    root := |json("rowx/giles.json") or return
         root.count > 0
 
-    win := @ui.window(size = 450x650) or exit(-2)
+    win := |ui.window(size = 450x650) or exit(-2)
     let window = ui.Window.withSize(450x650) or exit(-2)
-    let cv @ui.View = window.contentView
+    let cv|ui.view = window.contentView
 
     frac := 22\7
-    frac2 := @frac(3.14159) # computed at compile time?
+    frac2 := |frac(3.14159) # computed at compile time?
     check(frac2 == 22\7)
 
     let M =
@@ -76,7 +76,7 @@ funky(scalar1 @r8) @na :=
         4, 5, 6;
         7, 8, 9
 
-# @mat3x3 understood
+#|mat3x3 understood
 
     let A =
         1, 3, 6
@@ -87,7 +87,7 @@ funky(scalar1 @r8) @na :=
         min(M) < detM < max(M)
 
 
-joyce(a @r8) :=
+joyce(a|r8) :=
     name := "Bhabru"
         len(name) < 64 #invariant
     name2 := "Bhabrus"
@@ -105,9 +105,9 @@ joyce(a @r8) :=
         0 <= sum(mxp) <= 1
     mxp[2:-1] += 1 / random(1:10)
 
-undefc(imp @ast.import) := print("#undef {{imp.alias}}")
+undefc(imp|ast.import) := print("#undef $imp.alias")
 
-genc(var @ast.var, level @int, isconst @bool) @na :=
+genc(var|ast.var, level|int, isconst|bool) :=
     printc(repeat("    ", times = level))
 
     if var.typeSpec
@@ -119,27 +119,28 @@ genc(var @ast.var, level @int, isconst @bool) @na :=
             ctyp = cname
         printc(ctyp)
 
-    print(" {{var.name}}")
+    print(" $var.name")
 
-genc(typeSpec @ast.typeSpec, level @int, isconst @bool) @na :=
+genc(typeSpec|ast.typeSpec, level|num|kg/s, isconst|bool) :=
     if isconst
         printc("const ")
     dims := typeSpec.dims
     match dims
         case 0
+            var rho|num = 1.2287|kg/m3
         case 1
-            printc("Array_");
+            printc("Array_")
         case 2:7
-            printc("Array{{dims}}D_")
+            printc("Array$(dims)D_")
         case else
-            printc("ArrayN({{dims}}")
+            printc("ArrayN($dims")
     match typeSpec.typeType
         case .object
-            print("{{typeSpec.type.name}}")
+            print(typeSpec.type.name)
         case .unresolved
-            print("{{typeSpec.name}}")
+            print(typeSpec.name)
         case ...
             typeName := name(typeSpec.typeType)
-            print("{{typeName}}")
+            print(typeName)
 
 

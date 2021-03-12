@@ -1,0 +1,28 @@
+String
+- print()
+- resize()
+- growTo()
+- growBy()
+- append()
+- appendChars()
+- length()
+- size()
+- push()
+- justPush()
+
+IMAP
+
+- message(): Message
+- header(): MessageHeader
+- _messages: Message[String] // indexed by UID
+- uidNext
+- firstUnread
+- uidValidity
+- folder: String
+- count
+- search(): MessageHeader
+
+Message
+- header: MessageHeader
+- body: MessageBody
+- attachment(): Byte[]

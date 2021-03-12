@@ -574,29 +574,31 @@ static ASTScope* parseScope(Parser* parser, ASTScope* parent, bool isTypeBody) {
             // hack an ASTVar out of it.
             if (tt == tkKeyword_for) {
                 // TODO: new Parser_error
-                ASTVar* fvar=NULL;
-                if (!expr->left )
-                    unreachable("Missing for-loop condition at %d:%d\n",expr->line, expr->col);
-                else {if (expr->left->kind != tkKeyword_in)
-                    unreachable("Invalid for-loop condition: %s\n",
-                                TokenKind_repr(expr->left->kind, false));
-                
-                resolveVars(parser, expr->left->right, scope, false);
+                ASTVar* fvar = NULL;
+                if (!expr->left)
+                    unreachable("Missing for-loop condition at %d:%d\n",
+                        expr->line, expr->col);
+                else {
+                    if (expr->left->kind != tkKeyword_in)
+                        unreachable("Invalid for-loop condition: %s\n",
+                            TokenKind_repr(expr->left->kind, false));
 
-                 fvar = NEW(ASTVar);
-                fvar->name = expr->left->left->string;
-                fvar->line = expr->left->line;
-                fvar->col = expr->left->left->col;
-                fvar->isVar = true;
-                fvar->init = expr->left->right;
-                fvar->typeSpec = NEW(ASTTypeSpec);
-                fvar->typeSpec->typeType = TYReal64;
-               
-                if ((orig = ASTScope_getVar(scope, fvar->name)))
-                    Parser_errorDuplicateVar(parser, fvar, orig);
+                    resolveVars(parser, expr->left->right, scope, false);
+
+                    fvar = NEW(ASTVar);
+                    fvar->name = expr->left->left->string;
+                    fvar->line = expr->left->line;
+                    fvar->col = expr->left->left->col;
+                    fvar->isVar = true;
+                    fvar->init = expr->left->right;
+                    fvar->typeSpec = NEW(ASTTypeSpec);
+                    fvar->typeSpec->typeType = TYReal64;
+
+                    if ((orig = ASTScope_getVar(scope, fvar->name)))
+                        Parser_errorDuplicateVar(parser, fvar, orig);
                 }
                 forScope = NEW(ASTScope);
-                if(fvar) PtrList_shift(&forScope->locals, fvar);
+                if (fvar) PtrList_shift(&forScope->locals, fvar);
                 forScope->parent = scope;
 
                 // scope = forScope; // so that when parseScope is called for
@@ -706,11 +708,10 @@ static ASTScope* parseEnumBody(Parser* parser) {
             if (expr->kind == tkOpAssign)
                 resolveVars(parser, expr->right, scope, false);
             break;
-                
-                default:
-                Parser_errorExpectedToken(parser, parser->token.kind);
-                goto exitloop;
 
+        default:
+            Parser_errorExpectedToken(parser, parser->token.kind);
+            goto exitloop;
         }
     }
 exitloop:
@@ -955,6 +956,22 @@ static ASTImport* parseImport(Parser* parser) {
 
 void analyseModule(Parser* parser, ASTModule* mod);
 
+static ASTFunc* ASTType_makeDefaultCtor(ASTType* type) {
+    ASTFunc* ctor = NEW(ASTFunc);
+    ctor->line = type->line;
+    ctor->isDefCtor = true;
+    // Ctors must AlWAYS return a new object.
+    // even Ctors with args.
+    ctor->returnsNewObjectAlways = true;
+    ctor->name = type->name;
+    char buf[128];
+    int l = snprintf(buf, 128, "%s_new_", type->name);
+    ctor->selector = pstrndup(buf, l);
+    ASTTypeSpec* tspec = ASTTypeSpec_new(TYObject, CTYNone);
+    tspec->type = type;
+    ctor->returnSpec = tspec;
+    return ctor;
+}
 static PtrList* parseModule(Parser* parser) {
     ASTModule* root = NEW(ASTModule);
     root->name = parser->moduleName;
@@ -1017,24 +1034,13 @@ static PtrList* parseModule(Parser* parser) {
             // if ((*types)->next) types = &(*types)->next;
 
             // create default constructor
-            ASTFunc* ctor = NEW(ASTFunc);
-            ctor->line = type->line;
-            ctor->isDefCtor = true;
-            // Ctors must AlWAYS return a new object.
-            // even Ctors with args.
-            ctor->returnsNewObjectAlways = true;
-            ctor->name = type->name;
-            char buf[128];
-            int l = snprintf(buf, 128, "%s_new_", type->name);
-            ctor->selector = pstrndup(buf, l);
-            ASTTypeSpec* tspec = ASTTypeSpec_new(TYObject, CTYNone);
-            tspec->type = type;
-            ctor->returnSpec = tspec;
+            ASTFunc* ctor = ASTType_makeDefaultCtor(type);
             funcs = PtrList_append(funcs, ctor);
             // if ((*funcs)->next) funcs = &(*funcs)->next;
 
             // create some extra function declares
             char* defFuncs[] = { "json", "print", "describe" };
+
             for (int i = 0; i < countof(defFuncs); i++) {
                 ASTFunc* func
                     = ASTFunc_createDeclWithArg(defFuncs[i], NULL, type->name);
@@ -1043,7 +1049,6 @@ static PtrList* parseModule(Parser* parser) {
                 funcs = PtrList_append(funcs, func);
                 // if ((*funcs)->next) funcs = &(*funcs)->next;
             }
-
         } break;
 
         case tkKeyword_import:
@@ -1096,7 +1101,6 @@ static PtrList* parseModule(Parser* parser) {
 
     // Add some default functions "built-ins"
     // TODO: move this into a function later
-
     char* defTypes[] = { "String", "Number", "Boolean" };
     char* defFuncs[] = { "json", "print", "describe" };
     char* retTypes[countof(defFuncs)] = {}; // fill these for non-void funcs
@@ -1266,7 +1270,7 @@ static int ASTExpr_markTypesVisited(Parser* parser, ASTExpr* expr) {
             if (ret) return ret;
         } else
             unreachable("unknown expr kind: %s at %d:%d\n",
-                        TokenKind_str[expr->kind], expr->line, expr->col);
+                TokenKind_str[expr->kind], expr->line, expr->col);
     }
     if (!type) return 0;
     if (type->visited) {

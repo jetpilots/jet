@@ -93,7 +93,7 @@ let TokenKindTable = [
 
 
 #define Token_matchesKeyword(tok)                                              \
-    # if (sizeof(#tok) - 1 == l and not strncmp(#tok, s, l)) return yes
+    # if (sizeof(#tok) - 1 == l and not strncmp(#tok, s, l)) ret = yes
 
 function doesKeywordMatch(s as String, l as Number)
 {
@@ -120,10 +120,10 @@ function doesKeywordMatch(s as String, l as Number)
     Token_matchesKeyword(var)
     Token_matchesKeyword(let)
     Token_matchesKeyword(import)
-    Token_matchesKeyword(return)
+    Token_matchesKeyword(ret =)
     Token_matchesKeyword(as)
     Token_matchesKeyword(as)
-    return no
+    ret = no
 end
 
 declare type Token
@@ -167,15 +167,15 @@ end function
 #define Token_compareKeyword(tok)                                              \
     # if (sizeof(#tok) - 1 == l and not strncmp(#tok, s, l)) {                   \
     #     token.kind = .tkKeyword_##tok                                          \
-    #     return                                                                \
+    #     ret =                                                                \
     # end
 
-# Check if an (ident) token.token matches a keyword and return its type
+# Check if an (ident) token.token matches a keyword and ret = its type
 # accordingly.
 static void Token_tryKeywordMatch(Token* token)
 {
     # TODO USE A DICT OR MPH FOR THIS!
-    if (token.kind != .tkIdentifier) return
+    if (token.kind != .tkIdentifier) ret =
 
     const char* s = token.pos
     const int l = token.matchlen
@@ -203,7 +203,7 @@ static void Token_tryKeywordMatch(Token* token)
     Token_compareKeyword(var)
     Token_compareKeyword(let)
     Token_compareKeyword(import)
-    Token_compareKeyword(return)
+    Token_compareKeyword(ret =)
     Token_compareKeyword(as)
     Token_compareKeyword(as)
     # Token_compareKeyword(elif)
@@ -212,7 +212,7 @@ static void Token_tryKeywordMatch(Token* token)
     #     if (sizeof("else if") - 1 == l and not strncmp("else if", s, l))
     # {
     #     token.kind = .tkKeyword_elseif
-    #     return
+    #     ret =
     # end
 end
 
@@ -227,84 +227,90 @@ function getType(token as Token, offset as Int) as (ret as TokenKind)
         `^<=` = .opLE
         `^==` = .opEQ
     }
-    do k, v = map
-        if match(&token, regex=k) then ret = v
-    end do
+    for k as String, v[String] as Int in map
+    for k as String, v as Int[String] in map
+    for k as String, v as Int[] in map
+    for k as String, v[] as Int in map
+    for k as String, v as Int[:,:] in map
+    for k as String, v[:,:] as Int in map
+    for k, v in map
+        if match!(token, regex=k) then ret = v
+    end for
 
     case "<"
         match cn
         case "="
-            return .tkOpLE
+            ret = .tkOpLE
         case else
-            return .tkOpLT
+            ret = .tkOpLT
         end match
     case ">"
         match cn
         case "="
-            return .tkOpGE
+            ret = .tkOpGE
         case else
-            return .tkOpGT
+            ret = .tkOpGT
         end match
     case "="
         match cn
         case "="
-            return .tkOpEQ
+            ret = .tkOpEQ
         case ">"
-            return .tkOpResults
+            ret = .tkOpResults
         case else
-            return .tkOpAssign
+            ret = .tkOpAssign
         end
     case "+"
         match cn
         case "="
-            return .tkPlusEq
+            ret = .tkPlusEq
         end
-        return .tkPlus
+        ret = .tkPlus
     case "-"
         match cn
         case "="
-            return .tkMinusEq
+            ret = .tkMinusEq
         end
-        return .tkMinus
+        ret = .tkMinus
     case "*"
         match cn
         case "="
-            return .tkTimesEq
+            ret = .tkTimesEq
         end
-        return .tkTimes
+        ret = .tkTimes
     case "/"
         match cn
         case "="
-            return .tkSlashEq
+            ret = .tkSlashEq
         end
-        return .tkSlash
+        ret = .tkSlash
     case "^"
         match cn
         case "="
-            return .tkPowerEq
+            ret = .tkPowerEq
         end
-        return .tkPower
+        ret = .tkPower
     case "%"
         match cn
         case "="
-            return .tkOpModEq
+            ret = .tkOpModEq
         end
-        return .tkOpMod
+        ret = .tkOpMod
     case "!"
         match cn
         case "="
-            return .tkOpNE
+            ret = .tkOpNE
         end
-        return .tkExclamation
+        ret = .tkExclamation
     case ""
         match cn
         case "="
-            return .tkColEq
+            ret = .tkColEq
         case else
-            return .tkOpColon
+            ret = .tkOpColon
         end
     case else
-        return ret
+        ret = ret
     end
 end
 
@@ -356,7 +362,7 @@ static void Token_detect(Token* token)
         break
 
     case .tkSpaces
-        if (tt_last == .tkOneSpace) # if prev char was a space return
+        if (tt_last == .tkOneSpace) # if prev char was a space ret =
                                    # this as a run of spaces
             while (tt != .tkNullChar) {
                 # here we dont want to consume the end char, so break
@@ -539,7 +545,7 @@ function advance(token as Token)
     .tkUnits, .tkKeywordCheater, .tkKeywordFor, .tkKeywordWhile, .tkKeywordIf,
     .tkKeywordEnd, .tkKeywordFunction, .tkKeywordTest, .tkKeywordNot,
     .tkKeywordAnd, .tkKeywordOr, .tkKeywordIn, .tkKeywordDo, .tkKeywordThen,
-    .tkKeywordAs, .tkKeywordElse, .tkKeywordType, .tkKeywordReturn,
+    .tkKeywordAs, .tkKeywordElse, .tkKeywordType, .tkKeywordret =,
     .tkKeywordExtends, .tkKeywordVar, .tkKeywordLet, .tkKeywordImport,
     .tkUnknown # bcz start of the file is this
         break
@@ -551,7 +557,7 @@ function advance(token as Token)
     token.pos += token.matchlen
     token.col += token.matchlen
     token.matchlen = 0
-    detect(&token)
+    detect!(token)
 
     if token.kind == .tkNewline
         # WHY don"t you do token.token advance here?
@@ -561,7 +567,7 @@ function advance(token as Token)
     if token.skipWhiteSpace and (
         token.kind == .tkSpaces or (
             token.strictSpacing and token.kind == .tkOneSpace)))
-        advance(&token!, ignore=no)
+        advance!(token!, ignore=no)
     end if
 end function
 #

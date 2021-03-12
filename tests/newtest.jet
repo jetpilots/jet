@@ -11,5 +11,9 @@ function start()
     var xt = xTY()
     print(xt)
     json(xt)
+    var arr = [   9, 8, 7, 6, 5, 4 ]
+    print(arr[2])
+    arr[2] = arr[5] + 6
+    describe(arr[2])
     # describe(xt)
 end

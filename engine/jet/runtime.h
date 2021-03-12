@@ -34,7 +34,7 @@ static size_t sys_stackSize() {
 #define SETPROP(var, propname, type) JOIN3_(type, set, propname)(var)
 // a.x becomes AType_x(a),  a.x = y becomes AType_set_x(a, y)
 
-#include "_rt/errors.h"
+#include "_rt/errhandler.h"
 
 // *** This should go in the generated .c file of each module!
 static UInt64 _cov_[NUMLINES] = {};
@@ -83,7 +83,7 @@ static Ticks _lprof_[NUMLINES] = {};
 // FIXME: String will be a proper String type whereas normal C strings
 // are CString. For now ignoring
 typedef double Number;
-typedef CString String;
+// typedef CString String;
 typedef CStrings Strings;
 typedef bool Boolean;
 typedef unsigned char Byte;
@@ -106,6 +106,12 @@ static const char* const _fp_bools_yn_[2] = { "no", "yes" };
 #define Boolean_json(x) printf("\"%s\": %s\n", #x, _fp_bools_tf_[x])
 #define Number_json(x) printf("\"%s\": %g\n", #x, x)
 #define CString_json(x) printf("\"%s\": \"%s\"\n", #x, x) // should be escape(x)
+
+// void Array_Number_print(Array(Number) * arr) {
+//     putc(']', stdout);
+//     for (int i = 0; i < arr->used - 1; i++) printf("%g, ", arr->ref[i]);
+//     printf("%g]\n", arr->ref[arr->used - 1]);
+// }
 
 static const char* _spaces_ = //
     "                                                                    ";
