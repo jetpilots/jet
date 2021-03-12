@@ -34,6 +34,9 @@ char* qdecode(char* src, char* tgt, int len) {
         if (*src == '=') {
             *tgt++ = unhexc(++src);
             src += 2;
+        } else if (*src == '_') {
+            *tgt++ = ' ';
+            src++;
         } else {
             *tgt++ = *src++;
         }
@@ -136,7 +139,10 @@ void ewdecode(char* str, int len) {
         //     }
         // }
         // while (*src == '\n' || *src == '\r') src++;
-        while (src < end && *src != '=') *tgt++ = *src++;
+        while (src < end && *src != '=') {
+            if (*src != '\r' && *src != '\n') *tgt++ = *src;
+            src++;
+        }
     }
     *tgt = 0;
 }

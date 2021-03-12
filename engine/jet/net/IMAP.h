@@ -1,6 +1,16 @@
+#include "jet/base.h"
+#include "MIME.h"
+
+#ifndef HAVE_CURL
+#include <curl/curl.h>
+#endif
+
+// REMOVE STRING.H DEP USE CSTRING
+// #include <string.h>
+// #include <stdlib.h>
 
 typedef struct {
-    boolean_t imap4, imap4rev1, authPlain, authXOAuth2, saslIR, uidPlus, id,
+    bool imap4, imap4rev1, authPlain, authXOAuth2, saslIR, uidPlus, id,
         unselect, children, idle, namespace, literalPlus;
 } IMAPServerCapabilities;
 
@@ -10,30 +20,188 @@ typedef struct {
 } StringString;
 
 typedef struct {
-    char* name;
-    StringString flags, permanentFlags;
-    int uidValidity;
-    int uidNext;
-    int messageCount;
-    int recentCount;
-} IMAPFolderInfo;
-
-typedef struct {
     char *name, *email;
-} IMAPUserAddress;
+} MIMEUser;
 
 typedef struct {
     // make all these char* instead of stringstring
-    StringString flags;
+    // StringString
+    char* flags;
     char* subject;
-    StringString unsubscribe;
+    // StringString
+    char* unsubscribe;
     int id, uid;
-    // DateTime date, internalDate;
+    struct tm date, internalDate;
     int size, rfc822Size;
-    IMAPUserAddress from, to;
-} IMAPMessageHeader;
+    MIMEUser *from, *to;
+} MIMEHeader;
+typedef struct {
+    char* name;
+    char *flags, *permanentFlags;
+    int uidValidity;
+    int uidNext;
+    int messageCount; // total on the server
+    int headersCount; // num of headers downloaded
+    int recentCount;
+    List(MIMEHeader) * headers;
+    void (*on_newHeaderReceived)(MIMEHeader*);
+} IMAPFolderInfo;
 
-IMAPMessageHeader* parseImapHeader(char* pos, int len);
+MIMEHeader* IMAP_parseMIMEHeader(char* pos, int len);
+char* trampleTheNext(char* charset, char* start) {
+    char* eo = strpbrk(start + 1, charset);
+    if (eo) {
+        *eo++ = 0;
+        return eo;
+    }
+}
+
+MIMEUser* newMIMEUser(char* line) {
+    MIMEUser* user = NEW(MIMEUser);
+    user->name = line;
+    user->email = strpbrk(line, "<");
+    if (user->email) {
+        *user->email++ = 0;
+        char* pos = strpbrk(user->email, ">");
+        if (pos) *pos = 0;
+    }
+    return user;
+}
+
+void parseImapFetchHeadersLB(char* pos, int len, IMAPFolderInfo* fi) {
+    static MIMEHeader* currMsg = NULL;
+    // IMAPFolderInfo* fi = NEW(IMAPFolderInfo);
+    // fi->on_newHeaderReceived = on_newHeaderReceived;
+    List(MIMEHeader)** hdrsTop = &(fi->headers);
+
+    char* end = pos + len;
+    // printf("---- %.*s\n", len, pos);
+    // while (pos < end) {
+    switch (*pos) {
+    // case ' ':
+    //     break;
+    case '*': {
+        char* w1 = pos + 2;
+        pos = strpbrk(w1, " \r\n"); // trampleTheNext(" \r\n", w1);
+
+        char* w2 = pos + 1;
+        pos = strpbrk(w2, " \r\n"); // trampleTheNext(" \r\n", w2);
+        // printf("[%.*s] [%.*s]\n", w2 - w1, w1, pos - w2, w2);
+        // printf("[%s] [%s]\n", w1, w2);
+
+        if (!strncmp(w2, "EXISTS", 6)) {
+            // printf("%d exists <-- \n", atoi(w1));
+            fi->messageCount = atoi(w1);
+        } else if (!strncmp(w2, "RECENT", 6)) {
+            // printf("%d recent <-- \n", atoi(w1));
+            fi->recentCount = atoi(w1);
+        } else if (!strncmp(w2, "[UIDVALIDITY", 12)) {
+            // printf("%d uidval <-- \n", atoi(w2 + 12));
+            fi->uidValidity = atoi(w2 + 12);
+        } else if (!strncmp(w2, "[UIDNEXT", 8)) {
+            // printf("%d uidnext <-- \n", atoi(w2 + 8));
+            fi->uidNext = atoi(w2 + 8);
+        } else if (!strncmp(w2, "FETCH", 5)) {
+            // printf("*** begin new message #%d\n", atoi(w1));
+            if (currMsg && fi->on_newHeaderReceived)
+                fi->on_newHeaderReceived(currMsg);
+            fi->headersCount++;
+            currMsg = NEW(MIMEHeader);
+            hdrsTop = PtrList_append(hdrsTop, currMsg);
+            pos++;
+            assert(*pos++ == '(');
+            while (1) {
+                w1 = pos;
+                pos = trampleTheNext(" \r\n", w1);
+                // eo = strpbrk(w1, " \r\n");
+                // if (eo) {
+                //     *eo++ = 0;
+                //     pos = eo;
+                // }
+                if (!strcmp("UID", w1)) {
+                    w2 = pos;
+                    pos = trampleTheNext(" \r\n", w2);
+                    // eo = strpbrk(w2, " \r\n");
+                    // if (eo) {
+                    //     *eo++ = 0;
+                    //     pos = eo;
+                    // }
+                    int uid = atoi(w2);
+                    // printf("uid: %d\n", uid);
+                    currMsg->uid = uid;
+
+                } else if (!strcmp("RFC822.SIZE", w1)) {
+                    w2 = pos;
+                    pos = trampleTheNext(" \r\n", w2);
+                    // eo = strpbrk(w2, " \r\n");
+                    // if (eo) {
+                    //     *eo++ = 0;
+                    //     pos = eo;
+                    // }
+                    int size = atoi(w2);
+                    // printf("size: %d\n", size);
+                    currMsg->rfc822Size = size;
+                } else if (!strcmp("INTERNALDATE", w1)) {
+                    assert(*pos++ == '"');
+                    w2 = pos;
+                    struct tm dttm = {};
+                    // printf("%.*s ====\n", 60, w2);
+                    strptime(w2, "%d-%b-%Y %H:%M:%S", &dttm);
+                    char redate[128];
+                    strftime(redate, 128, "%a %d-%m-%Y %H:%M:%S ", &dttm);
+                    // printf("  intrdate --> %s\n", redate);
+                    currMsg->internalDate = dttm;
+                } else if (!strcmp("FLAGS", w1)) {
+                    assert(*pos++ == '(');
+                    w2 = pos;
+                    char* eo = strpbrk(w2, ")");
+                    if (eo) {
+                        *eo++ = 0;
+                        if (*eo == ' ') *eo++ = 0;
+                        pos = eo;
+                    }
+                    char* flags = w2;
+                    // printf("flags: %s\n", flags);
+                    currMsg->flags = pstrndup(flags, pos - flags);
+                } else {
+                    // printf("*** breakout at %s\n", w1);
+                    break; // out of while
+                }
+            }
+
+        } else {
+            // printf("!!!!! unnkown item!\n");
+        }
+
+    } break;
+    case ' ':
+        // continuation of a header line probably
+        break;
+    default:
+        // mostly a header line
+
+        if (!strncmp(pos, "Date: ", 6)) {
+            struct tm dttm = {};
+            strptime(pos + 6, "%a, %d %b %Y %H:%M:%S", &dttm);
+            char redate[128];
+            strftime(redate, 128, "%a %d-%m-%Y %H:%M:%S ", &dttm);
+            // printf("  date --> %s\n", redate);
+            currMsg->date = dttm;
+        } else if (!strncmp(pos, "From: ", 6)) {
+            // printf("  from --> %.*s", len - 6, pos + 6);
+            currMsg->from = newMIMEUser(pstrndup(pos + 6, len - 6));
+        } else if (!strncmp(pos, "Subject: ", 9)) {
+            // printf("  subj --> %.*s", len - 9, pos + 9);
+            currMsg->subject = pstrndup(pos + 9, len - 9);
+            ewdecode(currMsg->subject, len - 9);
+        } else if (!strncmp(pos, "List-Unsubscribe: ", 18)) {
+            // printf("  unsub --> %.*s", len - 18, pos + 18);
+            currMsg->unsubscribe = pstrndup(pos + 18, len - 18);
+        }
+    }
+    pos++;
+    // }
+}
 
 void parseImapFetch(char* pos, int len) {
     char* end = pos + len;
@@ -44,20 +212,13 @@ void parseImapFetch(char* pos, int len) {
         case '\n':
             break;
         case '*': {
+            // this with w1 and eo seems to be a candidate for macro or func
             char* w1 = pos + 2;
-            char* eo = strpbrk(w1, " \r\n");
-            if (eo) {
-                *eo++ = 0;
-                pos = eo;
-            }
+            pos = trampleTheNext(" \r\n", w1);
             if (!strcmp(w1, "CAPABILITY")) {
             } else {
                 char* w2 = pos;
-                eo = strpbrk(w2, " \r\n");
-                if (eo) {
-                    *eo++ = 0;
-                    pos = eo;
-                }
+                pos = trampleTheNext(" \r\n", w2);
                 if (!strcmp(w2, "EXISTS")) {
                     int exi = atoi(w1);
                     printf("exi --> %d\n", exi);
@@ -75,7 +236,54 @@ void parseImapFetch(char* pos, int len) {
                     printf("uidnext --> %d\n", uidnext);
                 } else if (!strcmp(w2, "FETCH")) {
                     int idx = atoi(w1);
-                    printf("fetch idx --> %d\n", idx);
+                    printf("\nfetch idx --> %d\n", idx);
+                    assert(*pos++ == '(');
+                    while (1) {
+                        w1 = pos;
+                        pos = trampleTheNext(" \r\n", w1);
+                        // eo = strpbrk(w1, " \r\n");
+                        // if (eo) {
+                        //     *eo++ = 0;
+                        //     pos = eo;
+                        // }
+                        if (!strcmp("UID", w1)) {
+                            w2 = pos;
+                            pos = trampleTheNext(" \r\n", w2);
+                            // eo = strpbrk(w2, " \r\n");
+                            // if (eo) {
+                            //     *eo++ = 0;
+                            //     pos = eo;
+                            // }
+                            int uid = atoi(w2);
+                            printf("uid: %d\n", uid);
+
+                        } else if (!strcmp("RFC822.SIZE", w1)) {
+                            w2 = pos;
+                            pos = trampleTheNext(" \r\n", w2);
+                            // eo = strpbrk(w2, " \r\n");
+                            // if (eo) {
+                            //     *eo++ = 0;
+                            //     pos = eo;
+                            // }
+                            int size = atoi(w2);
+                            printf("size: %d\n", size);
+                        } else if (!strcmp("INTERNALDATE", w1)) {
+                        } else if (!strcmp("FLAGS", w1)) {
+                            assert(*pos++ == '(');
+                            w2 = pos;
+                            char* eo = strpbrk(w2, ")");
+                            if (eo) {
+                                *eo++ = 0;
+                                if (*eo == ' ') *eo++ = 0;
+                                pos = eo;
+                            }
+                            char* flags = w2;
+                            printf("flags: %s\n", flags);
+                        } else {
+                            // printf("*** breakout at %s\n", w1);
+                            break; // out of while
+                        }
+                    }
                 }
             }
         }
@@ -86,8 +294,9 @@ void parseImapFetch(char* pos, int len) {
             if (*pos != '}') perror("expected '}', not found");
             *pos++ = 0;
             int sz = atoi(num);
+            if (!sz) return;
             printf("parse %d B --- \n", sz);
-            IMAPMessageHeader* header = parseImapHeader(pos, sz);
+            MIMEHeader* header = IMAP_parseMIMEHeader(pos, sz);
             pos += sz;
         }
         case '(':
@@ -107,6 +316,28 @@ void parseImapFetch(char* pos, int len) {
     }
 }
 
+static int curldbgcbfn(
+    CURL* handle, curl_infotype type, char* data, size_t size, void* userptr) {
+    if (type == CURLINFO_HEADER_IN) {
+        // String* uptr = userptr;
+        // String_appendChars(uptr, data, size);
+        // char* origp = uptr->ref + uptr->len - size;
+        // puts("---------------");
+        // printf("%8zu ------\n%.*s", size, (int)size, data);
+        // puts("===============");
+
+        parseImapFetchHeadersLB(data, size, userptr);
+        // parseImapFetch(origp, size);
+        // dont write into data it will be lost!
+    }
+    return 0;
+}
+
+static size_t curlcbfn(void* data, size_t size, size_t nmemb, void* tgt) {
+    // String_appendCString(tgt, data, nmemb * size);
+    return nmemb * size;
+}
+
 const char imaptst[]
     = "* 4379 EXISTS\r\n"
       "* 0 RECENT\r\n"
@@ -117,30 +348,32 @@ const char imaptst[]
       "* OK [UIDVALIDITY 14] UIDVALIDITY value\r\n"
       "* OK [UIDNEXT 24868] The next unique identifier value\r\n"
       "A003 OK [READ-WRITE] SELECT completed.\r\n"
-      "* 119 FETCH (UID 7508 RFC822.SIZE 102161 FLAGS (\Seen) "
+      "* 119 FETCH (UID 7508 RFC822.SIZE 102161 FLAGS (\\Seen) "
       "BODY[HEADER.FIELDS (From Date Subject List-Unsubscribe)] {451}\r\n"
       "Subject: "
-      "=?utf-8?Q?Fantastic=20Weekend=20Deals=20at=20Domino=27s=20Pizza=C2=A0="
+      "=?utf-8?Q?Fantastic=20Weekend=20Deals=20at=20Domino=27s=20Pizza=C2="
+      "A0="
       "F0=9F=91=8C?=\r\n"
-      "From: =?utf-8?Q?Domino=27s=20Pizza?= <no-reply@dominos.ch>, "
+      "From: =?utf-8?Q?Domino=27s=20Pizza?= <no-reply@dominos.ch>,\r\n"
       " =?utf-8?Q?Domino=27s=20Pizza?= <no-reply@dominos.co.uk>\r\n"
       "Date: Sat, 3 Jun 2017 09:16:01 +0000\r\n"
       "List-Unsubscribe: "
       "<http://dominos.us12.list-manage1.com/"
-      "unsubscribe?u=0a3531a6a054617a5478d1324&id=8dcc978ca9&e=895bfd4899&c="
+      "unsubscribe?u=0a3531a6a054617a5478d1324&id=8dcc978ca9&e=895bfd4899&"
+      "c="
       "016c232dbc>, "
       "<mailto:unsubscribe-mc.us12_0a3531a6a054617a5478d1324.016c232dbc-"
       "895bfd4899@mailin1.us2.mcsv.net?subject=unsubscribe>\r\n"
       "\r\n"
       ")\r\n"
-      "* 120 FETCH (UID 7513 RFC822.SIZE 48069 FLAGS (\Seen) "
+      "* 120 FETCH (UID 7513 RFC822.SIZE 48069 FLAGS (\\Seen) "
       "BODY[HEADER.FIELDS (From Date Subject List-Unsubscribe)] {127}\r\n"
       "From: <Notification@Jio.com>\r\n"
       "Subject: Data quota exhausted for Jio Number 8169236325\r\n"
       "Date: Sat, 3 Jun 2017 09:05:52 -0700\r\n"
       "\r\n"
       ")\r\n"
-      "* 121 FETCH (UID 7535 RFC822.SIZE 64661 FLAGS (\Seen) "
+      "* 121 FETCH (UID 7535 RFC822.SIZE 64661 FLAGS (\\Seen) "
       "BODY[HEADER.FIELDS (From Date Subject List-Unsubscribe)] {184}\r\n"
       "From: LC <mail@executive-learning.co.in>\r\n"
       "Subject: Letter of Credit Transactions International Trade UCP 600, "
@@ -148,14 +381,14 @@ const char imaptst[]
       "Date: Mon, 5 Jun 2017 06:08:55 +0530\r\n"
       "\r\n"
       ")\r\n"
-      "* 122 FETCH (UID 7536 RFC822.SIZE 84459 FLAGS (\Seen) "
+      "* 122 FETCH (UID 7536 RFC822.SIZE 84459 FLAGS (\\Seen) "
       "BODY[HEADER.FIELDS (From Date Subject List-Unsubscribe)] {143}\r\n"
       "From: Princeton Academy <mail@executive-learning.co.in>\r\n"
       "Subject: Workshop on Key Account Management\r\n"
       "Date: Mon, 05 Jun 2017 06:12:57 +0530\r\n"
       "\r\n"
       ")\r\n"
-      "* 123 FETCH (UID 7547 RFC822.SIZE 50492 FLAGS (\Seen) "
+      "* 123 FETCH (UID 7547 RFC822.SIZE 50492 FLAGS (\\Seen) "
       "BODY[HEADER.FIELDS (From Date Subject List-Unsubscribe)] {144}\r\n"
       "From: Jio Notifications <Notification@Jio.com>\r\n"
       "Subject: Recharge successful for Jio Number 8169236325\r\n"
@@ -163,11 +396,9 @@ const char imaptst[]
       "\r\n"
       ")";
 
-#include "bqdecode.c"
-
-IMAPMessageHeader* parseImapHeader(char* pos, int len) {
+MIMEHeader* IMAP_parseMIMEHeader(char* pos, int len) {
     char* end = pos + len;
-    IMAPMessageHeader* head = calloc(1, sizeof(IMAPMessageHeader));
+    MIMEHeader* head = calloc(1, sizeof(MIMEHeader));
     while (pos < end) {
         while (*pos == ' ' || *pos == '\r' || *pos == '\n') pos++;
         char* col = strpbrk(pos, ":\r\n");
@@ -176,10 +407,10 @@ IMAPMessageHeader* parseImapHeader(char* pos, int len) {
             char* fld = pos;
             *col = 0;
             char* val = col + 2;
-            col = strpbrk(val, "\r\n");
-            while (col && col < end - 2
-                && col[2] == ' ') // start with space means continuation
-                col = strpbrk(col, "\r\n");
+            col = strpbrk(val, "\r\n"); // yes, '\r' or '\n'
+            while (col && col < end - 2 && col[2] == ' ')
+                // start with space means continuation
+                col = strpbrk(col + 2, "\r\n");
             if (!col)
                 col = end;
             else
@@ -196,7 +427,8 @@ IMAPMessageHeader* parseImapHeader(char* pos, int len) {
             } else if (!strcmp(fld, "List-Unsubscribe")) {
             }
 
-            // TODO: now val may be multiline (softwrap) in which case unwrap it
+            // TODO: now val may be multiline (softwrap) in which case
+            // unwrap it
 
             // TODO: ewdecode should also handle multiline or does it?
             if (*val == '=') ewdecode(val, col - val);
@@ -211,8 +443,12 @@ IMAPMessageHeader* parseImapHeader(char* pos, int len) {
     }
 }
 
-String* imaplist(char* url, char* user, char* pass, char* cmd, String* ret) {
+// String*
+void imaplist(char* url, char* user, char* pass, char* cmd,
+    IMAPFolderInfo* fi) { //}, String* ret) {
     CURL* curl_handle = curl_easy_init(); // find a way to reuse the handle
+
+    // IMAPFolderInfo* fi = NEW(IMAPFolderInfo);
     curl_easy_setopt(curl_handle, CURLOPT_URL, url);
     // curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl_handle, CURLOPT_VERBOSE, 1L);
@@ -222,7 +458,7 @@ String* imaplist(char* url, char* user, char* pass, char* cmd, String* ret) {
     // curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, ret);
 
     curl_easy_setopt(curl_handle, CURLOPT_DEBUGFUNCTION, curldbgcbfn);
-    curl_easy_setopt(curl_handle, CURLOPT_DEBUGDATA, ret);
+    curl_easy_setopt(curl_handle, CURLOPT_DEBUGDATA, fi);
 
     curl_easy_setopt(curl_handle, CURLOPT_USERNAME, user);
     curl_easy_setopt(curl_handle, CURLOPT_PASSWORD, pass);
@@ -235,5 +471,5 @@ String* imaplist(char* url, char* user, char* pass, char* cmd, String* ret) {
     // if (header) String_resize(ret, 512);
     curl_easy_perform(curl_handle);
     curl_easy_cleanup(curl_handle);
-    return ret;
+    // return fi;
 }
