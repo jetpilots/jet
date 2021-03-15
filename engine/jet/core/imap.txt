@@ -1,28 +1,53 @@
-String
-- print()
-- resize()
-- growTo()
-- growBy()
-- append()
-- appendChars()
-- length()
-- size()
-- push()
-- justPush()
+type Array(T)
+    method print(self)
+    method resize!(self)
+    method growTo!(self)
+    method growBy!(self)
+    method append!(self)
+    method length(self)
+    method size(self)
+    method push!(self, item as T) as T
+    method pop!(self) as T
+    method top(self)
+    method find(any)
 
-IMAP
+type String
+    var base[] as Byte
+    method print(self)
+    method appendChars(self)
+    method escape(self)
+    method unescape(self)
+    method base64(self)
+    method unbase64(self)
+    method md5(self)
+    method rot13(self)
 
-- message(): Message
-- header(): MessageHeader
-- _messages: Message[String] // indexed by UID
-- uidNext
-- firstUnread
-- uidValidity
-- folder: String
-- count
-- search(): MessageHeader
+type IMAPAccount
+    var mailboxes[] as IMAPMailbox
+    var user as String
+    var host as String
 
-Message
-- header: MessageHeader
-- body: MessageBody
-- attachment(): Byte[]
+type IMAPMailbox
+    var messages as MIMEMessage[Number] # indexed by UID
+    var uidNext as Number
+    var firstUnread as Number
+    var uidValidity as Number
+    var folder as String
+    var count as Number
+    method search(self) as MIMEHeader[]
+
+type MIMEHeader
+    var from as MIMEUser
+    var to[] as MIMEUser
+    var cc[] as MIMEUser
+    var bcc[] as MIMEUser
+    var date
+# below items are not strictly mime
+    var inDate
+    var size
+    var flags
+
+type MIMEMessage
+    var header as MIMEHeader
+    var body as MIMEBody
+    var attachments[] as MIMEAttachment

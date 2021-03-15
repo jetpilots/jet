@@ -1,10 +1,11 @@
 #include "jet/net/IMAP.h"
 
 void newHeader(MIMEHeader* header) {
-    printf("---\nuid: %d\nrfcsize: %d\nsubject: %s\nfrom: %s [%s]\n",
-        header->uid, header->rfc822Size, header->subject, header->from->name,
-        header->from->email);
+    printf("---\nid: %d\nuid: %d\nrfcsize: %d\nsubject: %s\nfrom: %s [%s]\n",
+        header->id, header->uid, header->rfc822Size, header->subject,
+        header->from->name, header->from->email);
 }
+
 int main(int argc, char* argv[]) {
     char* cmd = "fetch 1:10 (flags uid rfc822.size internaldate "
                 "body.peek[header.fields "

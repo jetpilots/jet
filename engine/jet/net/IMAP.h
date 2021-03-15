@@ -75,7 +75,7 @@ void parseImapFetchHeadersLB(char* pos, int len, IMAPFolderInfo* fi) {
     List(MIMEHeader)** hdrsTop = &(fi->headers);
 
     char* end = pos + len;
-    // printf("---- %.*s\n", len, pos);
+    // printf("#### %.*s\n", len, pos);
     // while (pos < end) {
     switch (*pos) {
     // case ' ':
@@ -108,6 +108,9 @@ void parseImapFetchHeadersLB(char* pos, int len, IMAPFolderInfo* fi) {
             fi->headersCount++;
             currMsg = NEW(MIMEHeader);
             hdrsTop = PtrList_append(hdrsTop, currMsg);
+
+            currMsg->id = atoi(w1);
+
             pos++;
             assert(*pos++ == '(');
             while (1) {
@@ -156,8 +159,12 @@ void parseImapFetchHeadersLB(char* pos, int len, IMAPFolderInfo* fi) {
                     w2 = pos;
                     char* eo = strpbrk(w2, ")");
                     if (eo) {
-                        *eo++ = 0;
-                        if (*eo == ' ') *eo++ = 0;
+                        *eo++ = ' '; // convert the ) to a space so you can do
+                                     // simple substring search to check a
+                                     // flag's presence and it will work for the
+                                     // last as well.
+                        assert(*eo == ' ');
+                        *eo++ = 0; // trample the space after it
                         pos = eo;
                     }
                     char* flags = w2;
@@ -170,7 +177,7 @@ void parseImapFetchHeadersLB(char* pos, int len, IMAPFolderInfo* fi) {
             }
 
         } else {
-            // printf("!!!!! unnkown item!\n");
+            printf("!!!!! unnkown item! [%s] [%s]\n", w1, w2);
         }
 
     } break;
@@ -197,6 +204,13 @@ void parseImapFetchHeadersLB(char* pos, int len, IMAPFolderInfo* fi) {
         } else if (!strncmp(pos, "List-Unsubscribe: ", 18)) {
             // printf("  unsub --> %.*s", len - 18, pos + 18);
             currMsg->unsubscribe = pstrndup(pos + 18, len - 18);
+        } else {
+            char* w2 = strpbrk(pos, " ");
+            if (w2 && !strncmp(w2, " OK FETCH completed.", 20)) {
+                if (currMsg && fi->on_newHeaderReceived)
+                    fi->on_newHeaderReceived(currMsg);
+                fi->headersCount++;
+            }
         }
     }
     pos++;
@@ -454,7 +468,7 @@ void imaplist(char* url, char* user, char* pass, char* cmd,
     curl_easy_setopt(curl_handle, CURLOPT_VERBOSE, 1L);
     curl_easy_setopt(curl_handle, CURLOPT_NOPROGRESS, 1L);
 
-    // curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, curlcbfn);
+    curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, curlcbfn);
     // curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, ret);
 
     curl_easy_setopt(curl_handle, CURLOPT_DEBUGFUNCTION, curldbgcbfn);

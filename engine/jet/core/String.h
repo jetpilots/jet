@@ -38,7 +38,12 @@ monostatic void String_append(String* str, String* str2) {
     String_appendChars(str, str2->ref, str2->len);
 }
 
-monostatic int String_len(String* str) { return str->len; }
+monostatic int String_len(String* str) {
+    if (!str->len && str->ref && *str->ref) str->len = strlen(str->ref);
+    return str->len;
+}
+
+monostatic char* String_end(String* str) { return str->ref + String_len(str); }
 
 monostatic void String_justPush(String* str, char ch) {
     str->ref[str->len++] = ch;
@@ -65,9 +70,10 @@ monostatic String slurp(const char* const filename) {
     if (!data) return ret;
     fseek(file, 0, SEEK_SET);
     fread(data, size, 1, file);
-    data[size - 1] = 0;
     ret.ref = data;
-    ret.len = ret.cap = size;
+    ret.cap = size;
+    ret.len = size - 1;
+    ret.ref[ret.len] = 0;
     fclose(file);
     return ret;
 }

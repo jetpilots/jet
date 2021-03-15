@@ -6,16 +6,16 @@ end test
 
 # how about having a type for each file format like you have for JSON / XML
 
-var prefs = XML("file.xml") # gives XML
+var prefs = XML(file="file.xml") # gives XML
 
 var json = JSON("file.json") # gives JSON
 
 var jets = Jetson("file.jets") *OR*
          = Jetson("file.jets", binary=yes) # gives Jetson
 
-var csv = Table("file.csv", format={sep=';',skiplines=5}) # gives back Table
+var csv = Table(file="file.csv", format={sep=';',skiplines=5}) # gives back Table
 
-var hdf = HDF5("file.h5") # gives HDF5
+var hdf = HDF5(fromFile="file.h5") # gives HDF5
 hdf["var"]["attr"] = val
 
 var mat = Mat("file.mat") # gives Mat

@@ -9,11 +9,11 @@ The purpose of reduction is
 
 A motivating example is OpenFOAM's addition of `fvScalarMatrix` types to obtain the ubiquitous "xxEqn" objects (I don't know or care what their implementation does to minimize temporaries).
 
-
+Plus if you can convert the RHS funcs to nim-like iterators (or they can be written manually as such) you dont have temporaries at all; the funcs will be scalarized. This can work even for nonelementals like stencils. it basically just moves the kernel's loop up one stack frame to the caller (well it inlines the kernel so it has no frame anymore) and scalarizes the expr in the caller.
 
 `x = a + f(b) + g(h)`
 
-is really just 
+is really just
 
 `a = add(a, add(f(b), g(h)))`
 
@@ -33,7 +33,7 @@ I guess drop should really mean decrement ref count and really drop only if it h
 
 ### Extraction
 
-Taking subexpressions and extracting them into a temporary variable that lives in the current scope. (As applies to all variables, these are dropped immediately after their last usage, not at the end of the scope). Temporaries are created either as (a) simple references to whatever the subexpression evaluates to, or (b) a clone of it. 
+Taking subexpressions and extracting them into a temporary variable that lives in the current scope. (As applies to all variables, these are dropped immediately after their last usage, not at the end of the scope). Temporaries are created either as (a) simple references to whatever the subexpression evaluates to, or (b) a clone of it.
 
 (b) happens when the target of the temporary is not ready to be dropped. This means its last usage is not the statement under consideration (can only happen for lvalues or for *referenced* rvalues - the latter is tricky).
 
@@ -83,7 +83,7 @@ x = f(...) # func call
 x = sth binop sth # sth -> any of the other forms, binop = +-/*^% ...
 x = unop sth # unary op
 x = "asd" # literals
-x = 23 # 
+x = 23 #
 x = no #
 x = ? # nearly everything is a func call after lowering, so what's left?
 ```
@@ -98,7 +98,7 @@ x[] = a[] + b[] + c[]
 
 needs no temporaries. But you will end up creating 1 or 2 by extracting. Maybe cache utilisation will be better then, but who knows. For large arrays, that is a lot of space for temporaries. So **don't extract elemental funcs or ops**. What functions are elemental? Basically all functions, except those defined on arrays. So every function defined on a scalar or type is elemental and can be applied to an array of that scalar or type. Funcs defined on arrays cannot be elemental, because there are no arrays of arrays... (why can't they be 2D?)
 
-You will be extracting non-elemental funcs anyway (+dropping), so the OpenFOAM example will still be valid, all those subexprs will be extracted. 
+You will be extracting non-elemental funcs anyway (+dropping), so the OpenFOAM example will still be valid, all those subexprs will be extracted.
 
 
 
@@ -110,11 +110,11 @@ Taking subexpressions that are loop-invariant and hoisting them out of the loop.
 
 ### Scalarisation
 
-Replacing an elementwise array operation with the actual loop required to perform it. A still open point is whether to hoist RHS expressions to ensure they are not repeatedly evaluated. e.g. `x[1:end] = random()`. Is this one random number applied on all elements of x, or various random numbers? 
+Replacing an elementwise array operation with the actual loop required to perform it. A still open point is whether to hoist RHS expressions to ensure they are not repeatedly evaluated. e.g. `x[1:end] = random()`. Is this one random number applied on all elements of x, or various random numbers?
 
 If you go with hoisting such functions, (a) it is work and (b) explicit for loops will have different semantics than implicits:
 
-`x[1:end] = random()` is not the same as `for i in 1:len(x) do x[i] = random()`. 
+`x[1:end] = random()` is not the same as `for i in 1:len(x) do x[i] = random()`.
 
 If you don't hoist them, the user might inadvertently leave a func with side-effects in the RHS and be surprised.
 
@@ -137,8 +137,8 @@ func add2d2d(arr as Real[:,:], arr2 as Real[:,:]) result (out as Real[:,:])
   check size(arr) == size(arr2)
   for i in 1:size(arr,1), j in 1:size(arr,2)
     out[i,j] = arr[i,j] + arr2[i,j]
-  end 
-end 
+  end
+end
 ```
 
 If `arr` is aliased to `out`, this function can work fine. In any case, `out` must be initialized with the right size. **NOOOO** why would anyone think that `out` is initialized to the size of `arr` by default? What they would do is allocate `out`. And in this case it might just be easier to not bother with inplacing and just let extract+drop do as much as it can to eliminate temps. **NOT IF** the idiomatic way is to `resize()` arrays and there is no `zeros`, `ones` etc. Then the user does as the first thing

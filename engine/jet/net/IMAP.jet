@@ -1,0 +1,250 @@
+#include "jet/base.h"
+#include "MIME.h"
+
+#ifndef HAVE_CURL
+#include <curl/curl.h>
+#endif
+
+# REMOVE STRING.H DEP USE CSTRING
+# #include <string.h>
+# #include <stdlib.h>
+
+enum IMAPCapabilities
+	imap4
+	imap4rev1
+	authPlain
+	authXOAuth2
+	saslIR
+	uidPlus
+	id
+	unselect
+	children
+	idle
+	namespace
+	literalPlus
+end enum
+
+type StringString
+	int count
+	CString first
+end type
+
+type MIMEUser
+	char *name, *email
+end type
+
+type MIMEHeader
+	# make all these CString instead of stringstring
+	# StringString
+	var flags CString
+	var subject CString
+	# StringString
+	var unsubscribe CString
+	var id Number
+	var uid Number
+	var date Date
+	var internalDate Date
+	var size Number
+	var rfc822Size Number
+	var from MIMEUser
+	var to[] MIMEUser
+end type
+
+type IMAPMailbox
+	var name CString
+	var flags[] CString
+	var permanentFlags[] CString
+	var uidValidity Number
+	var uidNext Number
+	var messageCount Number  # total on the server
+	var headersCount Number  # num of headers downloaded
+	var recentCount Number
+	var headers[] MIMEHeader
+	event newHeaderReceived(MIMEHeader)
+end type
+
+MIMEHeader* IMAP_parseMIMEHeader(CString line, int len)
+
+func trampleTheNext(charset CString, start CString) result ret CString
+	var eo CString = find(start ,chars=charset, offset=1)
+	if eo > 0
+		setv(eo, charCode=0)
+		ret = eo
+	end if
+end func
+
+func MIMEUser(line CString) result user MIMEUser
+	user = MIMEUser()
+	user.name = line
+	user.email = find(line, chars="<")
+
+	if user.email
+		setv(user.email,  0)
+		CString line = strpbrk(user.email, ">")
+		if line) *line =
+	end if
+end func
+
+func parseImapFetchHeadersLB!(mbox IMAPMailbox, line String)
+	var currMsg MIMEHeader = nil
+
+	match line # no need for num() anywhere, just assign
+	case `^(\d+) EXISTS` result npos
+		mbox.messageCount = npos
+	case `^(\d+) RECENT` result npos
+		mbox.recentCount = npos
+	case `[UIDVALIDITY (\d+)]` result npos
+		mbox.uidValidity = npos
+	case `[UIDNEXT (\d+)]` result npos
+		mbox.uidNext = npos
+	case `^(\d+) FETCH \((.*)$` result npos, rest
+		if currMsg != nil then raise newHeaderReceived(mbox, currMsg)
+		mbox.headersCount += 1
+		currMsg = push!(mbox.headers, item=MIMEHeader())
+		currMsg.id = npos
+		while yes
+			match rest result sub
+			case `^UID (\d+)` result uid
+				currMsg.uid = uid
+			case `^RFC822.SIZE (\d+)` result size
+				currMsg.rfc822Size = size
+			case `^INTERNALDATE "(.+)"` result dStr
+				currMsg.internalDate = ...
+					Date(string=dStr, format="%d-%b-%Y %H:%M:%S")
+			case `^FLAGS "(.+)"` result flags
+				currMsg.flags = copy(flags)
+			else
+				break  # out of while
+			end match
+			rest = rest[len(sub):end]
+		end while
+	case `^Date: `
+		var dttm = Date(line[6:end], ...
+						format="%a, %d %b %Y %H:%M:%S")
+		var redate = "$(dttm)(%a %d-%m-%Y %H:%M:%S )"
+		var redate = format("%a %d-%m-%Y %H:%M:%S ", date=dttm)
+		currMsg.date = dttm
+	case `^From: `
+		currMsg.from = MIMEUser(line=copy(line[6:end]))
+	case `^Subject: `
+		currMsg.subject = copy(line[9:end])
+		if val[0] == '=' then mime.decode!(currMsg.subject)
+	case `^List-Unsubscribe: `
+		currMsg.unsubscribe = copy(line[18:end])
+	case `^\w+ OK FETCH completed.`
+		if currMsg then raise newHeaderReceived(mbox, currMsg)
+		mbox.headersCount += 1
+	else
+		printf("!!!!! unnkown item! [%s] [%s]\n", w1, w2)
+	end match
+end func
+
+
+
+
+static size_t curlcbfn(void* data, size_t size, size_t nmemb, void* tgt)
+	# String_appendCString(tgt, data, nmemb * size)
+	ret = nmemb * size
+end
+
+
+
+func cbDebug(c CURL, t CURLInfoType, data String, pt IMAPMailbox) result ret Number
+	if t == .headerIn then parseImapFetchHeadersLB!(pt, data)
+	ret = 0
+end func
+
+func imaplist(url CString, user CString, pass CString, cmd CString, mbox IMAPMailbox)
+
+	var c = CURL()
+	c.url = url
+	c.verbose = yes
+	c.onDebug = #@cbDebug(IMAPMailbox,data,c,iType)
+		func !(pt IMAPMailbox, data String, c CURL, iType CURLInfoType) result ret Number
+			if t == .headerIn then parseImapFetchHeadersLB!(pt, data)
+			ret = 0
+		end func # only anon funcs should be allowed nested
+	c.user = user
+	c.pass = pass
+	c.command = cmd
+	perform!(c)
+		# func !(pt: IMAPMailbox?, data: String, curl: CURL, typ: CURLInfoType): Number
+		# func !(pt IMAPMailbox, data String, c CURL, iType CURLInfoType) result ret Number
+		# @(pt IMAPMailbox?, data String, curl CURL, typ CURLInfoType) ret Number {
+		# 	if (t == .headerIn) parseImapFetchHeadersLB(&pt, data)
+		# 	ret = 0
+		# }
+
+end func
+
+
+
+func myFuncName!(pt IMAPMailbox, data String, c CURL, iType CURLInfoType) result ret Number |kg.m/s2
+	if t == .headerIn then parseImapFetchHeadersLB!(pt, data)
+	ret = 0
+end func
+
+TextEncodings
+    .ascii = "us-ascii"
+
+
+String Array<Byte>
+- enc TextEncodings
+- _len Int
++ statv Int
+- len() -> l Int
+	l = base.len()
+= len(v Int) # setter
+	...
+- resize(to Int)
+	arr.resize(to)
++ empty() ret String
+	ret = ""
+	c == 5 ?
+		print("yo")
+	~ c == 8 ?
+		print("no")
+	~
+		print("")
+
+	s = sum(arr[8:])
+	rt[] String = ret.split('a')
+	rt[:,:] |kg.s/m2 = zeros([3,3])
+
+	?? mx
+	~ `[a-z]`
+		some()
+	~ `[A-Z]`
+		some()
+
+	?? expr.kind TokenKind
+	~ .functionCall, .functionCallResolved
+		some()
+	~ .subscript, .subscriptResolved
+		dome()
+
+	?.. 1 # while
+		something()
+	... i = 1:5 # for i in 1:5
+		print(i)
+	... k String v Integer = map
+		print("$k = $v")
+
+argv String = ["iuy", "poiy"]
+
+MyView NSView
+- img = Image(600x600, colorDepth=32)
+- draw()
+	img.draw(at=0x0, size=600x600)
+- init()
+	me.ondebug =
+		@!(pt IMAPMailbox, data String, c CURL, t CURLInfoType) ret Number
+			t == .headerIn ? parseImapFetchHeadersLB!(pt, data)
+			ret = 0
+
+myFuncyName(&pt IMAPMailbox?, data String, &curl CURL, typ CURLInfoType) ret Number
+	t == .headerIn ? parseImapFetchHeadersLB(&pt, data)
+	ret = 0
+
+argFuncPtr(base String, mot CURL, funcy @(IMAPX, String, RestInfo), does Bool) ret Bool
+
