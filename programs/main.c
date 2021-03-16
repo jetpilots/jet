@@ -271,13 +271,13 @@ typedef struct ASTType {
                          // allocated and passed around by value.
 } ASTType;
 
-typedef struct ASTEnum {
-    char* name;
-    ASTScope* body;
-    uint16_t line;
-    uint8_t col;
-    bool analysed : 1, visited : 1;
-} ASTEnum;
+// typedef struct ASTEnum {
+//     char* name;
+//     ASTScope* body;
+//     uint16_t line;
+//     uint8_t col;
+//     bool analysed : 1, visited : 1;
+// } ASTEnum;
 
 typedef struct ASTFunc {
     char* name;
@@ -337,11 +337,12 @@ typedef struct ASTModule {
     char* name;
     List(ASTFunc) * funcs;
     List(ASTTest) * tests;
-    List(ASTExpr) * exprs;
+    // List(ASTExpr) * exprs; // global exprs
     List(ASTType) * types;
-    List(ASTVar) * globals;
+    ASTScope scope; // global scope contains vars + exprs
+    // List(ASTVar) * vars; // global vars
     List(ASTImport) * imports;
-    List(ASTEnum) * enums;
+    List(ASTType) * enums;
     char* moduleName;
 } ASTModule;
 
@@ -537,7 +538,9 @@ static size_t ASTScope_calcSizeUsage(ASTScope* self) {
     // some vars are not assigned, esp. temporaries _1 _2 etc.
     foreach (ASTVar*, var, self->locals) {
         size = TypeType_size(var->typeSpec->typeType);
-        assert(size);
+        if (!size)
+            eprintf("warning: cannot find size for '%s' at %d:%d\n", var->name,
+                var->line, var->col);
         if (var->used) sum += size;
     }
     // add the largest size among the sizes of the sub-scopes

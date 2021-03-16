@@ -774,9 +774,14 @@ exitloop:
     return scope;
 }
 
-static ASTScope* parseEnumBody(Parser* parser) {
+static ASTScope* parseEnumBody(Parser* parser, ASTScope* globScope) {
     ASTScope* scope = NEW(ASTScope);
+    scope->parent = globScope;
     ASTExpr* expr = NULL;
+    ASTVar* var = NULL;
+    List(ASTVar)** vars = &scope->locals;
+    List(ASTVar)** stmts = &scope->stmts;
+
     while (parser->token.kind != tkKeyword_end) {
         switch (parser->token.kind) {
 
@@ -799,17 +804,40 @@ static ASTScope* parseEnumBody(Parser* parser) {
 
         case tkIdentifier:
 
+            // if (parser->token.kind != tkIdentifier) {
+            //     Parser_errorInvalidTypeMember(parser);
+            //     while (parser->token.pos != tkNewline)
+            //         Token_advance(&parser->token);
+            //     Token_advance(&parser->token); // eat the newline
+            //     break;
+            // }
+
             expr = parseExpr(parser);
+
             if (expr->kind != tkIdentifier && expr->kind != tkOpAssign) {
                 Parser_errorInvalidTypeMember(parser);
                 unreachable("%s\n", TokenKind_str[expr->kind]);
                 expr = NULL;
             }
             if (!expr) break;
-            PtrList_append(&scope->stmts, expr);
+            stmts = PtrList_append(stmts, expr);
             Token_advance(&parser->token); // eat the newline
+
+            var = NEW(ASTVar);
+            var->typeSpec = NEW(ASTTypeSpec);
+            var->line = expr->line;
+            var->col = (expr->kind == tkOpAssign) ? expr->left->col : expr->col;
+            var->name = (expr->kind == tkOpAssign) ? expr->left->string
+                                                   : expr->string;
+            var->init = expr->right;
+            vars = PtrList_append(vars, var);
+
+            // var->typeSpec->typeType = TYObject;
+            // var->typeSpec->type = ;
+
             if (expr->kind == tkOpAssign)
                 resolveVars(parser, expr->right, scope, false);
+
             break;
 
         default:
@@ -839,7 +867,8 @@ static List(ASTVar) * parseParams(Parser* parser) {
 }
 
 #pragma mark - PARSE FUNC / STMT-FUNC
-static ASTFunc* parseFunc(Parser* parser, bool shouldParseBody) {
+static ASTFunc* parseFunc(
+    Parser* parser, ASTScope* globScope, bool shouldParseBody) {
     Parser_consume(parser, tkKeyword_function);
     Parser_consume(parser, tkOneSpace);
     ASTFunc* func = NEW(ASTFunc);
@@ -865,6 +894,7 @@ static ASTFunc* parseFunc(Parser* parser, bool shouldParseBody) {
         Parser_consume(parser, tkNewline);
 
         ASTScope* funcScope = NEW(ASTScope);
+        funcScope->parent = globScope;
         funcScope->locals = func->args;
         func->body = parseScope(parser, funcScope, false);
 
@@ -876,7 +906,7 @@ static ASTFunc* parseFunc(Parser* parser, bool shouldParseBody) {
     return func;
 }
 
-static ASTFunc* parseStmtFunc(Parser* parser) {
+static ASTFunc* parseStmtFunc(Parser* parser, ASTScope* globScope) {
     ASTFunc* func = NEW(ASTFunc);
 
     func->line = parser->token.line;
@@ -919,7 +949,7 @@ static ASTFunc* parseStmtFunc(Parser* parser) {
 }
 
 #pragma mark - PARSE TEST
-static ASTTest* parseTest(Parser* parser) {
+static ASTTest* parseTest(Parser* parser, ASTScope* globScope) {
     Parser_consume(parser, tkKeyword_test);
     Parser_consume(parser, tkOneSpace);
     ASTTest* test = NEW(ASTTest);
@@ -946,7 +976,8 @@ static ASTTest* parseTest(Parser* parser) {
 static ASTUnits* parseUnits(Parser* parser) { return NULL; }
 
 #pragma mark - PARSE TYPE
-static ASTType* parseType(Parser* parser, bool shouldParseBody) {
+static ASTType* parseType(
+    Parser* parser, ASTScope* globScope, bool shouldParseBody) {
     ASTType* type = NEW(ASTType);
 
     Parser_consume(parser, tkKeyword_type);
@@ -985,8 +1016,8 @@ static ASTType* parseType(Parser* parser, bool shouldParseBody) {
     return type;
 }
 
-static ASTEnum* parseEnum(Parser* parser) {
-    ASTEnum* en = NEW(ASTEnum);
+static ASTType* parseEnum(Parser* parser, ASTScope* globScope) {
+    ASTType* en = NEW(ASTType);
 
     Parser_consume(parser, tkKeyword_enum);
     Parser_consume(parser, tkOneSpace);
@@ -1008,7 +1039,7 @@ static ASTEnum* parseEnum(Parser* parser) {
         return en;
     }
 
-    en->body = parseEnumBody(parser);
+    en->body = parseEnumBody(parser, globScope);
 
     Parser_consume(parser, tkKeyword_end);
     Parser_ignore(parser, tkOneSpace);
@@ -1078,8 +1109,11 @@ static ASTFunc* ASTType_makeDefaultCtor(ASTType* type) {
 static PtrList* parseModule(Parser* parser) {
     ASTModule* root = NEW(ASTModule);
     root->name = parser->moduleName;
+    // root->scope = NEW(ASTScope);
+
     const bool onlyPrintTokens = false;
     Token_advance(&parser->token); // maybe put this in parser ctor
+
     ASTImport* import = NULL;
 
     // The take away is (for C gen):
@@ -1095,7 +1129,9 @@ static PtrList* parseModule(Parser* parser) {
     List(ASTType)** types = &root->types;
     List(ASTTest)** tests = &root->tests;
     List(ASTEnum)** enums = &root->enums;
-    // List(ASTVar)** globalsTop = &root->globals;
+    ASTScope* gscope = &root->scope;
+    List(ASTVar)** gvars = &root->scope.locals; // globals
+    List(ASTExpr)** gexprs = &root->scope.stmts; // globals
 
     while (parser->token.kind != tkNullChar) {
         if (onlyPrintTokens) {
@@ -1112,27 +1148,40 @@ static PtrList* parseModule(Parser* parser) {
             Token_advance(&parser->token);
             Parser_consume(parser, tkOneSpace);
             if (parser->token.kind == tkKeyword_function) {
-                funcs = PtrList_append(funcs, parseFunc(parser, false));
+                funcs = PtrList_append(funcs, parseFunc(parser, gscope, false));
                 // if ((*funcs)->next) funcs = &(*funcs)->next;
             }
             if (parser->token.kind == tkKeyword_type) {
-                types = PtrList_append(types, parseType(parser, false));
+                types = PtrList_append(types, parseType(parser, gscope, false));
                 // if ((*types)->next) types = &(*types)->next;
             }
             break;
 
         case tkKeyword_function:
-            funcs = PtrList_append(funcs, parseFunc(parser, true));
+            funcs = PtrList_append(funcs, parseFunc(parser, gscope, true));
             // if ((*funcs)->next) funcs = &(*funcs)->next;
             break;
 
-        case tkKeyword_enum:
-            enums = PtrList_append(enums, parseEnum(parser));
-            // if ((*enums)->next) enums = &(*enums)->next;
-            break;
+        case tkKeyword_enum: {
+            ASTType* en = parseEnum(parser, gscope);
+            enums = PtrList_append(enums, en);
+            // add a global of the corresponding type so that it can be used
+            // to access members.
+            ASTVar* enumv = NEW(ASTVar);
+            enumv->name = en->name;
+            enumv->line = en->line;
+            enumv->col = en->col;
+            enumv->typeType = TYObject;
+            enumv->typeSpec = NEW(ASTTypeSpec);
+            enumv->typeSpec->typeType = TYObject;
+            enumv->typeSpec->type = en;
+            gvars = PtrList_append(gvars, enumv);
+        }
+        // if ((*enums)->next) enums = &(*enums)->next;
+        break;
 
         case tkKeyword_type: {
-            ASTType* type = parseType(parser, true);
+            ASTType* type = parseType(parser, gscope, true);
             types = PtrList_append(types, type);
             // if ((*types)->next) types = &(*types)->next;
 
@@ -1168,7 +1217,7 @@ static PtrList* parseModule(Parser* parser) {
             break;
 
         case tkKeyword_test:
-            tests = PtrList_append(tests, parseTest(parser));
+            tests = PtrList_append(tests, parseTest(parser, gscope));
             // if ((*tests)->next) tests = &(*tests)->next;
             break;
         // case tkKeyword_var:
@@ -1188,7 +1237,7 @@ static PtrList* parseModule(Parser* parser) {
             break;
         case tkIdentifier: // stmt funcs: f(x) := f(y, w = 4) etc.
             if (Token_peekCharAfter(&parser->token) == '(') {
-                funcs = PtrList_append(funcs, parseStmtFunc(parser));
+                funcs = PtrList_append(funcs, parseStmtFunc(parser, gscope));
                 // if ((*funcs)->next) funcs = &(*funcs)->next;
                 break;
             }
@@ -1277,6 +1326,8 @@ void analyseModule(Parser* parser, ASTModule* mod) {
             ASTFunc_analyse(parser, func, mod);
         foreach (ASTType*, type, mod->types)
             analyseType(parser, type, mod);
+        foreach (ASTType*, en, mod->enums)
+            analyseType(parser, en, mod);
     }
     // Check each type for cycles in inheritance graph.
     // Actually if there is no inheritance and composition is favoured, you

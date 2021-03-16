@@ -296,6 +296,14 @@ static void analyseExpr(
         expr->collectionType = expr->var->typeSpec->collectionType;
         expr->elemental = expr->collectionType != CTYNone;
         expr->dims = expr->var->typeSpec->dims;
+
+        // this was done just to ensure enums are caught and analysed in
+        // non-lint mode. In lint mode they are done anyway.
+        // TODO: remove this, you shouldnt be doing it on each var use it will
+        // be too intensive. let it just be done on each var decl and you figure
+        // out a way to set the enum type on var decls.
+        if (expr->typeType == TYObject)
+            analyseType(parser, expr->var->typeSpec->type, mod);
         break;
 
     case tkArrayOpen:

@@ -174,6 +174,22 @@ static void ASTType_lint(ASTType* type, int level) {
     puts("end\n");
 }
 
+static void ASTEnum_lint(ASTType* type, int level) {
+    // if (!type->body) printf("declare ");
+    printf("enum %s\n", type->name);
+    // if (type->super) {
+    //     printf(" extends ");
+    //     ASTTypeSpec_lint(type->super, level);
+    // }
+    // puts("");
+    if (type->body) foreach (ASTExpr*, stmt, type->body->stmts) {
+            if (!stmt) continue;
+            ASTExpr_lint(stmt, level + STEP, true, false);
+            puts("");
+        }
+    puts("end\n");
+}
+
 static void ASTFunc_lint(ASTFunc* func, int level) {
     if (func->isDefCtor || func->intrinsic) return;
     if (func->isDeclare) printf("declare ");
@@ -375,6 +391,9 @@ static void ASTModule_lint(ASTModule* module) {
 
     foreach (ASTType*, type, module->types)
         ASTType_lint(type, 0);
+
+    foreach (ASTType*, en, module->enums)
+        ASTEnum_lint(en, 0);
 
     foreach (ASTFunc*, func, module->funcs)
         ASTFunc_lint(func, 0);

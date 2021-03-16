@@ -902,6 +902,8 @@ static void ASTExpr_prepareInterp(
     case tkKeyword_for:
     case tkKeyword_if:
     case tkKeyword_else:
+    case tkKeyword_match:
+    case tkKeyword_case:
     case tkKeyword_elif:
     case tkKeyword_while:
         ASTExpr_prepareInterp(expr->left, scope);

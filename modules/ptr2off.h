@@ -110,7 +110,7 @@ void ASTTypeSpec_ptr2off(ASTTypeSpec* typeSpec) {
     }
 }
 
-void ASTEnum_ptr2off(ASTEnum* enm) {
+void ASTEnum_ptr2off(ASTType* enm) {
     ASTScope_ptr2off(enm->body);
     ptr2off((void**)&enm->body);
     ptr2off_s(&enm->name);
@@ -140,33 +140,33 @@ void ASTTest_ptr2off(ASTTest* test) {
 }
 
 void ASTModule_ptr2off(ASTModule* mod) {
-    foreach (ASTVar*, var, mod->globals)
+    foreach (ASTVar*, var, mod->scope.locals)
         ASTVar_ptr2off(var);
     foreach (ASTFunc*, func, mod->funcs)
         ASTFunc_ptr2off(func);
     foreach (ASTTest*, test, mod->tests)
         ASTTest_ptr2off(test);
-    foreach (ASTExpr*, expr, mod->exprs)
+    foreach (ASTExpr*, expr, mod->scope.stmts)
         ASTExpr_ptr2off(expr);
     foreach (ASTImport*, import, mod->imports)
         ASTImport_ptr2off(import);
-    foreach (ASTEnum*, enm, mod->enums)
+    foreach (ASTType*, enm, mod->enums)
         ASTEnum_ptr2off(enm);
     foreach (ASTType*, type, mod->types)
         ASTType_ptr2off(type);
 
-    List_ptr2off(mod->globals);
+    List_ptr2off(mod->scope.locals);
     List_ptr2off(mod->funcs);
     List_ptr2off(mod->tests);
-    List_ptr2off(mod->exprs);
+    List_ptr2off(mod->scope.stmts);
     List_ptr2off(mod->imports);
     List_ptr2off(mod->enums);
     List_ptr2off(mod->types);
 
-    ptr2off((void**)&mod->globals);
+    ptr2off((void**)&mod->scope.locals);
     ptr2off((void**)&mod->funcs);
     ptr2off((void**)&mod->tests);
-    ptr2off((void**)&mod->exprs);
+    ptr2off((void**)&mod->scope.stmts);
     ptr2off((void**)&mod->imports);
     ptr2off((void**)&mod->enums);
     ptr2off((void**)&mod->types);

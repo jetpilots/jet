@@ -73,6 +73,15 @@ static void Parser_errorUnrecognizedMember(
         RELF(parser->filename), //
         expr->line, //
         expr->col);
+
+    if (type->body) foreach (ASTVar*, var, type->body->locals) {
+            unsigned l1 = strlen(var->name);
+            unsigned l2 = strlen(expr->string);
+
+            if (leven(var->name, expr->string, l1, l2) <= 3)
+                eprintf("    did you mean: \e[34m%s\e[0m? (found at %d:%d)\n",
+                    var->name, var->line, var->col);
+        }
     Parser_errorIncrement(parser);
 }
 
@@ -156,7 +165,7 @@ static void Parser_errorDuplicateType(
 }
 
 static void Parser_errorDuplicateEnum(
-    Parser* parser, ASTEnum* en, ASTEnum* orig) {
+    Parser* parser, ASTType* en, ASTType* orig) {
     if (orig)
         eprintf("\n(%d) \e[31merror:\e[0m duplicate enum "
                 "\e[34m%s\e[0m at %s%s:%d:%d\n   "
