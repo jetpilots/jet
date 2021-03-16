@@ -303,6 +303,20 @@ static TokenKind Token_getType(Token* token, const size_t offset) {
     }
 }
 
+static bool Token_isUnaryAfter(TokenKind tk) {
+    switch (tk) {
+    case tkParenClose:
+    case tkIdentifier: // TODO: keywords too?
+    case tkNumber:
+    case tkArrayClose:
+    case tkArrayDims:
+    case tkMultiDotNumber:
+        return true;
+    default:;
+    }
+    return false;
+}
+
 static void Token_detect(Token* token) {
     TokenKind tt = Token_getType(token, 0);
     TokenKind tt_ret = tkUnknown; // = tt;
@@ -439,8 +453,10 @@ static void Token_detect(Token* token) {
         tt_ret = tkArrayDims;
         break;
 
-    case tkAlphabet:
         // case tkPeriod:
+        //     tt_ret = Token_isUnaryAfter(tt_lastNonSpace) ? tk : tt;
+
+    case tkAlphabet:
     case tkUnderscore:
         while (tt != tkNullChar) {
             tt = Token_getType(token, 1);
@@ -452,7 +468,7 @@ static void Token_detect(Token* token) {
         tt_ret = tkIdentifier;
         break;
 
-    case tkHash: // tkExclamation:
+    case tkTilde: // tkExclamation:
         while (tt != tkNullChar) {
             tt = Token_getType(token, 1);
             token->pos++;
@@ -502,20 +518,20 @@ static void Token_detect(Token* token) {
         break;
 
     case tkMinus:
-
-        switch (tt_lastNonSpace) {
-        case tkParenClose:
-        case tkIdentifier: // TODO: keywords too?
-        case tkNumber:
-        case tkArrayClose:
-        case tkArrayDims:
-        case tkMultiDotNumber:
-            tt_ret = tt;
-            break;
-        default:
-            tt_ret = tkUnaryMinus;
-            break;
-        }
+        tt_ret = Token_isUnaryAfter(tt_lastNonSpace) ? tkUnaryMinus : tt;
+        // switch (tt_lastNonSpace) {
+        // case tkParenClose:
+        // case tkIdentifier: // TODO: keywords too?
+        // case tkNumber:
+        // case tkArrayClose:
+        // case tkArrayDims:
+        // case tkMultiDotNumber:
+        //     tt_ret = tt;
+        //     break;
+        // default:
+        //     tt_ret = tkUnaryMinus;
+        //     break;
+        // }
         token->pos++;
         break;
 

@@ -157,7 +157,6 @@ static ASTExpr* parseExpr(Parser* parser) {
         case tkKeyword_check:
             PtrArray_push(&ops, expr);
             break;
-
         case tkExclamation:
             if (PtrArray_empty(&rpn)
                 || PtrArray_topAs(ASTExpr*, &rpn)->kind != tkIdentifier) {
@@ -173,6 +172,15 @@ static ASTExpr* parseExpr(Parser* parser) {
             if (lookAheadChar == '!' || lookAheadChar == '\n')
                 PtrArray_push(&rpn, NULL);
             break;
+
+        case tkPeriod:
+            if (PtrArray_empty(&rpn)
+                || !PtrArray_empty(&ops)) // && rpn.used > 1
+                //                    && PtrArray_topAs(ASTExpr*, &rpn)->kind !=
+                //                    tkIdentifier))
+                PtrArray_push(&rpn, NULL);
+            // fallthru
+
         default:
             if (prec) {
 
@@ -1024,6 +1032,7 @@ static ASTType* parseEnum(Parser* parser, ASTScope* globScope) {
 
     en->line = parser->token.line;
     en->col = parser->token.col;
+    en->isEnum = true;
 
     if (memchr(parser->token.pos, '_', parser->token.matchlen))
         Parser_errorInvalidIdent(parser);
@@ -1106,6 +1115,9 @@ static ASTFunc* ASTType_makeDefaultCtor(ASTType* type) {
     ctor->returnSpec = tspec;
     return ctor;
 }
+
+// this func should just be replaced by parseScope handling function type etc
+
 static PtrList* parseModule(Parser* parser) {
     ASTModule* root = NEW(ASTModule);
     root->name = parser->moduleName;
@@ -1171,7 +1183,7 @@ static PtrList* parseModule(Parser* parser) {
             enumv->name = en->name;
             enumv->line = en->line;
             enumv->col = en->col;
-            enumv->typeType = TYObject;
+            // enumv->typeType = TYObject;
             enumv->typeSpec = NEW(ASTTypeSpec);
             enumv->typeSpec->typeType = TYObject;
             enumv->typeSpec->type = en;
@@ -1220,13 +1232,19 @@ static PtrList* parseModule(Parser* parser) {
             tests = PtrList_append(tests, parseTest(parser, gscope));
             // if ((*tests)->next) tests = &(*tests)->next;
             break;
-        // case tkKeyword_var:
-        // case tkKeyword_let:
-        // TODO: add these to exprs
-        // PtrList_append(globalsTop, parseVar(self));
-        // if ((*globalsTop)->next) globalsTop =
-        // &(*globalsTop)->next;
-        // break;
+        case tkKeyword_var:
+        case tkKeyword_let:
+            // TODO: add these to exprs
+            {
+                ASTVar *var = parseVar(parser), *orig;
+                if ((orig = ASTScope_getVar(gscope, var->name)))
+                    Parser_errorDuplicateVar(parser, var, orig);
+                if (var->init) resolveVars(parser, var->init, gscope, false);
+                gvars = PtrList_append(gvars, var);
+            }
+            // if ((*globalsTop)->next) globalsTop =
+            // &(*globalsTop)->next;
+            break;
         case tkNewline:
             *(parser->token.pos) = 0;
         // fallthrough
@@ -1328,6 +1346,10 @@ void analyseModule(Parser* parser, ASTModule* mod) {
             analyseType(parser, type, mod);
         foreach (ASTType*, en, mod->enums)
             analyseType(parser, en, mod);
+        foreach (ASTExpr*, stmt, mod->scope.stmts)
+            analyseExpr(parser, stmt, mod, false);
+        foreach (ASTVar*, var, mod->scope.locals)
+            if (var->init) analyseExpr(parser, var->init, mod, false);
     }
     // Check each type for cycles in inheritance graph.
     // Actually if there is no inheritance and composition is favoured, you

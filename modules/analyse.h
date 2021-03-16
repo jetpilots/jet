@@ -40,6 +40,26 @@ static void analyseDictLiteral(Parser* parser, ASTExpr* expr, ASTModule* mod) {
     // spec[0] and spec[1].
 }
 
+static void ASTExpr_setEnumBase(
+    Parser* parser, ASTExpr* expr, ASTTypeSpec* spec, ASTModule* mod) {
+    switch (expr->kind) {
+    case tkPeriod:
+        if (expr->left) return;
+        expr->left = NEW(ASTExpr);
+        expr->left->kind = tkIdentifier;
+        expr->left->string
+            = spec->typeType == TYObject ? spec->type->name : spec->name;
+        expr->left->line = expr->line;
+        expr->left->col = expr->col;
+        resolveVars(parser, expr, &mod->scope, false);
+    case tkPlus:
+    case tkOpEQ:
+        ASTExpr_setEnumBase(parser, expr->left, spec, mod);
+        ASTExpr_setEnumBase(parser, expr->right, spec, mod);
+    default:;
+    }
+}
+
 ///////////////////////////////////////////////////////////////////////////
 static void analyseExpr(
     Parser* parser, ASTExpr* expr, ASTModule* mod, bool inFuncArgs) {
@@ -74,6 +94,7 @@ static void analyseExpr(
                 Parser_errorArgTypeMismatch(parser, cArg, arg);
             // TODO: check dims mismatch
             // TODO: check units mismatch
+            // TODO: set enum base
             if (!(currArg = currArg->right)) break;
         }
 
@@ -167,6 +188,9 @@ static void analyseExpr(
         else {
             if (typeSpec->typeType == TYUnresolved)
                 resolveTypeSpec(parser, typeSpec, mod);
+            // first try to set enum base if applicable.
+            if (typeSpec->typeType == TYObject && typeSpec->type->isEnum)
+                ASTExpr_setEnumBase(parser, init, typeSpec, mod);
 
             analyseExpr(parser, init, mod, false);
 
@@ -384,6 +408,12 @@ static void analyseExpr(
         }
         break;
     case tkPeriod: {
+
+        if (!expr->left) {
+            Parser_errorNoEnumInferred(parser, expr->right);
+            break;
+        }
+
         assert(expr->left->kind == tkIdentifierResolved
             || expr->left->kind == tkIdentifier);
         analyseExpr(parser, expr->left, mod, inFuncArgs);
@@ -434,7 +464,7 @@ static void analyseExpr(
         if (expr->right->kind == tkPeriod)
             analyseExpr(parser, expr->right, mod, inFuncArgs);
 
-        expr->typeType = expr->right->typeType;
+        expr->typeType = type->isEnum ? TYObject : expr->right->typeType;
         expr->collectionType = expr->right->collectionType;
         expr->elemental = expr->right->elemental;
         expr->dims = expr->right->dims;
@@ -591,6 +621,8 @@ static void analyseExpr(
                 else if (!TypeType_isnum(leftType)) {
                     // Arithmetic operators are only relevant for numeric
                     // types.
+                    // if(  leftType==TYObject&&expr->left->)
+                    // TODO: allow enum +
                     Parser_errorInvalidTypeForOp(parser, expr);
                 }
                 // check if an error type is on the left, if yes, set the

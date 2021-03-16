@@ -470,6 +470,17 @@ static void Parser_errorReadOnlyVar(Parser* parser, ASTExpr* expr) {
     Parser_errorIncrement(parser);
 }
 
+static void Parser_errorNoEnumInferred(Parser* parser, ASTExpr* expr) {
+    eprintf("\n(%d) \e[31merror:\e[0m cannot infer enum type for '"
+            "\e[34m.%s\e[0m' at %s%s:%d:%d\n",
+        parser->issues.errCount + 1, //
+        expr->string, //
+        RELF(parser->filename), //
+        expr->line, //
+        expr->col);
+    Parser_errorIncrement(parser);
+}
+
 static void Parser_errorInvalidTypeForOp(Parser* parser, ASTExpr* expr) {
     if (expr->left->typeType == TYErrorType
         || expr->right->typeType == TYErrorType)

@@ -267,8 +267,8 @@ typedef struct ASTType {
     uint16_t line;
     uint8_t col;
     bool analysed : 1, needJSON : 1, needXML : 1, needYAML : 1, visited : 1,
-        isValueType : 1; // all vars of this type will be stack
-                         // allocated and passed around by value.
+        isValueType : 1, isEnum : 1; // all vars of this type will be stack
+                                     // allocated and passed around by value.
 } ASTType;
 
 // typedef struct ASTEnum {
@@ -695,6 +695,8 @@ static ASTType* ASTModule_getType(ASTModule* module, const char* name) {
         if (!strcasecmp(type->name, name)) return type;
     // type specs must be fully qualified, so there's no need to look in
     // other modules.
+    foreach (ASTType*, enu, module->enums) //
+        if (!strcasecmp(enu->name, name)) return enu;
     return NULL;
 }
 
