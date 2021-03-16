@@ -5,15 +5,34 @@ type XTy
     var mm = 34
 end
 
+enum ETS
+    test3
+    test4
+end
+
+declare type Tx
+declare function Tx()
 function start()
     var cs = "Hello world"
     var cd = 34 + 8
     var xt = xTY()
+    var tt = tx()
+    # var ttt = tt.y
     print(xt)
+    # if xre(cd)==9
+    # end
     json(xt)
-    var arr = [   9, 8, 7, 6, 5, 4 ]
-    print(arr[2])
-    arr[2] = arr[5] + 6
-    describe(arr[2])
+    # var arr = [   9, 8, 7, 6, 5, 4 ]
+    match cd
+    case 4
+        print(xt)
+    case 5
+        json(xt)
+    end
+    # # print(arr[2])
+    # arr[2] = arr[5] + 6
+    # var ee = ETS.test3
+
+    # describe(arr[2])
     # describe(xt)
 end

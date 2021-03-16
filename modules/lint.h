@@ -110,6 +110,21 @@ static void ASTVar_lint(ASTVar* var, int level) {
 static void ASTScope_lint(ASTScope* scope, int level) {
     foreachn(ASTExpr*, expr, exprList, scope->stmts) {
         switch (expr->kind) {
+        case tkKeyword_case:
+        case tkKeyword_match:
+            printf("%.*s", level, spaces);
+            printf("%s ", TokenKind_repr(expr->kind, false));
+            if (expr->left) ASTExpr_lint(expr->left, 0, true, false);
+            puts("");
+            //, true, escapeStrings);
+            if (expr->kind == tkKeyword_match) {
+                if (expr->body) ASTScope_lint(expr->body, level);
+                printf("%.*send %s\n", level, spaces, ""); // "match");
+            } else {
+                if (expr->body) ASTScope_lint(expr->body, level + STEP);
+            }
+            break;
+
         case tkKeyword_for:
         case tkKeyword_if:
         case tkKeyword_elif:
@@ -184,7 +199,7 @@ static void ASTFunc_lint(ASTFunc* func, int level) {
         puts("end\n");
     } else {
         ASTExpr* def = func->body->stmts->item;
-         def = def->right; // its a return expr
+        def = def->right; // its a return expr
         printf(" := ");
         ASTExpr_lint(def, 0, true, false);
         puts("\n");

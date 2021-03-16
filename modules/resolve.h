@@ -1,8 +1,11 @@
 
 static bool isSelfMutOp(ASTExpr* expr) {
-    return expr->kind == tkPlusEq || expr->kind == tkMinusEq
-        || expr->kind == tkSlashEq || expr->kind == tkTimesEq
-        || expr->kind == tkPowerEq || expr->kind == tkOpModEq
+    return expr->kind == tkPlusEq //
+        || expr->kind == tkMinusEq //
+        || expr->kind == tkSlashEq //
+        || expr->kind == tkTimesEq //
+        || expr->kind == tkPowerEq //
+        || expr->kind == tkOpModEq //
         || expr->kind == tkOpAssign;
 }
 
@@ -82,13 +85,12 @@ static void ASTTest_checkUnusedVars(Parser* parser, ASTTest* test) {
 // TODO: Btw there should be a module level scope to hold lets (and
 // comments). That will be the root scope which has parent==NULL.
 
-static void resolveMember(Parser* parser, ASTExpr* expr, ASTType* type)
-
-{
+static void resolveMember(Parser* parser, ASTExpr* expr, ASTType* type) {
     assert(expr->kind == tkIdentifier || expr->kind == tkSubscript);
     TokenKind ret = (expr->kind == tkIdentifier) ? tkIdentifierResolved
                                                  : tkSubscriptResolved;
-    ASTVar* found = ASTScope_getVar(type->body, expr->string);
+    ASTVar* found = NULL;
+    if (type->body) found = ASTScope_getVar(type->body, expr->string);
     if (found) {
         expr->kind = ret;
         expr->var = found;
@@ -228,26 +230,25 @@ static void resolveVars(Parser* parser, ASTExpr* expr, ASTScope* scope,
 
             if (isSelfMutOp(expr)) {
                 ASTVar* var = NULL;
-                ASTExpr *varExpr=expr->left;
-                if (varExpr->kind == tkIdentifierResolved
-                    || varExpr->kind == tkSubscriptResolved)
-                    {
-                        var = varExpr->var;
-                    }
-                else if (varExpr->kind == tkPeriod
-                    && varExpr->left->kind == tkIdentifierResolved)
-                {varExpr = varExpr->left;
-                    var = varExpr->var;}
+                ASTExpr* varExpr = expr->left;
+                if (varExpr->kind == tkIdentifierResolved || //
+                    varExpr->kind == tkSubscriptResolved) {
+                    var = varExpr->var;
+                } else if (varExpr->kind == tkPeriod && //
+                    varExpr->left->kind == tkIdentifierResolved) {
+                    varExpr = varExpr->left;
+                    var = varExpr->var;
+                }
                 if (var) {
                     // TODO: If you will allow changing the first arg of a
                     // function, using an & op or whatever, check for those
                     // mutations here BTW this marks entire arrays as used
                     // for a.x = ... it marks all of a as used. Instead should
-                    // traverse the . sequence left to right and check which the first read-only variable in that sequence
+                    // traverse the . sequence left to right and check which the
+                    // first read-only variable in that sequence
                     var->changed = true;
                     if (expr->kind == tkOpAssign) var->reassigned = true;
-                    if (!var->isVar)
-                        Parser_errorReadOnlyVar(parser, varExpr);
+                    if (!var->isVar) Parser_errorReadOnlyVar(parser, varExpr);
                 }
             }
         }

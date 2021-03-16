@@ -32,9 +32,9 @@ static ASTExpr* parseExpr(Parser* parser) {
             Parser_errorInvalidIdent(parser); // but continue parsing
 
         ASTExpr* expr;
-        if (matches(parser, tkParenOpen))
+        if (Parser_matches(parser, tkParenOpen))
             expr = lparen;
-        else if (matches(parser, tkParenClose))
+        else if (Parser_matches(parser, tkParenClose))
             expr = rparen;
         else
             expr = ASTExpr_fromToken(&parser->token); // dont advance yet
@@ -399,7 +399,7 @@ static ASTTypeSpec* parseTypeSpec(Parser* parser) {
     typeSpec->name = parseIdent(parser);
     // Token_advance(&parser->token);
 
-    if (matches(parser, tkArrayDims)) {
+    if (Parser_matches(parser, tkArrayDims)) {
         if (isalpha(*parser->token.pos)) {
             // Dict
         } else {
@@ -427,9 +427,9 @@ static ASTVar* parseVar(Parser* parser) {
     var->isVar = (parser->token.kind == tkKeyword_var);
     var->isLet = (parser->token.kind == tkKeyword_let);
 
-    if (var->isVar) discard(parser, tkKeyword_var);
-    if (var->isLet) discard(parser, tkKeyword_let);
-    if (var->isVar || var->isLet) discard(parser, tkOneSpace);
+    if (var->isVar) Parser_consume(parser, tkKeyword_var);
+    if (var->isLet) Parser_consume(parser, tkKeyword_let);
+    if (var->isVar || var->isLet) Parser_consume(parser, tkOneSpace);
 
     var->line = parser->token.line;
     var->col = parser->token.col;
@@ -461,7 +461,7 @@ static ASTVar* parseVar(Parser* parser) {
 
     if (Parser_ignore(parser, tkOneSpace)
         && Parser_ignore(parser, tkKeyword_as)) {
-        discard(parser, tkOneSpace);
+        Parser_consume(parser, tkOneSpace);
         var->typeSpec = parseTypeSpec(parser);
     } else {
         var->typeSpec = NEW(ASTTypeSpec);
@@ -480,7 +480,7 @@ static ASTVar* parseVar(Parser* parser) {
 
 static List(ASTVar) * parseArgs(Parser* parser) {
     List(ASTVar)* args = NULL;
-    discard(parser, tkParenOpen);
+    Parser_consume(parser, tkParenOpen);
     if (Parser_ignore(parser, tkParenClose)) return args;
 
     ASTVar* arg;
@@ -490,8 +490,73 @@ static List(ASTVar) * parseArgs(Parser* parser) {
         PtrList_append(&args, arg);
     } while (Parser_ignore(parser, tkOpComma));
 
-    discard(parser, tkParenClose);
+    Parser_consume(parser, tkParenClose);
     return args;
+}
+static ASTScope* parseScope(Parser* parser, ASTScope* parent, bool isTypeBody);
+
+static ASTScope* parseScopeCases(Parser* parser, ASTScope* parent) {
+
+    ASTScope* scope = NEW(ASTScope);
+    scope->parent = parent;
+    List(ASTVar)** stmts = &scope->stmts;
+    ASTExpr* expr;
+
+    while (parser->token.pos < parser->end) {
+        switch (parser->token.kind) {
+
+        case tkKeyword_case:
+            // if (startedCase) {
+            //     startedCase = false;
+            //     break;
+            // } // goto exitloop;
+            // startedCase = true;
+            // startedCase = !startedCase;
+            // if (!startedCase) {
+            //     stmts = PtrList_append(stmts, expr);
+            //     break;
+            // }
+            // case tkKeyword_match:
+            // if (isTypeBody) Parser_errorInvalidTypeMember(parser);
+            // tt = parser->token.kind; // either match or case
+            expr = Parser_match(parser, tkKeyword_case);
+            expr->left = parseExpr(parser);
+            Token_advance(&parser->token); // trample null
+            if (expr->left) resolveVars(parser, expr->left, scope, false);
+
+            expr->body = parseScope(parser, scope, false);
+            // match's body is a scope full of cases
+            // case's body is a scope
+
+            // 'case' and 'else' should never consume the 'end', leave it for
+            // 'match' or 'if' resp. see later for 'else' as well
+            // if (tt == tkKeyword_match) {
+            //     Parser_consume(parser, tkKeyword_end);
+            //     Parser_ignore(parser, tkOneSpace);
+            //     Parser_ignore(parser, tkKeyword_match);
+            // }
+
+            stmts = PtrList_append(stmts, expr);
+
+            break;
+
+        case tkNewline:
+        case tkOneSpace:
+        case tkLineComment:
+            Token_advance(&parser->token);
+
+            break;
+
+        case tkKeyword_end:
+            goto exitloop;
+
+        default:
+            Parser_errorUnexpectedToken(parser);
+            Token_advance(&parser->token);
+        }
+    }
+exitloop:
+    return scope;
 }
 
 #pragma mark - PARSE SCOPE
@@ -505,6 +570,7 @@ static ASTScope* parseScope(Parser* parser, ASTScope* parent, bool isTypeBody) {
 
     scope->parent = parent;
     bool startedElse = false;
+    bool startedCase = false;
 
     List(ASTVar)** locals = &scope->locals;
     List(ASTVar)** stmts = &scope->stmts;
@@ -545,33 +611,70 @@ static ASTScope* parseScope(Parser* parser, ASTScope* parent, bool isTypeBody) {
 
             // and (var->init->prec or var->init->kind == tkIdentifier))
             // TODO: you actually need to send the PtrList item which is
-            // generated in the next line as the topExpr, not the expr itself
+            // generated in the next line as the topExpr, not the expr
+            // itself
             if (var->init) resolveVars(parser, var->init, scope, false);
 
             // TODO: KEEP THE LAST LISTITEM AND APPEND TO THAT!!
             stmts = PtrList_append(stmts, expr);
             break;
 
+            // case tkKeyword_match:
+
+        case tkKeyword_case:
+            //     // if (startedCase) {
+            //     //     startedCase = false;
+            //     //     break;
+            goto exitloop;
+        //     // startedCase = true;
+        //     startedCase = !startedCase;
+        //     if (!startedCase) {
+        //         stmts = PtrList_append(stmts, expr);
+        //         break;
+        //     }
+        case tkKeyword_match:
+            // expr = parseScopeMatch(parser);
+
+            if (isTypeBody) Parser_errorInvalidTypeMember(parser);
+            // tt = parser->token.kind; // either match or case
+            expr = Parser_match(parser, tkKeyword_match);
+            expr->left = parseExpr(parser);
+            Token_advance(&parser->token);
+            if (expr->left) resolveVars(parser, expr->left, scope, false);
+
+            expr->body = parseScopeCases(parser, scope);
+            // match's body is a scope full of cases
+            // case's body is a scope
+
+            // 'case' and 'else' should never consume the 'end', leave it
+            // for 'match' or 'if' resp. see later for 'else' as well
+            // if (tt == tkKeyword_match) {
+            Parser_consume(parser, tkKeyword_end);
+            Parser_ignore(parser, tkOneSpace);
+            Parser_ignore(parser, tkKeyword_match);
+            // }
+            stmts = PtrList_append(stmts, expr);
+            break;
+
         case tkKeyword_else:
         case tkKeyword_elif:
             if (!startedElse) goto exitloop;
-
         case tkKeyword_if:
         case tkKeyword_for:
         case tkKeyword_while:
             if (isTypeBody) Parser_errorInvalidTypeMember(parser);
             tt = parser->token.kind;
-            expr = match(parser, tt);
+            expr = Parser_match(parser, tt);
             expr->left = tt != tkKeyword_else ? parseExpr(parser) : NULL;
 
-            // because we are going to be calling resolveVars right now, we need
-            // to trample the newline
+            // because we are going to be calling resolveVars right now, we
+            // need to trample the newline
             Token_advance(&parser->token);
 
             // if(parser->token.pos)
-            // TODO: for must <parse its expr as a VarDecl, because it can have
-            // 'as Type' etc. Now you parse an assignment Expr and
-            // hack an ASTVar out of it.
+            // TODO: for must <parse its expr as a VarDecl, because it can
+            // have 'as Type' etc. Now you parse an assignment Expr and hack
+            // an ASTVar out of it.
             if (tt == tkKeyword_for) {
                 // TODO: new Parser_error
                 ASTVar* fvar = NULL;
@@ -601,9 +704,9 @@ static ASTScope* parseScope(Parser* parser, ASTScope* parent, bool isTypeBody) {
                 if (fvar) PtrList_shift(&forScope->locals, fvar);
                 forScope->parent = scope;
 
-                // scope = forScope; // so that when parseScope is called for
-                // the child scope, it receives the for variable's scope as
-                // parent
+                // scope = forScope; // so that when parseScope is called
+                // for the child scope, it receives the for variable's scope
+                // as parent
 
             } else if (expr->left) {
                 resolveVars(parser, expr->left, scope, false);
@@ -622,17 +725,17 @@ static ASTScope* parseScope(Parser* parser, ASTScope* parent, bool isTypeBody) {
                 // var->typeSpec = NEW(ASTTypeSpec);
                 // var->typeSpec->typeType = TYUInt32;
                 // PtrList_append(&expr->body->locals, var);
-                expr->body = parseScope(parser, forScope, false);
+                expr->body = parseScope(parser, forScope, isTypeBody);
 
             } else {
-                expr->body = parseScope(parser, scope, false);
+                expr->body = parseScope(parser, scope, isTypeBody);
             }
 
-            if (matches(parser, tkKeyword_else)
-                || matches(parser, tkKeyword_elif)) {
+            if (Parser_matches(parser, tkKeyword_else) || //
+                Parser_matches(parser, tkKeyword_elif)) {
                 startedElse = true;
             } else {
-                discard(parser, tkKeyword_end);
+                Parser_consume(parser, tkKeyword_end);
                 Parser_ignore(parser, tkOneSpace);
                 Parser_ignore(parser,
                     tt == tkKeyword_else || tt == tkKeyword_elif ? tkKeyword_if
@@ -720,7 +823,7 @@ exitloop:
 
 #pragma mark - PARSE PARAM
 static List(ASTVar) * parseParams(Parser* parser) {
-    discard(parser, tkOpLT);
+    Parser_consume(parser, tkOpLT);
     List(ASTVar) * params;
     ASTVar* param;
     do {
@@ -731,14 +834,14 @@ static List(ASTVar) * parseParams(Parser* parser) {
         if (Parser_ignore(parser, tkOpAssign)) param->init = parseExpr(parser);
         PtrList_append(&params, param);
     } while (Parser_ignore(parser, tkOpComma));
-    discard(parser, tkOpGT);
+    Parser_consume(parser, tkOpGT);
     return params;
 }
 
 #pragma mark - PARSE FUNC / STMT-FUNC
 static ASTFunc* parseFunc(Parser* parser, bool shouldParseBody) {
-    discard(parser, tkKeyword_function);
-    discard(parser, tkOneSpace);
+    Parser_consume(parser, tkKeyword_function);
+    Parser_consume(parser, tkOneSpace);
     ASTFunc* func = NEW(ASTFunc);
 
     func->line = parser->token.line;
@@ -754,18 +857,18 @@ static ASTFunc* parseFunc(Parser* parser, bool shouldParseBody) {
 
     if (Parser_ignore(parser, tkOneSpace)
         && Parser_ignore(parser, tkKeyword_as)) {
-        discard(parser, tkOneSpace);
+        Parser_consume(parser, tkOneSpace);
         func->returnSpec = parseTypeSpec(parser);
     }
 
     if (shouldParseBody) {
-        discard(parser, tkNewline);
+        Parser_consume(parser, tkNewline);
 
         ASTScope* funcScope = NEW(ASTScope);
         funcScope->locals = func->args;
         func->body = parseScope(parser, funcScope, false);
 
-        discard(parser, tkKeyword_end);
+        Parser_consume(parser, tkKeyword_end);
         Parser_ignore(parser, tkOneSpace);
         Parser_ignore(parser, tkKeyword_function);
     }
@@ -809,7 +912,7 @@ static ASTFunc* parseStmtFunc(Parser* parser) {
     scope->parent = funcScope;
     func->body = scope;
 
-    discard(parser, tkNewline);
+    Parser_consume(parser, tkNewline);
     resolveVars(parser, ret->right, funcScope, false);
 
     return func;
@@ -817,8 +920,8 @@ static ASTFunc* parseStmtFunc(Parser* parser) {
 
 #pragma mark - PARSE TEST
 static ASTTest* parseTest(Parser* parser) {
-    discard(parser, tkKeyword_test);
-    discard(parser, tkOneSpace);
+    Parser_consume(parser, tkKeyword_test);
+    Parser_consume(parser, tkOneSpace);
     ASTTest* test = NEW(ASTTest);
 
     test->line = parser->token.line;
@@ -828,11 +931,11 @@ static ASTTest* parseTest(Parser* parser) {
     test->name = parser->token.pos + 1;
     Token_advance(&parser->token);
 
-    discard(parser, tkNewline);
+    Parser_consume(parser, tkNewline);
 
     test->body = parseScope(parser, NULL, false);
 
-    discard(parser, tkKeyword_end);
+    Parser_consume(parser, tkKeyword_end);
     Parser_ignore(parser, tkOneSpace);
     Parser_ignore(parser, tkKeyword_test);
 
@@ -846,8 +949,8 @@ static ASTUnits* parseUnits(Parser* parser) { return NULL; }
 static ASTType* parseType(Parser* parser, bool shouldParseBody) {
     ASTType* type = NEW(ASTType);
 
-    discard(parser, tkKeyword_type);
-    discard(parser, tkOneSpace);
+    Parser_consume(parser, tkKeyword_type);
+    Parser_consume(parser, tkOneSpace);
 
     type->line = parser->token.line;
     type->col = parser->token.col;
@@ -860,7 +963,7 @@ static ASTType* parseType(Parser* parser, bool shouldParseBody) {
 
     if (Parser_ignore(parser, tkOneSpace)
         && Parser_ignore(parser, tkKeyword_extends)) {
-        discard(parser, tkOneSpace);
+        Parser_consume(parser, tkOneSpace);
         type->super = parseTypeSpec(parser);
     }
     Parser_ignore(parser, tkNewline);
@@ -875,7 +978,7 @@ static ASTType* parseType(Parser* parser, bool shouldParseBody) {
 
     type->body = parseScope(parser, NULL, true);
 
-    discard(parser, tkKeyword_end);
+    Parser_consume(parser, tkKeyword_end);
     Parser_ignore(parser, tkOneSpace);
     Parser_ignore(parser, tkKeyword_type);
 
@@ -885,8 +988,8 @@ static ASTType* parseType(Parser* parser, bool shouldParseBody) {
 static ASTEnum* parseEnum(Parser* parser) {
     ASTEnum* en = NEW(ASTEnum);
 
-    discard(parser, tkKeyword_enum);
-    discard(parser, tkOneSpace);
+    Parser_consume(parser, tkKeyword_enum);
+    Parser_consume(parser, tkOneSpace);
 
     en->line = parser->token.line;
     en->col = parser->token.col;
@@ -897,7 +1000,7 @@ static ASTEnum* parseEnum(Parser* parser) {
         Parser_errorInvalidIdent(parser);
     en->name = parseIdent(parser);
 
-    discard(parser, tkNewline);
+    Parser_consume(parser, tkNewline);
 
     if (TypeType_byName(en->name) != TYUnresolved) {
         // conflicts with a primitive type name
@@ -907,7 +1010,7 @@ static ASTEnum* parseEnum(Parser* parser) {
 
     en->body = parseEnumBody(parser);
 
-    discard(parser, tkKeyword_end);
+    Parser_consume(parser, tkKeyword_end);
     Parser_ignore(parser, tkOneSpace);
     Parser_ignore(parser, tkKeyword_enum);
 
@@ -917,8 +1020,8 @@ static ASTEnum* parseEnum(Parser* parser) {
 static ASTImport* parseImport(Parser* parser) {
     ASTImport* import = NEW(ASTImport);
     char* tmp;
-    discard(parser, tkKeyword_import);
-    discard(parser, tkOneSpace);
+    Parser_consume(parser, tkKeyword_import);
+    Parser_consume(parser, tkOneSpace);
 
     import->isPackage = Parser_ignore(parser, tkAt);
 
@@ -1007,7 +1110,7 @@ static PtrList* parseModule(Parser* parser) {
         switch (parser->token.kind) {
         case tkKeyword_declare:
             Token_advance(&parser->token);
-            discard(parser, tkOneSpace);
+            Parser_consume(parser, tkOneSpace);
             if (parser->token.kind == tkKeyword_function) {
                 funcs = PtrList_append(funcs, parseFunc(parser, false));
                 // if ((*funcs)->next) funcs = &(*funcs)->next;
@@ -1147,8 +1250,8 @@ void analyseModule(Parser* parser, ASTModule* mod) {
     foreach (ASTFunc*, func, mod->funcs)
         if (!strcmp(func->name, "start")) fstart = func;
 
-    /* TODO: what if you have tests and a start()? Now you will have to analyse
-     the tests anyway */
+    /* TODO: what if you have tests and a start()? Now you will have to
+     analyse the tests anyway */
 
     if (fstart) {
         ASTFunc_analyse(parser, fstart, mod);
@@ -1160,8 +1263,8 @@ void analyseModule(Parser* parser, ASTModule* mod) {
             if (!type->analysed) Parser_warnUnusedType(parser, type);
 
     } else { // TODO: new error, unless you want to get rid of start
-        eputs(
-            "\n\e[31m*** error:\e[0m cannot find function \e[33mstart\e[0m.\n");
+        eputs("\n\e[31m*** error:\e[0m cannot find function "
+              "\e[33mstart\e[0m.\n");
         parser->issues.errCount++;
     }
 
@@ -1176,19 +1279,20 @@ void analyseModule(Parser* parser, ASTModule* mod) {
             analyseType(parser, type, mod);
     }
     // Check each type for cycles in inheritance graph.
-    // Actually if there is no inheritance and composition is favoured, you have
-    // to check each statement in the type body instead of just walking up the
-    // super chain. If any statements are initialized by constructors, mark the
-    // type of that statement as visited and recur into that type to check its
-    // statements to see if you ever revisit anything. Unfortunately it does not
-    // seem that this would be easy to do iteratively (not recursively), as it
-    // can be done for just checking supers.
-    // foreach (ASTType*, type, mod->types) {
+    // Actually if there is no inheritance and composition is favoured, you
+    // have to check each statement in the type body instead of just walking
+    // up the super chain. If any statements are initialized by
+    // constructors, mark the type of that statement as visited and recur
+    // into that type to check its statements to see if you ever revisit
+    // anything. Unfortunately it does not seem that this would be easy to
+    // do iteratively (not recursively), as it can be done for just checking
+    // supers. foreach (ASTType*, type, mod->types) {
     //     if (! type->analysed or not type->super) continue;
     //     assert(type->super->typeType == TYObject);
 
-    //     // traverse the type hierarchy for this type and see if you revisit
-    //     any ASTType* superType = type->super->type; while (superType) {
+    //     // traverse the type hierarchy for this type and see if you
+    //     revisit any ASTType* superType = type->super->type; while
+    //     (superType) {
     //         if (superType->visited) {
     //             Parser_errorInheritanceCycle(self, type);
     //             break;
@@ -1211,14 +1315,14 @@ void analyseModule(Parser* parser, ASTModule* mod) {
                 // cycle was detected. err has been reported along with a
                 // backtrace. now just unset the dim control codes.
                 eprintf(" ...%s\n", "\e[0m");
-                // just report the first cycle found. typically there will be
-                // only one cycle and you will end up reporting the same cycle
-                // for all types that are in it, which is useless.
+                // just report the first cycle found. typically there will
+                // be only one cycle and you will end up reporting the same
+                // cycle for all types that are in it, which is useless.
                 // break;
-                // the last type (for which the error was reported) won't have
-                // its cycle check flags cleared, but who cares.
-                // OTHER IDEA: clear the flag only if there was no error. that
-                // way the next iteration will skip over those whose flags are
+                // the last type (for which the error was reported) won't
+                // have its cycle check flags cleared, but who cares. OTHER
+                // IDEA: clear the flag only if there was no error. that way
+                // the next iteration will skip over those whose flags are
                 // already set.
             } else
                 ASTModule_unmarkTypesVisited(mod);

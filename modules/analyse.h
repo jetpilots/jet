@@ -238,7 +238,9 @@ static void analyseExpr(
     case tkKeyword_if:
     case tkKeyword_for:
     case tkKeyword_elif:
-    case tkKeyword_while: {
+    case tkKeyword_while:
+    case tkKeyword_match:
+    case tkKeyword_case: {
         if (expr->left) analyseExpr(parser, expr->left, mod, false);
         foreach (ASTExpr*, stmt, expr->body->stmts)
             analyseExpr(parser, stmt, mod, inFuncArgs);
@@ -405,7 +407,7 @@ static void analyseExpr(
             expr->typeType = TYErrorType;
             break;
         }
-        
+
         ASTType* type = expr->left->var->typeSpec->type;
         if (!type) {
             expr->typeType = TYErrorType;
@@ -455,8 +457,10 @@ static void analyseExpr(
                 || expr->kind == tkKeyword_in) {
                 // Handle comparison and logical operators (always return a
                 // bool)
-                expr->typeType = (expr->right->typeType == TYErrorType
-                                     || (!expr->unary && expr->left->typeType == TYErrorType))
+                expr->typeType
+                    = (expr->right->typeType == TYErrorType
+                          || (!expr->unary
+                              && expr->left->typeType == TYErrorType))
                     ? TYErrorType
                     : TYBool;
             } else {

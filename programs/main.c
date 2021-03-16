@@ -870,28 +870,28 @@ static ASTExpr* next_token_node(
 }
 // these should all be part of Token_ when converted back to C
 // in the match case, self->token should be advanced on error
-static ASTExpr* match(Parser* parser, TokenKind expected) {
+static ASTExpr* Parser_match(Parser* parser, TokenKind expected) {
     return next_token_node(parser, expected, false);
 }
 
 // this returns the match node or null
-static ASTExpr* trymatch(Parser* parser, TokenKind expected) {
+static ASTExpr* Parser_trymatch(Parser* parser, TokenKind expected) {
     return next_token_node(parser, expected, true);
 }
 
 // just yes or no, simple
-static bool matches(Parser* parser, TokenKind expected) {
+static bool Parser_matches(Parser* parser, TokenKind expected) {
     return (parser->token.kind == expected);
 }
 
 static bool Parser_ignore(Parser* parser, TokenKind expected) {
     bool ret;
-    if ((ret = matches(parser, expected))) Token_advance(&parser->token);
+    if ((ret = Parser_matches(parser, expected))) Token_advance(&parser->token);
     return ret;
 }
 
 // this is same as match without return
-static void discard(Parser* parser, TokenKind expected) {
+static void Parser_consume(Parser* parser, TokenKind expected) {
     if (!Parser_ignore(parser, expected))
         Parser_errorExpectedToken(parser, expected);
 }

@@ -177,6 +177,8 @@ static void Token_tryKeywordMatch(Token* token) {
     Token_compareKeyword(then)
     Token_compareKeyword(end)
     Token_compareKeyword(enum)
+    Token_compareKeyword(match)
+    Token_compareKeyword(case)
     Token_compareKeyword(function)
     Token_compareKeyword(declare)
     Token_compareKeyword(test)
@@ -304,11 +306,9 @@ static TokenKind Token_getType(Token* token, const size_t offset) {
 static void Token_detect(Token* token) {
     TokenKind tt = Token_getType(token, 0);
     TokenKind tt_ret = tkUnknown; // = tt;
-    static TokenKind tt_last
-        = tkUnknown;
+    static TokenKind tt_last = tkUnknown;
     // the previous self->token that was found
-    static TokenKind tt_lastNonSpace
-        = tkUnknown;
+    static TokenKind tt_lastNonSpace = tkUnknown;
     // the last non-space self->token found
     TokenKind tmp;
     char* start = token->pos;
@@ -371,10 +371,10 @@ static void Token_detect(Token* token) {
         tt_ret = tkSpaces;
         break;
 
-        case tkColEq:
-            token->pos++; // 2-char token
-            // fallthrough, since tkColEq is also a line continuation token
-          // like , and ;
+    case tkColEq:
+        token->pos++; // 2-char token
+        // fallthrough, since tkColEq is also a line continuation token
+        // like , and ;
     case tkOpComma:
     case tkOpSemiColon:
 
