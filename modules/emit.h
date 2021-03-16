@@ -531,6 +531,7 @@ static void ASTFunc_printStackUsageDef(size_t stackUsage) {
 
 ///////////////////////////////////////////////////////////////////////////
 static void ASTType_emit(ASTType* type, int level) {
+    if (!type->body || !type->analysed || type->isDeclare) return;
     // if (! type->body or not type->analysed) return;
     const char* const name = type->name;
     printf("#define FIELDS_%s \\\n", name);
@@ -575,12 +576,12 @@ static void ASTType_emit(ASTType* type, int level) {
         printf("#undef %s \n", var->name);
 
     printf("    return self;\n}\n\n");
-    printf("%s %s_new_(IFDEBUG(const char* callsite_)) {\n", name, name);
 
-    printf("#define DEFAULT_VALUE NULL\n    "
-           "IFDEBUG(static const char* sig_ = \"%s()\");\n",
-        name);
     ASTFunc_printStackUsageDef(48);
+    printf("#define DEFAULT_VALUE NULL\n"
+           "monostatic %s %s_new_(IFDEBUG(const char* callsite_)) {\n"
+           "IFDEBUG(static const char* sig_ = \"%s()\");\n",
+        name, name, name);
     puts(functionEntryStuff_UNESCAPED);
     printf("    %s ret = %s_alloc_(); %s_init_(ret);\n"
            "    TRACE_IF_ERROR;\n"
@@ -589,7 +590,8 @@ static void ASTType_emit(ASTType* type, int level) {
     puts(functionExitStuff_UNESCAPED);
     puts("#undef DEFAULT_VALUE\n#undef MYSTACKUSAGE\n}\n");
     printf("#define %s_print(p) %s_print__(p, STR(p))\n", name, name);
-    printf("void %s_print__(%s self, const char* name) {\n    printf(\"<%s "
+    printf("monostatic void %s_print__(%s self, const char* name) {\n    "
+           "printf(\"<%s "
            "'%%s' at %%p size %%luB>\\n\",name, self, sizeof(struct %s));\n}\n",
         name, name, name, name);
     puts("");
@@ -600,7 +602,8 @@ static void ASTType_emit(ASTType* type, int level) {
 
 ///////////////////////////////////////////////////////////////////////////
 static void ASTType_genh(ASTType* type, int level) {
-    if (!type->body || !type->analysed) return;
+    if (!type->body || !type->analysed || type->isDeclare) return;
+
     const char* const name = type->name;
     printf("typedef struct %s* %s;\nstruct %s;\n", name, name, name);
     printf("static %s %s_alloc_(); \n", name, name);
@@ -612,10 +615,50 @@ static void ASTType_genh(ASTType* type, int level) {
         name, name);
     printf("static void %s_json_(const %s self, int nspc);\n", name, name);
 }
+///////////////////////////////////////////////////////////////////////////
+static void ASTEnum_genh(ASTType* type, int level) {
+    if (!type->body || !type->analysed) return;
+    const char* const name = type->name;
+    puts("typedef enum {");
 
+    foreach (ASTVar*, var, type->body->locals)
+        printf("    %s_%s,\n", name, var->name);
+    printf("} %s;\n", name);
+    ASTExpr* ex1 = type->body->stmts->item;
+    const char* datType = ASTExpr_typeName(ex1->right);
+    printf("monostatic %s %s__data[%d];\n", datType, name,
+        PtrList_count(type->body->locals));
+    printf("monostatic const char* %s__names[] ={\n", name);
+    foreach (ASTVar*, var, type->body->locals)
+        printf("    [%s_%s] = \"%s\",\n", name, var->name, var->name);
+    puts("};");
+
+    printf("monostatic void %s__init() {\n", name);
+    foreach (ASTExpr*, stmt, type->body->stmts) {
+        // if (!stmt || stmt->kind != tkOpAssign || !stmt->var->init)
+        // //     //            or not stmt->var->used)
+        //     continue;
+        printf("%.*s%s__data[%s_%s] = ", level + STEP, spaces, name, name,
+            stmt->left->string);
+        ASTExpr_emit(stmt->right, 0);
+        puts(";");
+        if (ASTExpr_throws(stmt->right))
+            puts("    if (_err_ == ERROR_TRACE) return NULL;");
+    }
+    puts("}");
+
+    // printf("static %s %s_alloc_(); \n", name, name);
+    // printf("%s %s_new_(IFDEBUG(const char* callsite_)); \n", name, name);
+    // printf("\nDECL_json_wrap_(%s)\n//DECL_json_file(%s)\n", name, name);
+    // printf("#define %s_json(x) { printf(\"\\\"%%s\\\": \",#x); "
+    //        "%s_json_wrap_(x); }\n\n",
+    //     name, name);
+    // printf("static void %s_json_(const %s self, int nspc);\n", name, name);
+}
 ///////////////////////////////////////////////////////////////////////////
 static void ASTFunc_emit(ASTFunc* func, int level) {
-    if (!func->body || !func->analysed) return; // declares, default ctors
+    if (!func->body || !func->analysed || func->isDeclare)
+        return; // declares, default ctors
 
     // actual stack usage is higher due to stack protection, frame bookkeeping
     // ...
@@ -668,7 +711,7 @@ static void ASTFunc_emit(ASTFunc* func, int level) {
 
 ///////////////////////////////////////////////////////////////////////////
 static void ASTFunc_genh(ASTFunc* func, int level) {
-    // if (! func->body or not func->analysed) return;
+    if (!func->body || !func->analysed || func->isDeclare) return;
     if (!func->isExported) printf("static ");
     if (func->returnSpec) {
         ASTTypeSpec_emit(func->returnSpec, level, false);
@@ -684,6 +727,40 @@ static void ASTFunc_genh(ASTFunc* func, int level) {
         ((func->args && func->args->item) ? ',' : ' '));
     puts(");\n");
 }
+
+///////////////////////////////////////////////////////////////////////////
+static void ASTVar_genh(ASTVar* var, int level) {
+    // if (! func->body or not func->analysed) return;
+    // if (!func->isExported) printf("static ");
+    // if (var->typeSpec) {
+    if (!var->init) return;
+
+    ASTTypeSpec_emit(var->typeSpec, level, false);
+    // }
+
+    printf(" %s = ", var->name);
+    ASTExpr_emit(var->init, 0);
+
+    puts("");
+}
+
+// #define MKEMB(T, ...)                                                          \
+//     (T[]) {                                                                    \
+//         { __VA_ARGS__ }                                                        \
+//     }
+
+// ASTFunc* decld = (ASTFunc[]) { { .name = "Oiunko",
+//     .selector = "Oinko_uio_uyt",
+//     .line = 21,
+//     .args = (PtrList[]) { { .item = (ASTVar[1]) { { .name = "arg1" } } } },
+//     .isDeclare = 1,
+//     .isRecursive = 1 } };
+
+// ASTFunc* declc = MKEMB(ASTFunc, .name = "Oiunko", .selector =
+// "Oinko_uio_uyt",
+//     .line = 21,
+//     .args = MKEMB(PtrList, .item = MKEMB(ASTVar, .name = "arg1", .line =
+//     6)));
 
 ////////////////////////////////////////////////////
 static void ASTTest_emit(ASTTest* test) // TODO: should tests not return BOOL?
@@ -1441,6 +1518,16 @@ static void ASTModule_emit(ASTModule* module) {
 
     puts("");
 
+    foreach (ASTVar*, var, module->scope.locals)
+        if (var->used) ASTVar_genh(var, 0);
+
+    foreach (ASTType*, type, module->enums) {
+        if (type->body && type->analysed) {
+            ASTEnum_genh(type, 0);
+            // ASTType_genTypeInfoDecls(type);
+        }
+    }
+
     foreach (ASTType*, type, module->types) {
         if (type->body && type->analysed) {
             ASTType_genh(type, 0);
@@ -1493,7 +1580,7 @@ static void ASTModule_genTests(ASTModule* module) {
 void ASTType_genNameAccessors(ASTType* type) {
     // TODO: instead of a linear search over all members this should generate
     // a switch for checking using a prefix tree -> see genrec.c
-
+    if (!type->analysed || type->isDeclare) return;
     // ASTType_genMemberRecognizer( type, "Int64 value",  )
 
     printf("static void* %s__memberNamed(%s self, const char* name) {\n",
@@ -1520,6 +1607,8 @@ void ASTType_genNameAccessors(ASTType* type) {
 // Generates some per-type functions that write out meta info of the type to be
 // used for reflection, serialization, etc.
 void ASTType_genTypeInfoDecls(ASTType* type) {
+    if (!type->analysed || type->isDeclare) return;
+
     printf("static const char* const %s__memberNames[] = {\n    ", type->name);
     if (type->body) //
         foreachn(ASTVar*, var, varn, type->body->locals) {

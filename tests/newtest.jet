@@ -6,7 +6,7 @@ type XTy
     ~ always mm < 78
 ~init ~ default ctor
 ~ basic assignments happen anyway in all ctors
-~init (withMm Int) ~ call as XTy(withMm=7)
+~init (withMm Int) ~ call XTy(withMm=7)
    ~ check withMm < 89
    ~ mm = withMm
 ~drop
@@ -20,22 +20,29 @@ end
 
 ~ ---
 ~ var x = ETS.test3 ~ enum member access (numerical but dont say numerical)
-~ var val as Number = ETS[test3] ~ enum associated data access
+~ var val Number = ETS[test3] ~ enum associated data access
 ~ var x = ETS(56) ~ convert number, compiletime or runtime
 ~ var x = ETS("test3") ~ convert str, compiletime or runtime
 ~ ~ ^ need implicit convert? maybe not:
-~ var x as ETS = val or .test3
+~ var x ETS = val or .test3
 ~ var x = ETS(val) or .test4
 ~ ---
 
 
 declare type Tx
+end
+
 declare function Tx()
+
+var lm = 7
+
+~ deprecated "Please use this instead" start(args String[])
 function start()
     var cs = "Hello world"
-    var cd = 34 + 8
+    var cd = 34 + 8 ~+lm
     var xt = xTY()
     var tt = tx()
+    lm = 9
     ~ var ttt = tt.y
     print(xt)
     ~ if xre(cd)==9
@@ -57,6 +64,19 @@ function start()
     case .test3
     case .test4
     end
+
+    var ggf =
+        45
+    json(ggf)
+    ~     function (iuy Number) ~capture (ee, cd)
+    ~         print("yui $cd ")
+    ~     end
+
+    ~ ns.updateWindowAnimation(win, animate=yes, callback=
+    ~     function !(win NSWin, boo Bool)
+    ~         win.title = 'Hello'
+    ~     end
+    ~ )
     ~ print(ee)
     ~ describe(arr[2])
     ~ describe(xt)

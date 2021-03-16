@@ -391,7 +391,7 @@ static void Token_detect(Token* token) {
         // like , and ;
     case tkOpComma:
     case tkOpSemiColon:
-
+    case tkOpAssign:
         //        line continuation tokens
         tt_ret = tt;
 

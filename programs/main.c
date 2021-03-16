@@ -267,8 +267,9 @@ typedef struct ASTType {
     uint16_t line;
     uint8_t col;
     bool analysed : 1, needJSON : 1, needXML : 1, needYAML : 1, visited : 1,
-        isValueType : 1, isEnum : 1; // all vars of this type will be stack
-                                     // allocated and passed around by value.
+        isValueType : 1, isEnum : 1,
+        isDeclare : 1; // all vars of this type will be stack
+                       // allocated and passed around by value.
 } ASTType;
 
 // typedef struct ASTEnum {

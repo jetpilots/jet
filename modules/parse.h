@@ -1014,7 +1014,7 @@ static ASTType* parseType(
         return type;
     }
 
-    if (!shouldParseBody) return type;
+    // if (!shouldParseBody) return type;
 
     type->body = parseScope(parser, NULL, true);
 
@@ -1128,7 +1128,6 @@ static PtrList* parseModule(Parser* parser) {
     Token_advance(&parser->token); // maybe put this in parser ctor
 
     ASTImport* import = NULL;
-
     // The take away is (for C gen):
     // Every caller who calls append(List) should keep a local List*
     // to follow the list top as items are appended. Each actual append
@@ -1157,15 +1156,21 @@ static PtrList* parseModule(Parser* parser) {
             continue;
         }
         switch (parser->token.kind) {
+
         case tkKeyword_declare:
             Token_advance(&parser->token);
             Parser_consume(parser, tkOneSpace);
             if (parser->token.kind == tkKeyword_function) {
-                funcs = PtrList_append(funcs, parseFunc(parser, gscope, false));
+                ASTFunc* func = parseFunc(parser, gscope, false);
+                func->isDeclare = true;
+                funcs = PtrList_append(funcs, func);
                 // if ((*funcs)->next) funcs = &(*funcs)->next;
             }
             if (parser->token.kind == tkKeyword_type) {
-                types = PtrList_append(types, parseType(parser, gscope, false));
+                ASTType* type = parseType(parser, gscope, false);
+                type->isDeclare = true;
+                types = PtrList_append(types, type);
+
                 // if ((*types)->next) types = &(*types)->next;
             }
             break;
@@ -1241,6 +1246,8 @@ static PtrList* parseModule(Parser* parser) {
                 if ((orig = ASTScope_getVar(gscope, var->name)))
                     Parser_errorDuplicateVar(parser, var, orig);
                 if (var->init) resolveVars(parser, var->init, gscope, false);
+                var->isLet = true;
+                var->isVar = false;
                 gvars = PtrList_append(gvars, var);
             }
             // if ((*globalsTop)->next) globalsTop =
