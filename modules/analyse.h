@@ -53,6 +53,7 @@ static void ASTExpr_setEnumBase(
         expr->left->col = expr->col;
         resolveVars(parser, expr, &mod->scope, false);
     case tkPlus:
+    case tkOpComma:
     case tkOpEQ:
         ASTExpr_setEnumBase(parser, expr->left, spec, mod);
         ASTExpr_setEnumBase(parser, expr->right, spec, mod);
@@ -258,12 +259,31 @@ static void analyseExpr(
     } break;
 
         // -------------------------------------------------- //
+    case tkKeyword_match: {
+        ASTExpr* cond = expr->left;
+        if (cond) analyseExpr(parser, cond, mod, false);
+        ASTTypeSpec* tsp = ASTExpr_getObjectTypeSpec(cond);
+        if (expr->body && tsp && tsp->type
+            && tsp->type->isEnum) { // left->typeType == TYObject&&->isEnum) {
+            foreach (ASTExpr*, cas, expr->body->stmts)
+                if (cas->left) ASTExpr_setEnumBase(parser, cas->left, tsp, mod);
+        }
+
+        foreach (ASTExpr*, stmt, expr->body->stmts) {
+            analyseExpr(parser, stmt, mod, inFuncArgs);
+            if (stmt->kind == tkKeyword_case && stmt->left
+                && (stmt->left->typeType != cond->typeType
+                    || (cond->typeType == TYObject
+                        && ASTExpr_getObjectType(stmt->left)
+                            != ASTExpr_getObjectType(cond))))
+                Parser_errorTypeMismatch(parser, cond, stmt->left);
+        }
+    } break;
     case tkKeyword_else:
     case tkKeyword_if:
     case tkKeyword_for:
     case tkKeyword_elif:
     case tkKeyword_while:
-    case tkKeyword_match:
     case tkKeyword_case: {
         if (expr->left) analyseExpr(parser, expr->left, mod, false);
         foreach (ASTExpr*, stmt, expr->body->stmts)

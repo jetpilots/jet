@@ -617,7 +617,57 @@ static size_t ASTType_calcSizeUsage(ASTType* self) {
 }
 
 #pragma mark - AST EXPR IMPL.
+static ASTTypeSpec* ASTExpr_getObjectTypeSpec(const ASTExpr* const self) {
+    if (!self) return NULL;
 
+    // all that is left is object
+    switch (self->kind) {
+    case tkFunctionCallResolved:
+        // case tkFunctionCall:
+        return self->func->returnSpec;
+    case tkIdentifierResolved:
+    case tkSubscriptResolved:
+        // case tkIdentifier:
+        // case tkSubscript:
+        return self->var->typeSpec;
+        //        }
+        // TODO: tkOpColon should be handled separately in the semantic
+        // pass, and should be assigned either TYObject or make a dedicated
+        // TYRange
+        //     case tkOpColon:
+        //        return "Range";
+        // TODO: what else???
+    case tkPeriod:
+        return ASTExpr_getObjectTypeSpec(self->right);
+    default:
+        break;
+    }
+    return NULL;
+}
+static ASTType* ASTExpr_getObjectType(const ASTExpr* const self) {
+    if (!self || self->typeType != TYObject) return NULL;
+
+    // all that is left is object
+    switch (self->kind) {
+    case tkFunctionCallResolved:
+        return self->func->returnSpec->type;
+    case tkIdentifierResolved:
+    case tkSubscriptResolved:
+        return self->var->typeSpec->type;
+        //        }
+        // TODO: tkOpColon should be handled separately in the semantic
+        // pass, and should be assigned either TYObject or make a dedicated
+        // TYRange
+        //     case tkOpColon:
+        //        return "Range";
+        // TODO: what else???
+    case tkPeriod:
+        return ASTExpr_getObjectType(self->right);
+    default:
+        break;
+    }
+    return NULL;
+}
 static const char* ASTExpr_typeName(const ASTExpr* const self) {
     if (!self) return "";
     const char* ret = TypeType_name(self->typeType);

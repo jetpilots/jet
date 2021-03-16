@@ -1272,6 +1272,22 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
         printf("%.*s}", level, spaces);
         break;
 
+    case tkKeyword_match:
+        printf("switch (");
+        ASTExpr_emit(expr->left, 0);
+        puts(") {");
+        if (expr->body) ASTScope_emit(expr->body, level);
+        printf("%.*s}", level, spaces);
+        break;
+
+    case tkKeyword_case:
+        printf("case ");
+        ASTExpr_emit(expr->left, 0);
+        puts(": {");
+        if (expr->body) ASTScope_emit(expr->body, level);
+        printf("%.*s} break", level, spaces);
+        break;
+
     case tkKeyword_for:
     case tkKeyword_if:
         //    case tkKeyword_elif:
@@ -1309,7 +1325,11 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
 
     case tkPeriod:
         ASTExpr_emit(expr->left, 0);
-        printf("->"); // may be . if right is embedded and not a reference
+        if (expr->left->typeType == TYObject
+            && ASTExpr_getObjectType(expr->left)->isEnum)
+            printf("_");
+        else
+            printf("->"); // may be . if right is embedded and not a reference
         ASTExpr_emit(expr->right, 0);
         break;
 

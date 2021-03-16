@@ -382,7 +382,7 @@ static void ASTExpr_lint(
 }
 
 static void ASTModule_lint(ASTModule* module) {
-    printf("# module %s\n", module->name);
+    printf("~ module %s\n", module->name);
 
     foreach (ASTImport*, import, module->imports)
         ASTImport_lint(import, 0);

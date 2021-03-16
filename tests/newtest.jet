@@ -18,14 +18,15 @@ enum ETS
   test4 = 6
 end
 
-~var x = ETS.test3 ~ enum member access (numerical but dont say numerical)
-~var val as Number = ETS[test3] ~ enum associated data access
-~var x = ETS(56) ~ convert number, compiletime or runtime
-~var x = ETS("test3") ~ convert str, compiletime or runtime
-~ ^ need implicit convert? maybe not:
+~ ---
+~ var x = ETS.test3 ~ enum member access (numerical but dont say numerical)
+~ var val as Number = ETS[test3] ~ enum associated data access
+~ var x = ETS(56) ~ convert number, compiletime or runtime
+~ var x = ETS("test3") ~ convert str, compiletime or runtime
+~ ~ ^ need implicit convert? maybe not:
 ~ var x as ETS = val or .test3
 ~ var x = ETS(val) or .test4
-
+~ ---
 
 
 declare type Tx
@@ -49,9 +50,13 @@ function start()
     end
     ~ ~ print(arr[2])
     ~ arr[2] = arr[5] + 6
-    var ee as ETS = .test4 + cd
+    var ee as ETS = ETS.test4
     ~ if ee == .test4
     ~ end
+    match ee
+    case .test3
+    case .test4
+    end
     ~ print(ee)
     ~ describe(arr[2])
     ~ describe(xt)

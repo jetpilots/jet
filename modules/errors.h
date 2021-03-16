@@ -387,6 +387,20 @@ static void Parser_errorTypeMismatchBinOp(Parser* parser, ASTExpr* expr) {
     Parser_errorIncrement(parser);
 }
 
+static void Parser_errorTypeMismatch(Parser* parser, ASTExpr* e1, ASTExpr* e2) {
+    // if one of the types is "<invalid>", an error has already been
+    // reported for it; so don't bother
+    const char* leftTypeName = ASTExpr_typeName(e1);
+    const char* rightTypeName = ASTExpr_typeName(e2);
+    if (*leftTypeName == '<' || *rightTypeName == '<') return;
+    eprintf("\n(%d) \e[31merror:\e[0m expected same types at:\n"
+            "       %s%s:%d:%d: found '\e[33m%s\e[0m'\n"
+            "       %s%s:%d:%d: found '\e[33m%s\e[0m'\n",
+        parser->issues.errCount + 1, RELF(parser->filename), e1->line, e1->col,
+        leftTypeName, RELF(parser->filename), e2->line, e2->col, rightTypeName);
+    Parser_errorIncrement(parser);
+}
+
 static void Parser_errorInitMismatch(Parser* parser, ASTExpr* expr) {
     // if one of the types is "<invalid>", an error has already been
     // reported for it; so don't bother

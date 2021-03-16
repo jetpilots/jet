@@ -662,6 +662,7 @@ static ASTScope* parseScope(Parser* parser, ASTScope* parent, bool isTypeBody) {
             Parser_ignore(parser, tkKeyword_match);
             // }
             stmts = PtrList_append(stmts, expr);
+
             break;
 
         case tkKeyword_else:

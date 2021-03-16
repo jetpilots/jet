@@ -264,7 +264,7 @@ static const char* const tkrepr[] = {
     [tkOneSpace] = "(sp1)",
     [tkTab] = "(tab)",
     [tkNewline] = "(nl)",
-    [tkLineComment] = "#",
+    [tkLineComment] = "~",
     [tkAlphabet] = "a",
     [tkAmpersand] = "&",
     [tkArrayClose] = "]",
@@ -371,7 +371,7 @@ static const char* const tksrepr[] = {
     [tkOneSpace] = "(sp1)",
     [tkTab] = "(tab)",
     [tkNewline] = "(nl)",
-    [tkLineComment] = "#",
+    [tkLineComment] = "~",
     [tkAlphabet] = "a",
     [tkAmpersand] = "&",
     [tkArrayClose] = "]",
@@ -428,4 +428,3 @@ static const char* const tksrepr[] = {
     [tkColEq] = " := ",
     [tkQuestion] = "?",
 };
-
