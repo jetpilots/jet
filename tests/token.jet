@@ -92,8 +92,8 @@ let TokenKindTable = [
 ]
 
 
-#define Token_matchesKeyword(tok)                                              \
-    # if (sizeof(#tok) - 1 == l and not strncmp(#tok, s, l)) ret = yes
+~define Token_matchesKeyword(tok)                                              \
+    ~ if (sizeof(#tok) - 1 == l and not strncmp(#tok, s, l)) ret = yes
 
 function doesKeywordMatch(s as String, l as Number)
 {
@@ -115,7 +115,7 @@ function doesKeywordMatch(s as String, l as Number)
     Token_matchesKeyword(in)
     Token_matchesKeyword(else)
     Token_matchesKeyword(type)
-    #    matchesen_compareKeyword(check)
+    ~    matchesen_compareKeyword(check)
     Token_matchesKeyword(extends)
     Token_matchesKeyword(var)
     Token_matchesKeyword(let)
@@ -141,40 +141,40 @@ declare type Token
 end type
 
 
-# Peek at the char after the current (complete) token
+~ Peek at the char after the current (complete) token
 function peekCharAfter(token as Token) as (s as String)
     var i = token.matchlen
     if token.skipWhiteSpace
         do j = 1:len(s)
-            # we definitely need to allow auto converting bool to 0 or 1
-            # if token.pos[i] == " " then i += 1
+            ~ we definitely need to allow auto converting bool to 0 or 1
+            ~ if token.pos[i] == " " then i += 1
             i += num(token.pos[j] == " ") # no branching
         end do
     end if
 
-    # var j = [8, 7, 6, 5, 4, 3]
+    ~ var j = [8, 7, 6, 5, 4, 3]
 
-    # var j[] = [8, 7, 6, 5, 4, 3]
+    ~ var j[] = [8, 7, 6, 5, 4, 3]
 
-    # var j[] = 8, 7, 6, 5, 4, 3
+    ~ var j[] = 8, 7, 6, 5, 4, 3
 
-    # var j[:,:] = [8, 7, 6; 5, 4, 3]
+    ~ var j[:,:] = [8, 7, 6; 5, 4, 3]
 
 
     s = token.pos[i]
 end function
 
-#define Token_compareKeyword(tok)                                              \
-    # if (sizeof(#tok) - 1 == l and not strncmp(#tok, s, l)) {                   \
-    #     token.kind = .tkKeyword_##tok                                          \
-    #     ret =                                                                \
-    # end
+~define Token_compareKeyword(tok)                                              \
+    ~ if (sizeof(#tok) - 1 == l and not strncmp(#tok, s, l)) {                   \
+    ~     token.kind = .tkKeyword_##tok                                          \
+    ~     ret =                                                                \
+    ~ end
 
-# Check if an (ident) token.token matches a keyword and ret = its type
-# accordingly.
+~ Check if an (ident) token.token matches a keyword and ret = its type
+~ accordingly.
 static void Token_tryKeywordMatch(Token* token)
 {
-    # TODO USE A DICT OR MPH FOR THIS!
+    ~ TODO USE A DICT OR MPH FOR THIS!
     if (token.kind != .tkIdentifier) ret =
 
     const char* s = token.pos
@@ -206,18 +206,18 @@ static void Token_tryKeywordMatch(Token* token)
     Token_compareKeyword(ret =)
     Token_compareKeyword(as)
     Token_compareKeyword(as)
-    # Token_compareKeyword(elif)
+    ~ Token_compareKeyword(elif)
 
-    #        Token_compareKeyword(print)
-    #     if (sizeof("else if") - 1 == l and not strncmp("else if", s, l))
-    # {
-    #     token.kind = .tkKeyword_elseif
-    #     ret =
-    # end
+    ~        Token_compareKeyword(print)
+    ~     if (sizeof("else if") - 1 == l and not strncmp("else if", s, l))
+    ~ {
+    ~     token.kind = .tkKeyword_elseif
+    ~     ret =
+    ~ end
 end
 
-# Get the token kind based only on the char at the current position
-# (or an offset).
+~ Get the token kind based only on the char at the current position
+~ (or an offset).
 function getType(token as Token, offset as Int) as (ret as TokenKind)
     const char c = token.pos[offset]
     const char cn = c ? token.pos[1 + offset]  0
@@ -331,10 +331,10 @@ static void Token_detect(Token* token)
     case .tkRawStringBoundary
         tmp = tt # remember which it is exactly
 
-        # Incrementing pos is a side effect of getTypeAtCurrentPos(...)
+        ~ Incrementing pos is a side effect of getTypeAtCurrentPos(...)
         while (tt != .tkNullChar) {
-            # here we want to consume the ending " so we move next
-            # before
+            ~ here we want to consume the ending " so we move next
+            ~ before
             token.pos++
             tt = getType(token, 0)
             if (tt == .tkNullChar or tt == tmp) {
@@ -363,35 +363,35 @@ static void Token_detect(Token* token)
 
     case .tkSpaces
         if (tt_last == .tkOneSpace) # if prev char was a space ret =
-                                   # this as a run of spaces
+                                   ~ this as a run of spaces
             while (tt != .tkNullChar) {
-                # here we dont want to consume the end char, so break
-                # before
+                ~ here we dont want to consume the end char, so break
+                ~ before
                 tt = getType(token, 1)
                 token.pos++
                 if (tt != .tkSpaces) break
             end
         else
             token.pos++
-        # else its a single space
+        ~ else its a single space
         tt_ret = .tkSpaces
         break
 
     case .tkOpComma
     case .tkOpSemiColon
-        #        line continuation tokens
+        ~        line continuation tokens
         tt_ret = tt
 
         while tt != .tkNullChar
             tt = getType(token, 1)
             token.pos += 1
-            # line number should be incremented for line continuations
+            ~ line number should be incremented for line continuations
             if tt == .tkSpaces then found_spc++
             if tt == .tkExclamation then found_cmt = yes
             if tt == .tkNewline
                 token.line += 1
                 token.col = -found_spc - 1 # account for extra spaces
-                                            # after , and for nl itself
+                                            ~ after , and for nl itself
                 found_spc = 0
             end if
             if found_cmt and tt != .tkNewline
@@ -403,7 +403,7 @@ static void Token_detect(Token* token)
         break
 
     case .tkArrayOpen
-        # mergearraydims should be set only when reading func args
+        ~ mergearraydims should be set only when reading func args
         if not token.mergeArrayDims goto defaultToken
 
         while tt != .tkNullChar
@@ -420,13 +420,13 @@ static void Token_detect(Token* token)
         tt_ret = .tkArrayDims
 
     case .tkAlphabet
-        # case .tkPeriod
+        ~ case .tkPeriod
     case .tkUnderscore
         while (tt != .tkNullChar) {
             tt = getType(token, offset=1)
             token.pos++
             if (tt != .tkAlphabet and tt != .tkDigit and tt != .tkUnderscore)
-                # and tt != .tkPeriod)
+                ~ and tt != .tkPeriod)
                 break #/ validate in parser not here
         end
         tt_ret = .tkIdentifier
@@ -458,13 +458,13 @@ static void Token_detect(Token* token)
         while (tt != .tkNullChar) # EOF, basically null char
         {
             tt = getType(token, offset=1)
-            # numbers such as 1234500.00 are allowed
-            # very crude, error-checking is parser"s job
+            ~ numbers such as 1234500.00 are allowed
+            ~ very crude, error-checking is parser"s job
             token.pos++
 
             if match(string=token.pos, prefix=["e","E","d","D"])
-            # if (*token.pos == "e" or *token.pos == "E" or *token.pos == "d"
-            #     or *token.pos == "D") { # will all be changed to e btw
+            ~ if (*token.pos == "e" or *token.pos == "E" or *token.pos == "d"
+            ~     or *token.pos == "D") { # will all be changed to e btw
                 found_e = yes
                 skip
             end if
@@ -499,7 +499,7 @@ static void Token_detect(Token* token)
         token.pos++
 
     case .tkOpNotResults
-        # 3-char tokens
+        ~ 3-char tokens
         token.pos++
     case .tkOpEQ
     case .tkOpGE
@@ -515,7 +515,7 @@ static void Token_detect(Token* token)
     case .tkPowerEq
     case .tkOpModEq
 
-        # 2-char tokens
+        ~ 2-char tokens
         token.pos++
     case else
     defaultToken
@@ -537,7 +537,7 @@ static void Token_detect(Token* token)
         tt_lastNonSpace = tt_last
 end
 
-# Advance to the next token.token (skip whitespace if `skipws` is set).
+~ Advance to the next token.token (skip whitespace if `skipws` is set).
 function advance(token as Token)
     match token.kind
     case .tkIdentifier, .tkString, .tkNumber, .tkMultiDotNumber,
@@ -551,7 +551,7 @@ function advance(token as Token)
         break
     case else
         *token.pos = 0 # trample it so that idents etc. can be assigned
-                        # in-situ
+                        ~ in-situ
     end
 
     token.pos += token.matchlen
@@ -560,7 +560,7 @@ function advance(token as Token)
     detect!(token)
 
     if token.kind == .tkNewline
-        # WHY don"t you do token.token advance here?
+        ~ WHY don"t you do token.token advance here?
         token.line += 1
         token.col = 0 # position of the nl itself is 0
     end if
@@ -570,4 +570,4 @@ function advance(token as Token)
         advance!(token!, ignore=no)
     end if
 end function
-#
+~

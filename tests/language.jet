@@ -1,6 +1,6 @@
-# Comments start with two hyphens.
+~ Comments start with two hyphens.
 
-# Values
+~ Values
 "the quick brown fox", 'what happens in vegas' # string
 `\.?[a-z][a-zA-Z0-9]*` # regular expression w/ compile-time error checking
 6.6032e-27, 1, 0, 42 # (real) number
@@ -9,7 +9,7 @@
 350x200 # size (for 2D use)
 yes, no # logical. true/false are read but linted to yes/no.
 
-# Builtin types
+~ Builtin types
 ... as Text "abcdefg"
 ... as Number 233.54e3 42 1.0 ~04ed42fe7fff
 ... as YesOrNo yes no # 1 bit
@@ -18,13 +18,13 @@ yes, no # logical. true/false are read but linted to yes/no.
 ... as Regex `[a-zA-Z]+|[0-9]+`
 ... as DateTime("2007-20-01 10:33:43 +0530") # parsed at compile time
 
-# anything can be null if explicitly allowed
+~ anything can be null if explicitly allowed
 ... as Text
 ... as YesOrNo # 2 bits
 ... as Number
 
-# Variables
-# only one way: with keyword "var". names cannot start with caps.
+~ Variables
+~ only one way: with keyword "var". names cannot start with caps.
 var x = "5"
 var x as Text
 var pi as Number
@@ -32,7 +32,7 @@ var pi = 3.14159
 var magFieldStrength as Complex
 var magFieldStrength = 0i
 
-# Collections
+~ Collections
 [3, 4, 5] # arrays are homogenous
 [3, 4, 5i] # arrays can be promoted, but linter will make it [3i, 4i, 5i]
 [1, 2, 3; 4, 5, 6; 7, 8, 9] # 2D array literals use ";" to separate dims
@@ -42,19 +42,19 @@ var mx as Number[] # implies = []. arrays are never nil nor nilable, only empty
 var mp as Number[Text] = {"w" = 4} # again just write var mp = {...} and annotation comes from linter
 var mp as Number[Text] # implies = {}. maps are never nil nor nilable.
 
-# Functions
-# func names cannot start with caps.
-# second and higher arguments must be named at call sites (linter can do it)
+~ Functions
+~ func names cannot start with caps.
+~ second and higher arguments must be named at call sites (linter can do it)
 function myfunc(parm as Text, parm2 as Number) as Text
     ans = "empty"
 end
-# basic function definition
+~ basic function definition
 
 myfunc(parm as Text, parm2 as Number) := "empty" # statement function
 
 var x = myfunc("test", parm2=45) # function call
 
-## funcs cannot mutate params, except first param if declared with "var"
+~# funcs cannot mutate params, except first param if declared with "var"
 function pop!(array as Number[]) as Number
     var tmp = array[-1]
     array.count -= 1
@@ -64,27 +64,27 @@ end
 var array = [3, 4, 5, 6]
 var last = pop!(array) # callsite must be !-annotated (linter can do it)
 
-# Types
-# type names start with caps.
+~ Types
+~ type names start with caps.
 
 type MyType
     var m = 0
     var mj = 42 # just write var mj = 42 and linter will fix
     var name = ""
 end
-## default constructor is defined in the type body. CANNOT REDEFINE IT LATER.
-## default construction must always be possible and defined.
+~# default constructor is defined in the type body. CANNOT REDEFINE IT LATER.
+~# default construction must always be possible and defined.
 
-# Objects
+~ Objects
 
 var m = MyType() # new instance
 var m as MyType # implies new ("dummy") instance, not nil by default
-## this kind of apparently "unintialized" var will be linted to the above line
-## so nil objects of any type cannot be "created" at all.
+~# this kind of apparently "unintialized" var will be linted to the above line
+~# so nil objects of any type cannot be "created" at all.
 m.m = 3 # will not crash! m has an instance
 m = MyType() # will overwrite dummy instance
 
-## can define custom constructors, just like a function
+~# can define custom constructors, just like a function
 function MyType(mi as Number, gi as Number)
     ans = MyType()
     ans.m = mi
@@ -92,16 +92,16 @@ function MyType(mi as Number, gi as Number)
 end
 var x = MyType(mi=3, gi=5)
 
-## objects are never nil (but may be nilable).
-## variables cannot be assigned nil, only functions can return nil.
-## nil can be passed to function arguments if it is provably safe
-## (by looking at what the function does with the argument).
+~# objects are never nil (but may be nilable).
+~# variables cannot be assigned nil, only functions can return nil.
+~# nil can be passed to function arguments if it is provably safe
+~# (by looking at what the function does with the argument).
 
-# Expressions
+~ Expressions
 var pi = 22/7 # literals are always reals, so 22/7 -> 3.14159...
 
-# Physical units
-# can be attached to numeric literals, vars and exprs (real, complex, or int)
+~ Physical units
+~ can be attached to numeric literals, vars and exprs (real, complex, or int)
 var speed = 40|km/hr
 var dens = num(input())|kg/m3
 var test = speed + dens # compile time error, units inconsistent for "*" op
@@ -111,27 +111,27 @@ var test3 = speed + dspeed # automatic unit conversion to that of the first
 var test4|m/s = speed + dspeed # explicit unit conversion to that of the second
 var test5|ft/min = speed + dspeed # explicit unit conversion to something else
 
-## automatic conversion where possible when passing to funcs etc.
+~# automatic conversion where possible when passing to funcs etc.
 function flux!(rate as Complex[:,:]|kg/s, speed as Number|m/s) as Number|kg.m3/s
 end
 
-# Syntax specials
+~ Syntax specials
 var a = f(x,
           some=y,
           other=z) # comma can skip over succeeding whitespace and newlines
 
-# by default use double quotes, unless you want to embed double quotes
+~ by default use double quotes, unless you want to embed double quotes
 var x = "The quick $adj1 $animal1 and the $adj2 $animal2"
 var y = 'The quick "$adj1" "fox" and the "$adj2" $animal2'
 
-# strings can run multiline and will be adjusted for indent
+~ strings can run multiline and will be adjusted for indent
 var s = "
     string
     line2
     line3
 "
 
-# regexes can have inline comments and are free-form
+~ regexes can have inline comments and are free-form
 var r1 = `^[a-zA-Z_][a-zA-Z0-9_]*\#$`
 var r2 = `
     ^ # match start of line
@@ -143,7 +143,7 @@ var r2 = `
 check r1 == r2
 
 
-# Configuration
+~ Configuration
 /modules # own modules
 /programs # programs i.e. entrypoints
 /docs # documentation

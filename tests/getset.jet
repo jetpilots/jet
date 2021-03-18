@@ -1,7 +1,7 @@
 
 value type DateTime
     var month:Int<1:12> = 1
-    # only primitives for set/get!!
+    ~ only primitives for set/get!!
     get dayOfWeek:Int<1:7> := dayOfYear % 7 + dayOf1Jan
     set dayOfWeek(value:Int<1:7>)
 
@@ -21,9 +21,9 @@ value type Colour
     var a:Int<0:255> = 0
 end type
 
-# this is without bells and whistles. blocking call, returns raw text.
-# no way to get info about response, headers, status, etc. On error
-# you get a blank string.
+~ this is without bells and whistles. blocking call, returns raw text.
+~ no way to get info about response, headers, status, etc. On error
+~ you get a blank string.
 
     var postData:Text[Text] = {
         "Accept" = "*/*",

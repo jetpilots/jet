@@ -1117,6 +1117,16 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
         ASTExpr_emit_tkNumber(expr, level);
         break;
 
+    case tkKeyword_no:
+        printf("no");
+        break;
+    case tkKeyword_yes:
+        printf("yes");
+        break;
+    case tkKeyword_nil:
+        printf("nil");
+        break;
+
     case tkMultiDotNumber:
     case tkIdentifier:
         printf("%s", expr->string);

@@ -1,13 +1,13 @@
-# how about not having NULL at all? Objects must be present, end of discussion.
-# if you want to send nil as arg, better write an overloaded func that doesn't
-# take that arg at all, and does what is appropriate without it.
-# sending nil and having if(arg) inside the func over n over again is a
-# terrible idea and if you allow it ppl will overuse and abuse it.
-# funcs don't return nil, they throw an error .notFound or .searchFailed or
-# whatever, far more descriptive than a nil.
-# so there is NO Type? notation.
+~ how about not having NULL at all? Objects must be present, end of discussion.
+~ if you want to send nil as arg, better write an overloaded func that doesn't
+~ take that arg at all, and does what is appropriate without it.
+~ sending nil and having if(arg) inside the func over n over again is a
+~ terrible idea and if you allow it ppl will overuse and abuse it.
+~ funcs don't return nil, they throw an error .notFound or .searchFailed or
+~ whatever, far more descriptive than a nil.
+~ so there is NO Type? notation.
 
-# Q is then what about struct elems and vars without init.
+~ Q is then what about struct elems and vars without init.
 type XYZ
     var resa:ResoNix
     var retc = 2
@@ -20,15 +20,15 @@ let x = XYZ {
     }
 }
 
-# This Button {} business is stupid.
+~ This Button {} business is stupid.
 
-# just let ctors be overloaded with arg names and allow it all to be sorted out.
-# the default ctor cannot be hijacked, and cannot be used if any members are nil
-# in the type definition.
-# all ctors must ensure all members are non-nil. ctors can do it, since inner
-# ctors are called from within them, so by the time the outer ctor is done it
-# can reference inner objects if that's what it wanted. So there shouldnt be a reason
-# why you need to keep a null ptr to something and say "I'll set it later..."
+~ just let ctors be overloaded with arg names and allow it all to be sorted out.
+~ the default ctor cannot be hijacked, and cannot be used if any members are nil
+~ in the type definition.
+~ all ctors must ensure all members are non-nil. ctors can do it, since inner
+~ ctors are called from within them, so by the time the outer ctor is done it
+~ can reference inner objects if that's what it wanted. So there shouldnt be a reason
+~ why you need to keep a null ptr to something and say "I'll set it later..."
 
 ```
     r+
@@ -39,23 +39,23 @@ function some!(mainWindow as Window, order as Int, relativeTo as View)
 
 end function
 
-# x.f() is sugar for f(x) as long as x is not a literal.
+~ x.f() is sugar for f(x) as long as x is not a literal.
 func main()
-# null refs cannot be created anywhre except for passing into funcs who explicitly allow null args.
-# Nope. THERE IS NO NIL AT ALL!!
+~ null refs cannot be created anywhre except for passing into funcs who explicitly allow null args.
+~ Nope. THERE IS NO NIL AT ALL!!
     addSubView!(mainWindow, order = -1, relativeTo = nil)
-    # let x = mainWindow!addSubView(order=-1, relativeTo=nil)
-    # let x = mainWindow.addSubView(order=-1, relativeTo=nil)
+    ~ let x = mainWindow!addSubView(order=-1, relativeTo=nil)
+    ~ let x = mainWindow.addSubView(order=-1, relativeTo=nil)
     addSubView!(mainWindow, zIndex = -1) # linter will add & if you forget
-    # v = st!strip().split(sep=' ').join(sep='$')
+    ~ v = st!strip().split(sep=' ').join(sep='$')
     st = join(split(strip(st), sep=' '), sep='$')
 
-    # bullshit. user has to remember to type ! or . everytime.
-    # just go with . and let the language server tell vscode to color
-    # mutated stuff in red. NOOO then you ar dependent on vscode.
-    # instead let linter fix ! and . but you should declare it correctly.
+    ~ bullshit. user has to remember to type ! or . everytime.
+    ~ just go with . and let the language server tell vscode to color
+    ~ mutated stuff in red. NOOO then you ar dependent on vscode.
+    ~ instead let linter fix ! and . but you should declare it correctly.
 
-    # but func returned values when nil must be handled
+    ~ but func returned values when nil must be handled
     let rs = nilreturner(67) or skip
     let rs as Button = nilreturner(67) or return
     let rs = nilreturner(67) or break
@@ -64,17 +64,17 @@ func main()
 
     let rs = nilreturner(67) or catch
         write('error: got null')
-        # must have break/throw/skip/return or set rs to nonnull
+        ~ must have break/throw/skip/return or set rs to nonnull
     end
 end
 
-# NOPE
+~ NOPE
 func nilreturner(Button:&self, Int:h) -> Button:ret?
 end
 
 func Button:self.nilreturner(Int:h) -> ret:Button?
 func Button:self!nilreturner(Int:h) -> ret:Button?
-    # return value can be set null (or unset) for objects. but caller must handle
+    ~ return value can be set null (or unset) for objects. but caller must handle
     if h < 6 ret = Button(dert = 690) # ASTExpr will return 2 objs here. so you can set them as cond and body
     if h < 6 then ret = Button(dert=690) # linter will add 'then'.
 
@@ -90,7 +90,7 @@ func Button:self!nilreturner(Int:h) -> ret:Button?
         ret[i] += i
     end i # linter adds the var automatically as long as # of ends match, there is no error
 
-    # Things should do exactly what they look like
+    ~ Things should do exactly what they look like
     arr[1:60] = random() # this evaluates rhs once and sets it to all
     for i = 1:60 do arr[i] = random() # this evaluates rhs everytime
     arr[:] = randoms([60]) # this is the best way to get 60 different rands

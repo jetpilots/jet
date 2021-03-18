@@ -1,5 +1,5 @@
 
-# programmatic UI
+~ programmatic UI
 
 type MainWindow extends Window
     var lb = OutlineView(pos=0x0, size=500x400)
@@ -9,12 +9,12 @@ var wMain = MainWindow()
 show(window=wMain, pos=100x100, size=800x600)
 
 
-#declarative
+~declarative
 
 MainWindow:
     name = "wMain"
     OutlineView:
-        # actually this is just a constructor or initfn being defined
+        ~ actually this is just a constructor or initfn being defined
         name = "lb"
         pos = 0x0
         size = mkSize(width=sin(800), height=600)
@@ -30,7 +30,7 @@ MainWindow:
 
 wma:MainWindow
     lbk:OutlineView
-        # actually this is just a constructor or initfn being defined
+        ~ actually this is just a constructor or initfn being defined
         pos 0x0
         size mkSize(w=sin(800), h=600)
         style .sidebar
@@ -44,12 +44,12 @@ wma:MainWindow
         end
 
         let st = join(split!(strip!(st), sep=';'), ';')
-        # you could have both strip!(s) and strip(s) versions, where
-        # strip(s) is basically strip!(clone(s)). strip! returns its arg1.
-        # assuming of course the function is inplaceable.
-        # but this just makes it unnecessarily explicit. performance
-        # should be high by default, not require the user to add !.
-        # in this sense auto-detect inplaceable funcs is better
+        ~ you could have both strip!(s) and strip(s) versions, where
+        ~ strip(s) is basically strip!(clone(s)). strip! returns its arg1.
+        ~ assuming of course the function is inplaceable.
+        ~ but this just makes it unnecessarily explicit. performance
+        ~ should be high by default, not require the user to add !.
+        ~ in this sense auto-detect inplaceable funcs is better
         let st = join(split(strip(st), sep=`[,; \t:.]`))
     HStack
         VStack

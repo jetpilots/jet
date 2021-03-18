@@ -296,6 +296,9 @@ exitloop:
         case tkUnits:
         case tkMultiDotNumber:
         case tkIdentifier:
+        case tkKeyword_no:
+        case tkKeyword_nil:
+        case tkKeyword_yes:
         case tkParenOpen:
         case tkLineComment:
             break;
@@ -823,12 +826,12 @@ static ASTScope* parseEnumBody(Parser* parser, ASTScope* globScope) {
 
             expr = parseExpr(parser);
 
+            if (!expr) break;
             if (expr->kind != tkIdentifier && expr->kind != tkOpAssign) {
                 Parser_errorInvalidTypeMember(parser);
                 unreachable("%s\n", TokenKind_str[expr->kind]);
                 expr = NULL;
             }
-            if (!expr) break;
             stmts = PtrList_append(stmts, expr);
             Token_advance(&parser->token); // eat the newline
 
@@ -1016,7 +1019,7 @@ static ASTType* parseType(
 
     // if (!shouldParseBody) return type;
 
-    type->body = parseScope(parser, NULL, true);
+    type->body = parseScope(parser, globScope, true);
 
     Parser_consume(parser, tkKeyword_end);
     Parser_ignore(parser, tkOneSpace);
@@ -1119,6 +1122,16 @@ static ASTFunc* ASTType_makeDefaultCtor(ASTType* type) {
 
 // this func should just be replaced by parseScope handling function type etc
 
+//,
+//        .init = (ASTExpr[]) { { .kind = tkNumber, .string = "1" } } }
+//}
+//;
+
+// vno->vno->;
+// ASTVar* vyes = NEW(ASTVar);
+// vyes->name = "yes";
+// vyes->typeType = TYBool;
+
 static PtrList* parseModule(Parser* parser) {
     ASTModule* root = NEW(ASTModule);
     root->name = parser->moduleName;
@@ -1144,6 +1157,12 @@ static PtrList* parseModule(Parser* parser) {
     ASTScope* gscope = &root->scope;
     List(ASTVar)** gvars = &root->scope.locals; // globals
     List(ASTExpr)** gexprs = &root->scope.stmts; // globals
+
+    // for_to(i, countof(vnoyes))
+    // gvars = PtrList_append(gvars, expr_const_empty);
+    // gvars = PtrList_append(gvars, expr_const_yes);
+    // gvars = PtrList_append(gvars, expr_const_no);
+    // gvars = PtrList_append(gvars, expr_const_nil);
 
     while (parser->token.kind != tkNullChar) {
         if (onlyPrintTokens) {
@@ -1185,6 +1204,7 @@ static PtrList* parseModule(Parser* parser) {
             enums = PtrList_append(enums, en);
             // add a global of the corresponding type so that it can be used
             // to access members.
+            assert(en);
             ASTVar* enumv = NEW(ASTVar);
             enumv->name = en->name;
             enumv->line = en->line;
@@ -1442,6 +1462,10 @@ static int ASTExpr_markTypesVisited(Parser* parser, ASTExpr* expr) {
         return ASTExpr_markTypesVisited(parser, expr->left);
     case tkIdentifierResolved:
     case tkString:
+    case tkIdentifier:
+    case tkKeyword_no:
+    case tkKeyword_yes:
+    case tkKeyword_nil:
     case tkNumber:
     case tkRawString:
     case tkLineComment:

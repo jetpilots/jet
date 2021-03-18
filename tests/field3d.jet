@@ -10,27 +10,27 @@ type Outer
     var inner Inner
 end type
 
-# // generated binary writer func
-# // currpos will be passed recursively, 0 (or size of file header) + sizeof(roottype) for root object
+~ // generated binary writer func
+~ // currpos will be passed recursively, 0 (or size of file header) + sizeof(roottype) for root object
 define FP_PTR2OFF(member) out.member = (void*) *currpos; *currpos += sizeof(*member);
 void Outer_writefbin(Outer* self, FILE* file, size_t* currpos)
 {
 static Outer out;
 out = *self; # // make a copy. can be static to avoid blowing stack, ok if its clobbered by inner calls since the object will have been written out and not used later.
     *currpos += sizeof(out);
-# // currpos is not the currpos to write the file at, but tracks how many btytes were written cumulatively so far
-# loop over members and change pointers to offsets
-# // skip over Point since it is a value type
-# out.inner = (void*)currpos; # // C will take care of void* -> type*
-# currpos += sizeof(*out.inner);
+~ // currpos is not the currpos to write the file at, but tracks how many btytes were written cumulatively so far
+~ loop over members and change pointers to offsets
+~ // skip over Point since it is a value type
+~ out.inner = (void*)currpos; # // C will take care of void* -> type*
+~ currpos += sizeof(*out.inner);
 FP_PTR2OFF(inner);
-# // similarly for all members
-# // now write the current object
+~ // similarly for all members
+~ // now write the current object
 fwrite(&out, sizeof(out),1,file);
-# // now write out all the reference types. note that the current type is fully written
-# // so output is not nested. so you can read partial files.
-# basically if you write them out in the same order, the offsets you predicted
-# // before will match.
+~ // now write out all the reference types. note that the current type is fully written
+~ // so output is not nested. so you can read partial files.
+~ basically if you write them out in the same order, the offsets you predicted
+~ // before will match.
 Inner_writefbin(out.inner, file, &currpos);
 }
 
@@ -53,8 +53,8 @@ Text_writefbin(Text* self, FILE* file, size_t* currpos) {
     char c = 0;
     fwrite(&c, 1, 1, file);
     *currpos += self->len+1;
-    # // remember while reading, self->alloc must be clipped down to the actual len
-    # // no children
+    ~ // remember while reading, self->alloc must be clipped down to the actual len
+    ~ // no children
 }
 
 // NOPE! you will read whole file in 1 shot to a bunch of bytes (or mmap it)
@@ -80,8 +80,8 @@ Integer_Array* Integer_Array_readfbin(FILE*file) {
 Integer_Array_writefbin(Integer_Array* self, FILE* file, size_t* currpos) {
     fwrite(self->ref, self->len, sizeof(Integer), file);
     *currpos += self->len*sizeof(Integer);
-    # // remember while reading, self->alloc must be clipped down to the actual len
-    # // no children
+    ~ // remember while reading, self->alloc must be clipped down to the actual len
+    ~ // no children
 }
 
 
@@ -126,20 +126,20 @@ type Mesh3D
     var centroids as Point[]
     var volumes|m3 as Real[]
     var volume|m3 as Real = 0
-    # can you handle more than 3 way cmps?
-    # e.g. check a == b == c == d == e >= 4
-    # SHOULD you?
+    ~ can you handle more than 3 way cmps?
+    ~ e.g. check a == b == c == d == e >= 4
+    ~ SHOULD you?
     check centroids.size == cells.size == volumes.size
 end type
 
-# Can you come up with a general (in dims) way of doing SoA to AoS or vice
-# versa automatically? It is like a transpose in 2D followed by indices flip.
-# (YES BOTH.) what about higher dims,
-# and how to express it like C arr[x][y] -> arrT[y][x] ?
-# btw the members must be all of the same size for SoA -> AoS conversion
-# one idea is to transform the whole thing into 1 array when doing genc
-# instead of the type coming out, its just ONE Real array indexed once to
-# get the member then again to get the element of the member
+~ Can you come up with a general (in dims) way of doing SoA to AoS or vice
+~ versa automatically? It is like a transpose in 2D followed by indices flip.
+~ (YES BOTH.) what about higher dims,
+~ and how to express it like C arr[x][y] -> arrT[y][x] ?
+~ btw the members must be all of the same size for SoA -> AoS conversion
+~ one idea is to transform the whole thing into 1 array when doing genc
+~ instead of the type coming out, its just ONE Real array indexed once to
+~ get the member then again to get the element of the member
 type Field3D
     var u[] as Real|m/s
     var v[] as Real|m/s
@@ -153,7 +153,7 @@ type Field3D
     var mesh as Mesh3D
 end type
 
-# If you could have automatic AoS -> SoA this would be (user-facing)
+~ If you could have automatic AoS -> SoA this would be (user-facing)
 type CellState
     var u as Real|m/s
     var v as Real|m/s
@@ -165,13 +165,13 @@ type CellState
     var ut as Real|s/m2 nosave # don't write it out in serialization. btw you should take a flag links= in serialize(), jetson(), yaml() etc. that says whether to copy or preserve links.
     var y[] as Real|1
 end type
-# aside: how also about funcs ct.name(v) ct.saved(v) ct.typeof(v) ct.sizeof(v) ct.units(v) ct.range(v) ct.count(v) etc. all COMPILE TIME only nah
+~ aside: how also about funcs ct.name(v) ct.saved(v) ct.typeof(v) ct.sizeof(v) ct.units(v) ct.range(v) ct.count(v) etc. all COMPILE TIME only nah
 
 type Field3D
     var s as CellState[] # seeing this, the compiler should mark CellState for
-    # AoS->SoA conversion. well not merely seeing this, there should be actual
-    # usage in downstream code that suggests SoA conversion will pay off.
-    # or you could do it yourself with keyword soa
+    ~ AoS->SoA conversion. well not merely seeing this, there should be actual
+    ~ usage in downstream code that suggests SoA conversion will pay off.
+    ~ or you could do it yourself with keyword soa
     var mesh as Mesh3D
 end type
 
@@ -182,12 +182,12 @@ where s is cgenerated by converting each primitive to a ptr of its kind
 struct CellState { Real *u, *v, *w, *p, *r, *k, *e, *y[]; }; // SoA
 AND NOT AS WOULD NORMALLY BE DONE (when no SoA conversion is needed):
 struct CellState { Real u, v, w, p, r, k, e, y[]; }; // AoS (this is 1 elem)
-# if the sizes of members are the same (yes if of the same type duh), do this:
+~ if the sizes of members are the same (yes if of the same type duh), do this:
 struct CellState_ { Real **ref; }; // SoA CellState is meant, not AoS
 now you can cast a CellState* s to a CellState_* s_ seamlessly and shamelessly
 where s_.ref[0] => u, s_.ref[1] => v and so on. ofo(v) = 1, ofo(u) = 0, ...
-# aside: C offsetof will measure bytes, you need um, indices, of type (Real).
-# another argument in favour of keeping everything 64-bit. but what about 32-bit OSs?
+~ aside: C offsetof will measure bytes, you need um, indices, of type (Real).
+~ another argument in favour of keeping everything 64-bit. but what about 32-bit OSs?
 s_.ref[0][i] is s.u[i] and so on. But the user has written s[i].u everywhere...
 
 so cgen all s[i].u calls into s[i][ofo(u)] -> s_.ref[ofo(u)][i] # note the flip
@@ -234,15 +234,15 @@ access the member, then index that. easy. get rid of x[][] idea
 
 
 
-## COMPLEX
+~# COMPLEX
 var r = -1
 var s = sqrt(r) # error
 var c = -1 + 0i
 var x = sqrt(c) # works, returns Complex[2]
 var y = cbrt(c) # works, returns Complex[3]
 
-# how about instead of operator overload on [], there is an implicit
-# op that indexes into the first member (if it is an array)
+~ how about instead of operator overload on [], there is an implicit
+~ op that indexes into the first member (if it is an array)
 
 operator index
 operator filter
@@ -261,7 +261,7 @@ type VectorField3D
 end type
 
 function mean(field Field3D) -> ans Real
-    # volume weighted average of the scalar field's values on the mesh
+    ~ volume weighted average of the scalar field's values on the mesh
     ans = sum(field.mesh.volumes * field.values) ...
          / sum(field.mesh.volumes)
 end function

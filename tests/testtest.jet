@@ -4,7 +4,7 @@ test "must fail for large m"
     print(m)
 end test
 
-# how about having a type for each file format like you have for JSON / XML
+~ how about having a type for each file format like you have for JSON / XML
 
 var prefs = XML(file="file.xml") # gives XML
 
@@ -22,7 +22,7 @@ var mat = Mat("file.mat") # gives Mat
 let q = mat["fieldname"]
 print(q[3:end-1])
 
-# Favour constructors instead of funcs when the return type is clear
-# bonus: no redundant type annotation needed
+~ Favour constructors instead of funcs when the return type is clear
+~ bonus: no redundant type annotation needed
 
-# can we get rid of type annotation everywhere except funcs?
+~ can we get rid of type annotation everywhere except funcs?

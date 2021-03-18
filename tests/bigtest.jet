@@ -9,28 +9,28 @@ end type
 type Type2 extends Type1
     var m = 32
     var g = 'StringValue'
-    # var fg = "String{In}terp $pool.usageCount[pool.shape(0)]@6.2f {m}"
-    # var fsg = "String{In}terp $pool.usageCount {m}"
-    # var fdg = "String{In}terp $usageCount {m}"
-    # var fag = "String{In}terp " .. base44.cg54e.nets[7] .. ": " .. m
-    # var f3g = "String{In}terp " $ base44.cg54e.nets[7] $ ": " $ m
-    # var ffg = "String{In}terp " base44.cg54e.nets[7]@6.2f ": " m
-    # var fbg = "String{In}terp " .. format(base44.cg54e.nets[7], width=6) .. ": " .. m
-    # var ifg = "String{In}terp " _ base44.cg54e.nets[7]@6.2f _ ": " _ m
+    ~ var fg = "String{In}terp $pool.usageCount[pool.shape(0)]@6.2f {m}"
+    ~ var fsg = "String{In}terp $pool.usageCount {m}"
+    ~ var fdg = "String{In}terp $usageCount {m}"
+    ~ var fag = "String{In}terp " .. base44.cg54e.nets[7] .. ": " .. m
+    ~ var f3g = "String{In}terp " $ base44.cg54e.nets[7] $ ": " $ m
+    ~ var ffg = "String{In}terp " base44.cg54e.nets[7]@6.2f ": " m
+    ~ var fbg = "String{In}terp " .. format(base44.cg54e.nets[7], width=6) .. ": " .. m
+    ~ var ifg = "String{In}terp " _ base44.cg54e.nets[7]@6.2f _ ": " _ m
     var garr = [  ]   # ~5ef4ed5e
-    #    ]
-    #       3 , # ~ed4
-    # 4, 5, 6 ]
+    ~    ]
+    ~       3 , # ~ed4
+    ~ 4, 5, 6 ]
     var b = unhex('5e43efc2')
     var gmap = {} #
-    # } # comment allez-vous
-        # "first" = 42} #,
-        # "second" = 67i,
-        # "third" = 44 }
-    # var c = garr[7]
-    # var d = gmap["bonh"]
-    # var t1 = Type1 { f = 33 , g = 45 }
-    # var t2 = Type1(f=33, g=45)
+    ~ } # comment allez-vous
+        ~ "first" = 42} #,
+        ~ "second" = 67i,
+        ~ "third" = 44 }
+    ~ var c = garr[7]
+    ~ var d = gmap["bonh"]
+    ~ var t1 = Type1 { f = 33 , g = 45 }
+    ~ var t2 = Type1(f=33, g=45)
 end type
 
 declare type Byte
@@ -63,9 +63,9 @@ function maisn(n as String, b as String)
     print(6)
 end function
 
-# function redt(n as String) as String
-#     return n
-# end function
+~ function redt(n as String) as String
+~     return n
+~ end function
 
 redt(n as String) := n
 

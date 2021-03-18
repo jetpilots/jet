@@ -21,16 +21,16 @@ function allReduce(buffer as <T>, op as MPIOperations, team = kMPICOMMWORLD)
     ccall('MPI_AllReduce', buffer, output, buffer.size, mpiType(buffer), op, team)
 end function
 
-# how about allowing refs to value types?
+~ how about allowing refs to value types?
 
-# var s = "hello"
-# var c = ref(s[7]) ??? nah
-# var cg = s[1] -- these are immutable refs, so theyre implemented as copy for primitives & ptr otherwise
-# ref c = s[1] --- ok, ref is then a mutable ref ie ptr
-# nah, better find a way to change array indexing into ptr arithmetic when index itself is unused
+~ var s = "hello"
+~ var c = ref(s[7]) ??? nah
+~ var cg = s[1] -- these are immutable refs, so theyre implemented as copy for primitives & ptr otherwise
+~ ref c = s[1] --- ok, ref is then a mutable ref ie ptr
+~ nah, better find a way to change array indexing into ptr arithmetic when index itself is unused
 
 
-# btw dont allow arrays of arrays or else ppl will do arr[a][b] and conflate with arr[a,b]
+~ btw dont allow arrays of arrays or else ppl will do arr[a][b] and conflate with arr[a,b]
 
 enum MPITypes
 end enum
@@ -42,32 +42,32 @@ mpiType(buffer as Number) := MPITypes.real
 mpiType(buffer as Number[]) := MPITypes.real
 mpiType(buffer as Number[2D]) := MPITypes.real
 mpiType(buffer as Number[3D]) := MPITypes.real
-# mpiType(buffer as Number or Number[] or Number[2D] or Number[3D]) := MPITypes.real
+~ mpiType(buffer as Number or Number[] or Number[2D] or Number[3D]) := MPITypes.real
 
-# REALLY MUST GET RID OF REAL/INT AND KEEP ONE UNIFIED NUM TYPE
+~ REALLY MUST GET RID OF REAL/INT AND KEEP ONE UNIFIED NUM TYPE
 
-# gSum(buffer as Number or Number[] or Number[2D] or Number[3D]) := MPITypes.real
-# throw syntax error if user defines gSum again for one of the types from here
-# actually that is what will happen anyway since the generated funcs from here
-# will be in conflict!
+~ gSum(buffer as Number or Number[] or Number[2D] or Number[3D]) := MPITypes.real
+~ throw syntax error if user defines gSum again for one of the types from here
+~ actually that is what will happen anyway since the generated funcs from here
+~ will be in conflict!
 
 
 NOPE gSum(buffer as Number[?]) := MPITypes.real
 NOPE gSum(buffer as Number[2D]) := gSum2D(buffer) # let's say there is such a func
-# I know in case of multiple matches the most specific can be taken simply
-# but the user will always think WHICH ONE IS GOING TO BE USED????
-# SO FOR HEAVENS SAKE LET IT GO
-# NO TEMPLATING!!!
+~ I know in case of multiple matches the most specific can be taken simply
+~ but the user will always think WHICH ONE IS GOING TO BE USED????
+~ SO FOR HEAVENS SAKE LET IT GO
+~ NO TEMPLATING!!!
 
 
-# basically this is an elemental func:
+~ basically this is an elemental func:
 NOPE function func(arg as Number[?])
-# where [?] means this is a template (not on the type but) on the dimensions.
-# it does the same thing as F90 elemental funcs: the same func is valid for
-# scalar as well as array args of any dimension, with the caveat that it can
-# only operate elementwise (no reductions etc.)
-# the syntax suggests I can index arg within the func, which is not true.
-# SO DROP IT!!
+~ where [?] means this is a template (not on the type but) on the dimensions.
+~ it does the same thing as F90 elemental funcs: the same func is valid for
+~ scalar as well as array args of any dimension, with the caveat that it can
+~ only operate elementwise (no reductions etc.)
+~ the syntax suggests I can index arg within the func, which is not true.
+~ SO DROP IT!!
 
 funcy(x as Number) := 4 + x
 function funcy(x as Number[]) as Number[]

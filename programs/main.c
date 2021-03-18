@@ -87,7 +87,7 @@ typedef struct ASTVar {
         // the expr, else directly here. check lower dword of the init ptr to be
         // null to know that init is null. playing with fire, but its safe play
         // imho. well its all for later.
-        struct {
+        /* struct {
             unsigned _init_lower32;
             struct {
                 uint16_t dims;
@@ -96,7 +96,7 @@ typedef struct ASTVar {
                 TypeTypes typeType : 7;
                 bool nullable : 1;
             };
-        };
+        }; */
     };
     // List(ASTVar*) deps; // TODO: keep deps of each var so you can tell when a
     // dependency of an async var is changed before the async is awaited. First
@@ -994,14 +994,34 @@ static void getSelector(ASTFunc* func) {
 }
 
 #include "resolve.h"
-#include "analyse.h"
 
 // this is a global astexpr representing 0. it will be used when parsing e.g.
 // the colon op with nothing on either side. : -> 0:0 means the same as 1:end
-static ASTExpr expr_const_0[] = { { .kind = tkNumber, .string = "0" } };
 static ASTExpr lparen[] = { { .kind = tkParenOpen } };
 static ASTExpr rparen[] = { { .kind = tkParenClose } };
+static ASTExpr expr_const_0[] = { { .kind = tkNumber, .string = "0" } };
+static ASTExpr expr_const_yes[] = { { .kind = tkKeyword_yes } };
+static ASTExpr expr_const_no[] = { { .kind = tkKeyword_no } };
+static ASTExpr expr_const_nil[] = { { .kind = tkKeyword_nil } };
+static ASTExpr expr_const_empty[] = { { .kind = tkString, .string = "" } };
 
+#include "analyse.h"
+// static ASTExpr expr_const_no[] = { { .name = "no",
+//     .typeSpec = (ASTTypeSpec[]) { { .typeType = TYBool } },
+//     .used = 1,
+//     .init = (ASTExpr[]) { { .kind = tkNumber, .string = "0" } } } };
+// static ASTExpr expr_const_yes[] = { { .name = "yes",
+//     .typeSpec = (ASTTypeSpec[]) { { .typeType = TYBool } },
+//     .used = 1,
+//     .init = (ASTExpr[]) { { .kind = tkNumber, .string = "1" } } } };
+// static ASTExpr expr_const_nil[] = { { .name = "nil",
+//     .typeSpec = (ASTTypeSpec[]) { { .typeType = TYAnyType } },
+//     .used = 1,
+//     .init = (ASTExpr[]) { { .kind = tkNumber, .string = "0" } } } };
+// static ASTExpr expr_const_emptystr[] = { { .name = "nil",
+//     .typeSpec = (ASTTypeSpec[]) { { .typeType = TYAnyType } },
+//     .used = 1,
+//     .init = (ASTExpr[]) { { .kind = tkNumber, .string = "0" } } } };
 // static void initStaticExprs()
 // {
 //     expr_const_0.kind = tkNumber;

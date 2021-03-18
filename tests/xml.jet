@@ -1,5 +1,5 @@
-#include "jetbase.h"
-#include "jetsys_time.h"
+~include "jetbase.h"
+~include "jetsys_time.h"
 
 declare type Attr
     var key as TextRef
@@ -32,9 +32,9 @@ Parser(fromText as Text) :=
 function Parser(file as Text)
 
     var f = FileInfo(file)
-    # like this and DateTime, a lot of types need to be instantiated
-    # with something and the non-overridable default ctor doesn't make
-    # sense. how about allowing it to be overridden?
+    ~ like this and DateTime, a lot of types need to be instantiated
+    ~ with something and the non-overridable default ctor doesn't make
+    ~ sense. how about allowing it to be overridden?
 
     if not f.exists
         panic("F+: file '$file' not found.")
@@ -43,7 +43,7 @@ function Parser(file as Text)
     else if not f.permissions.read
         panic("F+: no permission to read file '$file'.")
     end if
-    # panic(...) := write(..., to=stderr) and stop
+    ~ panic(...) := write(..., to=stderr) and stop
 
     ans = Parser {
             .file = file,
@@ -52,32 +52,32 @@ function Parser(file as Text)
             .end = .pos + len(.data)
         }
 
-# Text is mutable which means raw strings will have to be pstrdup'd at runtime.
-# you can access bytes (chars) of a text using [] -> no need for memoryblock.
-# if encoding is ASCII/CP12xx/ISO8859 then [] is O(1), for UTF8 it is O(N).
-# if you don't want to edit text in place, use explicit copy().
-# -------- THIS IS WHAT I WOULD LOVE TO HAVE.
-# -------- BUT FOR A SIMPLE AND "SAFE" LANGUAGE THIS IS A PROBLEM
+~ Text is mutable which means raw strings will have to be pstrdup'd at runtime.
+~ you can access bytes (chars) of a text using [] -> no need for memoryblock.
+~ if encoding is ASCII/CP12xx/ISO8859 then [] is O(1), for UTF8 it is O(N).
+~ if you don't want to edit text in place, use explicit copy().
+~ -------- THIS IS WHAT I WOULD LOVE TO HAVE.
+~ -------- BUT FOR A SIMPLE AND "SAFE" LANGUAGE THIS IS A PROBLEM
 
-# -- SOOOOOOO text should APPEAR TO BE IMMUTABLE on the Jet side but funcs
-# should be implemented in a mutable way in C and Jet calls should be translated
-# to mutating an existing string IF they are inplaceable.
+~ -- SOOOOOOO text should APPEAR TO BE IMMUTABLE on the Jet side but funcs
+~ should be implemented in a mutable way in C and Jet calls should be translated
+~ to mutating an existing string IF they are inplaceable.
 var txt as Text = read(file, encoding=TextEncodings.ascii)
-#    -> this func just does {t=read(file);t.encoding=.ascii;ret t;}
+~    -> this func just does {t=read(file);t.encoding=.ascii;ret t;}
 var bytes as Byte[] = read(file)
-# do whatever with bytes
+~ do whatever with bytes
 var tyt = Text(bytes, encoding=.ascii) # this is a copy if byt is used later else move
-# var by as Byte[] = bytes(txt) # this is a copy if you use txt later, but otherwise a move
+~ var by as Byte[] = bytes(txt) # this is a copy if you use txt later, but otherwise a move
 
-# var by as Byte[] = read(file) # this is a move
+~ var by as Byte[] = read(file) # this is a move
 
-# if Text is immutable but byte array is mutable then it incurs an implicit copy
-# unless the var is not used later then it can be made a move
+~ if Text is immutable but byte array is mutable then it incurs an implicit copy
+~ unless the var is not used later then it can be made a move
 
 end
 
 function parseAttrs(var par as Parser) result (list as Attr[])
-    # GET RID OF ALIAS/MACRO BUSINESS!
+    ~ GET RID OF ALIAS/MACRO BUSINESS!
 
     while char(par) not in ">/?"
         let name as TextRef = pos
@@ -97,15 +97,15 @@ function parseAttrs(var par as Parser) result (list as Attr[])
         advance!(par, past=markers)
         trample!(par, toFirst="[?>")
 
-        # this ALIAS business is a terrible idea, you lose track of what is happening
-        # when focused in a local block. how is c related to pos again?
+        ~ this ALIAS business is a terrible idea, you lose track of what is happening
+        ~ when focused in a local block. how is c related to pos again?
         trample!(par, ifCharIs=' ')
         advance!(par, past="\s")
         list[end+1] = Attr { .key = name, .val = val }
     end
 end
 
-# Trample the character at the current position to null, and advance.
+~ Trample the character at the current position to null, and advance.
 function trample!(par as Parser)
     par.data[par.pos] = 0
     par.pos += 1
@@ -116,17 +116,17 @@ skipws!(par as Parser) :=
 
 function parseTags!(par as Parser) result (list as Node[])
 
-    # ref pos as Number = par.pos
-    # --> pos is generated as *pos in C, works on lhs/rhs. refs have a
-    # property `index` and a private var that is *Type. accessing/setting a
-    # ref acts on *pos. incr/dec works by setting pos.index += -= 1. this is
-    # a setter that actually moves the pointer. the index is not stored, it is
-    # computed by subtracting origpos from pos.
-    # yeah well this is becoming a slice with 1 index
+    ~ ref pos as Number = par.pos
+    ~ --> pos is generated as *pos in C, works on lhs/rhs. refs have a
+    ~ property `index` and a private var that is *Type. accessing/setting a
+    ~ ref acts on *pos. incr/dec works by setting pos.index += -= 1. this is
+    ~ a setter that actually moves the pointer. the index is not stored, it is
+    ~ computed by subtracting origpos from pos.
+    ~ yeah well this is becoming a slice with 1 index
 
-    # ref data as Text = par.data
-    # ref c as Text = data[pos]
-# fortran equivalence
+    ~ ref data as Text = par.data
+    ~ ref c as Text = data[pos]
+~ fortran equivalence
 
     while not eof(par) #par.pos < par.ends
         match char(par) #par.data[par.pos]
@@ -169,8 +169,8 @@ function parseTags!(par as Parser) result (list as Node[])
 
                         var closingTag = str(par)
                         advance!(par, toFirst='>') # other variants advance_past and advance_by
-                        # i guess instead of advance_past going past the last match, it should
-                        # stop at the last match. also be named differently then.
+                        ~ i guess instead of advance_past going past the last match, it should
+                        ~ stop at the last match. also be named differently then.
                         trample!(par)
 
                         if not closingTag
@@ -201,63 +201,63 @@ function parseTags!(par as Parser) result (list as Node[])
 end
 
 
-# In Jet, you don't define the write() function on the basis of the str() func
-# but the other way around (actually you can think of this as the same in C, if
-# you know how to printf you can use the same for sprintf, but it can be both
-# ways in C). In Jet, if have defined the write() method, the string() method
-# is automatically available. In general the string() method cannot be defined
-# like a normal func at all, for any type in Jet.
-# this is because I don't want to have a constructed string as the basis for
-# output. print(string(x)) should get rid of the middleman for one thing. another
-# is that ehhhh ---- noo
-# actually it can work the other way around, you just have to look at the
-# str() definition and glean what the write() should be. str() will mostly
-# just have string interps. it's easier for the user to define it like that
-# although more work for me to write such a general inference routine.
+~ In Jet, you don't define the write() function on the basis of the str() func
+~ but the other way around (actually you can think of this as the same in C, if
+~ you know how to printf you can use the same for sprintf, but it can be both
+~ ways in C). In Jet, if have defined the write() method, the string() method
+~ is automatically available. In general the string() method cannot be defined
+~ like a normal func at all, for any type in Jet.
+~ this is because I don't want to have a constructed string as the basis for
+~ output. print(string(x)) should get rid of the middleman for one thing. another
+~ is that ehhhh ---- noo
+~ actually it can work the other way around, you just have to look at the
+~ str() definition and glean what the write() should be. str() will mostly
+~ just have string interps. it's easier for the user to define it like that
+~ although more work for me to write such a general inference routine.
 
-# string interps make it quite easy, dont u think
+~ string interps make it quite easy, dont u think
 str(x as Attr) => "$x.key='$x.value'"
-# compare that to the write defn
+~ compare that to the write defn
 write(x as Attr) => write("$x.key='$x.value'")
-# ok, you have explicit 1-on-1 map of write() to printf() for genc. or is it?
-# you still do the same string interp. in the same sense you also have a 1on1
-# of the string itself (w/ interps) to snprintf.
+~ ok, you have explicit 1-on-1 map of write() to printf() for genc. or is it?
+~ you still do the same string interp. in the same sense you also have a 1on1
+~ of the string itself (w/ interps) to snprintf.
 
-# if you aren't following along, what I'm trying to avoid is:
+~ if you aren't following along, what I'm trying to avoid is:
 write(x) = write(str(x))
-# which is the easiest but stupidest solution. this is after all the best
-# programming language in the history of human civilisation.
+~ which is the easiest but stupidest solution. this is after all the best
+~ programming language in the history of human civilisation.
 
-# I guess you cannot prevent someone from defining write() and not doing anything
-# in it that resembles writing, and then you have abotched str() too, but if
-# you do it the other way around you can complain if a string isn't returned.
+~ I guess you cannot prevent someone from defining write() and not doing anything
+~ in it that resembles writing, and then you have abotched str() too, but if
+~ you do it the other way around you can complain if a string isn't returned.
 
-# BTW how about this: if you define 1 you get the other free, unless you
-# define both (if you REALLY need different str vs write)
+~ BTW how about this: if you define 1 you get the other free, unless you
+~ define both (if you REALLY need different str vs write)
 
-# BTW I guess repr is a better name than str/string.
+~ BTW I guess repr is a better name than str/string.
 
-#---
-# how about basic polymorphism? structs keep a field with a few bits that
-# says which subclass of a particular base class they are. so not a global ID,
-# just a subclass ID which can fit in 3-4 bits. Then there is a dispatch func
-# that runs for these. this allows keeping a subclass item in a base class var
-# but dispatching to the subclass impl instead of baseclass impl
-# 1 thing is it is implicit, you can have
+~---
+~ how about basic polymorphism? structs keep a field with a few bits that
+~ says which subclass of a particular base class they are. so not a global ID,
+~ just a subclass ID which can fit in 3-4 bits. Then there is a dispatch func
+~ that runs for these. this allows keeping a subclass item in a base class var
+~ but dispatching to the subclass impl instead of baseclass impl
+~ 1 thing is it is implicit, you can have
 var fx as FXBase
 if ask()=='y' # -- btw temporaries/rvalues that allocate must be discarded
-# immediately after use! ask() retval is an owned var not assigned to
-# any ref so you cant track it. if you promote ALL funcs then it can be tracked.
+~ immediately after use! ask() retval is an owned var not assigned to
+~ any ref so you cant track it. if you promote ALL funcs then it can be tracked.
     fx = FXSubClassA("test")
 else
     fx = FXSubClassB()
 end if
 var d = funcy(fx) <-- not clear to the user what func will be called, not even decidable statically.
-# just stick with composition over ineritance.
-# the reason for getting into this was you could then have ASTExpr and subtypes
-# and have jet autogenerate dispatch switch that is handwritten in C now.
-# also it would help in automatic structure packing since you would know what
-# goes where.
+~ just stick with composition over ineritance.
+~ the reason for getting into this was you could then have ASTExpr and subtypes
+~ and have jet autogenerate dispatch switch that is handwritten in C now.
+~ also it would help in automatic structure packing since you would know what
+~ goes where.
 
 function parse(p as Parser) as Node[]
     var b as Byte[] = bytes(p.text.len)
@@ -334,18 +334,18 @@ function start()
 
     var t0 = clock()
     var myxml = readxml(os.args[1])
-    # var myxml = read(os.args[1]) to Doc # this is then just a conversion of string to Doc
-    # var mydat = read(os.args[1]) to Table with { .sep = ';', .skip = 3} # this works as well!
-    # # basically `as` is an operator that is implemented by types taking some other type to convert from
-    # # but what about
-    # var mystr = read(os.args[1])
-    # var myxml = mystr to  to JSON to Webpage
-    # if mystr is used elsewhere afterwards, WHOA it should also not have refs that
-    # are used afterwrds -- this affects the whole inplacing strategy. then we have
-    # to disallow refs completely.
-    # so if mystr isn't used elsewhere, this is __from(mystr) else it is
-    # __from(clone(mystr). i.e. _from (impl of as) is always written inplace.
-    # BTW you also clone if it is a `let` (module global, function arg, etc)
+    ~ var myxml = read(os.args[1]) to Doc # this is then just a conversion of string to Doc
+    ~ var mydat = read(os.args[1]) to Table with { .sep = ';', .skip = 3} # this works as well!
+    ~ # basically `as` is an operator that is implemented by types taking some other type to convert from
+    ~ # but what about
+    ~ var mystr = read(os.args[1])
+    ~ var myxml = mystr to  to JSON to Webpage
+    ~ if mystr is used elsewhere afterwards, WHOA it should also not have refs that
+    ~ are used afterwrds -- this affects the whole inplacing strategy. then we have
+    ~ to disallow refs completely.
+    ~ so if mystr isn't used elsewhere, this is __from(mystr) else it is
+    ~ __from(clone(mystr). i.e. _from (impl of as) is always written inplace.
+    ~ BTW you also clone if it is a `let` (module global, function arg, etc)
 
     if os.args has "-d" then write(myxml)
     var tms = clock(t0)
@@ -359,10 +359,10 @@ function stats(fileSize as Number|B within <0:2^24>,
       fileModified as YesOrNo,
       fileRange as Number[3D] within <2:29>) result (ret as Number[2D])
 
-    # var sret as Number[3D] = clone(inArg)
-    # let fileSize|B
-    # let fileModified::YesOrNo
-    # let fileRange as Number[3D] in <2:1:29> # <2:29> is RealRange, <2:1:29> is IntRange
+    ~ var sret as Number[3D] = clone(inArg)
+    ~ let fileSize|B
+    ~ let fileModified::YesOrNo
+    ~ let fileRange as Number[3D] in <2:1:29> # <2:29> is RealRange, <2:1:29> is IntRange
     check fileRange within <2:29>
 
     var pctUsed = jet.gPool.usedTotal * 100 / jet.gPool.capTotal
@@ -386,21 +386,21 @@ function stats(fileSize as Number|B within <0:2^24>,
 end
 
 
-    # if try os.argv[2] == "d" then write(xml)
+    ~ if try os.argv[2] == "d" then write(xml)
 
-    # # try has nothing to do with catch
-    # # it takes a bool expr and if the expr can be eval'd it returns it
-    # # or else it returns false
-    # if os.argv[2] == "d" then write(xml)
-    # ignore .outOfBounds
+    ~ # try has nothing to do with catch
+    ~ # it takes a bool expr and if the expr can be eval'd it returns it
+    ~ # or else it returns false
+    ~ if os.argv[2] == "d" then write(xml)
+    ~ ignore .outOfBounds
 
-    # if os.argv[2] == "d" then write(xml)
-    # catch .outOfBounds ignore
+    ~ if os.argv[2] == "d" then write(xml)
+    ~ catch .outOfBounds ignore
 
-    # try if os.argv[2] == "d" then write(xml)
-    # try takes single statements only, and only statements that can throw
+    ~ try if os.argv[2] == "d" then write(xml)
+    ~ try takes single statements only, and only statements that can throw
 
-    # yeah why not just design it differently?
-    # if os.args has "-d" then write(xml)
-    # if "-d" in os.args then write(xml)
-    # write(xml) if "-d" in os.args
+    ~ yeah why not just design it differently?
+    ~ if os.args has "-d" then write(xml)
+    ~ if "-d" in os.args then write(xml)
+    ~ write(xml) if "-d" in os.args

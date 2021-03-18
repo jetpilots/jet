@@ -1,7 +1,7 @@
 |str # declare
 
-# dependent (exprs) & nondep (literals) vars. init routine for each.
-# init using|mytype {.var1 := 34}
+~ dependent (exprs) & nondep (literals) vars. init routine for each.
+~ init using|mytype {.var1 := 34}
 |mytype :=
     ix|i8 := 0
         0 < ix < 64
@@ -33,26 +33,26 @@ map_string_int
 
 vector_vector__string
 
-# collections themselves are not Myabe types, only their containees may be
+~ collections themselves are not Myabe types, only their containees may be
 
-#|mytype(ix|i8, name|str, ptx|vec:r8, lsm|vec:box?) :=
-#     0 < ix < 64
-#     ix % 2 == 0
+~|mytype(ix|i8, name|str, ptx|vec:r8, lsm|vec:box?) :=
+~     0 < ix < 64
+~     ix % 2 == 0
 
-# declared funcs are basically implemented in C, they
-# can be funcs or macros, doesn't matter here
+~ declared funcs are basically implemented in C, they
+~ can be funcs or macros, doesn't matter here
 print(what|str) # declare
 print(what|r8)
 desc(what|str)
 desc(what|r8)
 
-# define stmt func
+~ define stmt func
 fxfunc(what|r8) :=
     what * 1.5
         0 < fxfunc < 3
         fxfunc % 2 == 1
 
-#define normal func
+~define normal func
 main(args|vec|str) ret|r8 :=
     funky(4+2)
     ret = 0
@@ -76,7 +76,7 @@ funky(scalar1|r8) :=
         4, 5, 6;
         7, 8, 9
 
-#|mat3x3 understood
+~|mat3x3 understood
 
     let A =
         1, 3, 6

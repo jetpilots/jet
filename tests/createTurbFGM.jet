@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+~! /usr/bin/env python
 
 """createTurbFGM.py
 
@@ -56,18 +56,18 @@ function main()
 
     for m = 1:cCV2.nMean
         print("m = {{m}}/{{cCV2.nMean}}")
-        # Create beta-PDF for given cCV2 mean value
+        ~ Create beta-PDF for given cCV2 mean value
         x, pdf = integ.createBetaPDF(cCV2.mean[m], cCV2.var[m,:], cCV2.grid)
 
-        # Interpolate and integrate un-scaled Progress Variable
+        ~ Interpolate and integrate un-scaled Progress Variable
         cS = ScalePVinterp(x)
-        # sI[m,:,0] = (S[:,:,0]*pdf).sum(axis=1)
-        # sI[m,:,1] = (S[:,:,1]*pdf).sum(axis=1)
-        # sI[m,:,2] = (S[:,:,0]*S[:,:,0]*pdf).sum(axis=1)
-        # sI[m,:,3] = (S[:,:,0]*S[:,:,1]*pdf).sum(axis=1)
-        # sI[m,:,4] = (S[:,:,1]*S[:,:,1]*pdf).sum(axis=1)
+        ~ sI[m,:,0] = (S[:,:,0]*pdf).sum(axis=1)
+        ~ sI[m,:,1] = (S[:,:,1]*pdf).sum(axis=1)
+        ~ sI[m,:,2] = (S[:,:,0]*S[:,:,0]*pdf).sum(axis=1)
+        ~ sI[m,:,3] = (S[:,:,0]*S[:,:,1]*pdf).sum(axis=1)
+        ~ sI[m,:,4] = (S[:,:,1]*S[:,:,1]*pdf).sum(axis=1)
 
-        # Interpolate and integrate tabulate quantities
+        ~ Interpolate and integrate tabulate quantities
         qQ = qQinterp(x)
         for l = 1:cCV1.nMean # TODO: Replace loop by meshgrid for pdf
             var zxzz[:,:] = (1/Q[l,:,:,rhoIndex])*pdf[:]
@@ -97,9 +97,9 @@ function main()
 
     if args.write
         var names[] = repeat("", times = 4+shape(yI,-1))
-        # all vars are single-assignment (not static single assignment though)
-        # means their data can be mutated, but the vars themselves cannot be
-        # reassigned. ie. no init with zeros() and then assign zeros() again.
+        ~ all vars are single-assignment (not static single assignment though)
+        ~ means their data can be mutated, but the vars themselves cannot be
+        ~ reassigned. ie. no init with zeros() and then assign zeros() again.
         names[0:4] = [cCV1.meanName, cCV1.varName, cCV2.meanName, cCV2.varName]
         names[4:] = fFGM.names[2:]
         var parameter = [cCV1.nMean, cCV1.nVar, cCV1.varCluster, cCV1.varScaling,

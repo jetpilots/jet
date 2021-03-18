@@ -15,11 +15,11 @@ test complexItem1
     Complex(re=1, im=0) => 1 + 0i
 end
 
-# function Complex(re Number, im Number) returns (out Complex)
-#     out = Complex()
-#     out.re = re
-#     out.im = im
-# end
+~ function Complex(re Number, im Number) returns (out Complex)
+~     out = Complex()
+~     out.re = re
+~     out.im = im
+~ end
 
 Complex(re as Number) := Complex(re, 0)
 
@@ -34,30 +34,30 @@ enum CollType as BaseObject
     sortedSet
 end enum
 
-# main returns nothing, since the error handling mechanism will report
-# any issues to the caller of main.
-# declare type Strings
+~ main returns nothing, since the error handling mechanism will report
+~ any issues to the caller of main.
+~ declare type Strings
 function main()
-    # constructor call must have all named args
+    ~ constructor call must have all named args
     var c = Complex() # disallow this
     var c2 = 4 + 3i # this should be used
     var d = [2, 3, 4, 5, 6, 7, 8]
     var c3 as Complex = c2 + 4
     print(d[:])
-    # describe(d)
-    # print(args[9])
-    # json(d)
-    # d[:] += 6
+    ~ describe(d)
+    ~ print(args[9])
+    ~ json(d)
+    ~ d[:] += 6
     print(d[9]+6)
     json(c)
     var q = sum(d)
-    # doarr()
+    ~ doarr()
 end
 
-# disallow func name used as arg or ret name
-# function sum(x[:] as Number) as Number
-#     for elem in x[:] do sum += elem
-# end
+~ disallow func name used as arg or ret name
+~ function sum(x[:] as Number) as Number
+~     for elem in x[:] do sum += elem
+~ end
 
 function sum as Number (x as Number[])
     for elem in x[1:9] do s += elem

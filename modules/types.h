@@ -75,17 +75,19 @@ enum TypeSubTypes_Number {
 // TODO: ASTTypeSpecs will have a TypeTypes typeType; that can be used
 // to determine quickly if it is a primitive. fits in 4bits btw
 typedef enum TypeTypes {
+    // FIXME: this should fit in 4bit max!!!! or not?
     TYUnresolved = 0, // unknown type
-                      // nonprimitives: means they should have their own
-                      // methods to print,
-                      // serialise, identify, reflect, etc.
+    // nonprimitives: means they should have their own
+    // methods to print,
+    // serialise, identify, reflect, etc.
     TYNoType, // void
+    TYAnyType, // passes type validation with anything. be careful!
     TYObject, // resolved to an ASTType
-              // primitives that can be printed or represented with no fuss
+    // primitives that can be printed or represented with no fuss
     TYErrorType, // use this to poison an expr which has a type error
-                 // and the error has been reported, to avoid
-                 // reporting the same error for all parents, as the
-                 // error-checking routine unwinds.
+    // and the error has been reported, to avoid
+    // reporting the same error for all parents, as the
+    // error-checking routine unwinds.
     TYSize, // this is actually uintptr_t, since actual ptrs are
     // TYObjects. maybe rename it
     TYString, // need to distinguish String and char*?
@@ -101,8 +103,8 @@ typedef enum TypeTypes {
     TYUInt64,
     //  TYReal16,
     TYReal32,
-    TYReal64, // Numbers start out with Real64 by default
-              // conplex, duals, intervals,etc.??
+    TYReal64 // Numbers start out with Real64 by default
+    // conplex, duals, intervals,etc.??
 } TypeTypes;
 
 static bool TypeType_isnum(TypeTypes tyty) { return tyty >= TYInt8; }
@@ -111,6 +113,8 @@ static const char* TypeType_name(TypeTypes tyty) {
     switch (tyty) {
     case TYUnresolved:
         return NULL;
+    case TYAnyType:
+        return "Anything";
     case TYNoType:
         return "Void";
     case TYErrorType:
@@ -139,6 +143,7 @@ static const char* TypeType_name(TypeTypes tyty) {
 static const char* TypeType_c_name[] = {
     [TYUnresolved] = "<unresolved>",
     [TYNoType] = "void",
+    [TYAnyType] = "(any)",
     [TYErrorType] = "<invalid>",
     [TYString] = "CString",
     [TYBool] = "bool",
@@ -161,6 +166,7 @@ static const char* TypeType_format(TypeTypes tyty, bool quoted) {
     switch (tyty) {
     case TYUnresolved:
     case TYNoType:
+    case TYAnyType:
     case TYErrorType:
         return NULL;
     case TYObject:
@@ -203,6 +209,7 @@ static unsigned int TypeType_size(TypeTypes tyty) {
     switch (tyty) {
     case TYUnresolved:
     case TYNoType:
+    case TYAnyType:
     case TYErrorType:
         return 0;
     case TYObject:

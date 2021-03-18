@@ -257,6 +257,15 @@ static void ASTExpr_lint(
     case tkString:
         printf(escapeStrings ? "\\%s\\\"" : "%s\"", expr->string);
         break;
+    case tkKeyword_no:
+        printf("no");
+        break;
+    case tkKeyword_yes:
+        printf("yes");
+        break;
+    case tkKeyword_nil:
+        printf("nil");
+        break;
 
     case tkLineComment:
         printf("%s%s", TokenKind_repr(tkLineComment, *expr->string != ' '),

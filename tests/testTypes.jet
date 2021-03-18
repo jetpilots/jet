@@ -23,17 +23,17 @@ end type
 function ASTExpr.gen()
 end function
 
-# Instead of overloading constructors, how about class methods that can only
-# return a constructed instance?
-# Instead of
-#     var d1 = DateTime() -- how can the default ctor return time now? unless you init everything with repeated call to now()
-#     var d2 = DateTime(str="yy-dd-MM") -- thing is , overloading makes it seem like it is the same func that takes different args. not very good
-#     var d3 = DateTime(y=2017, m=11, d=21)
-# do
-#     var d1 = DateTime.now()
-#     var d2 = DateTime.fromString("yy-dd-MM")
-#     var d3 = DateTime.year(1971)
-#     var d4 = DateTime.after(d3) -- meh opens it up to abuse from all sides
+~ Instead of overloading constructors, how about class methods that can only
+~ return a constructed instance?
+~ Instead of
+~     var d1 = DateTime() -- how can the default ctor return time now? unless you init everything with repeated call to now()
+~     var d2 = DateTime(str="yy-dd-MM") -- thing is , overloading makes it seem like it is the same func that takes different args. not very good
+~     var d3 = DateTime(y=2017, m=11, d=21)
+~ do
+~     var d1 = DateTime.now()
+~     var d2 = DateTime.fromString("yy-dd-MM")
+~     var d3 = DateTime.year(1971)
+~     var d4 = DateTime.after(d3) -- meh opens it up to abuse from all sides
 
 
 function start(a as Text[] or None)
@@ -42,11 +42,11 @@ function start(a as Text[] or None)
     var ss as Number = sys.stackSize()
 
     print(d.year)
-    # if(d)
-    # printf(d.year)...
-    # else
-    # nullptr exception
-    # print(future(days = 3), past(years = 300), end = "")
+    ~ if(d)
+    ~ printf(d.year)...
+    ~ else
+    ~ nullptr exception
+    ~ print(future(days = 3), past(years = 300), end = "")
     print(f.fileName, replace(f.fileName, what="guy", with="mex"))
     print(f.fileName, " in ", d.year)
     print(Timer.elapsed())

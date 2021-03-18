@@ -1,13 +1,13 @@
 
-# $ Array(T) GArray(sizeof(T), 32)
-# $ ArrayN(T,D) GArrayN(sizeof(T), D, 32)
-# $ ArrayL(T) GArray(sizeof(T), 64)
-# $ ArrayNL(T,D) GArrayN(sizeof(T), D, 64)
+~ $ Array(T) GArray(sizeof(T), 32)
+~ $ ArrayN(T,D) GArrayN(sizeof(T), D, 32)
+~ $ ArrayL(T) GArray(sizeof(T), 64)
+~ $ ArrayNL(T,D) GArrayN(sizeof(T), D, 64)
 
-# $ Slice(T) GSlice(sizeof(T), 32)
-# $ SliceN(T,D) GSliceN(sizeof(T), D, 32)
-# $ SliceL(T) GSlice(sizeof(T), 64)
-# $ SliceNL(T,D) GSliceN(sizeof(T), D, 64)
+~ $ Slice(T) GSlice(sizeof(T), 32)
+~ $ SliceN(T,D) GSliceN(sizeof(T), D, 32)
+~ $ SliceL(T) GSlice(sizeof(T), 64)
+~ $ SliceNL(T,D) GSliceN(sizeof(T), D, 64)
 
 
 declare type T
@@ -42,19 +42,19 @@ function copy(self as Array, filter as Expr) as Array
 
 
 function write(self as Array)
-# write textual repr to file, to string, to screen,
-# whatever -- basically calls write() of elements
-# write(self[0], ", ", self[4]) etc
+~ write textual repr to file, to string, to screen,
+~ whatever -- basically calls write() of elements
+~ write(self[0], ", ", self[4]) etc
 function write(self as Array, filter as Expr)
 function get(self as Array, atIndex as I) as T
 function getSafely(self as Array, atIndex as I) as T
 function inbounds(self as Array, atIndex as I) as Boolean
 function realIndex(self as Array, atIndex as I) as I
-# +ve, in n-d all dims collapsed
+~ +ve, in n-d all dims collapsed
 function set(&self as Array, atIndex as I)
 function setSafely(&self as Array, atIndex as I)
 function setItemsInSlice(&slice as Slice, otherArray as Array, offset as I)
-# offset of start atIndex between this array and other. same slice info is used
+~ offset of start atIndex between this array and other. same slice info is used
 function firstIndex(self as Array, item as T) as I
 function lastIndex(self as Array, item as T) as I
 function swap(&self as Array, index1 as I, index2 as I)
@@ -67,7 +67,7 @@ function clone(self as Array) Array
 function getFullSlice(self as Array) Slice
 function equals(self as Array, otherArray as Array) as Boolean
 
-# filter/map -- but it should be impl as a macro. besides funcs r elemental
+~ filter/map -- but it should be impl as a macro. besides funcs r elemental
 function join(self as Array, sep as String) as String
 
 function add(&self as Array, otherArray as Array)

@@ -184,11 +184,37 @@ static void analyseExpr(
         ASTExpr* const init = expr->var->init;
         ASTTypeSpec* const typeSpec = expr->var->typeSpec;
 
-        if (!init)
-            Parser_errorMissingInit(parser, expr);
-        else {
-            if (typeSpec->typeType == TYUnresolved)
-                resolveTypeSpec(parser, typeSpec, mod);
+        if (typeSpec->typeType == TYUnresolved)
+            resolveTypeSpec(parser, typeSpec, mod);
+
+        if (!init) {
+            // if the typespec is given, generate the init expr yourself
+            // this is only for basic types like primitives.
+            // and arrays of anything can be left without an init.
+            if (!typeSpec->dims) // goto errorMissingInit;
+                switch (typeSpec->typeType) {
+                case TYReal64:
+                    expr->var->init = expr_const_0;
+                    break;
+                case TYString:
+                    expr->var->init = expr_const_empty;
+                    break;
+                case TYBool:
+                    expr->var->init = expr_const_no;
+                    break;
+                case TYObject:
+                    if (!typeSpec->type->isEnum) {
+                        expr->var->init = expr_const_nil;
+                        break;
+                    }
+                default:
+                errorMissingInit:
+                    // this is an error, no way to find out what you want
+                    Parser_errorMissingInit(parser, expr);
+                }
+        } else {
+            // if (typeSpec->typeType == TYUnresolved)
+            //     resolveTypeSpec(parser, typeSpec, mod);
             // first try to set enum base if applicable.
             if (typeSpec->typeType == TYObject && typeSpec->type->isEnum)
                 ASTExpr_setEnumBase(parser, init, typeSpec, mod);
@@ -221,18 +247,24 @@ static void analyseExpr(
                         typeSpec->type = init->elementType;
                     else if (init->kind == tkPeriod) {
                         ASTExpr* e = init;
-                        while (e->kind == tkPeriod) e = e->right;
-                        // at this point, it must be a resolved ident or
-                        // subscript
-                        typeSpec->type = e->var->typeSpec->type;
-                        typeSpec->dims = e->var->typeSpec->dims;
+                        if (init->left->var->typeSpec->type->isEnum) {
+                            typeSpec->type = init->left->var->typeSpec->type;
+                        } else {
+                            while (e->kind == tkPeriod) e = e->right;
+                            // at this point, it must be a resolved ident or
+                            // subscript
+                            typeSpec->type = e->var->typeSpec->type;
+                            typeSpec->dims = e->var->typeSpec->dims;
+                        }
 
                     } else {
                         unreachable("%s", "var type inference failed");
                     }
                     analyseType(parser, typeSpec->type, mod);
                 }
-            } else if (typeSpec->typeType != init->typeType) {
+            } else if (typeSpec->typeType != init->typeType
+                && init->typeType != TYAnyType) {
+                // init can be nil, which is a TYAnyType
                 Parser_errorInitMismatch(parser, expr);
                 expr->typeType = TYErrorType;
             }
@@ -261,17 +293,21 @@ static void analyseExpr(
         // -------------------------------------------------- //
     case tkKeyword_match: {
         ASTExpr* cond = expr->left;
-        if (cond) analyseExpr(parser, cond, mod, false);
-        ASTTypeSpec* tsp = ASTExpr_getObjectTypeSpec(cond);
-        if (expr->body && tsp && tsp->type
-            && tsp->type->isEnum) { // left->typeType == TYObject&&->isEnum) {
-            foreach (ASTExpr*, cas, expr->body->stmts)
-                if (cas->left) ASTExpr_setEnumBase(parser, cas->left, tsp, mod);
+        if (cond) {
+            analyseExpr(parser, cond, mod, false);
+            ASTTypeSpec* tsp = ASTExpr_getObjectTypeSpec(cond);
+            if (expr->body && tsp && tsp->type
+                && tsp->type
+                       ->isEnum) { // left->typeType == TYObject&&->isEnum) {
+                foreach (ASTExpr*, cas, expr->body->stmts)
+                    if (cas->left)
+                        ASTExpr_setEnumBase(parser, cas->left, tsp, mod);
+            }
         }
 
         foreach (ASTExpr*, stmt, expr->body->stmts) {
             analyseExpr(parser, stmt, mod, inFuncArgs);
-            if (stmt->kind == tkKeyword_case && stmt->left
+            if (cond && stmt->kind == tkKeyword_case && stmt->left
                 && (stmt->left->typeType != cond->typeType
                     || (cond->typeType == TYObject
                         && ASTExpr_getObjectType(stmt->left)
@@ -331,7 +367,17 @@ static void analyseExpr(
         expr->typeType = TYReal64;
         break;
 
+    case tkKeyword_yes:
+    case tkKeyword_no:
+        expr->typeType = TYBool;
+        break;
+
+    case tkKeyword_nil:
+        expr->typeType = TYAnyType;
+        break;
+
     case tkIdentifier:
+        // by the time analysis is called, all vars must have been resolved
         expr->typeType = TYErrorType;
         break;
 

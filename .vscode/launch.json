@@ -6,16 +6,16 @@
     "configurations": [
         {
             "name": "Debug current file",
-            "programe": "${fileDirname}/${fileBasenameNoExtension}",
-            "program": "${fileDirname}/a.out",
+            "program": "${workspaceRoot}/jetc-dbg",
             "args": [
-                "tests/fddns.jet"
+                "${fileDirname}/${fileBasename}",
+                "l"
             ],
             "cwd": "${fileDirname}",
             "MIMode": "lldb",
             "request": "launch",
             "type": "cppdbg",
-            "preLaunchTask": "gcc build current"
+            "preLaunchTask": "Run make jetc-dbg"
         },
         {
             "name": "Debug jetc-dbg",
@@ -23,7 +23,7 @@
             "request": "launch",
             "program": "${workspaceRoot}/jetc-dbg",
             "args": [
-                "tests/fddns.jet",
+                "tests/genc.jet",
                 "l"
             ],
             "stopAtEntry": false,

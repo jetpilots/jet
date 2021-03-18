@@ -17,7 +17,7 @@ start()
     arg1 = sets(5)
     maisn("k", b:"jk")
     print(arg1)
-    # return
+    ~ return
     t1 = Type1()
     t2 = Type2()
     td =  "t1"= t1, "t2"= t2
@@ -32,9 +32,9 @@ maisn(n, b)
     print(6)
 
 
-# redt(n)
-#     return n
-#
+~ redt(n)
+~     return n
+~
 
 redt(n) = n
 

@@ -1,35 +1,51 @@
-
-type Import
+enum ASTTypeTypes
+unresolved = 0
+end
+enum ASTCollectionTypes
+none = 0
+end
+enum ASTTokenKinds
+unknown = 0
+newline
+oneSpace
+keywordFor
+keywordIf
+number
+string
+identifier
+resolvedIdentifier
+end
+declare type ASTImport
     var importFile = ""
     var aliasOffset = 0
     var isPackage = no
     var hasAlias = no
 end type
 
-type Units
-    var powers[] = zeros(7)
+declare type ASTUnits
+    var powers as Number[]
     var factor = 0
-    var factors[] = zeros(7)
+    var factors as Number[]
     var label = ""
 end type
 
-type TypeSpec
-    type union
-        var type as Type
-        var name = ""
-        var units as Units
-    end type
+declare type ASTTypeSpec
+    var ttype as ASTType = nil
+    var name = ""
+    var units as ASTUnits = nil
+
     var dims = 0
     var col = 0
     var line = 0
-    var typeType = Types.unresolved
-    var collectionType = Collections.none
+
+    var typeType as ASTTypeTypes = .unresolved
+    var collectionType as ASTCollectionTypes = .none
     var nullable = no
 end type
 
-type Var
-    var typeSpec = TypeSpec()
-    var init = Expr()
+declare type ASTVar
+    var typeSpec as ASTTypeSpec = nil
+    var init as ASTExpr = nil
     var name = ""
     var line = 0
     var col = 0
@@ -45,10 +61,11 @@ type Var
     var returned = no
 end type
 
-declare type Expr
+declare type ASTExpr
     var line = 0
-    var typeType = Types.unresolved
-    var collectionType = Collections.none
+    var col = 0
+    var typeType = ASTTypeTypes.unresolved
+    var collectionType = ASTCollectionTypes.none
     var nullable = no
     var impure = no
     var elemental = no
@@ -59,66 +76,71 @@ declare type Expr
     var prec = 0
     var unary = no
     var rassoc = no
-    var col = 0
-    var kind = Kinds.unknown
-    var left as Expr = nil
-    var value as Value
-    var func as Func = nil
-    var var as Var = nil
-    var body as Scope = nil
-    var right as Expr = nil
+    var kind = ASTTokenKinds.unknown
+    var left as ASTExpr = nil
+    var func as ASTFunc = nil
+    var vvar as ASTVar = nil
+    var body as ASTScope = nil
+    var right as ASTExpr = nil
 end type
 
-type Scope
-    var stmts[] as Expr
-    var locals[] as Var
-    var parent as Scope = nil
+declare type ASTScope
+    var stmts as ASTExpr[]
+    var locals as ASTVar[]
+    var parent as ASTScope = nil
 end type
 
-type Type
-    var super as TypeSpec = nil
+declare type ASTType
+    var super as ASTTypeSpec = nil
     var name = ""
-    var body as Scope = nil
+    var body as ASTScope = nil
     var line = 0
     var col = 0
     var analysed = no
     var isValueType = no
 end type
 
-type Func
-    var body as Scope = nil
-    var args[] as Var
-    var returnSpec as TypeSpec = nil
+declare type ASTFunc
+    var body as ASTScope = nil
+    var args as ASTVar[]
+    var argCount = 0
+
+    var returnSpec as ASTTypeSpec = nil
     var name = ""
     var selector = ""
+    var line = 0
+    var usesIO = no
+    var throws = no
 
-        var line = 0
+    var isRecursive = no
+    var usesNet = no
+    var usesGUI = no
+    var usesSerialisation = no
+    var isExported = no
+    var usesReflection = no
+    var nodispatch = no
+    var isStmt = no
+    var isDeclare = no
+    var isCalledFromWithinLoop = no
+    var elemental = no
+    var isDefCtor= no
+    var analysed = no
+ end type
 
-            uint16_t usesIO  throws  isRecursive  usesNet : 1
-                usesGUI  usesSerialisation  isExported : 1
-                usesReflection  nodispatch  isStmt  isDeclare : 1
-                isCalledFromWithinLoop  elemental  isDefCtor : 1
-                analysed : 1
-        end type
-        var argCount = 0
-    end type
-end type
-
-type Test
-    var body as Scope = nil
+declare type ASTTest
+    var body as ASTScope = nil
     var name = ""
     var line = 0
     var analysed = no
 end type
 
-type Module
-    var funcs = Func[n+5]
-    var tests = Test[]
-    var exprs = Expr[]
-    var types = Type[]
-    var globals = Var[]
-    var imports = Import[]
+declare type ASTModule
+    var imports as ASTImport[]
+    var funcs as ASTFunc[]
+    var tests as ASTTest[]
+    var types as ASTType[]
+    var enums as ASTType[]
+    var scope as ASTScope = nil
     var name = ""
     var moduleName = ""
-    var g = Real[nx,ny,nz]
 end type

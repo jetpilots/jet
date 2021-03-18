@@ -20,18 +20,18 @@ test "chstr"
     print(len(s))
     var g = s[6:13]
     check g == "uick bro"
-    #free g
+    ~free g
     var ss = split(s, sep = " ")
     print(len(ss))
     check ss[3] == "brown"
-    #free ss
+    ~free ss
     var m = replace(s, this = "wuick", with = "bhingora")
     check m == "The bhingora brown dox"
-    #free m
+    ~free m
     var t = replace(s, map = ["wuick" = "quick", "dox" = "fox"])
     check t == "The quick brown fox" #1322
-    #free t
-    #free s
+    ~free t
+    ~free s
 end test
 
 test "chstrint"

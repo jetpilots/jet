@@ -90,40 +90,43 @@ static const uint8_t TokenKindTable[256] = {
     /* 250 */ tkUnknown, /* 251 */ tkUnknown, /* 252 */ tkUnknown,
     /* 253 */ tkUnknown, /* 254 */ tkUnknown, /* 255 */ tkUnknown
 };
-#define Token_matchesKeyword(tok)                                              \
-    if (sizeof(#tok) - 1 == l && !strncmp(#tok, s, l)) return true;
+// #define Token_matchesKeyword(tok)                                              \
+//     if (sizeof(#tok) - 1 == l && !strncmp(#tok, s, l)) return true;
 
-static bool doesKeywordMatch(const char* s, const int l) {
-    //        const char* s = pos;
-    //        const int l = matchlen;
+// static bool doesKeywordMatch(const char* s, const int l) {
+//     //        const char* s = pos;
+//     //        const int l = matchlen;
 
-    Token_matchesKeyword(and)
-    Token_matchesKeyword(cheater)
-    Token_matchesKeyword(for)
-    Token_matchesKeyword(do)
-    Token_matchesKeyword(while)
-    Token_matchesKeyword(if)
-    Token_matchesKeyword(then)
-    Token_matchesKeyword(end)
-    Token_matchesKeyword(function)
-    Token_matchesKeyword(declare)
-    Token_matchesKeyword(test)
-    Token_matchesKeyword(not)
-    Token_matchesKeyword(and)
-    Token_matchesKeyword(or)
-    Token_matchesKeyword(in)
-    Token_matchesKeyword(else)
-    Token_matchesKeyword(type)
-    //    matchesen_compareKeyword(check)
-    Token_matchesKeyword(extends)
-    Token_matchesKeyword(var)
-    Token_matchesKeyword(let)
-    Token_matchesKeyword(import)
-    Token_matchesKeyword(return)
-    Token_matchesKeyword(result)
-    Token_matchesKeyword(as)
-    return false;
-}
+//     Token_matchesKeyword(and)
+//     Token_matchesKeyword(cheater)
+//     Token_matchesKeyword(for)
+//     Token_matchesKeyword(do)
+//     Token_matchesKeyword(while)
+//     Token_matchesKeyword(if)
+//     Token_matchesKeyword(then)
+//     Token_matchesKeyword(end)
+//     Token_matchesKeyword(function)
+//     Token_matchesKeyword(yes)
+//     Token_matchesKeyword(no)
+//     Token_matchesKeyword(nil)
+//     Token_matchesKeyword(declare)
+//     Token_matchesKeyword(test)
+//     Token_matchesKeyword(not)
+//     Token_matchesKeyword(and)
+//     Token_matchesKeyword(or)
+//     Token_matchesKeyword(in)
+//     Token_matchesKeyword(else)
+//     Token_matchesKeyword(type)
+//     //    matchesen_compareKeyword(check)
+//     Token_matchesKeyword(extends)
+//     Token_matchesKeyword(var)
+//     Token_matchesKeyword(let)
+//     Token_matchesKeyword(import)
+//     Token_matchesKeyword(return)
+//     Token_matchesKeyword(result)
+//     Token_matchesKeyword(as)
+//     return false;
+// }
 
 // Holds information about a syntax self->token.
 typedef struct Token {
@@ -183,6 +186,9 @@ static void Token_tryKeywordMatch(Token* token) {
     Token_compareKeyword(declare)
     Token_compareKeyword(test)
     Token_compareKeyword(and)
+    Token_compareKeyword(yes)
+    Token_compareKeyword(no)
+    Token_compareKeyword(nil)
     Token_compareKeyword(or)
     Token_compareKeyword(in)
     // Token_compareKeyword(elif)

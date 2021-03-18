@@ -235,7 +235,8 @@ static void resolveVars(Parser* parser, ASTExpr* expr, ASTScope* scope,
                     varExpr->kind == tkSubscriptResolved) {
                     var = varExpr->var;
                 } else if (varExpr->kind == tkPeriod && //
-                    varExpr->left->kind == tkIdentifierResolved) {
+                    varExpr->left
+                    && varExpr->left->kind == tkIdentifierResolved) {
                     varExpr = varExpr->left;
                     var = varExpr->var;
                 }

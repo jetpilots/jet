@@ -1,6 +1,6 @@
-#
-# Chemistry reader and other misc I/O functions
-#
+~
+~ Chemistry reader and other misc I/O functions
+~
 
 
 function processSpec(f! as File) as Species
@@ -31,18 +31,18 @@ function processThermo(f! as File) as JanafThermo
     let coeffsHigh = num(line)
     thermo = JanafThermo { .low=coeffsLow, .high=coeffsHigh, .ts=Ts}
 end function
-##
+~#
 
 function readline(f! as File) as Text
     let raw = uppercase(strip(read(f!, lines=1)))
     let lc = split(raw, at='!', limit=2, keep=no)
     line = lc[0]
-    # if matches(line, regex=`^!`)
-    #     line = ""
-    # else if matches(line, regex=`!`)
-    #     let lc = split(line, at='!', limit=2, keep=no)
-    #     line = lc[0]
-    # end if
+    ~ if matches(line, regex=`^!`)
+    ~     line = ""
+    ~ else if matches(line, regex=`!`)
+    ~     let lc = split(line, at='!', limit=2, keep=no)
+    ~     line = lc[0]
+    ~ end if
 end function
 
 function coeffspec(str as Text)
@@ -68,27 +68,27 @@ function coeffspec(str as Text)
     return (coeff, spec)
 end function
 
-# function num(line)
-#     words = split(line)
-#     map(x->num(Number, x), words)
-# end
-# just use num(line)
+~ function num(line)
+~     words = split(line)
+~     map(x->num(Number, x), words)
+~ end
+~ just use num(line)
 
-# function line2coeffs(line as Text) result (dict[Text] as Number)
-#     words = split(line)
-#     dict = words2coeffs(words)
-# end
+~ function line2coeffs(line as Text) result (dict[Text] as Number)
+~     words = split(line)
+~     dict = words2coeffs(words)
+~ end
 
 line2coeffs(line as Text) := words2coeffs(split(line))
 function words2coeffs(words[] as Text, swap=no) as Number[Text]
     check (iseven(len(words)))
-    # coeffDict = {} # dict is already inited empty
+    ~ coeffDict = {} # dict is already inited empty
     for i = 1:2:len(words)
         ikey = i + 1
         ival = i
 
         if swap then swap(ikey!, ival!)
-        # should you prohibit global func / type names being used as vars?
+        ~ should you prohibit global func / type names being used as vars?
 
         key = words[ikey]
         val = num(words[ival])
@@ -110,12 +110,12 @@ end function
 function printSpecies()
     for (key, spec) = species
         printf("%-20s ", key)
-        #print(elements_used)
+        ~print(elements_used)
         print(spec.elemCoeffs)
-     #   for elem in keys(elements) #_used
-     #       in(spec.elemCoeffs, elem) or skip
-     #       @printf "%f" spec.elemCoeffs[elem]
-     #   end
+     ~   for elem in keys(elements) #_used
+     ~       in(spec.elemCoeffs, elem) or skip
+     ~       @printf "%f" spec.elemCoeffs[elem]
+     ~   end
         printf("%f", spec.W)
         print()
     end for
@@ -166,7 +166,7 @@ function printsummary()
     print("Number of reactions: ", len(reactions))
 end function
 
-##
+~#
 function readSpecies(f! as File)
     while not io.eof(f)
         line = readline(f!)
@@ -178,14 +178,14 @@ function readSpecies(f! as File)
 end function
 
 function readElements(f! as File) as Number[Text]
-    #clear(elements_used)
+    ~clear(elements_used)
     while not io.eof(f)
         line = readline(f!)
         words = split(line)
         if "END" in words then break
         for tok = words do eD[tok] = 0
     end while
-    #collect(keys(eD))
+    ~collect(keys(eD))
 end function
 
 function readreactions(f! as File)
@@ -234,13 +234,13 @@ function readreactions(f! as File)
                     push(reactions![lastrxn].SRI, 1.0)
                     push(reactions![lastrxn].SRI, 0.0)
                 else if len(words) == 6
-                    # already OK
+                    ~ already OK
                 else
                     error("SRI coefficients not fully specified:\n\t$line")
                 end if
 
             else if has(words[1], prefix="DUP")
-                # what to do here?
+                ~ what to do here?
 
             else if words[1] == "FORD"
 
@@ -308,7 +308,7 @@ export function readThermo(f! as File)
         if nWords == 1 and words[1] == "END" then break
 
         var elemComp as Number[Text] #= ScalarDict()
-        #thermo = janafThermoDict()
+        ~thermo = janafThermoDict()
 
         let sub as Text[] = split(line[1:24])
         let name as Text = sub[1]
@@ -332,7 +332,7 @@ export function readThermo(f! as File)
         let l2 as Text = readline(f!)
         let l3 as Text = readline(f!)
         let l4 as Text = readline(f!)
-        # also provide readline(file!, line=...) to read nth line
+        ~ also provide readline(file!, line=...) to read nth line
 
         let arrL[] as Number =
             num([l2[ 1:15], l2[16:30], l2[31:45], l2[46:60],
@@ -346,15 +346,15 @@ export function readThermo(f! as File)
     end while
 end function
 
-##
+~#
 function readThermoFile(file as Text = "therm.dat", dir as Text=".")
     var f = io.open(os.path.join(dir, file))
-    # variants for mutable variables
-    # var x = 0
-    # let x := 0
-    # let mut x = 0
-    # problem is user develops muscle memory for whatever you choose
-    # need to keep it simple in any case
+    ~ variants for mutable variables
+    ~ var x = 0
+    ~ let x := 0
+    ~ let mut x = 0
+    ~ problem is user develops muscle memory for whatever you choose
+    ~ need to keep it simple in any case
     while not io.eof(f)
         let words = split(readline(f!))
         if len(words) == 0 then skip
@@ -365,10 +365,10 @@ end function
 import units
 function readFile(file as Text = "chem.inp", dir as Text = ".")
     var f = io.open(os.path.join(dir, file)) # will auto close
-    # f might be left open if there is a crash in inner funcs.
-    # for this, F+ should keep a runtime dict of open files
-    # and upon crash detection or unhandled exception should
-    # close them before quitting.
+    ~ f might be left open if there is a crash in inner funcs.
+    ~ for this, F+ should keep a runtime dict of open files
+    ~ and upon crash detection or unhandled exception should
+    ~ close them before quitting.
     while not io.eof(f)
         let words = split(readline(f!))
         if len(words) == 0 then skip
@@ -383,17 +383,17 @@ function readFile(file as Text = "chem.inp", dir as Text = ".")
         else if has(words[1], prefix="ELEM")
             readElements(f!)
         end if
-        # match words[1]
-        # case `^ *SPEC`
-        #     readSpecies(f!)
-        #     readThermoFile(dir=dir)
-        # case `^ *THERM`
-        #     readThermo(f!)
-        # case `^ *REAC`
-        #     if len(words)>1 then units.set(words[2])
-        #     readReactions(f!)
-        # case `^ *ELEM`
-        #     readElements(f!)
-        # end match
+        ~ match words[1]
+        ~ case `^ *SPEC`
+        ~     readSpecies(f!)
+        ~     readThermoFile(dir=dir)
+        ~ case `^ *THERM`
+        ~     readThermo(f!)
+        ~ case `^ *REAC`
+        ~     if len(words)>1 then units.set(words[2])
+        ~     readReactions(f!)
+        ~ case `^ *ELEM`
+        ~     readElements(f!)
+        ~ end match
     end while
 end function

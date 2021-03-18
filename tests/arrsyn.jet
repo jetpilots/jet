@@ -1,6 +1,6 @@
-var marr as Real|kg.m2/s2[] = [7, 8, 9, 10]
-var mset as Real|kg.m2/s2[] = {7, 8, 9, 10}
-var mdict as Real|kg.m2/s2[String] = {"s" = 7, "e" = 8, "n" = 9, "t" = 10}
+var marr as Real[]|kg.m2/s2 = [7, 8, 9, 10]
+var mset as Real[]|kg.m2/s2 = {7, 8, 9, 10}
+var mdict as Real[String]|kg.m2/s2 = {"s" = 7, "e" = 8, "n" = 9, "t" = 10}
 
 var marr[] as Real = {7, 8, 9, 10}
 
@@ -27,7 +27,7 @@ var cp as Complex = conjugate(c)
 var mset[] as Real = [7, 8, 9, 10]
 var mset[2D] as Real = [7, 8, 9, 10; 4, 3, 2, 1]
 var mdict[String] as Real = {"s" = 7, "e" = 8, "n" = 9, "t" = 10}
-# sets behave like dicts with a yesno value, but is really just a set. a[x] is yes if the key is found. this allows you to use it in exprs: a[x] is just haskey(a,s).
+~ sets behave like dicts with a yesno value, but is really just a set. a[x] is yes if the key is found. this allows you to use it in exprs: a[x] is just haskey(a,s).
 
 var marr = [7, 8, 9, 10]
 var mset = {7, 8, 9, 10}
