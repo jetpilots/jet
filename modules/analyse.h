@@ -549,7 +549,7 @@ static void analyseExpr(
         // -------------------------------------------------- //
     default:
         if (expr->prec) {
-            if (!expr->unary) analyseExpr(parser, expr->left, mod, inFuncArgs);
+            if (!expr->unary && expr->left) analyseExpr(parser, expr->left, mod, inFuncArgs);
             // some exprs like return can be used without any args
             if (expr->right) analyseExpr(parser, expr->right, mod, inFuncArgs);
 
@@ -581,7 +581,7 @@ static void analyseExpr(
             // TODO: actually, indexing by an array of integers is also an
             // indication of an elemental op
 
-            if (!expr->unary) {
+            if (!expr->unary&&expr->left) {
                 expr->elemental = expr->elemental || expr->left->elemental;
                 expr->dims = expr->right->dims;
                 // if (expr->kind == tkOpColon and expr->right->kind ==
@@ -650,7 +650,7 @@ static void analyseExpr(
                 // ranges always create a 1D entity (not always array, but 1D)
                 if (expr->kind == tkOpColon) expr->dims = 1;
             }
-            if (!expr->unary
+            if (!expr->unary && expr->left
                 && !(inFuncArgs
                     && (expr->kind == tkOpComma || expr->kind == tkOpAssign))) {
                 // ignore , and = inside function call arguments. thing is
