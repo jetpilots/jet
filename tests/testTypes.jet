@@ -3,7 +3,7 @@ type DiskItem
     var fileSize = 0
     var fileMTime = DateTime()
     check(fileName != "")
-end type
+end
 
 type DateTime extends DiskItem
     var hour = 0 # = now().hour # not possible it is a cycle since new calls DateTime()
@@ -18,10 +18,10 @@ type DateTime extends DiskItem
     always 1 <= day <= 31
     always 1 <= month <= 12
     always 1 <= year <= 5000
-end type
+end
 
-function ASTExpr.gen()
-end function
+func ASTExpr.gen()
+end
 
 ~ Instead of overloading constructors, how about class methods that can only
 ~ return a constructed instance?
@@ -36,10 +36,10 @@ end function
 ~     var d4 = DateTime.after(d3) -- meh opens it up to abuse from all sides
 
 
-function start(a as Text[] or None)
-    var startTime as DateTime = now()
-    var currentFolder as Text = os.pwd()
-    var ss as Number = sys.stackSize()
+func start(a Text[] or None)
+    var startTime DateTime = now()
+    var currentFolder Text = os.pwd()
+    var ss Number = sys.stackSize()
 
     print(d.year)
     ~ if(d)
@@ -52,4 +52,4 @@ function start(a as Text[] or None)
     print(Timer.elapsed())
     print(timer.elapsed())
     print(now() - startTime)
-end function
+end

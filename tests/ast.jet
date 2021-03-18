@@ -20,32 +20,32 @@ declare type ASTImport
     var aliasOffset = 0
     var isPackage = no
     var hasAlias = no
-end type
+end
 
 declare type ASTUnits
-    var powers as Number[]
+    var powers Number[]
     var factor = 0
-    var factors as Number[]
+    var factors Number[]
     var label = ""
-end type
+end
 
 declare type ASTTypeSpec
-    var ttype as ASTType = nil
+    var ttype ASTType = nil
     var name = ""
-    var units as ASTUnits = nil
+    var units ASTUnits = nil
 
     var dims = 0
     var col = 0
     var line = 0
 
-    var typeType as ASTTypeTypes = .unresolved
-    var collectionType as ASTCollectionTypes = .none
+    var typeType ASTTypeTypes = .unresolved
+    var collectionType ASTCollectionTypes = .none
     var nullable = no
-end type
+end
 
 declare type ASTVar
-    var typeSpec as ASTTypeSpec = nil
-    var init as ASTExpr = nil
+    var typeSpec ASTTypeSpec = nil
+    var init ASTExpr = nil
     var name = ""
     var line = 0
     var col = 0
@@ -59,7 +59,7 @@ declare type ASTVar
     var escapes = no
     var canInplace = no
     var returned = no
-end type
+end
 
 declare type ASTExpr
     var line = 0
@@ -77,35 +77,35 @@ declare type ASTExpr
     var unary = no
     var rassoc = no
     var kind = ASTTokenKinds.unknown
-    var left as ASTExpr = nil
-    var func as ASTFunc = nil
-    var vvar as ASTVar = nil
-    var body as ASTScope = nil
-    var right as ASTExpr = nil
-end type
+    var left ASTExpr = nil
+    var func ASTFunc = nil
+    var vvar ASTVar = nil
+    var body ASTScope = nil
+    var right ASTExpr = nil
+end
 
 declare type ASTScope
-    var stmts as ASTExpr[]
-    var locals as ASTVar[]
-    var parent as ASTScope = nil
-end type
+    var stmts ASTExpr[]
+    var locals ASTVar[]
+    var parent ASTScope = nil
+end
 
 declare type ASTType
-    var super as ASTTypeSpec = nil
+    var super ASTTypeSpec = nil
     var name = ""
-    var body as ASTScope = nil
+    var body ASTScope = nil
     var line = 0
     var col = 0
     var analysed = no
     var isValueType = no
-end type
+end
 
 declare type ASTFunc
-    var body as ASTScope = nil
-    var args as ASTVar[]
+    var body ASTScope = nil
+    var args ASTVar[]
     var argCount = 0
 
-    var returnSpec as ASTTypeSpec = nil
+    var returnSpec ASTTypeSpec = nil
     var name = ""
     var selector = ""
     var line = 0
@@ -125,22 +125,22 @@ declare type ASTFunc
     var elemental = no
     var isDefCtor= no
     var analysed = no
- end type
+ end
 
 declare type ASTTest
-    var body as ASTScope = nil
+    var body ASTScope = nil
     var name = ""
     var line = 0
     var analysed = no
-end type
+end
 
 declare type ASTModule
-    var imports as ASTImport[]
-    var funcs as ASTFunc[]
-    var tests as ASTTest[]
-    var types as ASTType[]
-    var enums as ASTType[]
-    var scope as ASTScope = nil
+    var imports ASTImport[]
+    var funcs ASTFunc[]
+    var tests ASTTest[]
+    var types ASTType[]
+    var enums ASTType[]
+    var scope ASTScope = nil
     var name = ""
     var moduleName = ""
-end type
+end

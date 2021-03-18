@@ -3,7 +3,7 @@
 ~define genLineProfile 1
 
 
-function ASTImportGenc(import as ASTImport, level as Integer)
+func ASTImportGenc(import ASTImport, level Integer)
 {
     strTrIp(import.importFile, '.', '', 0)
     print("\n~include \"%s.h\"\n", import.importFile)
@@ -14,14 +14,12 @@ function ASTImportGenc(import as ASTImport, level as Integer)
 end
 
 
-function ASTImportUndefc(import as ASTImport)
-{
-    if import.hasAlias)
-        print("~undef %s\n", import.importFile + import.aliasOffset)
+func ASTImportUndefc(import ASTImport)
+    if import.hasAlias then print("~undef %s\n", import.importFile + import.aliasOffset)
 end
 
 
-function ASTTypeSpecGenc(typeSpec as ASTTypeSpec, level as Integer, isconst as YesOrNo)
+func ASTTypeSpecGenc(typeSpec ASTTypeSpec, level Integer, isconst YesOrNo)
 {
     if isconst then print("const ")
     ~ TODO: actually this depends on the collectionType. In general
@@ -64,12 +62,11 @@ function ASTTypeSpecGenc(typeSpec as ASTTypeSpec, level as Integer, isconst as Y
     ~        end
 end
 
-function generate(
-    self as ASTExpr, level as Integer, spacing as YesOrNo, inFuncArgs as YesOrNo, escStrings as YesOrNo)
+func generate(
+    self as ASTExpr, level Integer, spacing YesOrNo, inFuncArgs YesOrNo, escStrings YesOrNo)
 
 
-function generate(var as ASTVar, level as Integer, isconst as YesOrNo)
-{
+func generate(var ASTVar, level Integer, isconst YesOrNo)
     ~ for C the variables go at the top of the block, without init
     print("$space{level}")
     if var.typeSpec then generate(var.typeSpec, level=level+lStep, isconst)
@@ -83,7 +80,7 @@ end
 ~ containing statement, and in place of the original call you
 ~ should place a temporary holding the value that would have been
 ~ "returned".
-function YesOrNo mustPromote(const char* name)
+func YesOrNo mustPromote(const char* name)
 {
     ~ TODO: at some point these should go into a dict or trie or MPH
     ~ whatever
@@ -96,7 +93,7 @@ function YesOrNo mustPromote(const char* name)
 end
 
 
-function unmarkVisited(expr as ASTExpr)
+func unmarkVisited(expr ASTExpr)
     match expr.kind
     case .identifierResolved, .varAssign:
         expr.var.visited = no
@@ -121,7 +118,7 @@ end
 ~ print("m = %?\n", m)
 ~ checks will print the vars involved in the check expr, if the check
 ~ fails. This routine will be used there.
-function genPrintVars(expr as ASTExpr, level as Integer)
+func genPrintVars(expr ASTExpr, level Integer)
 {
     assert(expr)
     ~ what about fFunc args?
@@ -152,7 +149,7 @@ function genPrintVars(expr as ASTExpr, level as Integer)
         break
 
     default:
-        if expr.prec) {
+        if expr.prec
             if not expr.unary) genPrintVars(expr.left, level)
             genPrintVars(expr.right, level)
         end
@@ -161,8 +158,10 @@ end
 
 
 ~ Promotion scan & promotion happens AFTER resolving functions!
-function promotionCandidate(expr as ASTExpr) result (out as ASTExpr)
-    var ret as ASTExpr
+func promotionCandidate(expr ASTExpr) result (out ASTExpr)
+func promotionCandidate(expr ASTExpr) ASTExpr
+func promotionCandidate!(expr ASTExpr) (out ASTExpr)
+    var ret ASTExpr
 
     ~ what about fFunc args?
     match expr.kind
@@ -209,28 +208,27 @@ function promotionCandidate(expr as ASTExpr) result (out as ASTExpr)
     end
 end
 
-function char* newTmpVarName(num as Integer, char c)
+func char* newTmpVarName(num Integer, char c)
     char buf[8]
-    var l as Integer = snprintf(buf, 8, "%c%d", c, num)
+    var l Integer = snprintf(buf, 8, "%c%d", c, num)
     out = pstrndup(buf, l)
 end
 
 
-function  isCtrlExpr(expr as ASTExpr) as YesOrNo
-{
+func isCtrlExpr(expr ASTExpr) as YesOrNo
     out = expr.kind  == .keywordIf ~
         or expr.kind == .keywordFor ~
         or expr.kind == .keywordWhile ~
         or expr.kind == .keywordElse
 end
 
-function  isLiteralExpr(expr as ASTExpr) as YesOrNo { out = no
+func isLiteralExpr(expr ASTExpr) as YesOrNo { out = no
 end
-function  isComparatorExpr(expr as ASTExpr)  as YesOrNo { out = no
+func isComparatorExpr(expr ASTExpr)  as YesOrNo { out = no
 end
 
 
-function lowerElementalOps(scope as ASTScope)
+func lowerElementalOps(scope ASTScope)
 {
     for stmt = scope.stmts ~ for ASTExpr*, stmt, scope.stmts)
 
@@ -298,11 +296,11 @@ function lowerElementalOps(scope as ASTScope)
 end
 
 
-function promoteCandidates(scope as ASTScope)
+func promoteCandidates(scope ASTScope)
 {
-    var tmpCount as Integer = 0
-    var pc as ASTExpr = missing
-    var prev[] as ASTExpr
+    var tmpCount Integer = 0
+    var pc ASTExpr = missing
+    var prev[] ASTExpr
     ~ List(ASTExpr)* prev = missing
     for stmt as ASTExpr in scope.stmts
     ~fpForeachn(ASTExpr*, stmt, stmts, scope.stmts)
@@ -325,7 +323,7 @@ function promoteCandidates(scope as ASTScope)
             skip
         end
 
-        var pcClone as ASTExpr = clone(pc)
+        var pcClone ASTExpr = clone(pc)
 
         ~ 1. add a temp var to the scope
         tmpCount += 1
@@ -358,10 +356,10 @@ function promoteCandidates(scope as ASTScope)
             }
             ~ pcClone.left = com
         else
-            var argn as ASTExpr = pcClone.left
+            var argn ASTExpr = pcClone.left
             while argn.kind == .opComma and argn.right.kind == .opComma
                 argn = argn.right
-            end while
+            end
             argn.right = ASTExpr {
             ~ TODO: really should have an astexpr ctor
                 .kind = TokenKinds.opComma
@@ -395,13 +393,13 @@ function promoteCandidates(scope as ASTScope)
 end
 
 
-function generate(scope as ASTScope, level as Integer)
+func generate(scope ASTScope, level Integer)
 {
     for local = scope.locals ~for ASTVar*, local, scope.locals)
     if local.used
         generate(local, level = level, static = no)
         print()
-    end if ~ these will be declared at top and defined within the expr list
+    end ~ these will be declared at top and defined within the expr list
 
     for stmt in scope.stmts ~for ASTExpr*, stmt, scope.stmts)
     ~{
@@ -423,12 +421,12 @@ function generate(scope as ASTScope, level as Integer)
         ~ convert this into a flag which is set in the resolution pass
         if throws(stmt)
             print("    if Err == ERRORTRACE) goto backtrace")
-        end if
+        end
     end
 end
 
 
-function genJson(tType as ASTType)
+func genJson(tType ASTType)
 {
     print('
         void $tType.nameJson(const $tType.name self, Integer nspc) {
@@ -442,7 +440,7 @@ function genJson(tType as ASTType)
     for local as ASTVar in tType.body.locals
         if not local then skip
         print('    printf("%.*s\"$var.name\": ", nspc+4, Spaces)')
-        var valueType as Text = typeName(var.init)
+        var valueType Text = typeName(var.init)
         print('
             $valueTypeJson(self.$var.name, nspc+4);
             printf(\"')
@@ -458,8 +456,8 @@ function genJson(tType as ASTType)
 end
 
 
-function genJsonReader(tType as ASTType)
-end function
+func genJsonReader(tType ASTType)
+end
 
 let functionEntryStuffUNESCAPED = '
     ~ifndef NOSTACKCHECK
@@ -502,7 +500,7 @@ let functionExitStuffUNESCAPED = '
         out = DEFAULTVALUE;
     '
 
-function printStackUsageDef(stackUsage as Integer)
+func printStackUsageDef(stackUsage Integer)
     print('
         ~ifdef DEBUG
         ~define MYSTACKUSAGE ($stackUsage$ + 6*sizeof(void*) + sizeof(char*))
@@ -510,11 +508,11 @@ function printStackUsageDef(stackUsage as Integer)
         ~define MYSTACKUSAGE ($stackUsage$ + 6*sizeof(void*))
         ~endif
         ')
-end function
+end
 
-function generate(tType as ASTType, level as Integer)
+func generate(tType ASTType, level Integer)
     if not tType.body or not tType.analysed then return
-    var name as Text = tType.name
+    var name Text = tType.name
     print('~define FIELDS$name$')
     for local as ASTVar in tType.body.locals
         generate(local, level=level+lStep, no)
@@ -568,7 +566,7 @@ function generate(tType as ASTType, level as Integer)
         ) {==\\9igtr5}
         ~define DEFAULTVALUE missing
         ~ifdef DEBUG
-            function const char* sig = "{b64(name)}()"
+func const char* sig = "{b64(name)}()"
         ~endif')
 
     ~ uglly uglly. therefore string interp is the only way
@@ -582,7 +580,7 @@ function generate(tType as ASTType, level as Integer)
         ) {
         ~define DEFAULTVALUE missing
         ~ifdef DEBUG
-            function const char* sig = "' name '()"
+func const char* sig = "' name '()"
         ~endif')
 
     name .= 'wow'
@@ -620,7 +618,7 @@ preferredRegexStyle := `
 
 ASTType generateHeader(ASTType tType, Int level)
 
-export function generateHeader(tType as ASTType, level as Int)
+export function generateHeader(tType ASTType, level Int)
     check tType.body != nil ~ means declared funcs ~ BTW in jet if body is an
     ~ array it CANNOT be nil
     check not tType.isDecl
@@ -631,7 +629,7 @@ export function generateHeader(tType as ASTType, level as Int)
     ~ if you don't have a return keyword, fFunc writers will be forced to put
     ~ such checks
 
-    var name as String = tType.name
+    var name String = tType.name
     check name != "" ~ this should be interpreted as a requires on tType.name!
 
     print('
@@ -654,10 +652,10 @@ export function generateHeader(tType as ASTType, level as Int)
 
     ~ You know that string interp is only allowed in literals, NOT in strings
     ~ read from somewhere! For that you have to explicitly do a replace().
-end function
+end
 
 
-generate(fFunc as ASTFunc, level as Integer)
+generate(fFunc ASTFunc, level Integer)
 {
     if not fFunc.body or not fFunc.analysed) out = ~ declares, default ctors
 
@@ -713,7 +711,7 @@ generate(fFunc as ASTFunc, level as Integer)
 end
 
 
-function generateHeader(fFunc as ASTFunc, level as Integer)
+func generateHeader(fFunc ASTFunc, level Integer)
 {
     if not fFunc.body or not fFunc.analysed) out =
     if not fFunc.isExported) print("function ")
@@ -736,7 +734,7 @@ end
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-function generate(tTest as ASTTest)
+func generate(tTest ASTTest)
 {
     ~ TODO: should tests not out = BOOL?
     if not tTest.body out =
@@ -746,8 +744,8 @@ function generate(tTest as ASTTest)
 end
 
 
-function generate(
-    expr as ASTExpr, level as Integer, spacing as YesOrNo, inFuncArgs as YesOrNo, escStrings as YesOrNo)
+func generate(
+    expr as ASTExpr, level Integer, spacing YesOrNo, inFuncArgs YesOrNo, escStrings YesOrNo)
 {
     ~ generally an expr is not split over several lines (but maybe in
     ~ rare cases). so level is not passed on to recursive calls.
@@ -796,9 +794,9 @@ function generate(
         break
 
     case .functionCallResolved: {
-        var tmp as Text = expr.fFunc.selector
+        var tmp Text = expr.fFunc.selector
 
-        var arg1 as ASTExpr = expr.left
+        var arg1 ASTExpr = expr.left
         const char* tmpc = ""
         if arg1) {
             if arg1.kind == .opComma) arg1 = arg1.left
@@ -1192,12 +1190,12 @@ function generate(
         end
         fallthrough default : if not expr.prec) break
         ~ not an operator, but this should be error if you reach here
-        var leftBr as YesOrNo
+        var leftBr YesOrNo
             = expr.left
             and expr.left.prec
             and expr.left.prec < expr.prec
 
-        var rightBr as YesOrNo =
+        var rightBr YesOrNo =
             expr.right
             and expr.right.prec
             and expr.right.kind != .keywordReturn
@@ -1232,7 +1230,7 @@ function generate(
 end
 
 ~ WARNING: DO NOT USE THESE STRINGS WITH PRINTF(...) USE PUTS(...).
-function const char* coverageFunc[] = { ~
+func const char* coverageFunc[] = { ~
     "function fpCoverageReport() { /* unused */ end",
     "function fpCoverageReport() {\n"
     "    Integer count=0,l=NUMLINES\n"
@@ -1242,7 +1240,7 @@ function const char* coverageFunc[] = { ~
     "end"
 end
 ~ WARNING: DO NOT USE THESE STRINGS WITH PRINTF(...) USE PUTS(...).
-function const char* lineProfileFunc[] = {
+func const char* lineProfileFunc[] = {
     ~
     "function fpLineprofileReport() { /* unused */ end\n"
     "function fpLineprofileBegin() { /* unused */ end\n",
@@ -1272,7 +1270,7 @@ function const char* lineProfileFunc[] = {
 end
 
 ~ TODO: why do you need to pass level here?
-function generate(module as ASTModule, level as Integer)
+func generate(module ASTModule, level Integer)
     for imp as ASTImport in module.imports do generate(imp, level=level)
 
     print("")
@@ -1298,7 +1296,7 @@ function generate(module as ASTModule, level as Integer)
     print(lineProfileFunc[genLineProfile])
 end
 
-function genTests(module as ASTModule, level as Integer)
+func genTests(module ASTModule, level Integer)
     ASTModuleGenc(module, level)
     for ASTTest*, tTest, module.tests) ASTTestGenc(tTest)
     ~ generate a fFunc that main will call

@@ -3,7 +3,7 @@ type Complex
     var im = 0
 end
 
-function init(c as Complex, re as Number, im as Number)
+func init(c Complex, re Number, im Number)
     c.re = re
     c.im = im
     check conjugate(c) == 7 + 4i
@@ -21,7 +21,7 @@ end
 ~     out.im = im
 ~ end
 
-Complex(re as Number) := Complex(re, 0)
+Complex(re Number) := Complex(re, 0)
 
 enum CollType as BaseObject
     none
@@ -37,12 +37,12 @@ end enum
 ~ main returns nothing, since the error handling mechanism will report
 ~ any issues to the caller of main.
 ~ declare type Strings
-function main()
+func main()
     ~ constructor call must have all named args
     var c = Complex() # disallow this
     var c2 = 4 + 3i # this should be used
     var d = [2, 3, 4, 5, 6, 7, 8]
-    var c3 as Complex = c2 + 4
+    var c3 Complex = c2 + 4
     print(d[:])
     ~ describe(d)
     ~ print(args[9])
@@ -59,11 +59,11 @@ end
 ~     for elem in x[:] do sum += elem
 ~ end
 
-function sum as Number (x as Number[])
+func sum as Number (x Number[])
     for elem in x[1:9] do s += elem
  end
 
-function doarr()
+func doarr()
     var arr[] = [3, 4, 5; 6, 7, 8; 9, 10, 11]
     print(arr)
     describe(arr)

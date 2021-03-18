@@ -1,33 +1,33 @@
 
 
 type Field3DIncompressibleFlow extends Field3D
-    var u[] as Real|m/s
-    var v[] as Real|m/s
-    var w[] as Real|m/s
-    var p[] as Real|Pa
-end type
+    var u[] Real|m/s
+    var v[] Real|m/s
+    var w[] Real|m/s
+    var p[] Real|Pa
+end
 
 type Field3DCompressibleFlow extends Field3DIncompressibleFlow
-    var r[] as Real|kg/m3
-end type
+    var r[] Real|kg/m3
+end
 
 type Field3DTurbulentCompressibleFlow extends Field3DCompressibleFlow
-    var k[] as Real|m2/s
-    var e[] as Real|m2/s3
-    var ut[] as Real|s/m2 nosave # no output in serialisation
-end type
+    var k[] Real|m2/s
+    var e[] Real|m2/s3
+    var ut[] Real|s/m2 nosave # no output in serialisation
+end
 
 type Field3DTurbulentIncompressibleFlow extends Field3DIncompressibleFlow
-    var k[] as Real|m2/s
-    var e[] as Real|m2/s3
-    var ut[] as Real|s/m2 nosave # no output in serialisation
-end type
+    var k[] Real|m2/s
+    var e[] Real|m2/s3
+    var ut[] Real|s/m2 nosave # no output in serialisation
+end
 
 
 type Field3D
     var y[2D] as Real|1
-    var mesh as Mesh3D
-end type
+    var mesh Mesh3D
+end
 
 *******
 THIS IS OVERKILL FOR ALL COMBINATIONS!!! SEE COMPOSITION INSTEAD
@@ -36,37 +36,37 @@ THIS IS OVERKILL FOR ALL COMBINATIONS!!! SEE COMPOSITION INSTEAD
 
 ~ dot notation on types means subtypes that are useful for composition.
 type Field3D.Flow
-    var u[] as Real|m/s
-    var v[] as Real|m/s
-    var w[] as Real|m/s
-    var p[] as Real|Pa
-end type
+    var u[] Real|m/s
+    var v[] Real|m/s
+    var w[] Real|m/s
+    var p[] Real|Pa
+end
 
 type Field3D.Compressible
-    var r[] as Real|kg/m3
-end type
+    var r[] Real|kg/m3
+end
 
 type Field3D.Turbulent
-    var k[] as Real|m2/s
-    var e[] as Real|m2/s3
-    var ut[] as Real|s/m2 nosave # no output in serialisation
-end type
+    var k[] Real|m2/s
+    var e[] Real|m2/s3
+    var ut[] Real|s/m2 nosave # no output in serialisation
+end
 
 type Field3D.Multicomponent
     var y[2D] as Real|1
-end type
+end
 
 type Field3D.LagrangianMultiphase
-    var particles[] as LagrangianParticle
-end type
+    var particles[] LagrangianParticle
+end
 
 type Field3D
-    var mesh as Mesh3D
-end type
+    var mesh Mesh3D
+end
 
 type Solution
     ~ this kind of naming implies Mesh, Flow, Compressible etc. are parts that are related to Field3D and can be composed.
-    var mesh as fx.Field3D.Mesh
+    var mesh fx.Field3D.Mesh
     embed fx.Field3D.Flow # can you not detect whether something should be embedded or ref? what if nowhere is it being *referenced*? i.e. anything done that would update refcount, e.g. assigned, pushed, passed
     ~ ***** actually you dont have to worry about taking the ref of something embedded. its perfectly fine. all that matters is whether the field is being itself assigned to?
     ~ **** if not then generate it as Type v[1]; instead of Type* v;. access will always be with ->. (primitives are always by value ie 'embedded' duh)
@@ -81,10 +81,10 @@ type Solution
     ~ will return ret and newvar will be filled.
     embed fx.Field3D.Compressible
     embed var turb as Field3D.Turbulent
-    var time as Real|s
-    var timeStep as Real|s
+    var time Real|s
+    var timeStep Real|s
 
-end type
+end
 
 ~ you see how they really are the same thing at the low level. as long as there
 ~ are no methods, inheritance or (unnamed) composition yields the same thing

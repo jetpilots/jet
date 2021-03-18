@@ -1,14 +1,14 @@
 ~   For all i and j, d[i,j] will hold the Levenshtein distance between the     #
 ~   first "i" characters of "s" and the first "j" characters of "t".           #
 ~   Check details here: https://tinyurl.com/y857p2hf                       #
-function levenstein(s as Text, t as Text) -> dist as Int
+func levenstein(s Text, t Text) -> dist as Int
     var m = len(s)
     var n = len(t)
     var d[m,n] = 0 # this line looks like you are setting 1 elem at [m,n] to 0
-    var d as Int[2D]|kg.s3/m2 = zeros2D([m, n]) # this is better regarding var decl
+    var d Int[2D]|kg.s3/m2 = zeros2D([m, n]) # this is better regarding var decl
     ~ but zeros2D/3D/4D is a pain
-    var myJunesData as Int[] = zeros([m, n]) # dynamic tensor
-    var myJunesData as Int[Text] = zeros([m, n])
+    var myJunesData Int[] = zeros([m, n]) # dynamic tensor
+    var myJunesData Int[Text] = zeros([m, n])
     var myJunesData[3D]|kg.s as Int = zeros([m, n])
     ~ var myJunesData::[Int|kg/s] = zeros([m, n])
 ~ zeros is perfectly capable of returning any rank
@@ -23,14 +23,14 @@ function levenstein(s as Text, t as Text) -> dist as Int
             d[i, j] = min([ d[i-1, j  ] + 1,          # deletion
                             d[i,   j-1] + 1,          # insertion
                             d[i-1, j-1] + cost])      # substitution
-        end for
-    end for
+        end
+    end
 
     dist = d[m,n]
     print("Distance between '$s' and '$t' is: $dist")
 
     check 0 <= dist <= min([m, n])
-end function
+end
 
 
 func main()

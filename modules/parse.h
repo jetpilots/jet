@@ -471,8 +471,10 @@ static ASTVar* parseVar(Parser* parser) {
     parser->token.mergeArrayDims = false;
 
     if (Parser_ignore(parser, tkOneSpace)
-        && Parser_ignore(parser, tkKeyword_as)) {
-        Parser_consume(parser, tkOneSpace);
+        && Parser_matches(parser, tkIdentifier))
+    //        && Parser_ignore(parser, tkKeyword_as)) {
+    //      Parser_consume(parser, tkOneSpace);
+    {
         var->typeSpec = parseTypeSpec(parser);
     } else {
         var->typeSpec = NEW(ASTTypeSpec);

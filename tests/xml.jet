@@ -2,34 +2,34 @@
 ~include "jetsys_time.h"
 
 declare type Attr
-    var key as TextRef
-    var val as TextRef
+    var key TextRef
+    var val TextRef
 end
 
 declare type Node
-    var tag as TextRef
-    var attributes as Attr[]
-    var text as TextRef
-    var children as Node[]
+    var tag TextRef
+    var attributes Attr[]
+    var text TextRef
+    var children Node[]
 end
 
 declare type Parser
-    var filename as Text
-    var line as Number #in [0:50M]    # check 0 <= line <= 50k # redundant invariant caught at comptime
-    var col as Number #in [0:132]     # check 0 <= col <= 132    # data as Text
-    var data as Byte[]     # pos as TextRef     # ends as TextRef
+    var filename Text
+    var line Number #in [0:50M]    # check 0 <= line <= 50k # redundant invariant caught at comptime
+    var col Number #in [0:132]     # check 0 <= col <= 132    # data as Text
+    var data Byte[]     # pos as TextRef     # ends as TextRef
 end
 
 var size[4D] in [6:78] = 12.4|MB
 var nonDimButScaled = 50|k or 50k
 
-Parser(fromText as Text) :=
+Parser(fromText Text) :=
     Parser {
         .data = clone(fromText),
         .pos = 1,
         .ends = len(fromText)}
 
-function Parser(file as Text)
+func Parser(file Text)
 
     var f = FileInfo(file)
     ~ like this and DateTime, a lot of types need to be instantiated
@@ -42,7 +42,7 @@ function Parser(file as Text)
         panic("F+: '$file' is a folder; only files are accepted.")
     else if not f.permissions.read
         panic("F+: no permission to read file '$file'.")
-    end if
+    end
     ~ panic(...) := write(..., to=stderr) and stop
 
     ans = Parser {
@@ -62,9 +62,9 @@ function Parser(file as Text)
 ~ -- SOOOOOOO text should APPEAR TO BE IMMUTABLE on the Jet side but funcs
 ~ should be implemented in a mutable way in C and Jet calls should be translated
 ~ to mutating an existing string IF they are inplaceable.
-var txt as Text = read(file, encoding=TextEncodings.ascii)
+var txt Text = read(file, encoding=TextEncodings.ascii)
 ~    -> this func just does {t=read(file);t.encoding=.ascii;ret t;}
-var bytes as Byte[] = read(file)
+var bytes Byte[] = read(file)
 ~ do whatever with bytes
 var tyt = Text(bytes, encoding=.ascii) # this is a copy if byt is used later else move
 ~ var by as Byte[] = bytes(txt) # this is a copy if you use txt later, but otherwise a move
@@ -76,7 +76,7 @@ var tyt = Text(bytes, encoding=.ascii) # this is a copy if byt is used later els
 
 end
 
-function parseAttrs(var par as Parser) result (list as Attr[])
+func parseAttrs(var par as Parser) result (list Attr[])
     ~ GET RID OF ALIAS/MACRO BUSINESS!
 
     while char(par) not in ">/?"
@@ -84,15 +84,15 @@ function parseAttrs(var par as Parser) result (list as Attr[])
         advance!(par, toFirst='=')
         trample!(par)
 
-        var markers as Regex = ``
+        var markers Regex = ``
         if char(par) in ['"', "'"]
             markers = char(par)
             advance!(par)
         else
             markers = " >/?\t\n"
-        end if
+        end
 
-        var val as TextRef = pos
+        var val TextRef = pos
 
         advance!(par, past=markers)
         trample!(par, toFirst="[?>")
@@ -106,15 +106,15 @@ function parseAttrs(var par as Parser) result (list as Attr[])
 end
 
 ~ Trample the character at the current position to null, and advance.
-function trample!(par as Parser)
+func trample!(par Parser)
     par.data[par.pos] = 0
     par.pos += 1
 end
 
-skipws!(par as Parser) :=
+skipws!(par Parser) :=
     while par.data[par.pos] == " " do par.pos += 1
 
-function parseTags!(par as Parser) result (list as Node[])
+func parseTags!(par Parser) result (list Node[])
 
     ~ ref pos as Number = par.pos
     ~ --> pos is generated as *pos in C, works on lhs/rhs. refs have a
@@ -144,14 +144,14 @@ function parseTags!(par as Parser) result (list as Node[])
              else if matches(par, str="[CDATA[")   # cdata
 
              else
-                var node as Node = { .tag = str(par) }
+                var node Node = { .tag = str(par) }
 
                 advance!(par, toLast=`[ />\n\t]`)
                 if char(par) == ' '
                     trample!(par)
                     advance!(par, past=" \t\n")
                     node.attributes = parseAttrs(par)
-                end if
+                end
 
                 advance!(par, past=" \t\n")
 
@@ -177,8 +177,8 @@ function parseTags!(par as Parser) result (list as Node[])
                             panic("error: found end of file, expected '</$node.tag>'")
                         else if closingTag != node.tag
                             panic("error: found '</$closingTag>', expected '</$node.tag>'")
-                        end if
-                    end if
+                        end
+                    end
 
                 case else
                     let char as TextRef = c
@@ -190,7 +190,7 @@ function parseTags!(par as Parser) result (list as Node[])
              end
 
         else
-            var text as TextRef = str(par) # still need to eliminate TextRef
+            var text TextRef = str(par) # still need to eliminate TextRef
             advance!(par, toFirst='<')
             list[end+1] = Node { .text = text }
 
@@ -216,9 +216,9 @@ end
 ~ although more work for me to write such a general inference routine.
 
 ~ string interps make it quite easy, dont u think
-str(x as Attr) => "$x.key='$x.value'"
+str(x Attr) => "$x.key='$x.value'"
 ~ compare that to the write defn
-write(x as Attr) => write("$x.key='$x.value'")
+write(x Attr) => write("$x.key='$x.value'")
 ~ ok, you have explicit 1-on-1 map of write() to printf() for genc. or is it?
 ~ you still do the same string interp. in the same sense you also have a 1on1
 ~ of the string itself (w/ interps) to snprintf.
@@ -244,14 +244,14 @@ write(x) = write(str(x))
 ~ that runs for these. this allows keeping a subclass item in a base class var
 ~ but dispatching to the subclass impl instead of baseclass impl
 ~ 1 thing is it is implicit, you can have
-var fx as FXBase
+var fx FXBase
 if ask()=='y' # -- btw temporaries/rvalues that allocate must be discarded
 ~ immediately after use! ask() retval is an owned var not assigned to
 ~ any ref so you cant track it. if you promote ALL funcs then it can be tracked.
     fx = FXSubClassA("test")
 else
     fx = FXSubClassB()
-end if
+end
 var d = funcy(fx) <-- not clear to the user what func will be called, not even decidable statically.
 ~ just stick with composition over ineritance.
 ~ the reason for getting into this was you could then have ASTExpr and subtypes
@@ -259,21 +259,21 @@ var d = funcy(fx) <-- not clear to the user what func will be called, not even d
 ~ also it would help in automatic structure packing since you would know what
 ~ goes where.
 
-function parse(p as Parser) as Node[]
-    var b as Byte[] = bytes(p.text.len)
+func parse(p Parser) as Node[]
+    var b Byte[] = bytes(p.text.len)
 end
 
-write(attr as Attr) := write(" $attr.key='$attr.val'")
-write(node as Node) := write(node, indent=0)
+write(attr Attr) := write(" $attr.key='$attr.val'")
+write(node Node) := write(node, indent=0)
 
-write(nodeList as Node[], indent as Int) :=
+write(nodeList Node[], indent Int) :=
     for xn as Node = nodeList[1:end] do write(child, indent=indent)
 
 
 TextRef const spaces
     = "                                                 "
 
-function write(node as Node, indent as Int)
+func write(node Node, indent Int)
     if node.tag != ""
         write("%. s<%s%s", indent, spaces, node.tag,
             node.attributes ? "" : node.children ? ">\n" : "/>\n")
@@ -284,7 +284,7 @@ function write(node as Node, indent as Int)
         if len(node.children)>0 then write(" " * indent, node.tag)
     else
         write(" " * indent, node.text)
-    end if
+    end
 end
 
 var xmlstr =
@@ -328,7 +328,7 @@ var xmlstr =
         </Test>
     </Tests>'
 
-function start()
+func start()
 
     if len(os.args) == 0 then panic("usage: $os.cmd <filename>")
 
@@ -355,9 +355,9 @@ function start()
 
 end
 
-function stats(fileSize as Number|B within <0:2^24>,
+func stats(fileSize Number|B within <0:2^24>,
       fileModified as YesOrNo,
-      fileRange as Number[3D] within <2:29>) result (ret as Number[2D])
+      fileRange as Number[3D] within <2:29>) result (ret Number[2D])
 
     ~ var sret as Number[3D] = clone(inArg)
     ~ let fileSize|B

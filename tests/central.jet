@@ -8,7 +8,7 @@
 ~ So, arrays cannot be declared with the size in brackets. For vars, you will
 ~ use zeros() or something anyway. For func args, add a check if you must.
 
-function central2d(vQ as Real[3D], by as Real[2D], axis as Real) result (dQ as Real[4D])
+func central2d(vQ Real[3D], by Real[2D], axis Real) result (dQ Real[4D])
     check 1 <= axis <= vQ.dims
     check vQ.shape[axis] == by.size
 
@@ -49,7 +49,7 @@ end
 ~ func is generated to take Array:well:Slice.
 
 ~ finding the central diff of an array along its axis (there is only one axis)
-function central1d(vQ as Real[1D], by as Real[]) result dQ as Real[]
+func central1d(vQ Real[1D], by Real[]) result dQ as Real[]
 ~ var has a ASTVar* dimsFrom[8or16] field showing if one or more dims are the same
 ~:another var
 ~ result are local vars, not args in C
@@ -84,9 +84,9 @@ function central1d(vQ as Real[1D], by as Real[]) result dQ as Real[]
     ~ escape the caller, else pool or heap whatever. Note that caller means the
     ~ func which made the clone, since the ptr can be passed in more than 1 level
     ~ deep.
-end function
+end
 
-function boundary2d(mq as Real[2D], zero:YesOrNo) result (mQnew as Real[2D])
+func boundary2d(mq Real[2D], zero:YesOrNo) result (mQnew Real[2D])
     ~ check size(vQ, along = 1) > 1 THESE ARE IMPLIED SINCE YOU USED -2 as index!
     ~ check size(vQ, along = 2) > 1
 
@@ -115,10 +115,10 @@ function boundary2d(mq as Real[2D], zero:YesOrNo) result (mQnew as Real[2D])
         mQnew[:,  1] = 0
         mQnew[-1, :] = 0
         mQnew[:, -1] = 0
-    end if
+    end
 
     ~ return mQnew
-end function
+end
 
 func boundary1d(vQ,zero) result(mQnew)
     real(d) vQ(:)
@@ -139,6 +139,6 @@ func boundary1d(vQ,zero) result(mQnew)
     else
         mQnew(1)  = 0.0d0
         mQnew(n)  = 0.0d0
-    end if
+    end
 
 end func

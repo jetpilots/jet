@@ -37,7 +37,7 @@ declare function Tx()
 var lm = 7
 
 ~ deprecated "Please use this instead" start(args String[])
-function start()
+func start()
     var cs = "Hello world"
     var cd = 34 + 8 ~+lm
     var xt = xTY()
@@ -57,7 +57,7 @@ function start()
     end
     ~ ~ print(arr[2])
     ~ arr[2] = arr[5] + 6
-    var ee as ETS = ETS.test4
+    var ee ETS = ETS.test4
     ~ if ee == .test4
     ~ end
     match ee

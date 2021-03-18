@@ -1,8 +1,8 @@
-declare function push(arr as Any, item as Any)
-declare function pop(arr as Any)
-declare function concat(arr as Any, arr2 as Any)
-declare function describe(what as Any)
-declare function print(what as Any)
+declare function push(arr Any, item Any)
+declare function pop(arr Any)
+declare function concat(arr Any, arr2 Any)
+declare function describe(what Any)
+declare function print(what Any)
 declare type Strs
 ~ do declare type
 declare type Any
@@ -10,30 +10,30 @@ declare type Any
 type Something
    var x = 4
    var y = 2
-end type
+end
 
 ~ implement op_div, op_mul etc. for arrays of numeric types.
 ~ BOTH inplace and non inplace versions!!
-~ function push(arr as Any, item as Any)
+~ function push(arr Any, item Any)
 ~     var count = arr.count or 0
 ~     count = count + 1
 ~     arr[count] = item
 ~     arr.count = count
-~ end function
+~ end
 
-~ function pop(arr as Any)
+~ function pop(arr Any)
 ~     var count = arr.count or 0
 ~     var ret = nil
 ~     if count > 0
 ~         count = count - 1
 ~         ret =  arr[count]
 ~         arr[count] = nil
-~     end if
+~     end
 ~     return ret
-~ end function
+~ end
 
-function start(a as Strs)
-    var arr as Number[] = [1, 2, 3, 4, 5]
+func start(a Strs)
+    var arr Number[] = [1, 2, 3, 4, 5]
     ~ literal ints hint at int unless a division or other op is found
     ~ generate the above = to a `Array_init_cArray` call
     push(arr, 3)
@@ -57,5 +57,5 @@ function start(a as Strs)
     ~ describe(bgs)
     ~ print(bgs)
 
-end function
+end
 

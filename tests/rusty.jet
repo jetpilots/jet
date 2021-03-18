@@ -1,93 +1,93 @@
 
 ~[derive(Debug, Default, PartialEq)]
 type Colours
-    var colourful as YesOrNo
-    var filekinds as FileKinds
-    var perms as Permissions
-    var size as Size
-    var users as Users
-    var links as Links
-    var git as Git
-    var punctuation as Style
-    var date as Style
-    var inode as Style
-    var blocks as Style
-    var header as Style
-    var symlink_path as Style
-    var control_char as Style
-    var broken_symlink as Style
-    var broken_path_overlay as Style
-end type
+    var colourful YesOrNo
+    var filekinds FileKinds
+    var perms Permissions
+    var size Size
+    var users Users
+    var links Links
+    var git Git
+    var punctuation Style
+    var date Style
+    var inode Style
+    var blocks Style
+    var header Style
+    var symlink_path Style
+    var control_char Style
+    var broken_symlink Style
+    var broken_path_overlay Style
+end
 
 ~[derive(Clone Copy Debug Default PartialEq)]
 type FileKinds
-    var normal as Style
-    var directory as Style
-    var symlink as Style
-    var pipe as Style
-    var block_device as Style
-    var char_device as Style
-    var socket as Style
-    var special as Style
-    var executable as Style
-end type
+    var normal Style
+    var directory Style
+    var symlink Style
+    var pipe Style
+    var block_device Style
+    var char_device Style
+    var socket Style
+    var special Style
+    var executable Style
+end
 
 ~[derive(Clone Copy Debug Default PartialEq)]
 type Permissions
-    var user_read as Style
-    var user_write as Style
-    var user_execute_file as Style
-    var user_execute_other as Style
-    var group_read as Style
-    var group_write as Style
-    var group_execute as Style
-    var other_read as Style
-    var other_write as Style
-    var other_execute as Style
-    var special_user_file as Style
-    var special_other as Style
-    var attribute as Style
-end type
+    var user_read Style
+    var user_write Style
+    var user_execute_file Style
+    var user_execute_other Style
+    var group_read Style
+    var group_write Style
+    var group_execute Style
+    var other_read Style
+    var other_write Style
+    var other_execute Style
+    var special_user_file Style
+    var special_other Style
+    var attribute Style
+end
 
 ~[derive(Clone Copy Debug Default PartialEq)]
 type Size
-    var major as Style
-    var minor as Style
-    var number_byte as Style
-    var number_kilo as Style
-    var number_mega as Style
-    var number_giga as Style
-    var number_huge as Style
-    var unit_byte as Style
-    var unit_kilo as Style
-    var unit_mega as Style
-    var unit_giga as Style
-    var unit_huge as Style
-end type
+    var major Style
+    var minor Style
+    var number_byte Style
+    var number_kilo Style
+    var number_mega Style
+    var number_giga Style
+    var number_huge Style
+    var unit_byte Style
+    var unit_kilo Style
+    var unit_mega Style
+    var unit_giga Style
+    var unit_huge Style
+end
 
 ~[derive(Clone Copy Debug Default PartialEq)]
 type Users
-    var user_you as Style
-    var user_someone_else as Style
-    var group_yours as Style
-    var group_not_yours as Style
-end type
+    var user_you Style
+    var user_someone_else Style
+    var group_yours Style
+    var group_not_yours Style
+end
 
 ~[derive(Clone Copy Debug Default PartialEq)]
 type Links
-    var normal as Style
-    var multi_link_file as Style
-end type
+    var normal Style
+    var multi_link_file Style
+end
 
 ~[derive(Clone Copy Debug Default PartialEq)]
 type Git
-    var new as Style
-    var modified as Style
-    var deleted as Style
-    var renamed as Style
-    var typechange as Style
-    var ignored as Style
-end type
+    var new Style
+    var modified Style
+    var deleted Style
+    var renamed Style
+    var typechange Style
+    var ignored Style
+end
 
 impl Colours {
     plain() := Colours::default()
@@ -154,13 +154,13 @@ impl Colours {
 end
 
 impl Size {
-    function colourful(var scale as YesOrNo) as Self
+func colourful(var scale as YesOrNo) as Self
         if scale
             colourful = Self::colourful_scale()
         else
             colourful = Self::colourful_plain()
-        end if
-    end function
+        end
+    end
 
     colourful_plainvar() := Self {
         major = Green.bold(),
@@ -207,7 +207,7 @@ end
 ~ character”, there are styles for “link path”, “control character”, and
 ~ “broken link overlay”, the latter of which is just set to override the
 ~ underline attribute on the other two.
-function apply_overlay(var base as Style, var overlay as Style) as Style {
+func apply_overlay(var base as Style, var overlay as Style) as Style {
     if let Some(fg) = overlay.foreground { base.foreground = Some(fg); end
     if let Some(bg) = overlay.background { base.background = Some(bg); end
 
@@ -230,7 +230,7 @@ impl Colours {
     ~ Sets a value on this set of colours using one of the keys understood
     ~ by the `LS_COLORS` environment variable. Invalid keys set nothing, but
     ~ return false.
-    function set_ls(&self, var pair as &Pair) as YesOrNo {
+func set_ls!(self, var pair as &Pair) as YesOrNo {
         match pair.key {
             "di" => self.filekinds.directory    = pair.to_style(),  # DIR
             "ex" => self.filekinds.executable   = pair.to_style(),  # EXEC
@@ -253,7 +253,7 @@ impl Colours {
     ~ by the `EXA_COLORS` environment variable. Invalid keys set nothing,
     ~ but return false. This doesn’t take the `LS_COLORS` keys into account,
     ~ so `set_ls` should have been run first.
-    function set_exa(&self, var pair as &Pair) as YesOrNo {
+func set_exa!(self, var pair as &Pair) as YesOrNo {
         match pair.key {
             "ur" => self.perms.user_read          = pair.to_style(),
             "uw" => self.perms.user_write         = pair.to_style(),
@@ -311,16 +311,14 @@ impl Colours {
         end
         yes
     end
-
-    function set_number_style(&self, style as Style) {
+func set_number_style!(self, style Style) {
         self.size.number_byte = style;
         self.size.number_kilo = style;
         self.size.number_mega = style;
         self.size.number_giga = style;
         self.size.number_huge = style;
     end
-
-    function set_unit_style(&self, style as Style) {
+func set_unit_style!(self, style Style) {
         self.size.unit_byte = style;
         self.size.unit_kilo = style;
         self.size.unit_mega = style;
@@ -331,61 +329,61 @@ end
 
 
 impl render::BlocksColours for Colours {
-    function block_count(&self)  as Style { self.blocks end
-    function no_blocks(&self)    as Style { self.punctuation end
+func block_count!(self)  as Style { self.blocks end
+func no_blocks!(self)    as Style { self.punctuation end
 end
 
 impl render::FiletypeColours for Colours {
-    function normal(&self)       as Style { self.filekinds.normal end
-    function directory(&self)    as Style { self.filekinds.directory end
-    function pipe(&self)         as Style { self.filekinds.pipe end
-    function symlink(&self)      as Style { self.filekinds.symlink end
-    function block_device(&self) as Style { self.filekinds.block_device end
-    function char_device(&self)  as Style { self.filekinds.char_device end
-    function socket(&self)       as Style { self.filekinds.socket end
-    function special(&self)      as Style { self.filekinds.special end
+func normal!(self)       as Style { self.filekinds.normal end
+func directory!(self)    as Style { self.filekinds.directory end
+func pipe!(self)         as Style { self.filekinds.pipe end
+func symlink!(self)      as Style { self.filekinds.symlink end
+func block_device!(self) as Style { self.filekinds.block_device end
+func char_device!(self)  as Style { self.filekinds.char_device end
+func socket!(self)       as Style { self.filekinds.socket end
+func special!(self)      as Style { self.filekinds.special end
 end
 
 impl render::GitColours for Colours {
-    function not_modified(&self)  as Style { self.punctuation end
+func not_modified!(self)  as Style { self.punctuation end
     ~[allow(clippy::new_ret_no_self)]
-    function new(&self)           as Style { self.git.new end
-    function modified(&self)      as Style { self.git.modified end
-    function deleted(&self)       as Style { self.git.deleted end
-    function renamed(&self)       as Style { self.git.renamed end
-    function type_change(&self)   as Style { self.git.typechange end
-    function ignored(&self)       as Style { self.git.ignored end
+func new!(self)           as Style { self.git.new end
+func modified!(self)      as Style { self.git.modified end
+func deleted!(self)       as Style { self.git.deleted end
+func renamed!(self)       as Style { self.git.renamed end
+func type_change!(self)   as Style { self.git.typechange end
+func ignored!(self)       as Style { self.git.ignored end
 end
 
 impl render::GroupColours for Colours {
-    function yours(&self)      as Style { self.users.group_yours end
-    function not_yours(&self)  as Style { self.users.group_not_yours end
+func yours!(self)      as Style { self.users.group_yours end
+func not_yours!(self)  as Style { self.users.group_not_yours end
 end
 
 impl render::LinksColours for Colours {
-    function normal(&self)           as Style { self.links.normal end
-    function multi_link_file(&self)  as Style { self.links.multi_link_file end
+func normal!(self)           as Style { self.links.normal end
+func multi_link_file!(self)  as Style { self.links.multi_link_file end
 end
 
 impl render::PermissionsColours for Colours {
-    function dash(&self)               as Style { self.punctuation end
-    function user_read(&self)          as Style { self.perms.user_read end
-    function user_write(&self)         as Style { self.perms.user_write end
-    function user_execute_file(&self)  as Style { self.perms.user_execute_file end
-    function user_execute_other(&self) as Style { self.perms.user_execute_other end
-    function group_read(&self)         as Style { self.perms.group_read end
-    function group_write(&self)        as Style { self.perms.group_write end
-    function group_execute(&self)      as Style { self.perms.group_execute end
-    function other_read(&self)         as Style { self.perms.other_read end
-    function other_write(&self)        as Style { self.perms.other_write end
-    function other_execute(&self)      as Style { self.perms.other_execute end
-    function special_user_file(&self)  as Style { self.perms.special_user_file end
-    function special_other(&self)      as Style { self.perms.special_other end
-    function attribute(&self)          as Style { self.perms.attribute end
+func dash!(self)               as Style { self.punctuation end
+func user_read!(self)          as Style { self.perms.user_read end
+func user_write!(self)         as Style { self.perms.user_write end
+func user_execute_file!(self)  as Style { self.perms.user_execute_file end
+func user_execute_other!(self) as Style { self.perms.user_execute_other end
+func group_read!(self)         as Style { self.perms.group_read end
+func group_write!(self)        as Style { self.perms.group_write end
+func group_execute!(self)      as Style { self.perms.group_execute end
+func other_read!(self)         as Style { self.perms.other_read end
+func other_write!(self)        as Style { self.perms.other_write end
+func other_execute!(self)      as Style { self.perms.other_execute end
+func special_user_file!(self)  as Style { self.perms.special_user_file end
+func special_other!(self)      as Style { self.perms.special_other end
+func attribute!(self)          as Style { self.perms.attribute end
 end
 
 impl render::SizeColours for Colours {
-    function size(&self, var prefix as Option<number_prefix::Prefix>) as Style {
+func size!(self, var prefix as Option<number_prefix::Prefix>) as Style {
         use number_prefix::Prefix::*;
         match prefix {
             None                    => self.size.number_byte,
@@ -395,8 +393,7 @@ impl render::SizeColours for Colours {
             Some(_)                 => self.size.number_huge,
         end
     end
-
-    function unit(&self, var prefix as Option<number_prefix::Prefix>) as Style {
+func unit!(self, var prefix as Option<number_prefix::Prefix>) as Style {
         use number_prefix::Prefix::*;
         match prefix {
             None                    => self.size.unit_byte,
@@ -406,24 +403,23 @@ impl render::SizeColours for Colours {
             Some(_)                 => self.size.unit_huge,
         end
     end
-
-    function no_size(&self) as Style { self.punctuation end
-    function major(&self)   as Style { self.size.major end
-    function comma(&self)   as Style { self.punctuation end
-    function minor(&self)   as Style { self.size.minor end
+func no_size!(self) as Style { self.punctuation end
+func major!(self)   as Style { self.size.major end
+func comma!(self)   as Style { self.punctuation end
+func minor!(self)   as Style { self.size.minor end
 end
 
 impl render::UserColours for Colours {
-    function you(&self)           as Style { self.users.user_you end
-    function someone_else(&self)  as Style { self.users.user_someone_else end
+func you!(self)           as Style { self.users.user_you end
+func someone_else!(self)  as Style { self.users.user_someone_else end
 end
 
 impl FileNameColours for Colours {
-    function normal_arrow(&self)        as Style { self.punctuation end
-    function broken_symlink(&self)      as Style { self.broken_symlink end
-    function broken_filename(&self)     as Style { apply_overlay(self.broken_symlink, self.broken_path_overlay) end
-    function broken_control_char(&self) as Style { apply_overlay(self.control_char,   self.broken_path_overlay) end
-    function control_char(&self)        as Style { self.control_char end
-    function symlink_path(&self)        as Style { self.symlink_path end
-    function executable_file(&self)     as Style { self.filekinds.executable end
+func normal_arrow!(self)        as Style { self.punctuation end
+func broken_symlink!(self)      as Style { self.broken_symlink end
+func broken_filename!(self)     as Style { apply_overlay(self.broken_symlink, self.broken_path_overlay) end
+func broken_control_char!(self) as Style { apply_overlay(self.control_char,   self.broken_path_overlay) end
+func control_char!(self)        as Style { self.control_char end
+func symlink_path!(self)        as Style { self.symlink_path end
+func executable_file!(self)     as Style { self.filekinds.executable end
 end

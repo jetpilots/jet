@@ -9,20 +9,20 @@ declare function print(num::Strs, filter::Number)
 ~ TODO disallow duplicate func defs/decls (with same 1st arg type  & arg labels)
 
 
-function start(args::Strs)
+func start(args::Strs)
     var x::Strs = 5
     ~ var b = print(9, filter = 43)
     var b::Number = print(x, filter = print(x, filter = "loi23") )
     b = 4
     if b + print(x, filter = 12 )
         var q = b + 3
-    end if
+    end
     if b * b
         var c = b + 3
         var m = 0
         let cu = m
-    end if
-end function
+    end
+end
 
 ~ type matching : func checkArgTypes
 

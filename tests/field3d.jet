@@ -3,12 +3,12 @@ value type Point
     var x = 0
     var y = 0
     var z = 0
-end type
+end
 
 type Outer
     var point Point
     var inner Inner
-end type
+end
 
 ~ // generated binary writer func
 ~ // currpos will be passed recursively, 0 (or size of file header) + sizeof(roottype) for root object
@@ -88,49 +88,49 @@ Integer_Array_writefbin(Integer_Array* self, FILE* file, size_t* currpos) {
 type Inner
     var state Text = ""
     var counts Integer[]
-end type
+end
 
 type Point
-    var x as Real
-    var y as Real
-    var z as Real
-end type
+    var x Real
+    var y Real
+    var z Real
+end
 
 type Edge
-    var p1 as Point
-    var p2 as Point
-end type
+    var p1 Point
+    var p2 Point
+end
 
 type Face
-    var edges as Edge[]
-end type
+    var edges Edge[]
+end
 
 type Cell
-    var faces as Face[]
-end type
+    var faces Face[]
+end
 
 type Mesh2D
-    var points as Point[]
-    var edges as Edge[]
-    var faces as Face[]
-    var centroids as Point[]
-    var areas as Real[]|m2
-    var area as Real|m2 = 0
+    var points Point[]
+    var edges Edge[]
+    var faces Face[]
+    var centroids Point[]
+    var areas Real[]|m2
+    var area Real|m2 = 0
     check areas.size == faces.size == centroids.size
-end type
+end
 
 type Mesh3D
-    var points as Point[]
-    var faces as Face[]
-    var cells as Cell[]
-    var centroids as Point[]
+    var points Point[]
+    var faces Face[]
+    var cells Cell[]
+    var centroids Point[]
     var volumes|m3 as Real[]
     var volume|m3 as Real = 0
     ~ can you handle more than 3 way cmps?
     ~ e.g. check a == b == c == d == e >= 4
     ~ SHOULD you?
     check centroids.size == cells.size == volumes.size
-end type
+end
 
 ~ Can you come up with a general (in dims) way of doing SoA to AoS or vice
 ~ versa automatically? It is like a transpose in 2D followed by indices flip.
@@ -141,39 +141,39 @@ end type
 ~ instead of the type coming out, its just ONE Real array indexed once to
 ~ get the member then again to get the element of the member
 type Field3D
-    var u[] as Real|m/s
-    var v[] as Real|m/s
-    var w[] as Real|m/s
-    var p[] as Real|Pa
-    var r[] as Real|kg/m3
-    var k[] as Real|m2/s
-    var e[] as Real|m2/s3
-    var ut[] as Real|s/m2 nosave # no output in serialisation
+    var u[] Real|m/s
+    var v[] Real|m/s
+    var w[] Real|m/s
+    var p[] Real|Pa
+    var r[] Real|kg/m3
+    var k[] Real|m2/s
+    var e[] Real|m2/s3
+    var ut[] Real|s/m2 nosave # no output in serialisation
     var y[2D] as Real|1
-    var mesh as Mesh3D
-end type
+    var mesh Mesh3D
+end
 
 ~ If you could have automatic AoS -> SoA this would be (user-facing)
 type CellState
-    var u as Real|m/s
-    var v as Real|m/s
-    var w as Real|m/s
-    var p as Real|Pa
-    var r as Real|kg/m3
-    var k as Real|m2/s
-    var e as Real|m2/s3
-    var ut as Real|s/m2 nosave # don't write it out in serialization. btw you should take a flag links= in serialize(), jetson(), yaml() etc. that says whether to copy or preserve links.
-    var y[] as Real|1
-end type
+    var u Real|m/s
+    var v Real|m/s
+    var w Real|m/s
+    var p Real|Pa
+    var r Real|kg/m3
+    var k Real|m2/s
+    var e Real|m2/s3
+    var ut Real|s/m2 nosave # don't write it out in serialization. btw you should take a flag links= in serialize(), jetson(), yaml() etc. that says whether to copy or preserve links.
+    var y[] Real|1
+end
 ~ aside: how also about funcs ct.name(v) ct.saved(v) ct.typeof(v) ct.sizeof(v) ct.units(v) ct.range(v) ct.count(v) etc. all COMPILE TIME only nah
 
 type Field3D
-    var s as CellState[] # seeing this, the compiler should mark CellState for
+    var s CellState[] # seeing this, the compiler should mark CellState for
     ~ AoS->SoA conversion. well not merely seeing this, there should be actual
     ~ usage in downstream code that suggests SoA conversion will pay off.
     ~ or you could do it yourself with keyword soa
-    var mesh as Mesh3D
-end type
+    var mesh Mesh3D
+end
 
 s[i].u becomes s.u[i] and so on
 let ofo := offset of
@@ -258,18 +258,18 @@ operator equal
 type VectorField3D
     var values Real[]
     var mesh Mesh3D
-end type
+end
 
-function mean(field Field3D) -> ans Real
+func mean(field Field3D) -> ans Real
     ~ volume weighted average of the scalar field's values on the mesh
     ans = sum(field.mesh.volumes * field.values) ...
          / sum(field.mesh.volumes)
-end function
+end
 
-function map(source Field3D, dest Mesh3D) Field3D
+func map(source Field3D, dest Mesh3D) Field3D
     map = Field3D(mesh=dest)
     map.values[:] = interp(source, atPoints=map.mesh.points[:])
-end function
+end
 
 map(source Field3D, dest Mesh3D) :=
     Field3D {

@@ -3,7 +3,7 @@
 
 type MainWindow extends Window
     var lb = OutlineView(pos=0x0, size=500x400)
-end type
+end
 
 var wMain = MainWindow()
 show(window=wMain, pos=100x100, size=800x600)
@@ -36,10 +36,10 @@ wma:MainWindow
         style .sidebar
         bgColor 3edfe1
 
-        func draw(c:Canvas) := lbkDraw(lbk, c)
-        func click(c:Canvas) := lbkClick(lbk, c)
+func draw(c:Canvas) := lbkDraw(lbk, c)
+func click(c:Canvas) := lbkClick(lbk, c)
 
-        func mouseDown!(self:OutlineView, p:Point) -> r:YesOrNo
+func mouseDown!(self:OutlineView, p:Point) -> r:YesOrNo
             kmMouseDown()
         end
 

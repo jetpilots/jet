@@ -11,7 +11,7 @@
 type XYZ
     var resa:ResoNix
     var retc = 2
-end type
+end
 
 let x = XYZ() # is not possible unless you give something for resa
 let x = XYZ {
@@ -35,9 +35,9 @@ let x = XYZ {
     [a-z] [A-Z]+
 ```
 
-function some!(mainWindow as Window, order as Int, relativeTo as View)
+func some!(mainWindow Window, order Int, relativeTo View)
 
-end function
+end
 
 ~ x.f() is sugar for f(x) as long as x is not a literal.
 func main()

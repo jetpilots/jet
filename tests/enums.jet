@@ -23,13 +23,13 @@ enum StdExprs
     rbox = ASTExpr(TK.arrayClose)
 end enum
 
-var en2 as MyNumEnum = .odds
+var en2 MyNumEnum = .odds
 print(en2) ~ prints ".odds"
 print(en2.num) ~ prints 1
 print(en2.value) ~ prints [1, 3, 5, 7]
 
 ~ comparisons use the numeric value
-var mx as Bool = en2 < .evens
+var mx Bool = en2 < .evens
 
 enum BasicEnum
     first
@@ -37,7 +37,7 @@ enum BasicEnum
 end enum
 
 var fi = .first ~ error: cannot deduce type
-var fi as BasicEnum = .first ~ correct
+var fi BasicEnum = .first ~ correct
 print(BasicEnum[fi]) ~ error, no associated data if determined at comptime
 ~ else print blank or null
 ~ basically there is always associated data if any 1 elem has data.
@@ -53,14 +53,14 @@ enum UPerms
     exec
 end enum
 
-var perms as UPerms = .read + .write + .exec
+var perms UPerms = .read + .write + .exec
 
-var styleMask as NSWindowStyle =
+var styleMask NSWindowStyle =
     .movableByBackground + .fullScreenContentView
 
 if .read in perms
     xyz()
-end if
+end
 
 ~ how to decide if the enum values should be generated as linear or additive?
 ~ can't find all instances of '+' or 'in' usage in any case.

@@ -1,4 +1,4 @@
-function main(args as Strings)
+func main(args Strings)
     let arr = [3, 4, 5, 6, 7, 8, 9]
     print(arr)
     arr += 1.5
@@ -15,7 +15,7 @@ function main(args as Strings)
     arr3[1:4] = arr[3:6]
     print(arr3)
     arr3[2:9] -= 4 # error: out of bounds (9)
-end function
+end
 
 test "array basics"
 ~ within tests, checks that pass at compile time are not removed
@@ -34,10 +34,10 @@ test "array basics"
     arr3[1:4] = arr[3:6]
     check arr3 == [6.5, 7.5, 8.5, 9.5, 19, 17, 15]
     check not empty(arr3)
-end test
+end
 
 test "out of bounds"
     check arr3[2:9] -= 4 throws Error.outOfBounds
     ~ error: out of bounds (9)
-end test
+end
 

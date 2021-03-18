@@ -1,4 +1,4 @@
-function unsetPrinted(expr as ASTExpr)
+func unsetPrinted(expr ASTExpr)
     match expr.kind
     case .identResolved, .varAssign
         expr.var.flags.printed = no
@@ -11,11 +11,11 @@ function unsetPrinted(expr as ASTExpr)
         if expr.prec
             if not expr.unary then unsetPrintedVarsFlag(expr.left)
             unsetPrintedVarsFlag(expr.right)
-        end if
+        end
     end match
-end function
+end
 
-function genPrintVars(expr as ASTExpr[String], level as Number[:,:])
+func genPrintVars(expr ASTExpr[String], level Number[:,:])
     let spc as String = repeat("    ", times = level)
     match expr.kind
     case .identResolved, .varAssign
@@ -33,11 +33,11 @@ function genPrintVars(expr as ASTExpr[String], level as Number[:,:])
         if expr.prec
             if not expr.unary then genPrintVars(expr.left, level = level)
             genPrintVars(expr.right, level = level)
-        end if
+        end
     end match
-end function
+end
 
-function promotionCandidate(expr as ASTExpr) as ASTExpr
+func promotionCandidate(expr ASTExpr) as ASTExpr
     match expr.kind
     case .funcCallResolved
         try
@@ -57,17 +57,17 @@ function promotionCandidate(expr as ASTExpr) as ASTExpr
             catch Errors.notFound
                 if not expr.unary
                     ret = promotionCandidate(expr.right) or throw
-                end if
+                end
             end try
-        end if
+        end
     end match
     throw Errors.notFound
-end function
+end
 
 let prom = promotionCandidate(stmt) or skip/break/return
 prom.left = ... # this should work since there is a skip above
 
-function promotionCandidate(expr as ASTExpr) result (ret as ASTExpr)
+func promotionCandidate(expr ASTExpr) result (ret ASTExpr)
     match expr.kind
     case .funcCallResolved
         ret = promotionCandidate(expr.left)
@@ -85,7 +85,7 @@ function promotionCandidate(expr as ASTExpr) result (ret as ASTExpr)
             ret = promotionCandidate(&expr.right)
             if ret == nil and not expr.unary
                 ret = promotionCandidate(expr.right)
-            end if
-        end if
+            end
+        end
     end match
-end function
+end

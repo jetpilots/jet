@@ -18,56 +18,56 @@
 ~     # declaring set auto declares a default get.
 ~     # declaring var auto declares both default set/get.
 
-~ end type
+~ end
 
 ~ type FolderItem
 ~     var fileName as String = "default name"
 ~     var fileSize as Number = 0
 ~     var nextItem as FolderItem = NULL
-~ end type
+~ end
 
 
 declare type Strings
-declare function print(t as Number)
+declare function print(t Number)
 
-function main(a as Strings) as Number
-    var x as Number = fx(34 + 4 * 3)
+func main(a Strings) as Number
+    var x Number = fx(34 + 4 * 3)
     ~ var fi = FolderItem()
     ~ var fn as String = fi.fileName
     print(x)
     ~ print("Hello, World %d!\n", x)
-end function
+end
 
-function fx(a as Number) as Number
-    var m as Number = gx(5 - 4 + 2 / 5)
+func fx(a Number) as Number
+    var m Number = gx(5 - 4 + 2 / 5)
     return m
-end function
+end
 
-function gx(a as Number) as Number
-    var m as Number = mx(2 + 4 ^ 5)
+func gx(a Number) as Number
+    var m Number = mx(2 + 4 ^ 5)
     return m
-end function
+end
 
-~ function start(args as String)
+~ function start(args String)
     ~ var currTime as DateTime = repeat(DateTime(), times = 4)
     ~ var msx = [3, 4, 5, 6]
     ~ var currentFolder = split(os.pwd(), sep = ",")
     ~ var ss = duplicate(sys.stackSize(), times = 4)
-~ end function
+~ end
 
-function mx(a as Number) as Number
-    var m as Number = fx(5 * 2.0)
+func mx(a Number) as Number
+    var m Number = fx(5 * 2.0)
     ~ var f as Range = m[1:3, g:sin(g)+x]
     return m
-end function
+end
 
-function final(a as Number) as Number
+func final(a Number) as Number
     var m = 3
     ~ var cx = Strings.linesFromFile("~/basics.txt")
     ~ if missing(cx) then break
     ~ print(myObjcount)
     return m
-end function
+end
 
 ~ _____________________________________________________________________________
 ~ readFileAndGetHeader: Do something and this is the documentation.

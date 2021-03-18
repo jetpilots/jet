@@ -59,7 +59,7 @@ static void ASTVar_lint(ASTVar* var, int level) {
         var->name);
     TokenKind kind = var->init ? var->init->kind : tkUnknown;
 
-    bool genType = true; // set it here to override
+    bool genType = false; // set it here to override
     // if ((var->init and var->init->kind == tkFunctionCall
     //         and !strcmp(var->init->string, var->typeSpec->name))) {
     // } else if ((var->init and var->init->kind == tkNumber
@@ -71,7 +71,8 @@ static void ASTVar_lint(ASTVar* var, int level) {
         && var->typeSpec->typeType == TYObject
         && !strcmp(var->init->func->name, var->typeSpec->type->name)) {
         // resolved constructor, so type is also resolved
-    } else if ((kind == tkNumber || kind == tkRegexp || kind == tkString
+    } else if ((kind == tkNumber || kind == tkRegexp || kind == tkKeyword_no
+                   || kind == tkKeyword_yes || kind == tkString
                    || kind == tkRawString)) { // simple literals
     } else if (var->typeSpec->typeType == TYErrorType
         || var->typeSpec->typeType == TYNoType
@@ -83,7 +84,7 @@ static void ASTVar_lint(ASTVar* var, int level) {
     }
 
     if (genType) {
-        printf(" as ");
+        printf(" "); // as ");
         ASTTypeSpec_lint(var->typeSpec, level + STEP);
     }
     // }
@@ -137,9 +138,9 @@ static void ASTScope_lint(ASTScope* scope, int level) {
             if (expr->body)
                 ASTScope_lint(
                     expr->body, level + STEP); //, true, escapeStrings);
-            const char* tok = TokenKind_repr(expr->kind, false);
-            if (expr->kind == tkKeyword_else || expr->kind == tkKeyword_elif)
-                tok = "if";
+//            const char* tok = TokenKind_repr(expr->kind, false);
+//            if (expr->kind == tkKeyword_else || expr->kind == tkKeyword_elif)
+//                tok = "if";
             if (expr->kind == tkKeyword_if || expr->kind == tkKeyword_elif)
                 if (exprList->next) {
                     ASTExpr* next = exprList->next->item;
@@ -157,7 +158,7 @@ static void ASTScope_lint(ASTScope* scope, int level) {
 }
 
 static void ASTType_lint(ASTType* type, int level) {
-    if (!type->body) printf("declare ");
+    if (type->isDeclare) printf("declare ");
     printf("type %s", type->name);
     if (type->super) {
         printf(" extends ");
@@ -292,6 +293,14 @@ static void ASTExpr_lint(
 
     case tkObjectInit:
     case tkObjectInitResolved:
+        break;
+
+    case tkPeriod:
+        if (expr->left && expr->left->typeType == TYObject
+            && !expr->left->var->typeSpec->type->isEnum)
+            ASTExpr_lint(expr->left, 0, spacing, escapeStrings);
+        printf(".");
+        ASTExpr_lint(expr->right, 0, spacing, escapeStrings);
         break;
 
     case tkVarAssign:

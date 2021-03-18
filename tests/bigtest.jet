@@ -1,10 +1,10 @@
 
-function Type1()
-end function
+func Type1()
+end
 
 type Type1
     var f = 33
-end type
+end
 
 type Type2 extends Type1
     var m = 32
@@ -31,15 +31,15 @@ type Type2 extends Type1
     ~ var d = gmap["bonh"]
     ~ var t1 = Type1 { f = 33 , g = 45 }
     ~ var t2 = Type1(f=33, g=45)
-end type
+end
 
 declare type Byte
-declare function unhex(s as String) as Byte[:,:]
+declare function unhex(s String) as Byte[:,:]
 
-sets(g as Number) := g  #
+sets(g Number) := g  #
 
 
-function start()
+func start()
     var arg1=sets(5)
     maisn("k",b="jk")
     print(arg1)
@@ -51,7 +51,7 @@ function start()
     var gg = ts[3]
     var t3 = { "reted" = 34, "res" = 2 }
     t2.g = "8"
-end function
+end
 
 enum Enum1
     enumVal1
@@ -59,15 +59,15 @@ enum Enum1
     enumVal3
 end enum
 
-function maisn(n as String, b as String)
+func maisn(n String, b String)
     print(6)
-end function
+end
 
-~ function redt(n as String) as String
+~ function redt(n String) as String
 ~     return n
-~ end function
+~ end
 
-redt(n as String) := n
+redt(n String) := n
 
 test 'basics'
     let x = 34
@@ -76,4 +76,4 @@ test 'basics'
     let n = "thirty-five Jackdaws"
     check m == redt(n)
     check 3 < x < 99
-end test
+end

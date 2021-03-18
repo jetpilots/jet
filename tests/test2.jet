@@ -5,16 +5,16 @@ var d = 3
 
 ~ mc = MyClass()
 
-function binfo()
+func binfo()
     var x = 7
     x[2,8] = x[2,9]
     x[8] = x[9]
     x = func(x[x<5], y[x>10]) # nested for loops, tmp var, x = temp at end, y.size == x.size!
     x = func(x[1:3], y[3:5]) # nested for loops, tmp var, x = tmp at end
     m = all(x<5) or any(x<5) # both must short circuit
-end function
+end
 ~ function mc.change(x,y) # YOU CANT DO THIS W/O FUNC PTRS!!
-~ end function # NO FUNC PTRS PLS
+~ end # NO FUNC PTRS PLS
 
 type Hello extends hello
     var im = 3+7i
@@ -37,11 +37,11 @@ type Hello extends hello
     ~ # it has a func `func`, and `func` is marked as an event.
     ~ function self.change(x, y)
     ~     print("default function for all instances of this type")
-    ~ end function
+    ~ end
 
     ~ function jy.change(x,y)
     ~     print("overrides change function for var jy only")
-    ~ end function
+    ~ end
 
     ~ event bang()
     ~ no default function for bang: empty default will be generated
@@ -51,22 +51,22 @@ type Hello extends hello
     ~     m = 3
     ~     if m > 4
     ~         bang() # raise the event
-    ~     end if
-    ~ end function
+    ~     end
+    ~ end
 
-end type
+end
 
 ~ this means ec must be defined in the scope containing this function.
 ~ basically means functions must be defined INSIDE types, also handlers
 ~ or inside modules but that means mutable module-level vars.
 ~ function ec.change(x, y)
 ~     print("hi")
-~ end function
+~ end
 thirty() := 30
 thirty() := 30
 
-~ function basic(arg as Text, n as Text) as MyClass
-function basic(arg as Text[] or None, n as Text[:,:]) as MyClass or None
+~ function basic(arg Text, n Text) as MyClass
+func basic(arg Text[] or None, n Text[:,:]) as MyClass or None
     var a = 0 #!
     var x = 5 + 1 * 3 + (5+6) * arg
     print("Hello, world!" + x)
@@ -94,31 +94,31 @@ function basic(arg as Text[] or None, n as Text[:,:]) as MyClass or None
         x = bg[3, func(n, xyz(a+j), a[x, pang(a)])] #!u
         c = 3
         var big = 4 #!
-    end if
+    end
 
     for a = 1:3 #!
         var bg = 8
-    end for
+    end
 
     return a #!typemis
-end function
+end
 
 pang() := 7
 
-declare function func2(x as Text) as Text or None
+declare function func2(x Text) as Text or None
 declare function xyz()
 declare function JSON.download()
 declare function JSON()
 declare function JSON.read()
 
-function func(m as Text)
-end function
+func func(m Text)
+end
 
 declare function print()
-~ end function
+~ end
 
 ~ function fdsu()
-~ end function
+~ end
 
 ~ declare function fdsu()
 

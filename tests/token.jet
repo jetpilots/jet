@@ -95,7 +95,7 @@ let TokenKindTable = [
 ~define Token_matchesKeyword(tok)                                              \
     ~ if (sizeof(#tok) - 1 == l and not strncmp(#tok, s, l)) ret = yes
 
-function doesKeywordMatch(s as String, l as Number)
+func doesKeywordMatch(s String, l Number)
 {
 
     Token_matchesKeyword(and)
@@ -138,11 +138,11 @@ declare type Token
     var col = 0
     always col < 250
     var kind = TokenKinds.none
-end type
+end
 
 
 ~ Peek at the char after the current (complete) token
-function peekCharAfter(token as Token) as (s as String)
+func peekCharAfter(token Token) as (s String)
     var i = token.matchlen
     if token.skipWhiteSpace
         do j = 1:len(s)
@@ -150,7 +150,7 @@ function peekCharAfter(token as Token) as (s as String)
             ~ if token.pos[i] == " " then i += 1
             i += num(token.pos[j] == " ") # no branching
         end do
-    end if
+    end
 
     ~ var j = [8, 7, 6, 5, 4, 3]
 
@@ -162,7 +162,7 @@ function peekCharAfter(token as Token) as (s as String)
 
 
     s = token.pos[i]
-end function
+end
 
 ~define Token_compareKeyword(tok)                                              \
     ~ if (sizeof(#tok) - 1 == l and not strncmp(#tok, s, l)) {                   \
@@ -218,7 +218,7 @@ end
 
 ~ Get the token kind based only on the char at the current position
 ~ (or an offset).
-function getType(token as Token, offset as Int) as (ret as TokenKind)
+func getType(token Token, offset Int) as (ret TokenKind)
     const char c = token.pos[offset]
     const char cn = c ? token.pos[1 + offset]  0
     ret = (TokenKind)TokenKindTable[c]
@@ -228,14 +228,14 @@ function getType(token as Token, offset as Int) as (ret as TokenKind)
         `^==` = .opEQ
     }
     for k as String, v[String] as Int in map
-    for k as String, v as Int[String] in map
-    for k as String, v as Int[] in map
+    for k as String, v Int[String] in map
+    for k as String, v Int[] in map
     for k as String, v[] as Int in map
-    for k as String, v as Int[:,:] in map
+    for k as String, v Int[:,:] in map
     for k as String, v[:,:] as Int in map
     for k, v in map
         if match!(token, regex=k) then ret = v
-    end for
+    end
 
     case "<"
         match cn
@@ -317,9 +317,9 @@ end
 static void Token_detect(Token* token)
 {
     var tt = getType(token, offset=0)
-    var tt_ret as TokenKind = .tkUnknown # = tt
-    var tt_last as TokenKind = .tkUnknown # the previous token.token that was found
-    var tt_lastNonSpace as TokenKind = .tkUnknown # the last non-space token.token found
+    var tt_ret TokenKind = .tkUnknown # = tt
+    var tt_last TokenKind = .tkUnknown # the previous token.token that was found
+    var tt_lastNonSpace TokenKind = .tkUnknown # the last non-space token.token found
     TokenKind tmp
     char* start = token.pos
     bool found_e = no, found_dot = no, found_cmt = no
@@ -344,7 +344,7 @@ static void Token_detect(Token* token)
             end
             if tt == .tkBackslash and getType(token, offset=1) == tmp # why if?
                 token.pos+=1
-            end if
+            end
         match tmp
         case .tkStringBoundary
             tt_ret = .tkString
@@ -393,13 +393,13 @@ static void Token_detect(Token* token)
                 token.col = -found_spc - 1 # account for extra spaces
                                             ~ after , and for nl itself
                 found_spc = 0
-            end if
+            end
             if found_cmt and tt != .tkNewline
                 found_spc++
                 skip
-            end if
+            end
             if tt != .tkSpaces and tt != .tkNewline then break
-        end while
+        end
         break
 
     case .tkArrayOpen
@@ -410,12 +410,12 @@ static void Token_detect(Token* token)
             tt = getType(token, offset=1)
             token.pos += 1
             if (tt != .tkOpColon and tt != .tkOpComma) break
-        end while
+        end
         tt = getType(token, offset=0)
         if tt != .tkArrayClose
             let char = token.pos[1]
             write("Expected a ']', found a '$char'. now what?")
-        end if
+        end
         token.pos += 1
         tt_ret = .tkArrayDims
 
@@ -467,15 +467,15 @@ static void Token_detect(Token* token)
             ~     or *token.pos == "D") { # will all be changed to e btw
                 found_e = yes
                 skip
-            end if
+            end
             if found_e #) {
                 found_e = no
                 skip
-            end if
+            end
             if tt == .tkPeriod #) {
                 found_dot = yes
                 skip
-            end if
+            end
             if found_dot and tt == .tkPeriod then tt_ret = .tkMultiDotNumber
 
             if tt != .tkDigit and tt != .tkPeriod and _
@@ -538,7 +538,7 @@ static void Token_detect(Token* token)
 end
 
 ~ Advance to the next token.token (skip whitespace if `skipws` is set).
-function advance(token as Token)
+func advance(token Token)
     match token.kind
     case .tkIdentifier, .tkString, .tkNumber, .tkMultiDotNumber,
     .tkFunctionCall, .tkSubscript, .tkDigit, .tkAlphabet, .tkRawString, .tkRegexp,
@@ -563,11 +563,11 @@ function advance(token as Token)
         ~ WHY don"t you do token.token advance here?
         token.line += 1
         token.col = 0 # position of the nl itself is 0
-    end if
+    end
     if token.skipWhiteSpace and (
         token.kind == .tkSpaces or (
             token.strictSpacing and token.kind == .tkOneSpace)))
         advance!(token!, ignore=no)
-    end if
-end function
+    end
+end
 ~

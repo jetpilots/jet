@@ -26,10 +26,10 @@ yes, no # logical. true/false are read but linted to yes/no.
 ~ Variables
 ~ only one way: with keyword "var". names cannot start with caps.
 var x = "5"
-var x as Text
-var pi as Number
+var x Text
+var pi Number
 var pi = 3.14159
-var magFieldStrength as Complex
+var magFieldStrength Complex
 var magFieldStrength = 0i
 
 ~ Collections
@@ -37,25 +37,25 @@ var magFieldStrength = 0i
 [3, 4, 5i] # arrays can be promoted, but linter will make it [3i, 4i, 5i]
 [1, 2, 3; 4, 5, 6; 7, 8, 9] # 2D array literals use ";" to separate dims
 {"name" = 35, "size" = 33} # maps are homogenous (in both keys and values)
-var mx as Number[] = [3, 4, 5] # write var mx = ... and linter will annotate
-var mx as Number[] # implies = []. arrays are never nil nor nilable, only empty
-var mp as Number[Text] = {"w" = 4} # again just write var mp = {...} and annotation comes from linter
-var mp as Number[Text] # implies = {}. maps are never nil nor nilable.
+var mx Number[] = [3, 4, 5] # write var mx = ... and linter will annotate
+var mx Number[] # implies = []. arrays are never nil nor nilable, only empty
+var mp Number[Text] = {"w" = 4} # again just write var mp = {...} and annotation comes from linter
+var mp Number[Text] # implies = {}. maps are never nil nor nilable.
 
 ~ Functions
 ~ func names cannot start with caps.
 ~ second and higher arguments must be named at call sites (linter can do it)
-function myfunc(parm as Text, parm2 as Number) as Text
+func myfunc(parm Text, parm2 Number) as Text
     ans = "empty"
 end
 ~ basic function definition
 
-myfunc(parm as Text, parm2 as Number) := "empty" # statement function
+myfunc(parm Text, parm2 Number) := "empty" # statement function
 
 var x = myfunc("test", parm2=45) # function call
 
 ~# funcs cannot mutate params, except first param if declared with "var"
-function pop!(array as Number[]) as Number
+func pop!(array Number[]) as Number
     var tmp = array[-1]
     array.count -= 1
     ans = tmp
@@ -78,14 +78,14 @@ end
 ~ Objects
 
 var m = MyType() # new instance
-var m as MyType # implies new ("dummy") instance, not nil by default
+var m MyType # implies new ("dummy") instance, not nil by default
 ~# this kind of apparently "unintialized" var will be linted to the above line
 ~# so nil objects of any type cannot be "created" at all.
 m.m = 3 # will not crash! m has an instance
 m = MyType() # will overwrite dummy instance
 
 ~# can define custom constructors, just like a function
-function MyType(mi as Number, gi as Number)
+func MyType(mi Number, gi Number)
     ans = MyType()
     ans.m = mi
     ans.mj = gi
@@ -112,7 +112,7 @@ var test4|m/s = speed + dspeed # explicit unit conversion to that of the second
 var test5|ft/min = speed + dspeed # explicit unit conversion to something else
 
 ~# automatic conversion where possible when passing to funcs etc.
-function flux!(rate as Complex[:,:]|kg/s, speed as Number|m/s) as Number|kg.m3/s
+func flux!(rate Complex[:,:]|kg/s, speed Number|m/s) as Number|kg.m3/s
 end
 
 ~ Syntax specials

@@ -4,7 +4,7 @@ declare function print(wf::Number)
 declare function print(ws::Strings, filter::Number)
 declare function random(wr::Range)
 
-function start(args::Text[]) result (x::Number)
+func start(args::Text[]) result (x::Number)
     x = 6
     var arr::Number[] = [1, 2, 3, 4, 5]
     print(arr[3])
@@ -33,7 +33,7 @@ function start(args::Text[]) result (x::Number)
             ~ print(args, filter = ["first" = "not", "second" = "and"])
         else
             mx = 3
-        end if
-    end if
+        end
+    end
     print(mx)
-end function
+end

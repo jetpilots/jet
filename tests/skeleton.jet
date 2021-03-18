@@ -1,5 +1,5 @@
 declare type Strings
 
-function main(a as Strings) as Number
+func main(a Strings) as Number
 
-end function
+end

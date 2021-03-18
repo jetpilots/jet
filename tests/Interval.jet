@@ -3,7 +3,7 @@ type _Range
     var lo = 0
     var _hi = 0
     always lo <= hi
-end type
+end
 
 ~ only funcs, types and module lets can be named starting with a _
 ~ (case restrictions still apply) and these will be private i.e. not show up
@@ -16,7 +16,7 @@ end type
 ~ to filter out _var names, and be done with it.
 
 ~ funcs using a private type must be private!
-products(a as _Range, b as Range) :=
+products(a _Range, b Range) :=
     [ a.lo*b.lo, a.lo*b.hi, a.hi*b.lo, a.hi*b.hi ]
 
 ~ if you want to make types public/private as well, then types containing
@@ -25,16 +25,16 @@ products(a as _Range, b as Range) :=
 
 let some = _Range(5) # vars can still remain public since they are eval'd
 
-Range(x as Real) :=
+Range(x Real) :=
     Range(lo = x, hi = x)
 
-add(a as Range, b as Range) :=
+add(a Range, b Range) :=
     Range(lo = a.lo + b.lo, hi = a.hi + b.hi)
 
-sub(a as Range, b as Range) :=
+sub(a Range, b Range) :=
     Range(lo = a.lo + b.lo, hi = a.hi + b.hi)
 
-mul(a as Range, b as Range) :=
+mul(a Range, b Range) :=
     Range(
         lo = min(products(a, b)),
         hi = max(products(a, b)))
@@ -42,17 +42,17 @@ mul(a as Range, b as Range) :=
     ~ i guess if it is a #define, then C backend will apply
     ~ CSE on the muls
 
-function _div(a as Range, b as Range) result (ret as Range)
+func _div(a Range, b Range) result (ret Range)
     requires not b contains 0
     ret = Range(lo = a.lo / b.lo, hi = a.hi / b.hi) # NO!!
-end function
+end
 
-function log(a as Range) result (ret as Range)
+func log(a Range) result (ret Range)
     ~ range literals are just like array literals. How to disambiguate?
     ~ requires not a intersects [-inf:0]
     requires a.lo > 0
     ret = Range(lo = log(a.lo), hi = log(a.hi))
-end function
+end
 
 let _six = Range(6)
 
@@ -60,30 +60,30 @@ _log(a[] as Range) :=
     snap(Range(lo = log(a[:].lo), hi = log(a[:].hi)))
 
 ~ function log(a[] as Range) result (ret[] as Range)
-function log(inp as List of Range)
+func log(inp List of Range)
     result ans as List of Range?
-    var symTable as ASTNode[][Text]
+    var symTable ASTNode[][Text]
 
 
-    var symTable as {Text -> [ASTNode]}
-    var symTable as {Text -> Number}
-    var symTable as {Text -> {Text -> [ASTNode]}}
-    var symList as [ASTNode]
-    var symSet as {Text}
+    var symTable {Text -> [ASTNode]}
+    var symTable {Text -> Number}
+    var symTable {Text -> {Text -> [ASTNode]}}
+    var symList [ASTNode]
+    var symSet {Text}
 
-    var symTable as Dict of Text and List of ASTNode = {
+    var symTable Dict of Text and List of ASTNode = {
         "map" = [ASTNode(kind = .tkOpColon)]
     }
-    var symTable as Dict of Text of ASTNode = {
+    var symTable Dict of Text of ASTNode = {
         "map" -> { .kind = .tkOpColon },
         "third" -> { .kind = .tkKeywordIf }
     }
-    var symTable as Dict of Text and ASTNode = {
+    var symTable Dict of Text and ASTNode = {
         "map" -> ASTNode(kind = .tkOpColon),
         "third" -> ASTNode(kind = .tkKeywordIf)
     }
 
-    var d as Range = {
+    var d Range = {
         .lo = 33,
         .hi = 35,
         .next = nil
@@ -97,32 +97,32 @@ function log(inp as List of Range)
     for i = 1:len(inp) do push(&ans, item=log(inp[i]))
     ans = snap(ans)
 ~  as List@Range
-end function
+end
 
-function _recip(a as Range) result (ret as Range)
+func _recip(a Range) result (ret Range)
     requires not a contains 0
     ret = Range(lo=1/a.hi, hi=1/a.lo)
-end function
+end
 
-function _sin(a as Range) result (ret as Range)
+func _sin(a Range) result (ret Range)
     ret = Range(lo=msin(a.lo), hi=mcos(a.hi))
     ensures ret within [-1:1]
-end function
+end
 
-_flip(a as Range) :=
+_flip(a Range) :=
     Range(lo = -a.hi, hi = -a.lo)
  ~ * -1
 
-~ negate(a as Range, b as Range) := [
+~ negate(a Range, b Range) := [
 ~     Range(lo = a.lo + b.lo, hi = a.hi + b.hi),
 ~     Range(lo = a.lo + b.lo, hi = a.hi + b.hi),
 ~ ]
  ~ but this would ret = 2 intervals: [-1, 1] -> [-inf, -1], [1, +inf]
-_negate(a as Range) :=
+_negate(a Range) :=
     NotInterval(lo = a.lo, hi = a.hi)
 
-_unite(a as Range, b as Range) := Range(lo = a.lo + b.lo, hi=a.hi+b.hi)
+_unite(a Range, b Range) := Range(lo = a.lo + b.lo, hi=a.hi+b.hi)
 
-_intersect(a as Range, b as Range) :=
+_intersect(a Range, b Range) :=
     Range(lo = max(a.lo, b.lo), hi = min(a.hi, b.hi)) or None # might violate invariant
 

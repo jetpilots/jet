@@ -24,7 +24,7 @@ type Expr
     ~ var b = msp(Point())
     ~ shared
     var f = 3<3
-end type
+end
 
 ~ for enums:
 ~ define T_value(e) -> T_vals[e]
@@ -37,11 +37,11 @@ end type
 type Another #extends Point
     var g = 12
     var exp = Expr()
-end type
+end
 
 type YetAnother
     var g = Another()
-end type
+end
 
 ~ ACTUALLY DONT BOTHER WITH CYCLE DETECTION AT ALL
 ~ DISALLOW INHERITANCE & FAVOUR COMPOSITION
@@ -50,7 +50,7 @@ type Other # extends Another
     var m = 43
     var we = Another()
     ~ var po = point()
-end type
+end
 
 type Point # extends Other
     ~ var p = Other()
@@ -60,20 +60,20 @@ type Point # extends Other
     var z = y + 5.6 * x #+ o.we.g
     ~ var o = nil(other) + 6
     var cstr = "xyz"
-end type
+end
 
 ~ export
-fxfunc(x as Number) := x * 1.5
+fxfunc(x Number) := x * 1.5
 
 ~ export
-function Point(x as Number)
+func Point(x Number)
     var p = Point()
     p.y = x
     describe(x)
     return p
-end function
+end
 
-function main(args as Strings) as Number
+func main(args Strings) as Number
     var po = Point()
     var pcx = Point(78)
     var mg = args
@@ -201,11 +201,11 @@ function main(args as Strings) as Number
 
     ~ # Collection API
     ~ # 1. mutators.
-    ~ function insert(anItem as Type, into[] as Type, after as Type) as (ret[] as Type)
-    ~ function insert(anItem as Type, into[] as Type, before as Type) as (ret[] as Type)
-    ~ function insert(anItem as Type, into[] as Type, at as Integer) as (ret[] as Type)
-    ~ function push(item as Type, onto[] as Type) as (ret[] as Type)
-    ~ function pop(list as Type) as (ret[] as Type)
+    ~ function insert(anItem Type, into[] as Type, after Type) as (ret[] as Type)
+    ~ function insert(anItem Type, into[] as Type, before Type) as (ret[] as Type)
+    ~ function insert(anItem Type, into[] as Type, at Integer) as (ret[] as Type)
+    ~ function push(item Type, onto[] as Type) as (ret[] as Type)
+    ~ function pop(list Type) as (ret[] as Type)
 
     ~ insert(3, into = &list, after = 4) or skip c
 
@@ -313,7 +313,7 @@ function main(args as Strings) as Number
     ~ pox.cstr.jmp = "mereger"
     ~ json(po)
     ~ var postr = pox.json()
-end function
+end
 
 ~ var mx  date] = [now(), now(), now()]
 ~ var mx date[4,4] = [now(), now(), now()]
@@ -322,11 +322,11 @@ end function
 ~ var mx[4,4] Date = [now(), now(), now()]
 ~ var mx[6,:]|kg.m/s = [now(), now(), now()]
 
-function funky()
+func funky()
     joyce()
-end function
+end
 
-function joyce()
+func joyce()
     var name = "BhAbru"
     var nam2 = "Bhabru"
     var x = fxfunc(3 + 5i + 4)
@@ -340,13 +340,13 @@ function joyce()
         print(x)
     else if x == 5
         print(x+4)
-    end if
+    end
 
     if x != 3
         print(x)
     else # if x == 5
         print(x+4)
-    end if
+    end
 
     ~ for xt = [6:9:-1]
     ~ FOR(int,xt,it_start(range(6,9)),it_end(range(6,9)),it_step(range(6,9))))
@@ -355,16 +355,16 @@ function joyce()
     ~ FOR(int,xt,it_start(xtColl),it_end(xtColl),it_step(xtColl)))
 
     ~     print(xt)
-    ~ end for
+    ~ end
 
     while x > 6
         x -= 1
         json(x)
-    end while
+    end
 
     describe(joyce)
     var y = 3-x * 2.5 / x
     ~ check 7 < 7-x < x+y
     check x + fxfuNC(y) - fxfunc(x) >=  3*y + 5 + 2*x
     ~ check name == naM2
-end function
+end

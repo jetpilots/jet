@@ -1,63 +1,63 @@
 type Solution
-    var u = zeros4d([7]) # [ix,iy,iz,iu]
-    var t = 0 #|s
-    var dt = 1 #|us
+    var u = zeros4d([7]) ~ [ix,iy,iz,iu]
+    var t = 0 ~|s
+    var dt = 1 ~|us
     var nx = 1024
     var dx = 1/nx
-    var te = 1 #|s
-    ~ event diff(u as Number[:,:,:,:], at as Index[], dim as Index) result (ret as Number)
+    var te = 1 ~|s
+    ~ event diff(u Number[:,:,:,:], at Index[], dim Index) result (ret Number)
 end
 
 ~ var v = Float[3, 4, 5, 6]
-~ var v = [3, 4, 5, 6] as Complex
+~ var v = [3, 4, 5, 6] Complex
 
-declare function zeros4d(arr as Number[]) as Number[:,:,:,:]
-declare function zeros2d(arr as Number[]) as Number[:,:]
-declare function ones1d(arr as Number) as Number[:]
-declare function zeros1d(arr as Number) as Number[:]
-declare function shape(arr as Number[:,:,:,:]) as Number[]
+declare function zeros4d(arr Number[]) as Number[:,:,:,:]
+declare function zeros2d(arr Number[]) as Number[:,:]
+declare function ones1d(arr Number) as Number[:]
+declare function zeros1d(arr Number) as Number[:]
+declare function shape(arr Number[:,:,:,:]) as Number[]
 
-function start()
-    ~ var t = 0 #|s
-    var dt = 1 #|us
+func start()
+    ~ var t = 0 ~|s
+    var dt = 1 ~|us
     var nx = 512
     var u = zeros4d([nx, nx, nx, 3])
     var dx = ones1d(3) / nx
-    var te = 1 #|s
+    var te = 1 ~|s
 
-    ~ ai -> sin(ai) + cos(ai) # lambda
-    ~ ai -> sin(ai) + cos(ai) @ a[:] # generator over a
-    ~ [ai->sin(ai)+cos(ai) @ a[:]] # map, list compr.
-    ~ ai -> sin(ai) + cos(ai) @ a[:] + # reduce to sum
+    ~ ai -> sin(ai) + cos(ai) ~ lambda
+    ~ ai -> sin(ai) + cos(ai) @ a[:] ~ generator over a
+    ~ [ai->sin(ai)+cos(ai) @ a[:]] ~ map, list compr.
+    ~ ai -> sin(ai) + cos(ai) @ a[:] + ~ reduce to sum
 
     for t in 1:dt:te
-        update(&u, dt=dt, dx=dx)
+        update!(u, dt=dt, dx=dx)
         ~ update(u!, dt=dt, dx=dx)
         ~ update!(u, dt=dt, dx=dx)
     end
 end
 
-~ # go with & for non-dot-notation version
+~ ~ go with & for non-dot-notation version
 ~ update(&f)
-~ # you can only chain if update returns f exactly!
-~ function update(&f as ...) result (f)
-~ # for dot-notation version use
+~ ~ you can only chain if update returns f exactly!
+~ function update(&f ...) result (f)
+~ ~ for dot-notation version use
 ~ s!.update()
-~ # again chaining only if update returns self
+~ ~ again chaining only if update returns self
 ~ method update() result (self)
-~ #otherwise you could be returning arg2 and the chained func will inplace it without indication.
+~ ~otherwise you could be returning arg2 and the chained func will inplace it without indication.
 
 
-~ dont allow passing func ptrs as args but instead pass an object having those events
-~ function update(u! as Number[:,:,:,:], dt as Number, diff as (Number[:,:,:,:], at Index[], dim Index) -> Number) void
+~ dont allow passing func ptrs args but instead pass an object having those events
+~ function update(u! Number[:,:,:,:], dt Number, diff (Number[:,:,:,:], at Index[], dim Index) -> Number) void
 
-~ function update(var u as Number[:,:,:,:], dt as Number, dx as Number[]) as Number[:]
-~     var limit as Number[String] = shape(u) - 1
-~     var dudx as Number[2D] = zeros(3, 3)
+~ function update(var u Number[:,:,:,:], dt Number, dx Number[]) Number[:]
+~     var limit Number[String] = shape(u) - 1
+~     var dudx Number[2D] = zeros(3, 3)
 
-declare function fwddiff(u as Number[:,:,:,:], at as Number[], dim as Number) as Number
+declare function fwddiff(u Number[:,:,:,:], at Number[], dim Number) as Number
 
-function update(var u as Number[:,:,:,:], dt as Number, dx as Number[])
+func update!(u Number[:,:,:,:], dt Number, dx Number[])
     var limit = shape(u) - 1
     var dudx = zeros2d([3, 3])
     for i in 1:limit[1]
@@ -76,7 +76,7 @@ function update(var u as Number[:,:,:,:], dt as Number, dx as Number[])
     end
 end
 
-~ function update2(u! as Number[:,:,:,:], dt as Number, dx as Number[])
+~ function update2(u! Number[:,:,:,:], dt Number, dx Number[])
 ~     var limit = shape(u) - 1
 ~     var dudx = zeros(3, 3)
 
@@ -92,56 +92,56 @@ end
 ~     end
 ~ end
 
-~ function update3(u! as Number[:,:,:], dt as Number)
+~ function update3(u! Number[:,:,:], dt Number)
 ~     var limit = shape(u) - 1
 ~     for i = 1:limit[1], j = 1:limit[2], k = 1:limit[3]
 ~         var dudx = zeros(3, 3)
 
-~         # dudx[1, 1] = (u[i+1, j, k] - u[i, j, k]) / dx[1]
-~         # dudx[1, 2] = (u[i, j+1, k] - u[i, j, k]) / dx[2]
-~         # dudx[1, 3] = (u[i, j, k+1] - u[i, j, k]) / dx[3]
-~         # dudx[2, 1] = (v[i+1, j, k] - v[i, j, k]) / dx[1]
-~         # dudx[2, 2] = (v[i, j+1, k] - v[i, j, k]) / dx[2]
-~         # dudx[2, 3] = (v[i, j, k+1] - v[i, j, k]) / dx[3]
-~         # dudx[3, 1] = (w[i+1, j, k] - w[i, j, k]) / dx[1]
-~         # dudx[3, 2] = (w[i, j+1, k] - w[i, j, k]) / dx[2]
-~         # dudx[3, 3] = (w[i, j, k+1] - w[i, j, k]) / dx[3]
+~         ~ dudx[1, 1] = (u[i+1, j, k] - u[i, j, k]) / dx[1]
+~         ~ dudx[1, 2] = (u[i, j+1, k] - u[i, j, k]) / dx[2]
+~         ~ dudx[1, 3] = (u[i, j, k+1] - u[i, j, k]) / dx[3]
+~         ~ dudx[2, 1] = (v[i+1, j, k] - v[i, j, k]) / dx[1]
+~         ~ dudx[2, 2] = (v[i, j+1, k] - v[i, j, k]) / dx[2]
+~         ~ dudx[2, 3] = (v[i, j, k+1] - v[i, j, k]) / dx[3]
+~         ~ dudx[3, 1] = (w[i+1, j, k] - w[i, j, k]) / dx[1]
+~         ~ dudx[3, 2] = (w[i, j+1, k] - w[i, j, k]) / dx[2]
+~         ~ dudx[3, 3] = (w[i, j, k+1] - w[i, j, k]) / dx[3]
 
-~         # dudx[1, 1] = (u[i+1, j, k, 1] - u[i, j, k, 1]) / dx[1]
-~         # dudx[2, 1] = (u[i+1, j, k, 2] - u[i, j, k, 2]) / dx[1]
-~         # dudx[3, 1] = (u[i+1, j, k, 3] - u[i, j, k, 3]) / dx[1]
-~         # dudx[1, 2] = (u[i, j+1, k, 1] - u[i, j, k, 1]) / dx[2]
-~         # dudx[2, 2] = (u[i, j+1, k, 2] - u[i, j, k, 2]) / dx[2]
-~         # dudx[3, 2] = (u[i, j+1, k, 3] - u[i, j, k, 3]) / dx[2]
-~         # dudx[1, 3] = (u[i, j, k+1, 1] - u[i, j, k, 1]) / dx[3]
-~         # dudx[2, 3] = (u[i, j, k+1, 2] - u[i, j, k, 2]) / dx[3]
-~         # dudx[3, 3] = (u[i, j, k+1, 3] - u[i, j, k, 3]) / dx[3]
+~         ~ dudx[1, 1] = (u[i+1, j, k, 1] - u[i, j, k, 1]) / dx[1]
+~         ~ dudx[2, 1] = (u[i+1, j, k, 2] - u[i, j, k, 2]) / dx[1]
+~         ~ dudx[3, 1] = (u[i+1, j, k, 3] - u[i, j, k, 3]) / dx[1]
+~         ~ dudx[1, 2] = (u[i, j+1, k, 1] - u[i, j, k, 1]) / dx[2]
+~         ~ dudx[2, 2] = (u[i, j+1, k, 2] - u[i, j, k, 2]) / dx[2]
+~         ~ dudx[3, 2] = (u[i, j+1, k, 3] - u[i, j, k, 3]) / dx[2]
+~         ~ dudx[1, 3] = (u[i, j, k+1, 1] - u[i, j, k, 1]) / dx[3]
+~         ~ dudx[2, 3] = (u[i, j, k+1, 2] - u[i, j, k, 2]) / dx[3]
+~         ~ dudx[3, 3] = (u[i, j, k+1, 3] - u[i, j, k, 3]) / dx[3]
 
-~         # dudx[1:3, 1] = (u[i+1, j, k, 1:3] - u[i, j, k, 1:3]) / dx[1]
-~         # dudx[1:3, 2] = (u[i, j+1, k, 1:3] - u[i, j, k, 1:3]) / dx[2]
-~         # dudx[1:3, 3] = (u[i, j, k+1, 1:3] - u[i, j, k, 1:3]) / dx[3]
+~         ~ dudx[1:3, 1] = (u[i+1, j, k, 1:3] - u[i, j, k, 1:3]) / dx[1]
+~         ~ dudx[1:3, 2] = (u[i, j+1, k, 1:3] - u[i, j, k, 1:3]) / dx[2]
+~         ~ dudx[1:3, 3] = (u[i, j, k+1, 1:3] - u[i, j, k, 1:3]) / dx[3]
 
 ~         for iu = 1:3
-~             # dudx[iu, 1] = (u[i+1, j, k, iu] - u[i, j, k, iu]) / dx[1]
-~             # dudx[iu, 2] = (u[i, j+1, k, iu] - u[i, j, k, iu]) / dx[2]
-~             # dudx[iu, 3] = (u[i, j, k+1, iu] - u[i, j, k, iu]) / dx[3]
+~             ~ dudx[iu, 1] = (u[i+1, j, k, iu] - u[i, j, k, iu]) / dx[1]
+~             ~ dudx[iu, 2] = (u[i, j+1, k, iu] - u[i, j, k, iu]) / dx[2]
+~             ~ dudx[iu, 3] = (u[i, j, k+1, iu] - u[i, j, k, iu]) / dx[3]
 
 ~             for ix = 1:3
-~                 # dudx[iu, ix] = (u[i+1, j, k, iu] - u[i, j, k, iu]) / dx[ix]
+~                 ~ dudx[iu, ix] = (u[i+1, j, k, iu] - u[i, j, k, iu]) / dx[ix]
 ~                 dudx[iu, ix] = fwddiff(u, at=[i, j, k, iu], dim=ix) / dx[ix]
 ~             end
 
 ~         end
 
-~         # dudt = u*dudx+v*dudy+w*dudz
-~         # dvdt = u*dvdx+v*dvdy+w*dvdz
-~         # dwdt = u*dwdx+v*dwdy+w*dwdz
+~         ~ dudt = u*dudx+v*dudy+w*dudz
+~         ~ dvdt = u*dvdx+v*dvdy+w*dvdz
+~         ~ dwdt = u*dwdx+v*dwdy+w*dwdz
 
-~         # dudt[1] = u*dudx[1, 1] + v*dudx[1, 2] + w*dudx[1, 3]
-~         # dudt[2] = u*dudx[2, 1] + v*dudx[2, 2] + w*dudx[2, 3]
-~         # dudt[3] = u*dudx[3, 1] + v*dudx[3, 2] + w*dudx[3, 3]
+~         ~ dudt[1] = u*dudx[1, 1] + v*dudx[1, 2] + w*dudx[1, 3]
+~         ~ dudt[2] = u*dudx[2, 1] + v*dudx[2, 2] + w*dudx[2, 3]
+~         ~ dudt[3] = u*dudx[3, 1] + v*dudx[3, 2] + w*dudx[3, 3]
 
-~         # dudt[1:3] = u[1]*dudx[1:3, 1] + u[2]*dudx[1:3, 2] + u[3]*dudx[1:3, 3]
+~         ~ dudt[1:3] = u[1]*dudx[1:3, 1] + u[2]*dudx[1:3, 2] + u[3]*dudx[1:3, 3]
 
 ~         dudt[:] = 0
 ~         for i = 1:limit[1], j = 1:limit[2], k = 1:limit[3], iu = 1:3, ix = 1:3

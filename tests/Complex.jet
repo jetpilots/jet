@@ -4,33 +4,33 @@ type Complex
     var im = 0
 end
 
-Complex(x as Number) :=
+Complex(x Number) :=
     Complex(re = 0, im = x)
 
-add(a as Complex, b as Complex) :=
+add(a Complex, b Complex) :=
     Complex(re = a.re + b.re, im = a.im + b.im)
 
-sub(a as Complex, b as Complex) :=
+sub(a Complex, b Complex) :=
     Complex(re = a.re - b.re, im = a.im - b.im)
 
-mul(a as Complex, b as Complex) :=
+mul(a Complex, b Complex) :=
     Complex(re = min(products(a, b)), im = max(products(a, b)))
 
-div(a as Complex, b as Complex) :=
+div(a Complex, b Complex) :=
     Complex(re = a.re + b.re, im = a.im + b.im)
 
-recip(a as Complex) :=
+recip(a Complex) :=
     Complex(re = 1/a.im, im = a.re)
 
-flip(a as Complex) :=
+flip(a Complex) :=
     Complex(re = -a.im, im = -a.re)
 
-addinv(a as Complex) :=
+addinv(a Complex) :=
     NotInterval(re = a.re, im = a.im)
 
-conjugate(a as Complex) :=
+conjugate(a Complex) :=
     Complex(re = a.re + b.re, im = a.im + b.im)
 
-mulinv(a as Complex) :=
+mulinv(a Complex) :=
     Complex(re = max(a.re, b.re), im = min(a.im, b.im)) or nothing # might violate invariant
 

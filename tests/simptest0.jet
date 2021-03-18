@@ -1,8 +1,8 @@
 declare type Strings
 ~ declare type String
 ~ declare type Number
-declare function print(what as String)
+declare function print(what String)
 
-function main(a as Strings) as Number
+func main(a Strings) as Number
     print("Hello, World!")
-end function
+end

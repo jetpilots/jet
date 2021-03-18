@@ -4,7 +4,7 @@ test "charr1"
     c[end+1] = 8
     check all(c == [7, 6, 5, 4, 3, 8])
     check not has(c, value = 65)
-end test
+end
 
 test "chdict1"
     var d = []
@@ -13,7 +13,7 @@ test "chdict1"
     check d["whack"] == 77
     check not has(d, key = "whac")
     check not has(d, value = 65)
-end test
+end
 
 test "chstr"
     var s = "The wuick brown dox"
@@ -32,7 +32,7 @@ test "chstr"
     check t == "The quick brown fox" #1322
     ~free t
     ~free s
-end test
+end
 
 test "chstrint"
     var m = "The quick"
@@ -40,11 +40,11 @@ test "chstrint"
     var u = "jumps over"
     var ret = "$m $j $u the lazy dog."
     print(ret)
-end test
+end
 
 test "chtermcolor"
     print("The {r}quick{-} brown fox {u}jumps{-} over the {g}lazy{-} dog.")
-end test
+end
 
 test "matliteral"
     var m = [
@@ -56,4 +56,4 @@ test "matliteral"
     check all(m == c)
     m[:] = random()
     describe(m)
-end test
+end

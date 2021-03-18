@@ -1,4 +1,4 @@
-function start(args as Strs) as Number
+func start(args Strs) as Number
     let x = "The quick brown fox with 32 teeth."
     match x
     with `^Fat`
@@ -6,4 +6,4 @@ function start(args as Strs) as Number
     else `quick (\w+) fox`
         print()
     end match
-end function
+end

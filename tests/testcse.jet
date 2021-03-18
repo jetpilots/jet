@@ -7,9 +7,9 @@ type TestType
     var m = 43
     var g = 33
     ~ always 0 <= g <= 1
-end type
+end
 
-function main(args::String[Int])::Number
+func main(args::String[Int])::Number
     ~ check len(args[]) > 1
 
     print("Hello")
@@ -34,4 +34,4 @@ function main(args::String[Int])::Number
     describe(m)
 
     ~ check 4 < out <= 6
-end function
+end

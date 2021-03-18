@@ -3,13 +3,13 @@
 ~
 
 
-function processSpec(f! as File) as Species
+func processSpec(f! as File) as Species
     let line = readline(f!)
     let coeffDict = line2coeffs(line)
     species = Species(coeffDict)
-end function
+end
 
-function processReaction(f! as File) as Reaction
+func processReaction(f! as File) as Reaction
     var line = readline(f!)
     let coeffDictLHS = line2coeffs(line)
     line = readline(f!)
@@ -20,9 +20,9 @@ function processReaction(f! as File) as Reaction
     let aAbE = num(line)
     let rev = (aAbE[0] == 0)
     reac = Reaction(rev, coeffDictLHS, coeffDictRHS, AbE, aAbE)
-end function
+end
 
-function processThermo(f! as File) as JanafThermo
+func processThermo(f! as File) as JanafThermo
     var line = readline(f!)
     let Ts = num(line)
     line = readline(f!)
@@ -30,10 +30,10 @@ function processThermo(f! as File) as JanafThermo
     line = readline(f!)
     let coeffsHigh = num(line)
     thermo = JanafThermo { .low=coeffsLow, .high=coeffsHigh, .ts=Ts}
-end function
+end
 ~#
 
-function readline(f! as File) as Text
+func readline(f! as File) as Text
     let raw = uppercase(strip(read(f!, lines=1)))
     let lc = split(raw, at='!', limit=2, keep=no)
     line = lc[0]
@@ -42,10 +42,10 @@ function readline(f! as File) as Text
     ~ else if matches(line, regex=`!`)
     ~     let lc = split(line, at='!', limit=2, keep=no)
     ~     line = lc[0]
-    ~ end if
-end function
+    ~ end
+end
 
-function coeffspec(str as Text)
+func coeffspec(str Text)
     let chars = split(str, at="")
     var i = 0
 
@@ -54,8 +54,8 @@ function coeffspec(str as Text)
             i += 1
         else
             break
-        end if
-    end for
+        end
+    end
 
     if i > 0
         coeff = num(join(chars[1:i]))
@@ -63,10 +63,10 @@ function coeffspec(str as Text)
     else
         coeff = 1.0
         spec = str
-    end if
+    end
 
     return (coeff, spec)
-end function
+end
 
 ~ function num(line)
 ~     words = split(line)
@@ -74,13 +74,13 @@ end function
 ~ end
 ~ just use num(line)
 
-~ function line2coeffs(line as Text) result (dict[Text] as Number)
+~ function line2coeffs(line Text) result (dict[Text] as Number)
 ~     words = split(line)
 ~     dict = words2coeffs(words)
 ~ end
 
-line2coeffs(line as Text) := words2coeffs(split(line))
-function words2coeffs(words[] as Text, swap=no) as Number[Text]
+line2coeffs(line Text) := words2coeffs(split(line))
+func words2coeffs(words[] as Text, swap=no) as Number[Text]
     check (iseven(len(words)))
     ~ coeffDict = {} # dict is already inited empty
     for i = 1:2:len(words)
@@ -94,20 +94,20 @@ function words2coeffs(words[] as Text, swap=no) as Number[Text]
         val = num(words[ival])
 
         coeffDict[key] = val
-    end for
-end function
+    end
+end
 
 
-function printElements()
+func printElements()
     print("Number of elements:", len(elements))
     for (ekey, element) = elements
         print("Element: $ekey")
         print("  W = $element.W")
-    end for
+    end
     print(elements_used)
-end function
+end
 
-function printSpecies()
+func printSpecies()
     for (key, spec) = species
         printf("%-20s ", key)
         ~print(elements_used)
@@ -118,22 +118,22 @@ function printSpecies()
      ~   end
         printf("%f", spec.W)
         print()
-    end for
-end function
+    end
+end
 
-function printThermos()
+func printThermos()
     for (tkey, th) = thermos
         print("Thermo: $tkey")
         print("$th.aLo $th.aHi $th.TLo $th.THi $th.TCo")
         thermo.discontinuity(th)
-    end for
-end function
+    end
+end
 
-function printReactionLine(rxn as Reaction)
+func printReactionLine(rxn Reaction)
     for (k, v) = rxn.reactants
         if v != 1.0 then print(v)
         print("$k ")
-    end for
+    end
 
     if rxn.reversible then print("<")
     print("=> ")
@@ -141,12 +141,12 @@ function printReactionLine(rxn as Reaction)
     for (k, v) = rxn.products
         if v != 1.0 then print(v)
         print("$k ")
-    end for
+    end
 
     print()
-end function
+end
 
-function printReactions(reactions as Reaction[Text])
+func printReactions(reactions Reaction[Text])
     for (rkey, reac) = reactions
         print("\nReaction: $rkey")
         printReactionLine(reac)
@@ -158,37 +158,37 @@ function printReactions(reactions as Reaction[Text])
 
         if reac.kf.active then print("kf: ", reac.kf) #print("$(reac.A)  $(reac.b)  $(reac.E)")
         if reac.kr.active then print("kr: ", reac.kr) #print("$(reac.A_) $(reac.b_) $(reac.E_)")
-    end for
-end function
+    end
+end
 
-function printsummary()
+func printsummary()
     print("Number of species: ", len(species))
     print("Number of reactions: ", len(reactions))
-end function
+end
 
 ~#
-function readSpecies(f! as File)
+func readSpecies(f! as File)
     while not io.eof(f)
         line = readline(f!)
         words = split(line)
         if len(words) == 0 then skip
         if words[1] == "END" then break
         for tok = words do species[tok] = Species()
-    end while
-end function
+    end
+end
 
-function readElements(f! as File) as Number[Text]
+func readElements(f! as File) as Number[Text]
     ~clear(elements_used)
     while not io.eof(f)
         line = readline(f!)
         words = split(line)
         if "END" in words then break
         for tok = words do eD[tok] = 0
-    end while
+    end
     ~collect(keys(eD))
-end function
+end
 
-function readreactions(f! as File)
+func readreactions(f! as File)
     var ir = 0
     while yes
         line = readline(f!)
@@ -206,7 +206,7 @@ function readreactions(f! as File)
             skip
         else
             mode="other"
-        end if
+        end
         words = split(line, regex=`[ /<=>()]`, keep=no)
 
         if len(words) == 0 then skip
@@ -237,7 +237,7 @@ function readreactions(f! as File)
                     ~ already OK
                 else
                     error("SRI coefficients not fully specified:\n\t$line")
-                end if
+                end
 
             else if has(words[1], prefix="DUP")
                 ~ what to do here?
@@ -250,48 +250,48 @@ function readreactions(f! as File)
                 reactions[lastrxn].M = ThirdBody(words2coeffs(words, invert=yes))
             else
                 error("Don't know what to do with line:\n$line")
-            end if
+            end
             skip
-        end if
+        end
 
         if len(words) != 5
             print("# items not equal to 5")
             print(words)
             skip
-        end if
+        end
 
         rxs = split(words[1], at="+", keep=no)
         pxs = split(words[2], at="+", keep=no)
         let A, b, E = num(words[3:5])
 
-        var r as {Text->Number}
-        var p as {Text->Number}
-        var p as {Text}
-        var p as [Text]
+        var r {Text->Number}
+        var p {Text->Number}
+        var p {Text}
+        var p [Text]
 
         var r[Text] as Number
         var p[Text] as Number
 
-        var r as Number[Text]
-        var p as Number[Text]
+        var r Number[Text]
+        var p Number[Text]
 
         for rx = rxs
             coeff, spec = coeffspec(rx)
             r[spec] = coeff + get(r, spec, 0) #if it already exists, add to the coefficient
-        end for
+        end
 
         for px = pxs
             coeff, spec = coeffspec(px)
             p[spec] = coeff + get(p, spec, 0)
-        end for
+        end
 
         let reac = Reaction(yes, mode == "rev", p, r, RateConst(A, b, E))
         units.scale(reac!)
         ir += 1
         reactions["$ir"] = reac
         lastrxn = "$ir"
-    end while
-end function
+    end
+end
 
 export function readThermo(f! as File)
     while yes
@@ -302,12 +302,12 @@ export function readThermo(f! as File)
         if nWords == 3
             Trange = num(words)
             skip
-        end if
+        end
 
         if nWords == 0 then skip
         if nWords == 1 and words[1] == "END" then break
 
-        var elemComp as Number[Text] #= ScalarDict()
+        var elemComp Number[Text] #= ScalarDict()
         ~thermo = janafThermoDict()
 
         let sub as Text[] = split(line[1:24])
@@ -316,13 +316,13 @@ export function readThermo(f! as File)
         if not has(species, key=name)
             for i = 1:3 do io.skipline(f!)
             skip
-        end if
+        end
 
         for i = 25:5:40
             let k as Text = strip(line[i:i+2])
             if k == "" then skip
             elemComp[k] = num(strip(line[i+3:i+4]))
-        end for
+        end
         species[name] = Species(elemComp)
 
         let Tl as Number = num(line[49:57])
@@ -343,11 +343,11 @@ export function readThermo(f! as File)
                  l4[16:30], l4[31:45], l4[46:60]])
 
         thermos[name] = Janaf(tl=Tl, th=Th, tc=Tc, lowT=arrL, highT=arrH)
-    end while
-end function
+    end
+end
 
 ~#
-function readThermoFile(file as Text = "therm.dat", dir as Text=".")
+func readThermoFile(file Text = "therm.dat", dir Text=".")
     var f = io.open(os.path.join(dir, file))
     ~ variants for mutable variables
     ~ var x = 0
@@ -359,11 +359,11 @@ function readThermoFile(file as Text = "therm.dat", dir as Text=".")
         let words = split(readline(f!))
         if len(words) == 0 then skip
         if has(words[1], prefix="THERM") then readThermo(f!)
-    end while
-end function
+    end
+end
 
 import units
-function readFile(file as Text = "chem.inp", dir as Text = ".")
+func readFile(file Text = "chem.inp", dir Text = ".")
     var f = io.open(os.path.join(dir, file)) # will auto close
     ~ f might be left open if there is a crash in inner funcs.
     ~ for this, F+ should keep a runtime dict of open files
@@ -382,7 +382,7 @@ function readFile(file as Text = "chem.inp", dir as Text = ".")
             readReactions(f!)
         else if has(words[1], prefix="ELEM")
             readElements(f!)
-        end if
+        end
         ~ match words[1]
         ~ case `^ *SPEC`
         ~     readSpecies(f!)
@@ -395,5 +395,5 @@ function readFile(file as Text = "chem.inp", dir as Text = ".")
         ~ case `^ *ELEM`
         ~     readElements(f!)
         ~ end match
-    end while
-end function
+    end
+end
