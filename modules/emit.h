@@ -899,119 +899,69 @@ char* strchrnul(char* str, char ch) {
     while (*str && *str != ch) str++;
     return str;
 }
-
-// This is really taking up a whole pass. It should be moved to the analysis
-// phase! ASTExpr should hold some extra data for string interpolation.
-static void ASTExpr_prepareInterp(
-    ASTExpr* expr, ASTScope* scope) { // TODO: you should have a flag that tells
-                                      // you whether there is any string
-    // interpolation at all, and if yes what the expected size might be, and if
-    // it can be put on the stack
-
-    // actually the string may have embedded %s, so you need to process it
-    // in any case, unless you plan on doing puts.
-    // there are 3 things to do.
-    // 1. compute the format string
-    // 2. compute a guess for the size
-    // 3. keep a stack of vars that are in the string in the right order
-    static Array(Ptr) vars;
-
-    //     char* pos = expr->string - 1,*last = expr->string;
-    //     while (*++pos) {
-    // while (*pos!='$') pos++;
-    switch (expr->kind) {
-    case tkString:
-        //      }
-        {
-            char* pos = expr->string + 1; // starts with '"'
-            while (*pos) {
-                // in this loop you print the text preceding a $, then text
-                // suceeding a $, then loop. Here's the text before the $
-                char* dollar = strchrnul(pos, '$');
-                // not using $..., using {...}
-                long lentxt = dollar - pos;
-                // printf(",\"%.*s\"", lentxt, pos);
-                if (!*dollar) break;
-                // after the $ is a variable, so look it up etc.
-                char* varname = dollar + 1;
-                char* varend = strchrnul(varname, ' ');
-                *varend = 0;
-                ASTVar* var = ASTScope_getVar(scope, varname);
-                // ^ TODO: this should be getQualVar which looks up a.b.c and
-                // returns c
-                if (!var) {
-                    // you have a real problem. You should have checked for all
-                    // var refs to be valid in the analysis phase!
-                    unreachable("undefined var found: %s", varname);
-                }
-                const char* fmtstr;
-                if (var->typeSpec->typeType == TYObject) {
-                    fmtstr = "%s";
-                    // you'll have to call Type_str(...) for it. Or actually why
-                    // not just do Type_print?
-                } else {
-                    fmtstr = TypeType_format(var->typeSpec->typeType, false);
-                }
-                // printf(",%s", var->name);
-                // ^ this should be qualified name or the cgen version
-                // of accessing the actual member for a.b.c
-                pos = varend + 1; // you might go past the end!!!
-            }
-        }
-        break;
-    case tkRawString:
-    case tkNumber:
-    case tkIdentifierResolved:
-    case tkIdentifier:
-    case tkArgumentLabel:
-        break;
-    case tkFunctionCallResolved:
-    case tkFunctionCall:
-    case tkSubscript:
-    case tkObjectInit:
-    case tkObjectInitResolved:
-    case tkSubscriptResolved:
-        if (expr->left) ASTExpr_prepareInterp(expr->left, scope);
-        break;
-    case tkVarAssign:
-        ASTExpr_prepareInterp(expr->var->init, scope);
-        break;
-    case tkKeyword_for:
-    case tkKeyword_if:
-    case tkKeyword_else:
-    case tkKeyword_match:
-    case tkKeyword_case:
-    case tkKeyword_elif:
-    case tkKeyword_while:
-        ASTExpr_prepareInterp(expr->left, scope);
-        foreach (ASTExpr*, subexpr, expr->body->stmts)
-            ASTExpr_prepareInterp(subexpr, expr->body);
-        break;
-    default:
-        if (expr->prec) {
-            if (!expr->unary) ASTExpr_prepareInterp(expr->left, scope);
-            if (expr->right) ASTExpr_prepareInterp(expr->right, scope);
-        } else {
-            unreachable("unknown token kind %s", TokenKind_str[expr->kind]);
-        }
+static void astexpr_lineupmultilinestring(ASTExpr* expr, int indent) {
+    return;
+    char* pos = expr->string;
+    while (*(pos = strpbrk(pos, "\n"))) {
+        int del = strspn(pos, " ") - indent;
+        if (del <= 0) continue;
     }
+}
 
-    // #this string
-    //     "The quick brown fox $jumps over $the lazy dog.";
-    // #becomes
-    //     `"%s%s%s%s%s", "The quick brown fox ", jumps, " over ", the, "lazy
-    //     dog.",
-    //         ""`;
+static void printmultilstr(char* pos) {
+    do {
+        int p = strcspn(pos, "\n");
+        printf("\"%.*s\\n\"", p, pos);
+        pos += p + 1;
+    } while (*pos);
 }
 
 static void ASTExpr_emit_tkString(ASTExpr* expr, int level) {
-
-    printf("%s\"", expr->string);
+    astexpr_lineupmultilinestring(expr, level + STEP);
+    if (!expr->vars) {
+        printmultilstr(expr->string + 1);
+    } else {
+        char* pos = expr->string;
+        // putc('"', stdout);
+        char* last = pos;
+        ASTVar* v;
+        PtrList* p = expr->vars;
+        ASTExpr* e = p->item;
+        printf("strinterp_h(64, ");
+        while (*pos) {
+            while (*pos && *pos != '$') pos++;
+            *pos++ = 0;
+            // int l = pos - last - 1;
+            printf("%s", last);
+            // printmultilstr(last + 1);
+            pos[-1] = '$';
+            last = pos;
+            while (*pos && isalnum(*pos) || *pos == '.') pos++;
+            // l = pos - last;
+            // eprintf("%.*s\n", l, last);
+            if (e) {
+                while (e->kind == tkPeriod) e = e->right;
+                assert(e->kind == tkIdentifierResolved);
+                assert(e->var);
+                printf(
+                    "%s", TypeType_format(e->var->typeSpec->typeType, false));
+                last = pos;
+                e = ((p = p->next)) ? p->item : NULL;
+            }
+        }
+        printf("\"");
+        foreach (ASTExpr*, e, expr->vars) {
+            printf(", ");
+            ASTExpr_emit(e, 0);
+        }
+        printf(")");
+    }
 }
 
 //_____________________________________________________________________________
-/// Emits the equivalent C code for a (literal) numeric expression. Complex
-/// numbers follow C99 literal syntax, e.g. 1i generates `_Complex_I * 1`.
+/// Emits the equivalent C code for a (literal) numeric expression.
+/// Complex numbers follow C99 literal syntax, e.g. 1i generates
+/// `_Complex_I * 1`.
 static void ASTExpr_emit_tkNumber(ASTExpr* expr, int level) {
     size_t ls = CString_length(expr->string);
     if (expr->string[ls - 1] == 'i') {
@@ -1050,7 +1000,8 @@ static void ASTExpr_emit_tkCheck(ASTExpr* expr, int level) {
     // -------------
     printf(")) {\n");
     printf("%.*sprintf(\"\\n\\n\e[31mruntime error:\e[0m check "
-           "failed at \e[36m./%%s:%d:%d:\e[0m\\n    %%s\\n\\n\",\n            "
+           "failed at \e[36m./%%s:%d:%d:\e[0m\\n    %%s\\n\\n\",\n     "
+           "       "
            "   THISFILE, \"",
         level + STEP, spaces, expr->line, expr->col + 6);
     ASTExpr_lint(checkExpr, 0, true, true);
@@ -1105,8 +1056,8 @@ static void ASTExpr_emit_tkCheck(ASTExpr* expr, int level) {
 }
 
 ///////////////////////////////////////////////////////////////////////////
-/// This should be a standard dispatcher that does nothing except the actual
-/// dispatching (via a function pointer table, not a switch).
+/// This should be a standard dispatcher that does nothing except the
+/// actual dispatching (via a function pointer table, not a switch).
 static void ASTExpr_emit(ASTExpr* expr, int level) {
     // generally an expr is not split over several lines (but maybe in
     // rare cases). so level is not passed on to recursive calls.
@@ -1220,8 +1171,8 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
 
             case tkOpComma:
                 // figure out the type of each element
-                // there should be a RangeND just like TensorND and SliceND
-                // then you can just pass that to _setSlice
+                // there should be a RangeND just like TensorND and
+                // SliceND then you can just pass that to _setSlice
                 break;
             case tkIdentifierResolved:
                 // lookup the var type. note that it need not be Number,
@@ -1257,8 +1208,9 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
             break;
         default:
             // error: not a valid lvalue
-            // TODO: you should at some point e,g, during resolution check
-            // for assignments to invalid lvalues and raise an error
+            // TODO: you should at some point e,g, during resolution
+            // check for assignments to invalid lvalues and raise an
+            // error
             unreachable(
                 "found token kind %s\n", TokenKind_str[expr->left->kind]);
         }
@@ -1280,9 +1232,9 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
             printf("Array_init(%s)()", "double");
         } else {
             printf("Array_make(((%s[]) {", "double"); // FIXME
-            // TODO: MKARR should be different based on the CollectionType
-            // of the var or arg in question, eg stack cArray, heap
-            // allocated Array, etc.
+            // TODO: MKARR should be different based on the
+            // CollectionType of the var or arg in question, eg stack
+            // cArray, heap allocated Array, etc.
             ASTExpr_emit(expr->right, 0);
             printf("})");
             printf(", %d)", ASTExpr_countCommaList(expr->right));
@@ -1416,7 +1368,8 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
             && ASTExpr_getObjectType(expr->left)->isEnum)
             printf("_");
         else
-            printf("->"); // may be . if right is embedded and not a reference
+            printf("->"); // may be . if right is embedded and not a
+                          // reference
         ASTExpr_emit(expr->right, 0);
         break;
 
@@ -1497,11 +1450,10 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
 //     "    FILE* fd = fopen(\".\" THISFILE \"r\", \"w\");\n"
 //     // "    for (int i=1; i<NUMLINES; i++)\n"
 //     // "        if (0== _lprof_[i]) _lprof_[i] = _lprof_[i-1];\n"
-//     // "    for (int i=NUMLINES-1; i>0; i--) _lprof_[i] -= _lprof_[i-1];\n"
-//     "    ticks sum=0; for (int i=0; i<NUMLINES; i++) sum += _lprof_[i];\n"
-//     "    for (int i=0; i<NUMLINES; i++) {\n"
-//     "        double pct = _lprof_[i] * 100.0 / sum;\n"
-//     "        if (pct>1.0)"
+//     // "    for (int i=NUMLINES-1; i>0; i--) _lprof_[i] -=
+//     _lprof_[i-1];\n" "    ticks sum=0; for (int i=0; i<NUMLINES; i++)
+//     sum += _lprof_[i];\n" "    for (int i=0; i<NUMLINES; i++) {\n" "
+//     double pct = _lprof_[i] * 100.0 / sum;\n" "        if (pct>1.0)"
 //     "            fprintf(fd,\" %8.1f%% |\\n\", pct);\n"
 //     "        else if (pct == 0.0)"
 //     "            fprintf(fd,\"           |\\n\");\n"
@@ -1528,7 +1480,7 @@ static void ASTModule_emit(ASTModule* module) {
 
     puts("");
 
-    foreach (ASTVar*, var, module->scope.locals)
+    foreach (ASTVar*, var, module->scope->locals)
         if (var->used) ASTVar_genh(var, 0);
 
     foreach (ASTType*, type, module->enums) {
@@ -1550,8 +1502,8 @@ static void ASTModule_emit(ASTModule* module) {
 
     foreach (ASTType*, type, module->types) {
         if (type->body && type->analysed) {
-            foreach (ASTExpr*, expr, type->body->stmts)
-                ASTExpr_prepareInterp(expr, type->body);
+            // foreach (ASTExpr*, expr, type->body->stmts)
+            //     ASTExpr_prepareInterp(expr, type->body);
             // ^ MOVE THIS INTO ASTType_emit
             ASTType_emit(type, 0);
             ASTType_genTypeInfoDefs(type);
@@ -1560,9 +1512,9 @@ static void ASTModule_emit(ASTModule* module) {
     }
     foreach (ASTFunc*, func, module->funcs) {
         if (func->body && func->analysed) {
-            foreach (ASTExpr*, expr, func->body->stmts) {
-                ASTExpr_prepareInterp(expr, func->body);
-            }
+            // foreach (ASTExpr*, expr, func->body->stmts) {
+            //     ASTExpr_prepareInterp(parser,expr, func->body);
+            // }
             // ^ MOVE THIS INTO ASTFunc_emit
             ASTFunc_emit(func, 0);
         }
@@ -1585,37 +1537,43 @@ static void ASTModule_genTests(ASTModule* module) {
     puts("}");
 }
 
-// Generates a couple of functions that allow setting an integral member of a
-// type at runtime by name, or getting a pointer to a member by name.
+// Generates a couple of functions that allow setting an integral member
+// of a type at runtime by name, or getting a pointer to a member by
+// name.
 void ASTType_genNameAccessors(ASTType* type) {
-    // TODO: instead of a linear search over all members this should generate
-    // a switch for checking using a prefix tree -> see genrec.c
+    // TODO: instead of a linear search over all members this should
+    // generate a switch for checking using a prefix tree -> see
+    // genrec.c
     if (!type->analysed || type->isDeclare) return;
     // ASTType_genMemberRecognizer( type, "Int64 value",  )
 
     printf("static void* %s__memberNamed(%s self, const char* name) {\n",
         type->name, type->name);
+
     // TODO: skip bitfield members in this loop or it wont compile
     foreach (ASTVar*, var, type->body->locals) /*if (var->used) */ //
-        printf("    if (CString_equals(name, \"%s\")) return &(self->%s);\n",
+        printf("    if (CString_equals(name, \"%s\")) return "
+               "&(self->%s);\n",
             var->name, var->name);
     printf("    return NULL;\n}\n");
 
     // this func sets bools or ints that may be part of bitfields
-    printf("static void %s__setMemberNamed(%s self, const char* name, Int64 "
+    printf("static void %s__setMemberNamed(%s self, const char* name, "
+           "Int64 "
            "value) {\n",
         type->name, type->name);
     foreach (ASTVar*, var, type->body->locals) // if (var->used) //
         if (var->typeSpec->typeType >= TYBool
             && var->typeSpec->typeType <= TYReal64)
-            printf("    if (CString_equals(name, \"%s\"))  {self->%s = *(%s*) "
+            printf("    if (CString_equals(name, \"%s\"))  {self->%s = "
+                   "*(%s*) "
                    "&value;return;}\n",
                 var->name, var->name, ASTTypeSpec_cname(var->typeSpec));
     printf("}\n");
 }
 
-// Generates some per-type functions that write out meta info of the type to be
-// used for reflection, serialization, etc.
+// Generates some per-type functions that write out meta info of the
+// type to be used for reflection, serialization, etc.
 void ASTType_genTypeInfoDecls(ASTType* type) {
     if (!type->analysed || type->isDeclare) return;
 
@@ -1630,8 +1588,8 @@ void ASTType_genTypeInfoDecls(ASTType* type) {
 }
 
 void ASTType_genTypeInfoDefs(ASTType* type) {
-    // printf("static const char* const %s__memberNames[] = {\n", type->name);
-    // foreachn(ASTVar*, var, varn, type->body->locals)
+    // printf("static const char* const %s__memberNames[] = {\n",
+    // type->name); foreachn(ASTVar*, var, varn, type->body->locals)
     // {
     //     if (! var) continue;
     //     printf("\"%s\",\n", var->name);

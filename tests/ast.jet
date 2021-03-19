@@ -1,20 +1,38 @@
 enum ASTTypeTypes
-unresolved = 0
+    unresolved = 0
 end
+
 enum ASTCollectionTypes
-none = 0
+    none = 0
 end
+
 enum ASTTokenKinds
-unknown = 0
-newline
-oneSpace
-keywordFor
-keywordIf
-number
-string
-identifier
-resolvedIdentifier
+    unknown = 0
+    newline
+    oneSpace
+    keywordFor
+    keywordIf
+    number
+    string
+    identifier
+    resolvedIdentifier
 end
+
+var e  = ASTTokenKinds.string
+
+~ e = .newline
+
+~ func f(xyz Number, kind ASTTokenKinds)
+~  ...
+~ end
+~ func f(xyz Number, n2 Number)
+~  ...
+~ end
+
+
+~ f(5, kind=.newline)
+~ f(6, n2=8)
+
 declare type ASTImport
     var importFile = ""
     var aliasOffset = 0
@@ -78,7 +96,7 @@ declare type ASTExpr
     var rassoc = no
     var kind = ASTTokenKinds.unknown
     var left ASTExpr = nil
-    var func ASTFunc = nil
+    var ffunc ASTFunc = nil
     var vvar ASTVar = nil
     var body ASTScope = nil
     var right ASTExpr = nil
@@ -143,4 +161,18 @@ declare type ASTModule
     var scope ASTScope = nil
     var name = ""
     var moduleName = ""
+end
+
+type Koi
+var g = 89
+end
+
+type Nih
+var m = 6
+var mm = Koi()
+end
+
+function start()
+    var x = Nih()
+    print("$x.mm.g $x.mm.g ui $x.mm.g")
 end

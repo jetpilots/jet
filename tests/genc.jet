@@ -4,7 +4,6 @@
 
 
 func ASTImportGenc(import ASTImport, level Integer)
-{
     strTrIp(import.importFile, '.', '', 0)
     print("\n~include \"%s.h\"\n", import.importFile)
     if import.hasAlias)
@@ -20,7 +19,6 @@ end
 
 
 func ASTTypeSpecGenc(typeSpec ASTTypeSpec, level Integer, isconst YesOrNo)
-{
     if isconst then print("const ")
     ~ TODO: actually this depends on the collectionType. In general
     ~ Array is the default, but in other cases it may be SArray, Array64,
@@ -68,11 +66,10 @@ func generate(
 
 func generate(var ASTVar, level Integer, isconst YesOrNo)
     ~ for C the variables go at the top of the block, without init
-    print("$space{level}")
+    print($"$space{level}")
     if var.typeSpec then generate(var.typeSpec, level=level+lStep, isconst)
-    print(" $var.name")
+    print($" $var.name")
 end
-
 
 ~ Functions like ArrayAnyFilter, ArrayCountFilter etc.
 ~ are macros and don't out = a value but may set one. For these
@@ -80,16 +77,21 @@ end
 ~ containing statement, and in place of the original call you
 ~ should place a temporary holding the value that would have been
 ~ "returned".
-func YesOrNo mustPromote(const char* name)
-{
+func mustPromote(name CString) ans Bool
     ~ TODO: at some point these should go into a dict or trie or MPH
     ~ whatever
-    if not strcmp(name, "ArrayAnyFilter")) out = true
-    if not strcmp(name, "ArrayAllFilter")) out = true
-    if not strcmp(name, "ArrayCountFilter")) out = true
-    if not strcmp(name, "ArrayWriteFilter")) out = true
-    if not strcmp(name, "StrsPrintFilter")) out = true
-    out = no
+    ~ if not strcmp(name, "ArrayAnyFilter")) then out = yes
+    ~ if not strcmp(name, "ArrayAllFilter")) then out = yes
+    ~ if not strcmp(name, "ArrayCountFilter")) then out = yes
+    ~ if not strcmp(name, "ArrayWriteFilter")) then out = yes
+    ~ if not strcmp(name, "StrsPrintFilter")) then out = yes
+    ~ out = no
+    ans = name in [
+        "ArrayAnyFilter",
+        "ArrayAllFilter",
+        "ArrayCountFilter",
+        "ArrayWriteFilter",
+        "StrsPrintFilter"]
 end
 
 
@@ -126,9 +128,9 @@ func genPrintVars(expr ASTExpr, level Integer)
     case .identifierResolved, .varAssign:
         if expr.var.visited) break
         print("%.*sprintf(\"    %s = %s\\n\", %s)\n", level, spaces,
-            expr.var.name, TypeTypeFormat(expr.typeType, true),
+            expr.var.name, typeTypeFormat(expr.typeType, yes),
             expr.var.name)
-        expr.var.visited = true
+        expr.var.visited = yes
         break
 
     case .period:
@@ -139,7 +141,7 @@ func genPrintVars(expr ASTExpr, level Integer)
         ~            print("%.*sprintf(\"    %s = %s\\n\", %s)\n", level,
         ~            spaces,
         ~                   expr.var.name, TypeTypeFormat(e.typeType,
-        ~                   true), expr.var.name)
+        ~                   yes), expr.var.name)
         ~        end
         break
 
@@ -236,7 +238,7 @@ func lowerElementalOps(scope ASTScope)
 
         if not stmt.elemental) then skip
 
-        ~ wrap it in an empty block (or use if true)
+        ~ wrap it in an empty block (or use if yes)
         var ifblk = ASTExpr() with {
             .kind = .keywordIf
             .left = ASTExpr() with {
@@ -413,7 +415,7 @@ func generate(scope ASTScope, level Integer)
             Lprof[$lineIndex] += (LprofTmp-LprofLast)/100;
             LprofLast = LprofTmp;")
         end
-        generate(stmt, level, true, no, no)
+        generate(stmt, level, yes, no, no)
         if not isCtrlExpr(stmt) and stmt.kind != .keywordReturn)
             print("")
         else
@@ -547,7 +549,7 @@ func generate(tType ASTType, level Integer)
         if not stmt or stmt.kind != .varAssign or not stmt.var.init then skip
         var ll = level + lStep
         print('$spaces@ll$$name$ = ')
-        generate(stmt.var.init, 0, true, no, no)
+        generate(stmt.var.init, 0, yes, no, no)
 
         if throws(stmt.var.init)
             print("    if Err == ERRORTRACE) out = missing;")
@@ -675,7 +677,7 @@ generate(fFunc ASTFunc, level Integer)
     print(" %s(", fFunc.selector)
     fpForeachn(ASTVar*, arg, args, fFunc.args)
     {
-        generate(arg, level, true)
+        generate(arg, level, yes)
         print(args.next ? ", " : "")
     end
 
@@ -723,7 +725,7 @@ func generateHeader(fFunc ASTFunc, level Integer)
     print(" %s(", fFunc.selector)
     fpForeachn(ASTVar*, arg, args, fFunc.args)
     {
-        generate(arg, level, true)
+        generate(arg, level, yes)
         print(args.next ? ", " : "")
     end
     print("\n~ifdef DEBUG\n    %c const char* callsite "
@@ -807,13 +809,13 @@ func generate(
             print("New")
         print("(")
 
-        if expr.left) generate(expr.left, 0, no, true, escStrings)
+        if expr.left) generate(expr.left, 0, no, yes, escStrings)
 
         if not expr.fFunc.isDeclare) {
             print("\n~ifdef DEBUG\n"
                    "      %c \"./\" THISFILE \":%d:%d:\\e[0m ",
                 expr.left ? ',' : ' ', expr.line, expr.col)
-            gen(expr, 0, no, true)
+            gen(expr, 0, no, yes)
             print("\"\n"
                    "~endif\n        ")
         end
@@ -1023,7 +1025,7 @@ func generate(
         ~ ASTExpr (to keep location). Send it to ASTVar::gen.
         if expr.var.init != nil and expr.var.used
             print("$expr.var.name = ")
-            generate(expr.var.init, 0, true, inFuncArgs, escStrings)
+            generate(expr.var.init, 0, yes, inFuncArgs, escStrings)
         end
         break
 
@@ -1046,7 +1048,7 @@ func generate(
         if expr.kind == .keywordFor)
             print("FOR(")
         else
-            print("%s (", repr(expr.kind, true))
+            print("%s (", repr(expr.kind, yes))
         if expr.kind == .keywordFor) expr.left.kind = .opComma
         if expr.left)
             generate(expr.left, 0, spacing, inFuncArgs, escStrings)
@@ -1093,7 +1095,7 @@ func generate(
                "\e[36m./%%s:%d:%d:\e[0m\\n    "
                "%%s\\n\\n\", THISFILE, \"",
             level + lStep, spaces, expr.line, expr.col + 6)
-        gen(checkExpr, 0, spacing, true)
+        gen(checkExpr, 0, spacing, yes)
         print("\")\n")
         print("~ifdef DEBUG\n%.*sprintf(\"\e[90mHere's some "
                "help:\e[0m\\n\")\n",
@@ -1117,14 +1119,14 @@ func generate(
                     or not lhsExpr.var.visited) {
                     print(
                         "%.*s%s", level + lStep, spaces, "print(\"    %s = ")
-                    print("%s", TypeTypeFormat(lhsExpr.typeType, true))
+                    print("%s", TypeTypeFormat(lhsExpr.typeType, yes))
                     print("%s", "\\n\", \"")
-                    gen(lhsExpr, 0, spacing, true)
+                    gen(lhsExpr, 0, spacing, yes)
                     print("%s", "\", Lhs)\n")
                 end
                 ~ checks can't have .varAssign inside them
                 ~ if )
-                ~     lhsExpr.var.visited = true
+                ~     lhsExpr.var.visited = yes
             end
         end
         if rhsExpr.collectionType == C.none ~
@@ -1134,9 +1136,9 @@ func generate(
             if rhsExpr.kind != .identifierResolved
                 or not rhsExpr.var.visited) {
                 print("%.*s%s", level + lStep, spaces, "print(\"    %s = ")
-                print("%s", TypeTypeFormat(rhsExpr.typeType, true))
+                print("%s", TypeTypeFormat(rhsExpr.typeType, yes))
                 print("%s", "\\n\", \"")
-                gen(rhsExpr, 0, spacing, true)
+                gen(rhsExpr, 0, spacing, yes)
                 print("%s", "\", Rhs)\n")
             end
         end
@@ -1305,3 +1307,61 @@ func genTests(module ASTModule, level Integer)
         print("    test%s()\n", tTest.name)
     print("end")
 end
+
+
+
+type Y
+    var z = 9
+end
+
+type X
+    var y = Y()
+end
+
+func start()
+    var name = "SP"
+    var x = X()
+    print("Hello $x.y.z")
+end
+
+...
+
+int main() {
+    char* name = "SP";
+    printf("Hello %s", name);
+}
+
+
+
+
+
+print("static void* $type.name__memberNamed($type.name self, const char* name) {")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

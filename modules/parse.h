@@ -763,6 +763,15 @@ static ASTScope* parseScope(Parser* parser, ASTScope* parent, bool isTypeBody) {
             Token_advance(&parser->token);
             break;
 
+        case tkKeyword_function:
+        case tkKeyword_type:
+        case tkKeyword_enum:
+        case tkKeyword_test:
+            // in this case, it is probably an error propagating all through the
+            // file because an early func or type missed an end. How about we
+            // stop parsing the scope here.
+            goto exitloop;
+
         case tkLineComment:
             if (parser->generateCommentExprs) {
                 expr = ASTExpr_fromToken(&parser->token);
@@ -1156,9 +1165,9 @@ static PtrList* parseModule(Parser* parser) {
     List(ASTType)** types = &root->types;
     List(ASTTest)** tests = &root->tests;
     List(ASTEnum)** enums = &root->enums;
-    ASTScope* gscope = &root->scope;
-    List(ASTVar)** gvars = &root->scope.locals; // globals
-    List(ASTExpr)** gexprs = &root->scope.stmts; // globals
+    ASTScope* gscope = root->scope;
+    List(ASTVar)** gvars = &gscope->locals; // globals
+    List(ASTExpr)** gexprs = &gscope->stmts; // globals
 
     // for_to(i, countof(vnoyes))
     // gvars = PtrList_append(gvars, expr_const_empty);
@@ -1376,10 +1385,11 @@ void analyseModule(Parser* parser, ASTModule* mod) {
             analyseType(parser, type, mod);
         foreach (ASTType*, en, mod->enums)
             analyseType(parser, en, mod);
-        foreach (ASTExpr*, stmt, mod->scope.stmts)
-            analyseExpr(parser, stmt, mod, false);
-        foreach (ASTVar*, var, mod->scope.locals)
-            if (var->init) analyseExpr(parser, var->init, mod, false);
+        foreach (ASTExpr*, stmt, mod->scope->stmts)
+            analyseExpr(parser, stmt, mod->scope, mod, false);
+        foreach (ASTVar*, var, mod->scope->locals)
+            if (var->init)
+                analyseExpr(parser, var->init, mod->scope, mod, false);
     }
     // Check each type for cycles in inheritance graph.
     // Actually if there is no inheritance and composition is favoured, you

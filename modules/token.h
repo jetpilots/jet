@@ -154,11 +154,12 @@ static char Token_peekCharAfter(Token* token) {
     return *s;
 }
 
-#define Token_compareKeyword(tok)                                              \
+#define Token_compareKeywordAlt(tok, actual)                                   \
     if (sizeof(#tok) - 1 == l && !strncasecmp(#tok, s, l)) {                   \
-        token->kind = tkKeyword_##tok;                                         \
+        token->kind = tkKeyword_##actual;                                      \
         return;                                                                \
     }
+#define Token_compareKeyword(tok) Token_compareKeywordAlt(tok, tok)
 
 // #define Token_compareKeyword(tok) Token_compareKeywordWith(tok,tok)
 
@@ -183,6 +184,7 @@ static void Token_tryKeywordMatch(Token* token) {
     Token_compareKeyword(match)
     Token_compareKeyword(case)
     Token_compareKeyword(function)
+    Token_compareKeywordAlt(func, function)
     Token_compareKeyword(declare)
     Token_compareKeyword(test)
     Token_compareKeyword(and)

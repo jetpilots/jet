@@ -13,7 +13,7 @@ type XYZ
     var retc = 2
 end
 
-let x = XYZ() # is not possible unless you give something for resa
+let x = XYZ() ~ is not possible unless you give something for resa
 let x = XYZ {
     .resa = ResoNix {
         .val = 2
@@ -46,7 +46,7 @@ func main()
     addSubView!(mainWindow, order = -1, relativeTo = nil)
     ~ let x = mainWindow!addSubView(order=-1, relativeTo=nil)
     ~ let x = mainWindow.addSubView(order=-1, relativeTo=nil)
-    addSubView!(mainWindow, zIndex = -1) # linter will add & if you forget
+    addSubView!(mainWindow, zIndex = -1) ~ linter will add & if you forget
     ~ v = st!strip().split(sep=' ').join(sep='$')
     st = join(split(strip(st), sep=' '), sep='$')
 
@@ -59,7 +59,7 @@ func main()
     let rs = nilreturner(67) or skip
     let rs as Button = nilreturner(67) or return
     let rs = nilreturner(67) or break
-    let rs = nilreturner(67) or throw # i.e return and throw to caller
+    let rs = nilreturner(67) or throw ~ i.e return and throw to caller
     rs[s] = nilreturner(67) or DefaultObject()
 
     let rs = nilreturner(67) or catch
@@ -75,10 +75,10 @@ end
 func Button:self.nilreturner(Int:h) -> ret:Button?
 func Button:self!nilreturner(Int:h) -> ret:Button?
     ~ return value can be set null (or unset) for objects. but caller must handle
-    if h < 6 ret = Button(dert = 690) # ASTExpr will return 2 objs here. so you can set them as cond and body
-    if h < 6 then ret = Button(dert=690) # linter will add 'then'.
+    if h < 6 ret = Button(dert = 690) ~ ASTExpr will return 2 objs here. so you can set them as cond and body
+    if h < 6 then ret = Button(dert=690) ~ linter will add 'then'.
 
-    if h < 6 then # linter will remove 'then' since the expr following it will be null.
+    if h < 6 then ~ linter will remove 'then' since the expr following it will be null.
         ret = Button(dert=690)
     end
 
@@ -88,13 +88,13 @@ func Button:self!nilreturner(Int:h) -> ret:Button?
 
     for i = 2:3
         ret[i] += i
-    end i # linter adds the var automatically as long as # of ends match, there is no error
+    end i ~ linter adds the var automatically as long as ~ of ends match, there is no error
 
     ~ Things should do exactly what they look like
-    arr[1:60] = random() # this evaluates rhs once and sets it to all
-    for i = 1:60 do arr[i] = random() # this evaluates rhs everytime
-    arr[:] = randoms([60]) # this is the best way to get 60 different rands
-    arr[:] = randoms(60) # this works also, returns 1D array obv
+    arr[1:60] = random() ~ this evaluates rhs once and sets it to all
+    for i = 1:60 do arr[i] = random() ~ this evaluates rhs everytime
+    arr[:] = randoms([60]) ~ this is the best way to get 60 different rands
+    arr[:] = randoms(60) ~ this works also, returns 1D array obv
 end
 
 func addSubView(v:View)
@@ -102,5 +102,5 @@ func addSubView(v:View)
 end
 
 func addSubView(mw:Window, order:Int, relativeTo:View?)
-    addSubView(relativeTo) # won't work, cant pass nullable to nonnull
+    addSubView(relativeTo) ~ won't work, cant pass nullable to nonnull
 end

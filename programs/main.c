@@ -285,7 +285,7 @@ typedef struct ASTFunc {
     ASTScope* body;
     List(ASTVar) * args;
     ASTTypeSpec* returnSpec;
-    char* selector;
+    char *selector, *prettySelector;
     struct {
         uint16_t line;
         struct {
@@ -340,7 +340,7 @@ typedef struct ASTModule {
     List(ASTTest) * tests;
     // List(ASTExpr) * exprs; // global exprs
     List(ASTType) * types;
-    ASTScope scope; // global scope contains vars + exprs
+    ASTScope scope[1]; // global scope contains vars + exprs
     // List(ASTVar) * vars; // global vars
     List(ASTImport) * imports;
     List(ASTType) * enums;
@@ -466,11 +466,47 @@ static ASTExpr* ASTExpr_fromToken(const Token* self) {
     exprsAllocHistogram[ret->kind]++;
 
     switch (ret->kind) {
+    case tkKeyword_cheater:
+    case tkKeyword_for:
+    case tkKeyword_while:
+    case tkKeyword_if:
+    case tkKeyword_end:
+    case tkKeyword_enum:
+    case tkKeyword_match:
+    case tkKeyword_case:
+    case tkKeyword_function:
+    case tkKeyword_declare:
+    case tkKeyword_test:
+    case tkKeyword_check:
+    case tkKeyword_not:
+    case tkKeyword_notin:
+    case tkKeyword_and:
+    case tkKeyword_yes:
+    case tkKeyword_no:
+    case tkKeyword_nil:
+    case tkKeyword_or:
+    case tkKeyword_in:
+    case tkKeyword_do:
+    case tkKeyword_then:
+    case tkKeyword_as:
+    case tkKeyword_else:
+    case tkKeyword_elif:
+    case tkKeyword_type:
+    case tkKeyword_return:
+    case tkKeyword_result:
+    case tkKeyword_extends:
+    case tkKeyword_var:
+    case tkKeyword_let:
+    case tkKeyword_import:
     case tkIdentifier:
+    case tkArgumentLabel:
+    case tkFunctionCall:
+    case tkSubscript:
+    case tkObjectInit:
+    case tkNumber:
     case tkString:
     case tkRawString:
     case tkRegexp:
-    case tkNumber:
     case tkMultiDotNumber:
     case tkLineComment: // Comments go in the AST like regular stmts
         ret->string = self->pos;
@@ -789,6 +825,7 @@ typedef struct Parser {
     char* capsMangledName; // MOD_SUBMOD_XYZ_MYCODE
     char *data, *end;
     char* noext;
+    PtrArray orig; // holds lines of original source for error reports
 
     Token token; // current
     IssueMgr issues;
@@ -834,6 +871,31 @@ static void Parser_fini(Parser* parser) {
 }
 #define FILE_SIZE_MAX 1 << 24
 
+void recordNewlines(Parser* parser) {
+    // push a new entry to get hold of the current source line later
+    // this is the pointer in the original (unmodified) buffer
+    char* cptr = parser->orig.ref[0];
+    char* cend = cptr + (parser->end - parser->data);
+    for (char* c = cptr; c < cend; c++) {
+        if (*c == '\n') {
+            *c = 0;
+            // while (*cptr) {
+            //     while (*cptr != '\n')
+            //        cptr++ ;
+            //     *cptr = 0; // trample the newline (in the original buffer)}
+            // }
+            // if (parser->token.line - 1 != parser->orig.used)
+            //     unreachable("mismatched line: adding %d (at pos %d)",
+            //         parser->token.line, parser->orig.used);
+
+            // add it anyway
+            PtrArray_push(&parser->orig, c + 1);
+        }
+    }
+    // for_to(i, parser->orig.used)
+    //     printf("%4d: %s\n", i + 1, parser->orig.ref[i]);
+    // abort();
+}
 static Parser* Parser_fromFile(char* filename, bool skipws) {
 
     size_t flen = CString_length(filename);
@@ -886,6 +948,9 @@ static Parser* Parser_fromFile(char* filename, bool skipws) {
         ret->mangledName = CString_tr(ret->noext, '/', '_');
         ret->capsMangledName = CString_upper(ret->mangledName);
         ret->end = ret->data + size;
+        ret->orig = (PtrArray) {};
+        PtrArray_push(&ret->orig, malloc(size));
+        memcpy(ret->orig.ref[0], ret->data, size);
         ret->token.pos = ret->data;
         ret->token.skipWhiteSpace = skipws;
         ret->token.mergeArrayDims = false;
@@ -901,8 +966,10 @@ static Parser* Parser_fromFile(char* filename, bool skipws) {
     }
 
     fclose(file);
+    recordNewlines(ret);
     return ret;
 }
+static bool Parser_matches(Parser* parser, TokenKind expected);
 
 #include "errors.h"
 #include "stats.h"
@@ -967,6 +1034,7 @@ static void getSelector(ASTFunc* func) {
         char buf[128];
         buf[127] = 0;
         char* bufp = buf;
+
         ASTVar* arg1 = (ASTVar*)func->args->item;
         wrote = snprintf(bufp, remain, "%s_", ASTTypeSpec_name(arg1->typeSpec));
         selLen += wrote;
@@ -988,8 +1056,36 @@ static void getSelector(ASTFunc* func) {
         func->selector = pstrndup(buf, selLen + 1);
         // func->selector = PoolB_alloc(strPool, selLen + 1);
         // memcpy(func->selector, buf, selLen + 1);
+
+        bufp = buf;
+
+        wrote = snprintf(bufp, remain, "%s(", func->name);
+        selLen += wrote;
+        bufp += wrote;
+        remain -= wrote;
+
+        //  arg1 = (ASTVar*)func->args->item;
+        wrote = snprintf(bufp, remain, "%s", ASTTypeSpec_name(arg1->typeSpec));
+        selLen += wrote;
+        bufp += wrote;
+        remain -= wrote;
+
+        foreach (ASTVar*, arg, func->args->next) {
+            wrote = snprintf(bufp, remain, ", %s", arg->name);
+            selLen += wrote;
+            bufp += wrote;
+            remain -= wrote;
+        }
+        selLen += snprintf(bufp, 2, ")");
+        func->prettySelector = pstrndup(buf, selLen + 1);
+
     } else {
         func->selector = func->name;
+        char buf[128];
+        buf[127] = 0;
+        int n = snprintf(buf, 127, "%s()", func->name);
+        func->prettySelector = pstrndup(buf, n + 1);
+        ;
     }
 }
 
