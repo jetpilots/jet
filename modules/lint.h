@@ -1,8 +1,7 @@
 
 static void ASTImport_lint(ASTImport* import, int level) {
-    printf("import %s%s%s%s\n", import->isPackage ? "@" : "",
-        import->importFile, import->hasAlias ? " as " : "",
-        import->hasAlias ? import->importFile + import->aliasOffset : "");
+    printf("import %s%s%s\n", import->name, import->alias ? " as " : "",
+        import->alias ? import->alias : "");
 }
 
 static void ASTTypeSpec_lint(ASTTypeSpec* spec, int level) {
@@ -59,7 +58,7 @@ static void ASTVar_lint(ASTVar* var, int level) {
         var->name);
     TokenKind kind = var->init ? var->init->kind : tkUnknown;
 
-    bool genType = false; // set it here to override
+    bool genType = true; // set it here to override
     // if ((var->init and var->init->kind == tkFunctionCall
     //         and !strcmp(var->init->string, var->typeSpec->name))) {
     // } else if ((var->init and var->init->kind == tkNumber
@@ -138,9 +137,10 @@ static void ASTScope_lint(ASTScope* scope, int level) {
             if (expr->body)
                 ASTScope_lint(
                     expr->body, level + STEP); //, true, escapeStrings);
-//            const char* tok = TokenKind_repr(expr->kind, false);
-//            if (expr->kind == tkKeyword_else || expr->kind == tkKeyword_elif)
-//                tok = "if";
+            //            const char* tok = TokenKind_repr(expr->kind, false);
+            //            if (expr->kind == tkKeyword_else || expr->kind ==
+            //            tkKeyword_elif)
+            //                tok = "if";
             if (expr->kind == tkKeyword_if || expr->kind == tkKeyword_elif)
                 if (exprList->next) {
                     ASTExpr* next = exprList->next->item;
@@ -405,6 +405,14 @@ static void ASTModule_lint(ASTModule* module) {
     foreach (ASTImport*, import, module->imports)
         ASTImport_lint(import, 0);
 
+    puts("");
+
+    foreach (ASTVar*, var, module->scope->locals) {
+        ASTVar_lint(var, 0);
+        puts("");
+    } // foreach (ASTVar*, var, mod->scope->locals)
+    //     if (var->init)
+    //         analyseExpr(parser, var->init, mod->scope, mod, false);
     puts("");
 
     foreach (ASTType*, type, module->types)

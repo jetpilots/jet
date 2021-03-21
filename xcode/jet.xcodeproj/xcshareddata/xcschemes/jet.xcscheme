@@ -53,12 +53,12 @@
       </BuildableProductRunnable>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "/Users/sushant/Resilio/jetpilots/jet/tests/createTurbFGM.jet"
+            argument = "/Users/sushant/Resilio/jetpilots/jet/tests/ast.jet"
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "l"
-            isEnabled = "YES">
+            isEnabled = "NO">
          </CommandLineArgument>
       </CommandLineArguments>
       <AdditionalOptions>

@@ -34,7 +34,7 @@ var e  = ASTTokenKinds.string
 ~ f(6, n2=8)
 
 declare type ASTImport
-    var importFile = ""
+    var name = ""
     var aliasOffset = 0
     var isPackage = no
     var hasAlias = no
@@ -174,5 +174,5 @@ end
 
 function start()
     var x = Nih()
-    print("$x.mm.g $x.mm.g ui $x.mm.g")
+    print("$X.mm.g $x.MM.g ui $x.mm.G")
 end

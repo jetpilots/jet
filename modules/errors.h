@@ -19,8 +19,9 @@ static const char* const carets
     = "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
       "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^";
 #define _PRLINE(line)                                                          \
-    eprintf("\e[0;2m%4d | %s\e[0m\n", line + offs,                             \
-        parser->orig.ref[line + offs - 1]);
+    if (line > 0 && line <= parser->orig.used)                                 \
+        eprintf("\e[0;2m%4d | %s\e[0m\n", line + offs,                         \
+            parser->orig.ref[line + offs - 1]);
 void _PRREDLINE(
     Parser* parser, int line, int col, int len, int offs, char* msg) {
     char* c = parser->orig.ref[line + offs - 1];
@@ -29,7 +30,7 @@ void _PRREDLINE(
     eprintf("\e[31m%.*s\e[0m", len, c + col - 1);
     eprintf("%s\n", c + col + len - 1);
     eprintf(
-        "\e[31;1m     > %.*s%.*s %s\e[0m\n", col - 1, spaces, len, carets, msg);
+        "\e[31;1m       %.*s%.*s %s\e[0m\n", col - 1, spaces, len, carets, msg);
 }
 void Parser__printSourceLinesWithOffset(
     Parser* parser, int line, int col, int len, int offs, char* msg) {
@@ -734,7 +735,7 @@ static void Parser_errorArgTypeMismatch(
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorUnexpectedToken(Parser* parser) {
+static void Parser_errorUnexpectedToken(Parser* parser, char* msg) {
     eprintf("\n_________________________________" //
             "____________________________________ \e[31;1m#%d\e[0m\n" //
             "\e[31;1merror:\e[0;1m unexpected token \e[34;1m'%.*s'\e[0;1m\n" //
@@ -748,7 +749,7 @@ static void Parser_errorUnexpectedToken(Parser* parser) {
     );
 
     Parser__printSourceLines(parser, parser->token.line, parser->token.col,
-        parser->token.matchlen, "unexpected token");
+        parser->token.matchlen, msg);
 
     // when you have an unexpected token on one line, the rest are also going to
     // be unexpected. so skip to the next newline.

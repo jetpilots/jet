@@ -93,7 +93,7 @@ void ASTType_ptr2off(ASTType* type) {
 void ASTImport_ptr2off(ASTImport* import) {
     // ASTScope_ptr2off(type->body);
     // ptr2off(&type->body);
-    ptr2off_s(&import->importFile);
+    ptr2off_s(&import->name);
     // TODO: type super?
 }
 

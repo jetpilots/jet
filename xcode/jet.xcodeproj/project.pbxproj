@@ -113,7 +113,7 @@
 		85E7D84425F26120002D66CD /* Date.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Date.h; sourceTree = "<group>"; };
 		85E7D84525F26120002D66CD /* Encoding.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Encoding.h; sourceTree = "<group>"; };
 		85E7D84625F26120002D66CD /* Regex.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Regex.h; sourceTree = "<group>"; };
-		85E7D84725F26120002D66CD /* JString.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JString.h; sourceTree = "<group>"; };
+		85E7D84725F26120002D66CD /* String.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = String.h; sourceTree = "<group>"; };
 		85E7D84825F26120002D66CD /* CString.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CString.h; sourceTree = "<group>"; };
 		85E7D84925F26120002D66CD /* List.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = List.h; sourceTree = "<group>"; };
 		85E7D84A25F26120002D66CD /* Dict.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Dict.h; sourceTree = "<group>"; };
@@ -380,7 +380,7 @@
 				85E7D84425F26120002D66CD /* Date.h */,
 				85E7D84525F26120002D66CD /* Encoding.h */,
 				85E7D84625F26120002D66CD /* Regex.h */,
-				85E7D84725F26120002D66CD /* JString.h */,
+				85E7D84725F26120002D66CD /* String.h */,
 				85E7D84825F26120002D66CD /* CString.h */,
 				85E7D84925F26120002D66CD /* List.h */,
 				85E7D84A25F26120002D66CD /* Dict.h */,

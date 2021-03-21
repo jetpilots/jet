@@ -1,9 +1,50 @@
-func start(args Strs) as Number
-    let x = "The quick brown fox with 32 teeth."
+enum ASTKind
+    expr
+    vari
+    funca
+    typeo
+end
+func start()
+    let x = "`^Fat`"
     match x
-    with `^Fat`
-    else `teeth.$`
-    else `quick (\w+) fox`
-        print()
-    end match
+    case "`^Fat`"
+            print("s")
+
+    case "`teeth.`"
+        print("d")
+    case "`quick (\w+) fox`"
+        print("j")
+    end
+    let o = no
+
+    var isVar = no
+    var isLet = yes
+    var isArg = no
+
+    match yes
+    case isVar
+    print("asd")
+    case isLet
+    print("obg")
+    case isArg
+    end
+
+    var m = ASTKind.expr
+    match m
+    case .expr
+    print("asdsdddf")
+
+    case .vari, .funca
+    case .funca
+    case .typeo
+    end
+
+    let me = 32
+    match me
+    case 3, 2, 32
+    print("asd3432")
+
+    case 1, 9
+    case 33
+    end
 end

@@ -102,13 +102,16 @@ static void ASTExpr_prepareInterp(
         char endchar = *varend; // store the char in a temp
         *varend = 0;
         ASTVar* var = ASTScope_getVar(scope, varname);
+        if (!var)
+            unreachable("undefined var found: %s", varname);
+        else
+            strcpy(varname, var->name); // fix case
         *varend = endchar;
         // ^ TODO: this should be getQualVar which looks up a.b.c and
         // returns c
 
         // You should have checked for all var refs to be valid in the analysis
         // phase!
-        if (!var) unreachable("undefined var found: %s", varname);
 
         ASTExpr* ex = NEW(ASTExpr);
         ASTExpr* exdot = NULL;
@@ -143,6 +146,7 @@ static void ASTExpr_prepareInterp(
                         .kind = tkIdentifier });
             } else {
                 var->used = true;
+                strcpy(varname, var->name); // fix case
                 exdot = NEW(ASTExpr);
                 exdot->kind = tkPeriod;
                 // exdot->line=line,exdot->col=ex->col+varend-varname;
@@ -243,12 +247,16 @@ static void ASTExpr_setEnumBase(
 
 ///////////////////////////////////////////////////////////////////////////
 static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
-    ASTModule* mod, bool inFuncArgs) {
+    ASTModule* mod, ASTFunc* ownerFunc, bool inFuncArgs) {
     switch (expr->kind) {
 
         // -------------------------------------------------- //
     case tkFunctionCallResolved: {
-
+        if (ownerFunc) { // TODO: ownerFunc should not be NULL, even top-level
+                         // and type implicit ctors should have a func created
+            PtrList_shift(&ownerFunc->callees, expr->func);
+            PtrList_shift(&expr->func->callers, ownerFunc);
+        }
         if (ASTExpr_countCommaList(expr->left) != expr->func->argCount)
             Parser_errorArgsCountMismatch(parser, expr);
         expr->typeType = expr->func->returnSpec
@@ -312,7 +320,8 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
     case tkFunctionCall: {
         char buf[128] = {};
         char* bufp = buf;
-        if (expr->left) analyseExpr(parser, expr->left, scope, mod, true);
+        if (expr->left)
+            analyseExpr(parser, expr->left, scope, mod, ownerFunc, true);
 
         // TODO: need a function to make and return selector
         ASTExpr* arg1 = expr->left;
@@ -331,7 +340,7 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
             expr->kind = tkFunctionCallResolved;
             expr->func = found;
             ASTFunc_analyse(parser, found, mod);
-            analyseExpr(parser, expr, scope, mod, inFuncArgs);
+            analyseExpr(parser, expr, scope, mod, ownerFunc, inFuncArgs);
             return;
         }
         if (!strncmp(buf, "Void_", 5))
@@ -408,7 +417,7 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
             if (typeSpec->typeType == TYObject && typeSpec->type->isEnum)
                 ASTExpr_setEnumBase(parser, init, typeSpec, mod);
 
-            analyseExpr(parser, init, scope, mod, false);
+            analyseExpr(parser, init, scope, mod, ownerFunc, false);
 
             expr->typeType = init->typeType;
             expr->collectionType = init->collectionType;
@@ -483,7 +492,7 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
     case tkKeyword_match: {
         ASTExpr* cond = expr->left;
         if (cond) {
-            analyseExpr(parser, cond, scope, mod, false);
+            analyseExpr(parser, cond, scope, mod, ownerFunc, false);
             ASTTypeSpec* tsp = ASTExpr_getObjectTypeSpec(cond);
             if (expr->body && tsp && tsp->type
                 && tsp->type
@@ -495,12 +504,12 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
         }
 
         foreach (ASTExpr*, stmt, expr->body->stmts) {
-            analyseExpr(parser, stmt, expr->body, mod, inFuncArgs);
+            analyseExpr(parser, stmt, expr->body, mod, ownerFunc, inFuncArgs);
             if (cond && stmt->kind == tkKeyword_case && stmt->left
                 && (stmt->left->typeType != cond->typeType
                     || (cond->typeType == TYObject
-                        && ASTExpr_getObjectType(stmt->left)
-                            != ASTExpr_getObjectType(cond))))
+                        && ASTExpr_getTypeOrEnum(stmt->left)
+                            != ASTExpr_getTypeOrEnum(cond))))
                 Parser_errorTypeMismatch(parser, cond, stmt->left);
         }
     } break;
@@ -510,9 +519,10 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
     case tkKeyword_elif:
     case tkKeyword_while:
     case tkKeyword_case: {
-        if (expr->left) analyseExpr(parser, expr->left, scope, mod, false);
+        if (expr->left)
+            analyseExpr(parser, expr->left, scope, mod, ownerFunc, false);
         foreach (ASTExpr*, stmt, expr->body->stmts)
-            analyseExpr(parser, stmt, expr->body, mod, inFuncArgs);
+            analyseExpr(parser, stmt, expr->body, mod, ownerFunc, inFuncArgs);
     } break;
 
         // -------------------------------------------------- //
@@ -524,7 +534,8 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
     }
         // fallthru
     case tkSubscript:
-        if (expr->left) analyseExpr(parser, expr->left, scope, mod, inFuncArgs);
+        if (expr->left)
+            analyseExpr(parser, expr->left, scope, mod, ownerFunc, inFuncArgs);
         if (expr->kind == tkSubscriptResolved) {
             expr->typeType = expr->var->typeSpec->typeType;
             expr->collectionType = expr->var->typeSpec->collectionType;
@@ -589,7 +600,7 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
     case tkArrayOpen:
         expr->collectionType = CTYArray;
         if (expr->right) {
-            analyseExpr(parser, expr->right, scope, mod, inFuncArgs);
+            analyseExpr(parser, expr->right, scope, mod, ownerFunc, inFuncArgs);
             expr->typeType = expr->right->typeType;
             expr->collectionType
                 = expr->right->kind == tkOpSemiColon ? CTYTensor : CTYArray;
@@ -629,7 +640,7 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
 
     case tkBraceOpen:
         if (expr->right) {
-            analyseExpr(parser, expr->right, scope, mod, true);
+            analyseExpr(parser, expr->right, scope, mod, ownerFunc, true);
             // TODO: you told analyseExpr to not care about what's on the LHS of
             // tkOpAssign exprs. Now you handle it yourself. Ensure that they're
             // all of the same type and set that type to the expr somehow.
@@ -672,7 +683,7 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
 
         assert(expr->left->kind == tkIdentifierResolved
             || expr->left->kind == tkIdentifier);
-        analyseExpr(parser, expr->left, scope, mod, inFuncArgs);
+        analyseExpr(parser, expr->left, scope, mod, ownerFunc, inFuncArgs);
 
         // The name/type resolution of expr->left may have failed.
         if (!expr->left->typeType) break;
@@ -692,7 +703,8 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
         }
         //  or member->kind == tkFunctionCall);
         if (member->kind != tkIdentifier)
-            analyseExpr(parser, member->left, scope, mod, inFuncArgs);
+            analyseExpr(
+                parser, member->left, scope, mod, ownerFunc, inFuncArgs);
 
         // the left must be a resolved ident
         if (expr->left->kind != tkIdentifierResolved) break;
@@ -715,10 +727,10 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
             expr->typeType = TYErrorType;
             break;
         }
-        analyseExpr(parser, member, scope, mod, inFuncArgs);
+        analyseExpr(parser, member, scope, mod, ownerFunc, inFuncArgs);
 
         if (expr->right->kind == tkPeriod)
-            analyseExpr(parser, expr->right, scope, mod, inFuncArgs);
+            analyseExpr(parser, expr->right, scope, mod, ownerFunc, inFuncArgs);
 
         expr->typeType = type->isEnum ? TYObject : expr->right->typeType;
         expr->collectionType = expr->right->collectionType;
@@ -740,10 +752,12 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
     default:
         if (expr->prec) {
             if (!expr->unary && expr->left)
-                analyseExpr(parser, expr->left, scope, mod, inFuncArgs);
+                analyseExpr(
+                    parser, expr->left, scope, mod, ownerFunc, inFuncArgs);
             // some exprs like return can be used without any args
             if (expr->right)
-                analyseExpr(parser, expr->right, scope, mod, inFuncArgs);
+                analyseExpr(
+                    parser, expr->right, scope, mod, ownerFunc, inFuncArgs);
 
             if (expr->kind == tkKeyword_or && expr->left->typeType != TYBool) {
                 // Handle the 'or' keyword used to provide alternatives for
@@ -874,9 +888,13 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
                     && (expr->kind == tkOpAssign //
                         || expr->kind == tkOpEQ //
                         || expr->kind == tkKeyword_and //
-                        || expr->kind == tkKeyword_or))
+                        || expr->kind == tkKeyword_or
+                        || expr->kind == tkKeyword_not
+                        || expr->kind == tkKeyword_notin))
                     ;
-                else if (!TypeType_isnum(leftType)) {
+                else if (isArithOp(expr)
+                    && (!TypeType_isnum(leftType)
+                        || !TypeType_isnum(rightType))) {
                     // Arithmetic operators are only relevant for numeric
                     // types.
                     // if(  leftType==TYObject&&expr->left->)
@@ -929,7 +947,7 @@ static void analyseType(Parser* parser, ASTType* type, ASTModule* mod) {
     // nothing to do for declared/empty types etc. with no body
     if (type->body) //
         foreach (ASTExpr*, stmt, type->body->stmts)
-            analyseExpr(parser, stmt, type->body, mod, false);
+            analyseExpr(parser, stmt, type->body, mod, NULL, false);
 }
 static void ASTFunc_hashExprs(/* Parser* parser,  */ ASTFunc* func);
 
@@ -996,7 +1014,7 @@ static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod) {
 
     // Run the statement-level semantic pass on the function body.
     foreach (ASTExpr*, stmt, func->body->stmts)
-        analyseExpr(parser, stmt, func->body, mod, false);
+        analyseExpr(parser, stmt, func->body, mod, NULL, false);
 
     // Statement functions are written without an explicit return type.
     // Figure out the type (now that the body has been analyzed).
@@ -1035,7 +1053,7 @@ static void analyseTest(Parser* parser, ASTTest* test, ASTModule* mod) {
 
     // Run the statement-level semantic pass on the function body.
     foreach (ASTExpr*, stmt, test->body->stmts)
-        analyseExpr(parser, stmt, test->body, mod, false);
+        analyseExpr(parser, stmt, test->body, mod, NULL, false);
 
     // Do optimisations or ANY lowering only if there are no errors
     if (!parser->issues.errCount && parser->mode != PMLint) {

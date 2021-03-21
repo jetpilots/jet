@@ -9,6 +9,18 @@ static bool isSelfMutOp(ASTExpr* expr) {
         || expr->kind == tkOpAssign;
 }
 
+static bool isArithOp(ASTExpr* expr) {
+    return expr->kind == tkPlusEq //
+        || expr->kind == tkMinusEq //
+        || expr->kind == tkSlashEq //
+        || expr->kind == tkTimesEq //
+        || expr->kind == tkPowerEq //
+        || expr->kind == tkOpModEq //
+        || expr->kind == tkPlus || expr->kind == tkMinus
+        || expr->kind == tkSlash || expr->kind == tkTimes
+        || expr->kind == tkPower || expr->kind == tkOpMod;
+}
+
 // isSelfMutOp(expr as ASTExpr) := expr.kind in [
 //     .plusEq, .minusEq, .slashEq, .timesEq, .opModEq, .opAssign
 // ]

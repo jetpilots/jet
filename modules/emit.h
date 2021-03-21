@@ -4,18 +4,19 @@
 
 ///////////////////////////////////////////////////////////////////////////
 static void ASTImport_emit(ASTImport* import, int level) {
-    CString_tr_ip(import->importFile, '.', '_', 0);
-    printf("\n#include \"%s.h\"\n", import->importFile);
-    if (import->hasAlias)
-        printf("#define %s %s\n", import->importFile + import->aliasOffset,
-            import->importFile);
-    CString_tr_ip(import->importFile, '_', '.', 0);
+    CString_tr_ip(import->name, '.', '_', 0);
+    printf("\n#include \"%s.h\"\n", import->name);
+    if (import->alias)
+        printf("#define %s %s\n", import->alias,
+            import
+                ->name); // TODO: remove #defines! There could be a field of any
+                         // struct with the same name that will get clobbered
+    CString_tr_ip(import->name, '_', '.', 0);
 }
 
 ///////////////////////////////////////////////////////////////////////////
 static void ASTImport_undefc(ASTImport* import) {
-    if (import->hasAlias)
-        printf("#undef %s\n", import->importFile + import->aliasOffset);
+    if (import->alias) printf("#undef %s\n", import->alias);
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -625,19 +626,32 @@ static void ASTEnum_genh(ASTType* type, int level) {
         printf("    %s_%s,\n", name, var->name);
     printf("} %s;\n", name);
     ASTExpr* ex1 = type->body->stmts->item;
-    const char* datType = ASTExpr_typeName(ex1->right);
-    printf("monostatic %s %s__data[%d];\n", datType, name,
-        PtrList_count(type->body->locals));
+    const char* datType
+        = ex1->kind == tkOpAssign ? ASTExpr_typeName(ex1->right) : NULL;
+    if (datType)
+        printf("monostatic %s %s__data[%d];\n", datType, name,
+            PtrList_count(type->body->locals));
+    printf("monostatic const char* %s__fullnames[] ={\n", name);
+    foreach (ASTVar*, var, type->body->locals)
+        printf("    \"%s.%s\",\n", name, var->name);
+    puts("};");
     printf("monostatic const char* %s__names[] ={\n", name);
     foreach (ASTVar*, var, type->body->locals)
-        printf("    [%s_%s] = \"%s\",\n", name, var->name, var->name);
+        printf("    \".%s\",\n", var->name);
     puts("};");
+    // printf("monostatic const char* %s__names[%d];\n", name,
+    //     PtrList_count(type->body->locals));
 
     printf("monostatic void %s__init() {\n", name);
+    // foreach (ASTVar*, var, type->body->locals) {
+    //     printf("    %s__names[%s_%s] =  %s__fullnames[%s_%s] + %zu;\n", name,
+    //         name, var->name, name, name, var->name, strlen(name));
+    //     // puts("};");
+    // }
     foreach (ASTExpr*, stmt, type->body->stmts) {
-        // if (!stmt || stmt->kind != tkOpAssign || !stmt->var->init)
-        // //     //            or not stmt->var->used)
-        //     continue;
+        if (!stmt || stmt->kind != tkOpAssign) //|| !stmt->var->init)
+            // //     //            or not stmt->var->used)
+            continue;
         printf("%.*s%s__data[%s_%s] = ", level + STEP, spaces, name, name,
             stmt->left->string);
         ASTExpr_emit(stmt->right, 0);
@@ -911,8 +925,9 @@ static void astexpr_lineupmultilinestring(ASTExpr* expr, int indent) {
 static void printmultilstr(char* pos) {
     do {
         int p = strcspn(pos, "\n");
-        printf("\"%.*s\\n\"", p, pos);
+        printf("\"%.*s", p, pos);
         pos += p + 1;
+        printf(*pos ? "\\n\"" : "\"");
     } while (*pos);
 }
 
@@ -1311,22 +1326,108 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
         printf("%.*s}", level, spaces);
         break;
 
-    case tkKeyword_match:
-        printf("switch (");
+    case tkKeyword_match: {
+        // char* typeName = ASTExpr_typeName(expr->left);
+        // if (!typeName)
+        //     unreachable(
+        //         "unresolved type during emit at %d:%d", expr->line,
+        //         expr->col);
+        // if (expr->left->typeType == TYObject)
+        //     typeName = ASTExpr_typeName(expr->left);
+        printf("{%s __match_cond = ", ASTExpr_typeName(expr->left));
         ASTExpr_emit(expr->left, 0);
-        puts(") {");
+        if (expr->left->typeType > TYInt8
+            || (expr->left->typeType == TYObject
+                && ASTExpr_getObjectType(expr->left)->isEnum))
+            puts("; switch (__match_cond) {");
+        else
+            puts("; { if (0) {}"); // the case will add 'else if's
+        // puts(") {");
+        if (expr->body) ASTScope_emit(expr->body, level);
+        printf("%.*s}}", level, spaces);
+        break;
+    }
+
+        /*
+        This is how you walk a ASTExpr that is a tkOpComma (left to right):
+            process(cond->left);
+            while (cond->right->kind == tkOpComma)
+                cond = cond->right, process(cond->left);
+            process(cond->right);
+        */
+
+        // void pro(ASTExpr * c) { }
+        // TODO: generally all comma exprs should be handled like this
+        // iteratively. What if you have a large array with lots of items?
+        // recursion will blow the stack
+    case tkKeyword_case: {
+        // TODO: maybe make this a macro
+        ASTExpr* cond = expr->left;
+        if (cond->kind == tkOpComma) {
+            if (cond->typeType > TYInt8
+                || (cond->typeType == TYObject && ASTExpr_getEnumType(cond))) {
+                printf("case "); // match has handled the cond with a 'switch'
+                ASTExpr_emit(cond->left, 0);
+                printf(": ");
+                while (cond->right->kind == tkOpComma) {
+                    cond = cond->right;
+                    printf("case ");
+                    ASTExpr_emit(cond->left, 0);
+                    printf(": ");
+                }
+                printf("case ");
+                ASTExpr_emit(cond->right, 0);
+                puts(": {");
+            } else if (cond->typeType == TYString) {
+                printf("else if (!strcmp(__match_cond, ");
+                ASTExpr_emit(cond->left, 0);
+                printf(")");
+                while (cond->right->kind == tkOpComma) {
+                    cond = cond->right;
+                    printf(" || !strcmp(__match_cond, ");
+                    ASTExpr_emit(cond->left, 0);
+                    printf(")");
+                }
+                printf(" || !strcmp(__match_cond, ");
+                ASTExpr_emit(cond->right, 0);
+                puts(")) do {");
+            } else {
+                printf("else if (__match_cond == ");
+                ASTExpr_emit(cond->left, 0);
+                while (cond->right->kind == tkOpComma) {
+                    cond = cond->right;
+                    printf(" || __match_cond == (");
+                    ASTExpr_emit(cond->left, 0);
+                }
+                ASTExpr_emit(cond->right, 0);
+                puts(")) do {");
+            };
+
+        } else {
+            if (cond->typeType > TYInt8
+                || (cond->typeType == TYObject && ASTExpr_getEnumType(cond))) {
+                printf("case "); // match has handled the cond with a 'switch'
+                ASTExpr_emit(cond, 0);
+                puts(": {");
+            } else if (cond->typeType == TYString) {
+                printf("else if (!strcmp(__match_cond, ");
+                ASTExpr_emit(cond, 0);
+                puts(")) do {");
+            } else {
+                printf("else if (__match_cond == (");
+                ASTExpr_emit(cond, 0);
+                puts(")) do {");
+            };
+        };
         if (expr->body) ASTScope_emit(expr->body, level);
         printf("%.*s}", level, spaces);
+        if (cond->typeType > TYInt8
+            || (cond->typeType == TYObject && ASTExpr_getEnumType(cond)))
+            printf(" break");
+        else
+            printf(" while(0)");
         break;
-
-    case tkKeyword_case:
-        printf("case ");
-        ASTExpr_emit(expr->left, 0);
-        puts(": {");
-        if (expr->body) ASTScope_emit(expr->body, level);
-        printf("%.*s} break", level, spaces);
-        break;
-
+    }
     case tkKeyword_for:
     case tkKeyword_if:
         //    case tkKeyword_elif:

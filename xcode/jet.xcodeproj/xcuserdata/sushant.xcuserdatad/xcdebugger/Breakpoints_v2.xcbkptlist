@@ -240,7 +240,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "845"
             endingLineNumber = "845"
-            landmarkName = "ASTExpr_prepareInterp(expr, scope)"
+            landmarkName = "ASTExpr_emit_tkSubscriptResolved(expr, level)"
             landmarkType = "9">
          </BreakpointContent>
       </BreakpointProxy>
@@ -256,7 +256,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "854"
             endingLineNumber = "854"
-            landmarkName = "ASTExpr_prepareInterp(expr, scope)"
+            landmarkName = "ASTExpr_emit_tkSubscriptResolved(expr, level)"
             landmarkType = "9">
          </BreakpointContent>
       </BreakpointProxy>
@@ -272,7 +272,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "105"
             endingLineNumber = "105"
-            landmarkName = "analyseExpr(parser, expr, mod, inFuncArgs)"
+            landmarkName = "ASTExpr_prepareInterp(parser, expr, scope)"
             landmarkType = "9">
          </BreakpointContent>
       </BreakpointProxy>
@@ -352,7 +352,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "140"
             endingLineNumber = "140"
-            landmarkName = "analyseExpr(parser, expr, mod, inFuncArgs)"
+            landmarkName = "ASTExpr_prepareInterp(parser, expr, scope)"
             landmarkType = "9">
          </BreakpointContent>
       </BreakpointProxy>
@@ -416,8 +416,8 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "864"
             endingLineNumber = "864"
-            landmarkName = "next_token_node(parser, expected, ignore_error)"
-            landmarkType = "9">
+            landmarkName = "unknown"
+            landmarkType = "0">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -432,8 +432,8 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "850"
             endingLineNumber = "850"
-            landmarkName = "unknown"
-            landmarkType = "0">
+            landmarkName = "Parser"
+            landmarkType = "16">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -498,7 +498,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "187"
             endingLineNumber = "187"
-            landmarkName = "ASTFunc_lint(func, level)"
+            landmarkName = "ASTEnum_lint(type, level)"
             landmarkType = "9">
          </BreakpointContent>
       </BreakpointProxy>

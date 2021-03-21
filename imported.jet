@@ -1,0 +1,12 @@
+import imported as imp
+
+var mes = 4
+
+func noko()
+   var c = print("ghjghjgh" + mes)
+end
+
+func start()
+   var c = print("ghjghjgh" + mes)
+end
+

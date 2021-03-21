@@ -93,7 +93,7 @@ void ASTType_dumpcstatic(ASTType* type) {
 void ASTImport_dumpcstatic(ASTImport* import) {
     // ASTScope_dumpcstatic(type->body);
     // dumpcstatic(&type->body);
-    dumpcstatic_s(&import->importFile);
+    dumpcstatic_s(&import->name);
     // TODO: type super?
 }
 

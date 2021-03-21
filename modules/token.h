@@ -585,6 +585,7 @@ static void Token_detect(Token* token) {
 static void Token_advance(Token* token) {
     switch (token->kind) {
     case tkNullChar:
+        unreachable("Advancing token at end of file!", "");
         return;
     case tkIdentifier:
     case tkString:

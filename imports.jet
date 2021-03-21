@@ -1,0 +1,14 @@
+import imported as imp
+import import3 as impa
+import import4 as impd
+import imported as impe
+
+var imp = 3
+
+type Jax
+
+end
+
+func start()
+   print("yellow")
+end

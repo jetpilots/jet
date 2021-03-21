@@ -27,10 +27,16 @@ static const char* const spaces = //
 
 #pragma mark - AST TYPE DEFINITIONS
 
+typedef struct ASTLocation {
+    uint32_t line : 24, col : 8;
+} ASTLocation;
+
+struct ASTModule;
 typedef struct ASTImport {
-    char* importFile;
-    uint32_t aliasOffset;
-    bool isPackage, hasAlias;
+    char *name, *alias;
+    struct ASTModule* module;
+    // uint32_t aliasOffset;
+    // bool isPackage, hasAlias;
 } ASTImport;
 
 typedef struct ASTUnits {
@@ -72,8 +78,8 @@ typedef struct ASTTypeSpec {
         TypeTypes typeType : 7;
         bool nullable : 1;
     };
-    uint16_t line;
-    uint8_t col;
+    ASTLocation loc[0];
+    uint32_t line : 24, col, : 8;
 } ASTTypeSpec;
 
 typedef struct ASTVar {
@@ -110,7 +116,8 @@ typedef struct ASTVar {
     // itself after the actual expr. (so set the if/for/while as the lastref,
     // not the actual lastref) WHY NOT JUST SAVE THE LINE NUMBER OF THE LAST
     // USE?
-    uint16_t line; //
+    ASTLocation loc[0];
+    uint32_t line : 24, col : 8; //
     //, lineLastUsed;
     // ^ YOu canot use the last used line no to decide drops etc. because code
     // motion can rearrange statements and leave the line numbers stale.
@@ -166,7 +173,7 @@ typedef struct ASTVar {
         // function asd(x as Anc) returns (b as Whatever)
         // all args (in/out) are in the same list in func -> args.
     };
-    uint8_t col;
+    // uint8_t col;
 } ASTVar;
 
 // when does something escape a scope?
@@ -262,7 +269,17 @@ typedef struct ASTScope {
 
 typedef struct ASTType {
     char* name;
+    /// [unused] supertype. Jet does not have inheritance, perhaps for good.
     ASTTypeSpec* super;
+    /// The other types that are used in this type (i.e. types of member
+    /// variables)
+    List(ASTType) * usedTypes;
+    /// The other types that use this type.
+    List(ASTType) * usedByTypes;
+    /// The body of the type, as a scope. In effect it can have any expressions,
+    /// but most kinds are disallowed by the parsing routine. Variable
+    /// declarations and invariant checks are what you should mostly expect to
+    /// see inside type bodies, not much else.
     ASTScope* body;
     uint16_t line;
     uint8_t col;
@@ -284,6 +301,7 @@ typedef struct ASTFunc {
     char* name;
     ASTScope* body;
     List(ASTVar) * args;
+    List(ASTVar) * callers, *callees;
     ASTTypeSpec* returnSpec;
     char *selector, *prettySelector;
     struct {
@@ -344,6 +362,8 @@ typedef struct ASTModule {
     // List(ASTVar) * vars; // global vars
     List(ASTImport) * imports;
     List(ASTType) * enums;
+    List(ASTModule) * importedBy; // for dependency graph. also use
+                                  // imports[i]->module over i
     char* moduleName;
 } ASTModule;
 
@@ -675,12 +695,43 @@ static ASTTypeSpec* ASTExpr_getObjectTypeSpec(const ASTExpr* const self) {
         //        return "Range";
         // TODO: what else???
     case tkPeriod:
+    case tkOpComma:
+
         return ASTExpr_getObjectTypeSpec(self->right);
     default:
         break;
     }
     return NULL;
 }
+
+static ASTType* ASTExpr_getEnumType(const ASTExpr* const self) {
+    ASTType* ret = NULL;
+    if (!self || self->typeType != TYObject) return ret;
+    // all that is left is object
+    switch (self->kind) {
+    case tkFunctionCallResolved:
+        ret = self->func->returnSpec->type;
+        break;
+    case tkIdentifierResolved:
+    case tkSubscriptResolved:
+        ret = self->var->typeSpec->type;
+        break; //        }
+               // TODO: tkOpColon should be handled separately in the semantic
+               // pass, and should be assigned either TYObject or make a
+               // dedicated TYRange
+               //     case tkOpColon:
+               //        return "Range";
+               // TODO: what else???
+    case tkPeriod:
+    case tkOpComma:
+        ret = ASTExpr_getEnumType(self->left);
+    default:
+        break;
+    }
+    if (ret && !ret->isEnum) ret = NULL;
+    return ret;
+}
+
 static ASTType* ASTExpr_getObjectType(const ASTExpr* const self) {
     if (!self || self->typeType != TYObject) return NULL;
 
@@ -699,12 +750,48 @@ static ASTType* ASTExpr_getObjectType(const ASTExpr* const self) {
         //        return "Range";
         // TODO: what else???
     case tkPeriod:
+    case tkOpComma:
         return ASTExpr_getObjectType(self->right);
     default:
         break;
     }
     return NULL;
 }
+
+static ASTType* ASTExpr_getTypeOrEnum(const ASTExpr* const self) {
+    if (!self || self->typeType != TYObject) return NULL;
+
+    // all that is left is object
+    switch (self->kind) {
+    case tkFunctionCallResolved:
+        return self->func->returnSpec->type;
+    case tkIdentifierResolved:
+    case tkSubscriptResolved:
+        return self->var->typeSpec->type;
+        //        }
+        // TODO: tkOpColon should be handled separately in the semantic
+        // pass, and should be assigned either TYObject or make a dedicated
+        // TYRange
+        //     case tkOpColon:
+        //        return "Range";
+        // TODO: what else???
+    case tkPeriod: {
+        ASTType* type = ASTExpr_getObjectType(self->left);
+        if (!type->isEnum) type = ASTExpr_getObjectType(self->right);
+        return type;
+    }
+    case tkOpComma:
+        return ASTExpr_getTypeOrEnum(self->left);
+    default:
+        break;
+    }
+    return NULL;
+}
+// static CString* ASTExpr_getTypeOrEnumName(const ASTExpr* const self) {
+//     ASTType* type = ASTExpr_getTypeOrEnum(self);
+//     return type ? type->name : "";
+// }
+
 static const char* ASTExpr_typeName(const ASTExpr* const self) {
     if (!self) return "";
     const char* ret = TypeType_name(self->typeType);
@@ -725,8 +812,14 @@ static const char* ASTExpr_typeName(const ASTExpr* const self) {
         //     case tkOpColon:
         //        return "Range";
         // TODO: what else???
-    case tkPeriod:
-        return ASTExpr_typeName(self->right);
+    // case tkPeriod:
+    //     return ASTExpr_typeName(self->right);
+    case tkPeriod: {
+        ASTType* type = ASTExpr_getObjectType(self->left);
+        return (type->isEnum) ? type->name : ASTExpr_typeName(self->right);
+    }
+    case tkOpComma:
+        return ASTExpr_typeName(self->left);
     default:
         break;
     }
@@ -792,15 +885,26 @@ static ASTType* ASTModule_getType(ASTModule* module, const char* name) {
 // you don't need the actual ASTImport object, so this one is just a
 // bool. imports just turn into a #define for the alias and an #include
 // for the actual file.
-static bool ASTModule_hasImportAlias(ASTModule* module, const char* alias) {
+monostatic ASTImport* ASTModule_getImportByAlias(
+    ASTModule* module, const char* alias) {
     foreach (ASTImport*, imp, module->imports) //
-        if (!strcmp(imp->importFile + imp->aliasOffset, alias)) return true;
-    return false;
+    {
+        eprintf("import: %s %s\n", imp->alias, alias);
+        if (!strcmp(imp->alias, alias)) return imp;
+    }
+    return NULL;
 }
 
-ASTFunc* ASTModule_getFunc(ASTModule* module, const char* selector) {
+monostatic ASTFunc* ASTModule_getFunc(ASTModule* module, const char* selector) {
     foreach (ASTFunc*, func, module->funcs) //
         if (!strcasecmp(func->selector, selector)) return func;
+    //  no looking anywhere else. If the name is of the form
+    // "mm.func" you should have bothered to look in mm instead.
+    return NULL;
+}
+monostatic ASTVar* ASTModule_getVar(ASTModule* module, const char* name) {
+    foreach (ASTVar*, var, module->scope->locals) //
+        if (!strcasecmp(var->name, name)) return var;
     //  no looking anywhere else. If the name is of the form
     // "mm.func" you should have bothered to look in mm instead.
     return NULL;
@@ -896,7 +1000,7 @@ void recordNewlines(Parser* parser) {
     //     printf("%4d: %s\n", i + 1, parser->orig.ref[i]);
     // abort();
 }
-static Parser* Parser_fromFile(char* filename, bool skipws) {
+static Parser* Parser_fromFile(char* filename, bool skipws, ParserMode mode) {
 
     size_t flen = CString_length(filename);
 
@@ -957,10 +1061,16 @@ static Parser* Parser_fromFile(char* filename, bool skipws) {
         ret->token.kind = tkUnknown;
         ret->token.line = 1;
         ret->token.col = 1;
-        ret->mode = PMEmitC; // parse args to set this
+        ret->mode = mode; // parse args to set this
         ret->issues.errCount = 0;
         ret->issues.warnCount = 0;
         ret->issues.errLimit = 50000;
+        ret->generateCommentExprs = (ret->mode == PMLint);
+
+        // If you ar not linting, even a single error is enough to stop and tell
+        // the user to LINT THE DAMN FILE FIRST.
+        if (ret->mode != PMLint) ret->issues.errLimit = 1;
+
     } else {
         eputs("Source files larger than 16MB are not allowed.\n");
     }
@@ -1165,21 +1275,15 @@ int main(int argc, char* argv[]) {
     Parser* parser;
 
     // initStaticExprs();
-
-    parser = Parser_fromFile(argv[1], true);
+    ParserMode mode = PMEmitC;
+    if (argc > 3 && *argv[3] == 'l') mode = PMLint;
+    if (argc > 2 && *argv[2] == 'l') mode = PMLint;
+    if (argc > 3 && *argv[3] == 't') mode = PMGenTests;
+    if (argc > 2 && *argv[2] == 't') mode = PMGenTests;
+    parser = Parser_fromFile(argv[1], true, mode);
     if (!parser) return 2;
-    if (argc > 3 && *argv[3] == 'l') parser->mode = PMLint;
-    if (argc > 2 && *argv[2] == 'l') parser->mode = PMLint;
-    if (argc > 3 && *argv[3] == 't') parser->mode = PMGenTests;
-    if (argc > 2 && *argv[2] == 't') parser->mode = PMGenTests;
 
-    parser->generateCommentExprs = (parser->mode == PMLint);
-
-    // If you ar not linting, even a single error is enough to stop and tell the
-    // user to LINT THE DAMN FILE FIRST.
-    if (parser->mode != PMLint) parser->issues.errLimit = 1;
-
-    modules = parseModule(parser);
+    ASTModule* root = parseModule(parser, &modules, NULL);
 
     if (parser->mode == PMLint) {
         if (parser->issues.hasParseErrors) {

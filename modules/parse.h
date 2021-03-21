@@ -215,14 +215,18 @@ static ASTExpr* parseExpr(Parser* parser) {
                         && p->kind != tkFunctionCall && p->kind != tkSubscript
                         && PtrArray_topAs(ASTExpr*, &rpn)
                         && PtrArray_topAs(ASTExpr*, &rpn)->kind == tkOpComma) {
-                        Parser_errorUnexpectedToken(parser);
+                        Parser_errorUnexpectedToken(
+                            parser, "unsupported use of comma");
+                        // TODO: make this an error of unexpected expr instead
                         goto error;
                     }
 
                     if (!(p->prec || p->unary) && p->kind != tkFunctionCall
                         && p->kind != tkOpColon && p->kind != tkSubscript
                         && rpn.used < 2) {
-                        Parser_errorUnexpectedToken(parser);
+                        Parser_errorUnexpectedToken(
+                            parser, "need 2 operands to binary op");
+                        // TODO: make this errorUnexpectedExpr
                         goto error;
                     }
 
@@ -230,7 +234,9 @@ static ASTExpr* parseExpr(Parser* parser) {
                 }
 
                 if (PtrArray_empty(&rpn)) {
-                    Parser_errorUnexpectedToken(parser);
+                    Parser_errorUnexpectedToken(
+                        parser, "operator with no operand(s)");
+                    // TODO: again unexpected Expr
                     goto error;
                 }
                 if (expr->kind == tkOpColon
@@ -329,7 +335,8 @@ exitloop:
         PtrArray_push(&result, p);
     }
     if (!result.used) {
-        Parser_errorUnexpectedToken(parser); //    (parser, p);
+        Parser_errorUnexpectedToken(
+            parser, "nothing parsed"); //    (parser, p);
         goto error;
     } else if (result.used != 1) {
         if (PtrArray_topAs(ASTExpr*, &result)->kind != tkLineComment) {
@@ -564,7 +571,7 @@ static ASTScope* parseScopeCases(Parser* parser, ASTScope* parent) {
             goto exitloop;
 
         default:
-            Parser_errorUnexpectedToken(parser);
+            Parser_errorUnexpectedToken(parser, "expected 'case' or 'end'");
             Token_advance(&parser->token);
         }
     }
@@ -1072,43 +1079,66 @@ static ASTType* parseEnum(Parser* parser, ASTScope* globScope) {
     return en;
 }
 
-static ASTImport* parseImport(Parser* parser) {
+static ASTImport* parseImport(Parser* parser, ASTModule* ownerMod) {
     ASTImport* import = NEW(ASTImport);
     char* tmp;
     Parser_consume(parser, tkKeyword_import);
     Parser_consume(parser, tkOneSpace);
 
-    import->isPackage = Parser_ignore(parser, tkAt);
+    // import->isPackage = Parser_ignore(parser, tkAt);
 
     if (memchr(parser->token.pos, '_', parser->token.matchlen))
         Parser_errorInvalidIdent(parser);
 
-    import->importFile = parseIdent(parser);
-    size_t len = parser->token.pos - import->importFile;
+    assert(Parser_matches(parser, tkIdentifier));
+    import->name = parser->token.pos; // parseIdent(parser);
+
+    char* cend = import->name;
+    while (*cend && (isalnum(*cend) || *cend == '.')) cend++;
+
+    parser->token.pos = cend;
+    Token_detect(&parser->token);
+
+    //    size_t len = parser->token.pos - import->name;
     Parser_ignore(parser, tkOneSpace);
     if (Parser_ignore(parser, tkKeyword_as)) {
 
         Parser_ignore(parser, tkOneSpace);
-        import->hasAlias = true;
+        //      import->hasAlias = true;
 
+        assert(Parser_matches(parser, tkIdentifier));
         if (memchr(parser->token.pos, '_', parser->token.matchlen))
             Parser_errorInvalidIdent(parser);
 
-        tmp = parseIdent(parser);
-        if (tmp) import->aliasOffset = (uint32_t)(tmp - import->importFile);
+        import->alias = parseIdent(parser);
 
     } else {
-        import->aliasOffset = (uint32_t)(
-            CString_base(import->importFile, '.', len) - import->importFile);
+        import->alias
+            = CString_base(import->name, '.', parser->token.pos - import->name);
     }
 
-    Parser_ignore(parser, tkOneSpace);
+    char endchar = *parser->token.pos;
+    *parser->token.pos = 0;
+    if (ASTModule_getImportByAlias(ownerMod, import->alias)
+        || ASTModule_getFunc(ownerMod, import->alias)
+        || ASTModule_getVar(ownerMod, import->alias)) {
+        unreachable("import name already used: %s", import->alias);
+        import = NULL;
+    }
+    *parser->token.pos = endchar;
+    // ^ need to restore the nl since it is used for line counting
 
-    if (parser->token.kind != tkLineComment && parser->token.kind != tkNewline)
-        Parser_errorUnexpectedToken(parser);
-    while (
-        parser->token.kind != tkLineComment && parser->token.kind != tkNewline)
-        Token_advance(&parser->token);
+    // Parser_ignore(parser, tkOneSpace);
+
+    // if (parser->token.kind != tkLineComment && parser->token.kind !=
+    // tkNewline)
+    //     Parser_errorUnexpectedToken(parser);
+    // while (
+    //     parser->token.kind != tkLineComment //
+    //     && parser->token.kind != tkNewline//
+    //     && parser->token.kind!=tkNullChar
+    //     )
+    //     Token_advance(&parser->token);
     return import;
 }
 
@@ -1143,9 +1173,30 @@ static ASTFunc* ASTType_makeDefaultCtor(ASTType* type) {
 // vyes->name = "yes";
 // vyes->typeType = TYBool;
 
-static PtrList* parseModule(Parser* parser) {
+// static ASTModule* Parser_lookupModuleByAlias(PtrList* existingModules, char*
+// name) {
+//     foreach (ASTModule*, mod, existingModules) {
+//         // eprintf("lookup %s %s\n", name, mod->name);
+//         if (!strcasecmp(name, mod->name)) return mod;
+//     }
+//     return NULL;
+// }
+static ASTModule* Parser_lookupModule(PtrList* existingModules, char* name) {
+    foreach (ASTModule*, mod, existingModules) {
+        // eprintf("lookup %s %s\n", name, mod->name);
+        if (!strcasecmp(name, mod->name)) return mod;
+    }
+    return NULL;
+}
+
+static ASTModule* parseModule(
+    Parser* parser, PtrList** existingModulesPtr, ASTModule* importer) {
     ASTModule* root = NEW(ASTModule);
     root->name = parser->moduleName;
+    // To break recursion, add the root to the existingModules list right away.
+    // The name is all that is required for this module to be found later.
+    PtrList_shift(existingModulesPtr, root);
+    eprintf("Parsing %s\n", root->name);
     // root->scope = NEW(ASTScope);
 
     const bool onlyPrintTokens = false;
@@ -1253,15 +1304,34 @@ static PtrList* parseModule(Parser* parser) {
         } break;
 
         case tkKeyword_import:
-            import = parseImport(parser);
+            import = parseImport(parser, root);
             if (import) {
+
                 imports = PtrList_append(imports, import);
-                // if ((*imports)->next) imports = &(*imports)->next;
-                //                    auto subParser = new
-                //                    Parser(import->importFile);
-                //                    List<ASTModule*> subMods =
-                //                    parse(subParser);
-                //                    PtrList_append(&modules, subMods);
+
+                import->module
+                    = Parser_lookupModule(*existingModulesPtr, import->name);
+                if (!import->module) {
+                    eprintf("%s needs %s, parsing\n", root->name, import->name);
+                    size_t len = strlen(import->name) + 5;
+                    char* filename = malloc(len);
+                    filename[len - 1] = 0;
+                    strcpy(filename, import->name);
+                    CString_tr_ip(filename, '.', '/', len - 5);
+                    strcpy(filename + len - 5, ".jet");
+                    // later you can have a fancier routine that figures out
+                    // the file name from a module name
+                    Parser* subParser
+                        = Parser_fromFile(filename, true, parser->mode);
+                    // parseModule returns the parsed module, and adds dependent
+                    // modules to the second argument. dependencies are only
+                    // parsed once on first use.
+                    // FIXME: these parsers will LEAK!
+                    if (subParser)
+                        import->module
+                            = parseModule(subParser, existingModulesPtr, root);
+                }
+                // PtrList_append(&modules, subMods);
             }
             break;
 
@@ -1274,12 +1344,38 @@ static PtrList* parseModule(Parser* parser) {
             // TODO: add these to exprs
             {
                 ASTVar *var = parseVar(parser), *orig;
+                if (!var) {
+                    Token_advance(&parser->token);
+                    continue;
+                }
                 if ((orig = ASTScope_getVar(gscope, var->name)))
                     Parser_errorDuplicateVar(parser, var, orig);
+                if (ASTModule_getImportByAlias(root, var->name)
+                    || ASTModule_getFunc(root, var->name))
+                    unreachable(
+                        "name already used by func or import: %s", var->name);
                 if (var->init) resolveVars(parser, var->init, gscope, false);
                 var->isLet = true;
                 var->isVar = false;
                 gvars = PtrList_append(gvars, var);
+
+                // TODO: validation should raise issue if var->init is
+                // missing
+                ASTExpr* expr = NEW(ASTExpr);
+                expr->kind = tkVarAssign;
+                expr->line = var->init ? var->init->line : parser->token.line;
+                expr->col = var->init ? var->init->col : 1;
+                expr->prec = TokenKind_getPrecedence(tkOpAssign);
+                expr->var = var;
+
+                // and (var->init->prec or var->init->kind == tkIdentifier))
+                // TODO: you actually need to send the PtrList item which is
+                // generated in the next line as the topExpr, not the expr
+                // itself
+                if (var->init) resolveVars(parser, var->init, gscope, false);
+
+                // TODO: KEEP THE LAST LISTITEM AND APPEND TO THAT!!
+                gexprs = PtrList_append(gexprs, expr);
             }
             // if ((*globalsTop)->next) globalsTop =
             // &(*globalsTop)->next;
@@ -1299,7 +1395,7 @@ static PtrList* parseModule(Parser* parser) {
                 break;
             }
         default:
-            Parser_errorUnexpectedToken(parser);
+            Parser_errorUnexpectedToken(parser, "expected a keyword here");
             while (parser->token.kind != tkNewline
                 && parser->token.kind != tkLineComment
                 && parser->token.kind != tkNullChar)
@@ -1326,9 +1422,8 @@ static PtrList* parseModule(Parser* parser) {
 
     // do some analysis that happens after the entire module is loaded
     analyseModule(parser, root);
-
-    PtrList_append(&parser->modules, root);
-    return parser->modules;
+    if (importer) PtrList_shift(&importer->importedBy, root);
+    return root;
 }
 
 // TODO: move this to separate file or to analysis.c [sempass.c]
@@ -1356,10 +1451,32 @@ void analyseModule(Parser* parser, ASTModule* mod) {
     foreach (ASTFunc*, func, mod->funcs)
         if (!strcmp(func->name, "start")) fstart = func;
 
-    /* TODO: what if you have tests and a start()? Now you will have to
-     analyse the tests anyway */
+    // If we are linting, the whole file must be analysed. this happens
+    // regardless of whether start was found or not
+    if (parser->mode == PMGenTests || parser->mode == PMLint) {
+        foreach (ASTExpr*, stmt, mod->scope->stmts)
+            analyseExpr(parser, stmt, mod->scope, mod, NULL, false);
+        // foreach (ASTVar*, var, mod->scope->locals)
+        //     if (var->init)
+        //         analyseExpr(parser, var->init, mod->scope, mod, false);
+        foreach (ASTTest*, test, mod->tests)
+            analyseTest(parser, test, mod);
+        foreach (ASTFunc*, func, mod->funcs)
+            ASTFunc_analyse(parser, func, mod);
+        foreach (ASTType*, type, mod->types)
+            analyseType(parser, type, mod);
+        foreach (ASTType*, en, mod->enums)
+            analyseType(parser, en, mod);
 
-    if (fstart) {
+    } else if (fstart) {
+        /* TODO: what if you have tests and a start()? Now you will have to
+         analyse the tests anyway */
+        foreach (ASTExpr*, stmt, mod->scope->stmts)
+            analyseExpr(parser, stmt, mod->scope, mod, NULL, false);
+        // foreach (ASTVar*, var, mod->scope->locals)
+        //     if (var->init)
+        //         analyseExpr(parser, var->init, mod->scope, mod, false);
+
         ASTFunc_analyse(parser, fstart, mod);
         // Check dead code -- unused funcs and types, and report warnings.
         foreach (ASTFunc*, func, mod->funcs)
@@ -1374,23 +1491,6 @@ void analyseModule(Parser* parser, ASTModule* mod) {
         parser->issues.errCount++;
     }
 
-    // If we are linting, the whole file must be analysed. this happens
-    // regardless of whether start was found or not
-    if (parser->mode == PMGenTests || parser->mode == PMLint) {
-        foreach (ASTTest*, test, mod->tests)
-            analyseTest(parser, test, mod);
-        foreach (ASTFunc*, func, mod->funcs)
-            ASTFunc_analyse(parser, func, mod);
-        foreach (ASTType*, type, mod->types)
-            analyseType(parser, type, mod);
-        foreach (ASTType*, en, mod->enums)
-            analyseType(parser, en, mod);
-        foreach (ASTExpr*, stmt, mod->scope->stmts)
-            analyseExpr(parser, stmt, mod->scope, mod, false);
-        foreach (ASTVar*, var, mod->scope->locals)
-            if (var->init)
-                analyseExpr(parser, var->init, mod->scope, mod, false);
-    }
     // Check each type for cycles in inheritance graph.
     // Actually if there is no inheritance and composition is favoured, you
     // have to check each statement in the type body instead of just walking

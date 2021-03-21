@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "*.lzz": "cpp",
+        "*.ac": "java",
+        "*.h": "c",
+        "*.t": "c",
+        "*.fp": "fplus",
+        "__nullptr": "cpp",
+        "type_traits": "cpp"
+    }
+}

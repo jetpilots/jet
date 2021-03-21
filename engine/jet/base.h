@@ -81,7 +81,7 @@
 
 #pragma mark - Heap allocation stuff
 
-#ifdef DEBUG
+#ifndef RELEASE
 
 monostatic size_t _called_calloc = 0;
 monostatic size_t _called_malloc = 0;
@@ -111,8 +111,11 @@ monostatic size_t _called_strlen = 0;
 
 #pragma mark - Custom types
 typedef char bool;
-#define true 1
-#define false 0
+static const bool true = 1;
+static const bool false = 0;
+static const bool yes = 1;
+static const bool no = 0;
+
 typedef int64_t Int;
 typedef unsigned long ulong;
 // typedef double Number;

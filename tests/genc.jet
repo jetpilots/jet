@@ -4,17 +4,17 @@
 
 
 func ASTImportGenc(import ASTImport, level Integer)
-    strTrIp(import.importFile, '.', '', 0)
-    print("\n~include \"%s.h\"\n", import.importFile)
+    strTrIp(import.name, '.', '', 0)
+    print("\n~include \"%s.h\"\n", import.name)
     if import.hasAlias)
-        print("~define %s %s\n", import.importFile + import.aliasOffset,
-            import.importFile)
-    strTrIp(import.importFile, '', '.', 0)
+        print("~define %s %s\n", import.name + import.aliasOffset,
+            import.name)
+    strTrIp(import.name, '', '.', 0)
 end
 
 
 func ASTImportUndefc(import ASTImport)
-    if import.hasAlias then print("~undef %s\n", import.importFile + import.aliasOffset)
+    if import.hasAlias then print("~undef %s\n", import.name + import.aliasOffset)
 end
 
 
