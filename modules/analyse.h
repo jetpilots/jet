@@ -87,6 +87,7 @@ static void ASTExpr_prepareInterp(
         // after the $ is a variable, so look it up etc.
         char *varname = dollar + 1, *varend;
         bool wasbracket = varname[0] == '(';
+        if (wasbracket) varname++;
         // char endchar = 0;
         // if () {
         //     // $(varName)
@@ -99,17 +100,19 @@ static void ASTExpr_prepareInterp(
         while (*varend && isalnum(*varend)) ++varend;
         // }
         col += varend - varname;
+        if (*varend == ')') *varend++ = 0;
         char endchar = *varend; // store the char in a temp
         *varend = 0;
         ASTVar* var = ASTScope_getVar(scope, varname);
-        if (!var)
-            unreachable("undefined var found: %s", varname);
-        else
-            strcpy(varname, var->name); // fix case
+
+        if (var) strcpy(varname, var->name); // fix case
         *varend = endchar;
         // ^ TODO: this should be getQualVar which looks up a.b.c and
         // returns c
-
+        if (!var) {
+            unreachable("undefined var found: %s", varname);
+            return;
+        }
         // You should have checked for all var refs to be valid in the analysis
         // phase!
 
@@ -121,45 +124,46 @@ static void ASTExpr_prepareInterp(
         var->used = true;
 
         exdot = ex;
-        while (endchar == '.') {
-            if (!var || var->typeSpec->typeType != TYObject) {
-                unreachable(
-                    "using a . for a non-object type (string interp: $%.*s)",
-                    (int)(varend - varname), varname);
-                break;
-            }
+        if (!wasbracket)
+            while (endchar == '.') {
+                if (!var || var->typeSpec->typeType != TYObject) {
+                    unreachable("using a . for a non-object type (string "
+                                "interp: $%.*s)",
+                        (int)(varend - varname), varname);
+                    break;
+                }
 
-            // varend++;
-            varname = ++varend;
-            while (*varend && isalnum(*varend)) ++varend;
-            col += varend - varname;
-            endchar = *varend;
-            *varend = 0;
-            ASTType* type = var->typeSpec->type;
-            var = ASTType_getVar(type, varname);
-            if (!var) {
-                exdot = NULL; // reset it if was set along the chain
-                Parser_errorUnrecognizedMember(parser, type,
-                    &(ASTExpr) { .string = varname,
-                        .line = line,
-                        .col = col,
-                        .kind = tkIdentifier });
-            } else {
-                var->used = true;
-                strcpy(varname, var->name); // fix case
-                exdot = NEW(ASTExpr);
-                exdot->kind = tkPeriod;
-                // exdot->line=line,exdot->col=ex->col+varend-varname;
-                exdot->left = ex;
-                exdot->right = NEW(ASTExpr);
-                exdot->right->kind = tkIdentifierResolved;
-                exdot->right->line = line,
-                exdot->right->col = col + varend - varname;
-                exdot->right->var = var;
-                ex = exdot;
+                // varend++;
+                varname = ++varend;
+                while (*varend && isalnum(*varend)) ++varend;
+                col += varend - varname;
+                endchar = *varend;
+                *varend = 0;
+                ASTType* type = var->typeSpec->type;
+                var = ASTType_getVar(type, varname);
+                if (!var) {
+                    exdot = NULL; // reset it if was set along the chain
+                    Parser_errorUnrecognizedMember(parser, type,
+                        &(ASTExpr) { .string = varname,
+                            .line = line,
+                            .col = col,
+                            .kind = tkIdentifier });
+                } else {
+                    var->used = true;
+                    strcpy(varname, var->name); // fix case
+                    exdot = NEW(ASTExpr);
+                    exdot->kind = tkPeriod;
+                    // exdot->line=line,exdot->col=ex->col+varend-varname;
+                    exdot->left = ex;
+                    exdot->right = NEW(ASTExpr);
+                    exdot->right->kind = tkIdentifierResolved;
+                    exdot->right->line = line,
+                    exdot->right->col = col + varend - varname;
+                    exdot->right->var = var;
+                    ex = exdot;
+                }
+                *varend = endchar;
             }
-            *varend = endchar;
-        }
 
         // Here var is the final one ie c in a.b.c
 

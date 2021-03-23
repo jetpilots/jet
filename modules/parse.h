@@ -1120,7 +1120,7 @@ static ASTImport* parseImport(Parser* parser, ASTModule* ownerMod) {
     char endchar = *parser->token.pos;
     *parser->token.pos = 0;
     if (ASTModule_getImportByAlias(ownerMod, import->alias)
-        || ASTModule_getFunc(ownerMod, import->alias)
+        || ASTModule_getFuncByName(ownerMod, import->alias)
         || ASTModule_getVar(ownerMod, import->alias)) {
         unreachable("import name already used: %s", import->alias);
         import = NULL;
@@ -1351,7 +1351,7 @@ static ASTModule* parseModule(
                 if ((orig = ASTScope_getVar(gscope, var->name)))
                     Parser_errorDuplicateVar(parser, var, orig);
                 if (ASTModule_getImportByAlias(root, var->name)
-                    || ASTModule_getFunc(root, var->name))
+                    || ASTModule_getFuncByName(root, var->name))
                     unreachable(
                         "name already used by func or import: %s", var->name);
                 if (var->init) resolveVars(parser, var->init, gscope, false);

@@ -1,0 +1,19 @@
+
+Usage: jet [options] <filename>
+
+With no options, jet builds (in debug mode) the program given by <filename>
+and any of its dependencies if required, and runs the program.
+
+Options:
+
+    -l | Lint the specified file
+    -i | (with -l) overwrite the file in-place
+    -t | Run all tests in the specified module(s)
+    -c | Compile the specified file to C99
+    -s | Compile the specified file to assembly
+    -n | Disable garbage collection
+    -p | Write out profile information
+    -c | Write out coverage information
+    -b | Build for the current host, or cross-compile with:
+            -b=win/mac/linux/bsd/bare
+

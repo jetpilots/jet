@@ -55,7 +55,7 @@ static void ASTExpr_prepareInterp(
             strcpy(varname, var->name);
         *varend = endchar;
 
-        ASTExpr* ex = NEW(ASTExpr);
+        ASTExpr* ex = new ASTExpr;
         ASTExpr* exdot = NULL;
         ex->kind = tkIdentifierResolved;
         ex->line = line, ex->col = col;
@@ -88,11 +88,11 @@ static void ASTExpr_prepareInterp(
             } else {
                 var->used = true;
                 strcpy(varname, var->name);
-                exdot = NEW(ASTExpr);
+                exdot = new ASTExpr;
                 exdot->kind = tkPeriod;
 
                 exdot->left = ex;
-                exdot->right = NEW(ASTExpr);
+                exdot->right = new ASTExpr;
                 exdot->right->kind = tkIdentifierResolved;
                 exdot->right->line = line,
                 exdot->right->col = col + varend - varname;
@@ -112,7 +112,7 @@ static void ASTExpr_setEnumBase(
     switch (expr->kind) {
     case tkPeriod:
         if (expr->left) return;
-        expr->left = NEW(ASTExpr);
+        expr->left = new ASTExpr;
         expr->left->kind = tkIdentifier;
         expr->left->string
             = spec->typeType == TYObject ? spec->type->name : spec->name;

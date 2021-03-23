@@ -144,6 +144,19 @@ union Value {
     double d;
 };
 
+char* ask() {
+    size_t sz = 128;
+    char* s = malloc(sz);
+    char* buf = s;
+    while (fread(buf, sz, 1, stdin) == sz) {
+        sz += 128;
+        s = realloc(s, sz);
+        buf += 128;
+    }
+    s[sz - 1] = 0;
+    return s;
+}
+
 // this is used to mark a hopeless failure to infer the type of something
 typedef struct Error_Type {
 } Error_Type;

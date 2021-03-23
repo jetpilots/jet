@@ -1,0 +1,136 @@
+func (v ASTVar).lint(level Number)
+    print("$(spaces:level)%s%s", level, spaces,
+        v.isVar       ? "var "
+            : v.isLet ? "let "
+                          : "",
+        v.name)
+    var kind = v.init.kind or .unknown
+
+    var genType = yes
+
+    if kind == .functionCall and v.init.string == v.typeSpec.name
+
+    else if kind == .functionCallResolved and v.typeSpec.typeType == .object and v.init.func.name == v.typeSpec.type.name
+
+    else if kind in [.number, .regexp, .keywordNo, .keywordYes, .rawString]
+
+    else if v.typeSpec.typeType in [.errorType, .noType] or
+        (v.typeSpec.typeType == .unresolved and v.typeSpec.name == "")
+        genType = no
+    else
+        genType = yes
+    end
+
+    if genType
+        print(" ")
+        v.typeSpec.lint(level + STEP)
+    end
+
+    if v.init
+        print(" = ")
+        v.init.lint(0, yes, no)
+    end
+end
+
+
+
+
+func (f! ASTFunc).getSelector()
+    if f.args.count > 0
+        var arg1Type String = f.args[1].typeSpec.name
+        var argLabels[] String
+        for arg in f.args[2:end] do labels!.push(arg.name)
+        f.selector = "$arg1Type_$f.name_$joined"
+        argLabels!.shift(arg1Type)
+        var joined = argLabels.join(", ")
+        f.prettySelector = "$f.name($joined)"
+    else
+        f.selector = f.name
+        f.prettySelector = "$f.name()"
+    end
+end
+
+func (f! ASTFunc).getSelector()
+    var argLabels[] String
+    var arg1Type String = f.args[1].typeSpec.name or ""
+    for arg in f.args[2:end] do argLabels!.push(arg.name)
+    if arg1Type != "" then argLabels!.shift(arg1Type)
+    var joined = argLabels.join(", ")
+    f.prettySelector = "$f.name($joined)"
+end
+
+func (f! ASTFunc).getSelector()
+    var arg1Type String = f.args[1].typeSpec.name or ""
+    var argLabels[] String = [arg.name for arg in f.args[2:end]]
+    if arg1Type != "" then argLabels!.shift(arg1Type)
+    var joined = argLabels.join(", ")
+    check length(joined) < 512
+    f.prettySelector = "$f.name($joined)"
+    f.prettySelector!.transform(", ", to="_")
+end
+
+func (f! ASTFunc).getSelector()
+    var joined = join([f.args[1].typeSpec.name, f.args[2:end].name])
+    f.prettySelector = "$f.name($joined)"
+end
+
+func (f! ASTFunc).getSelector()
+    f.prettySelector =
+        "$f.name($1)" % join([f.args[1].typeSpec.name, f.args[2:end].name])
+end
+
+
+func (f ASTFunc).selector() :=
+        "$f.name($1)" % join([f.args[1].typeSpec.name, f.args[2:end].name])
+
+
+func (f! ASTFunc).getSelector()
+    var argLabels[] String = [
+        f.args[1].typeSpec.name,
+        f.args[2:end].name ]
+        ~ ^ those non-existent will be NULL, and ignored by join()
+    var joined = argLabels!.join(", ")
+    ~ ^ you can't pass nullable things to functions. But you can pass arrays since they cannot be null (only possibly empty).
+    ~ Basically NULLs are restricted to the func in which they are created. They can not be passed to inner frames, but they can be returned to outer frames.
+    ~ And member/element access is NULL chained by default.
+    f.prettySelector = "$f.name($joined)"
+end
+
+func (f! ASTFunc).getSelector()
+
+    if f.args.count > 0
+        var arg1Type String = f.args[1].typeSpec.name
+        var argLabels[] String = [arg.name for arg in f.args[2:end]]
+        ~ ^ an argument in support of list comprehension. You can preallocate
+        ~ since you know the purpose of the loop is to generate a collection.
+        ~ and if the size is small, preallocate it on the stack!
+        ~ contrast with:
+        for arg in f.args[1:] do labels!.push(arg.name)
+        ~ and what about MATLAB style?
+        var argLabels[] String = [f.args[2:end].name]
+        var joined = argLabels.join("_")
+        ~ String functions like join above should accept a buffer argument in
+        ~ TODO: the C implementation along with the size of the provided buffer. The
+        ~ return value MAY be the same buffer, if the string fits, otherwise
+        ~ it will be a heap buffer. (then how will you know when you drop it? -. it will not match the address of the known stack var.)
+
+        f.selector = "$arg1Type_$f.name_$joined"
+        ~ ^ escapes, so string should be on the heap. Interpolated strings can
+        ~ always be placed on the stack when not escaping, since they are
+        ~ ct-decided and THEIR drop call can be elided. NO THEY ARE NOT! unless
+        ~ you give a fixed stack size AND the function succeeds with that size.
+        ~ the same thing can be said for any func e.g. join() above.
+        check length(f.selector) < 512
+        ~ ^ does something like v help? But how is the user to know?
+
+        argLabels!.shift(arg1Type)
+        joined = argLabels.join(", ")
+        f.prettySelector = "$f.name($joined)"
+        ~ ^ escapes, so string should be on the heap
+
+        ~ drop joined, arg1Type, argLabels
+    else
+        f.selector = f.name
+        f.prettySelector = "$f.name()"
+    end
+end

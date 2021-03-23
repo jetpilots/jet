@@ -1,0 +1,81 @@
+
+type Arg
+    var name
+    var line
+    var col
+end
+
+var n = 10
+var args[n] Arg
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var mnh = 2:end
+var argLabels[] String = [this.args[2:end].name]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var argLabels[] String = [arg.name for arg in this.args[2:end]]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var argLabels[] String
+for arg in this.args[2:end]
+    argLabels!.push(arg.name)
+end
+

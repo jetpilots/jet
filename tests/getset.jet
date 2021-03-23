@@ -1,24 +1,26 @@
 
 value type DateTime
-    var month Int<1:12> = 1
+    var month Number in [1:12] = 1
     ~ only primitives for set/get!!
-    get dayOfWeek Int<1:7> := dayOfYear % 7 + dayOf1Jan
-    set dayOfWeek(value Int<1:7>)
+    get dayOfWeek Number in [1:7] := dayOfYear % 7 + dayOf1Jan
+    set dayOfWeek(value Number in [1:7])
 
     end set
     get dayOfWeek
 
     end get
-    var myRange RealRange = R<1:12, 15:18k, 33:70M> ~ this seems to be least problematic syntax for range literals R<> and I<>
+    var myRange Range = [1:12, 15:18|k, 33:70|M] ~ this seems to be least problematic syntax for range literals R<> and I<>
 end
 
 max(R<1:7>) < min(R<7:9>)
 
 value type Colour
-    var r Int[3D]<0:255>|kg.s/m3 = 0
-    var g Int<0:255> = 0
-    var b Int<0:255> = 0
-    var a Int<0:255> = 0
+    var r Number[3D] |kg.s/m3[0:1:255] = 0
+    var g[:,:] in 0:1:255 = 0
+    var g[:,:] Number[0:1:255] = 0
+    var b Number[0:1:255] = 0
+    var a Number[0:1:255] = 0
+    var str String[64]
 end
 
 ~ this is without bells and whistles. blocking call, returns raw text.

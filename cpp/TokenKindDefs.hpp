@@ -1,6 +1,6 @@
 
 
-typedef enum TokenKind {
+enum enum_TokenKind {
     tkNullChar,
     tkKeyword_cheater,
     tkKeyword_for,
@@ -108,7 +108,7 @@ typedef enum TokenKind {
     tkTimesEq,
     tkColEq,
     tkQuestion,
-} TokenKind;
+};
 
 static const char* const TokenKind_str[] = {
     [tkNullChar] = "tkNullChar",

@@ -141,7 +141,7 @@ declare type ASTFunc
     var isDeclare = no
     var isCalledFromWithinLoop = no
     var elemental = no
-    var isDefCtor= no
+    var isDefCtor = no
     var analysed = no
  end
 

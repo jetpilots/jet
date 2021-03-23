@@ -895,6 +895,15 @@ monostatic ASTImport* ASTModule_getImportByAlias(
     return NULL;
 }
 
+monostatic ASTFunc* ASTModule_getFuncByName(
+    ASTModule* module, const char* name) {
+    foreach (ASTFunc*, func, module->funcs) //
+        if (!strcasecmp(func->name, name)) return func;
+    // This returns the first matching func only
+    //  no looking anywhere else. If the name is of the form
+    // "mm.func" you should have bothered to look in mm instead.
+    return NULL;
+}
 monostatic ASTFunc* ASTModule_getFunc(ASTModule* module, const char* selector) {
     foreach (ASTFunc*, func, module->funcs) //
         if (!strcasecmp(func->selector, selector)) return func;

@@ -41,7 +41,7 @@ void mem__dealloc(void* ptr, UInt64 size, const char* desc) {
     int d = Dict_put(UInt64, Ptr)(mem__sizeDict, size, stat);
 
     if (*stat) {
-        mem__SizeClassInfo* ptr = NEW(mem__SizeClassInfo);
+        mem__SizeClassInfo* ptr = new mem__SizeClassInfo;
 
         Dict_val(mem__sizeDict, d) = ptr;
     }

@@ -1,20 +1,25 @@
-class ASTTypeSpec;
-class ASTModule;
-class ASTType;
-class ASTFunc;
-class ASTScope;
-class ASTExpr;
-class ASTTest;
-class ASTVar;
-class ASTImport;
-class Parser;
-enum _TokenKind__wrapped {};
-class TokenKind {
-    unsigned char kind;
-};
-static const unsigned long as = sizeof(TokenKind);
+#include "ASTTypeSpec.hh"
+#include "ASTModule.hh"
+#include "ASTType.hh"
+#include "ASTFunc.hh"
+#include "ASTScope.hh"
+#include "ASTExpr.hh"
+#include "ASTTest.hh"
+#include "ASTVar.hh"
+#include "ASTImport.hh"
 
-class ASTNode {
+#include "TokenKindDefs.hpp"
+#include "tokenKind.hpp"
+#include "types.hpp"
+
+class Parser;
+// enum _TokenKind__wrapped {};
+// struct TokenKind {
+//     unsigned char kind;
+// };
+// static const unsigned long as = sizeof(TokenKind);
+
+struct ASTNode {
     union {
         TokenKind kind;
         struct {
@@ -26,5 +31,12 @@ class ASTNode {
 template <class T>
 class List;
 static const unsigned long asn = sizeof(ASTNode);
+
+bool operator^=(ASTVar& a, const char* s) { return !strcasecmp(a.name, s); }
+bool operator^=(ASTType& a, const char* s) { return !strcasecmp(a.name, s); }
+bool operator^=(ASTFunc& a, const char* s) {
+    return !strcasecmp(a.selector, s);
+}
+bool operator^=(ASTImport& a, const char* s) { return !strcasecmp(a.alias, s); }
 
 #include "List.hh"

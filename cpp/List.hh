@@ -1,11 +1,22 @@
 
 
 #include <cstdio>
+#include <cstring>
+#include <cstdlib>
 
 void print(const char* s) { printf("%s", s); }
 void print(int i) { printf("%d", i); }
 
 template <typename T>
+T max(T v1, T v2) {
+    return v1 > v2 ? v1 : v2;
+}
+template <typename T>
+T min(T v1, T v2) {
+    return v1 < v2 ? v1 : v2;
+}
+
+template <class T>
 class Array {
 public:
     class iterator {
@@ -29,9 +40,71 @@ private:
     unsigned len, cap;
     T* ref;
 
+    // TODO: for Jet it would be nice to have a compile-time constraint on n to
+    // be greater than free+used. Unless this can be proven the code shouldn't
+    // compile.
+    void resizeto(size_t n) {
+        cap = n; // TODO: set len = min(len,cap)
+        ref = (T*)realloc(ref, n * sizeof(T));
+    }
+
 public:
+    Array()
+        : len(0)
+        , cap(0) // start with 4 items on first realloc
+        , ref(NULL) { }
     iterator begin() const { return iterator(ref); }
     iterator end() const { return iterator(ref + len); }
+    ~Array() { free(ref); }
+    Array<T>& push(T item) {
+        if (len >= cap) resizeto(cap ? cap * 2 : 4);
+        ref[len++] = item;
+        return *this;
+    }
+    Array<T>& pushn(size_t n, T items[]) {
+        size_t newlen = len + n, i = 0;
+        if (newlen >= cap) resizeto(cap ? cap * 2 : 4); // roundup32(newlen)
+        while (len < newlen) ref[len++] = items[i++];
+        return *this;
+    }
+    Array<T>& shift(T item) {
+        if (len >= cap) resizeto(cap * 2);
+        memmove(ref + 1, ref, len * sizeof(T));
+        ref[0] = item;
+        len++;
+        return *this;
+    }
+    Array<T>& insert(size_t index, T item) {
+        if (index > cap) index = cap; // resizeto(cap * 2);
+        if (len >= cap) resizeto(cap * 2);
+        memmove(
+            ref + index + 1, ref + index, max(0UL, len - index) * sizeof(T));
+        ref[index] = item;
+        len++;
+        return *this;
+    }
+    // Array<T>& shiftn(size_t n, T items[]) {
+    //     if (len + n >= cap) resizeto(roundup32(len));
+    //     memmove(ref + n  , ref, used * sizeof(T));
+    //     ref[0] = item;
+    // }
+
+    T& pop() { return ref[len--]; }
+    T& top() { return ref[len - 1]; }
+    bool empty() { return !!len; }
+    size_t count() { return len; }
+    void clear() {
+        cap += len;
+        len = 0;
+    }
+    void print() {
+        ::print("[");
+        for (auto c = begin(); c != end(); ++c) {
+            if (c != begin()) ::print(", ");
+            ::print(*c);
+        }
+        ::print("]\n");
+    }
 };
 
 template <class T>
@@ -52,7 +125,7 @@ class List {
         iterator** pnext() { return &_next; }
         iterator operator++() { return (*this = *_next); }
         bool operator!=(const iterator& other) const {
-            // careful with short-circuiting logical ops
+            // caitemsul with short-circuiting logical ops
             // printf("\n*** %d %p != %d %p -> %d %d %d\n",  _item,
             //      _next, other._item, other._next,
             //      _item == other._item,  _next == other._next, ret);
@@ -108,7 +181,7 @@ public:
     void print() {
         ::print("[");
         for (auto c = begin(); c != end(); ++c) {
-            if (c != begin()) ::print(", ");
+            if (c != begin()) ::print(" -> ");
             ::print(*c);
         }
         ::print("]\n");
@@ -132,15 +205,8 @@ public:
 //     ::print("]");
 // }
 
-#include <cstring>
-#include <cstdlib>
-
-#define REINTERPRET(T, v) (*(T*)&v)
-
-class StringList : public List<const char*> {
+class StringList : public Array<const char*> {
 public:
-    StringList() { }
-    StringList(List<const char*> list) { *this = list; }
     void print() {
         ::print("[");
         for (auto c = begin(); c != end(); ++c) {
@@ -166,8 +232,7 @@ public:
         int i = 0, size = 0;
         size_t* sizes = new size_t[count()];
         for (auto c : *this) size += (sizes[i++] = strlen(c));
-        char* buf = new char[size + 1];
-        char* pos = buf;
+        char *buf = new char[size + 1], *pos = buf;
         i = 0;
         for (auto c : *this) memcpy(pos, c, sizes[i]), pos += sizes[i++];
         *pos = 0;
@@ -184,7 +249,7 @@ public:
 #define CARRAY(T, ...)                                                         \
     (T[]) { __VA_ARGS__ }
 int foo() {
-    List<int> ls;
+    Array<int> ls;
     ls.push(3).push(32).push(67).shift(1);
     ls.print();
     auto sted = StringList();

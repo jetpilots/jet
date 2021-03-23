@@ -217,7 +217,7 @@ private:
         FILE* file = fopen(filename, "r");
         assert(file);
 
-        Parser* ret = NEW(Parser);
+        Parser* ret = new Parser;
 
         ret->filename = filename;
         ret->noext = CString::noext(filename);

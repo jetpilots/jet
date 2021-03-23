@@ -1,0 +1,54 @@
+~ Comments start with a tilde. There are only single-line comments.
+
+declare func ask() as String
+
+~ vars do not need type annotation when type is obvious (RHS is literal).
+var x = 4 ~ global variables are read-only once they are defined.
+var name as String = ask() ~ They can be defined using runtime evaluated exprs.
+
+
+~ struct, class, record, type
+type Structure
+    var memb1 = 0
+    var memb2 = ""
+end
+
+~ initializer
+~ func (s Structure)(sa String, ni Number)
+~     s.memb2 = ""
+~ end
+
+~ enums can have associated values
+enum SomeKinds
+    kind1 = "["
+    kind2 = "("
+    kind3 = "{"
+end
+
+~ enum members can be written with a dot and type will be inferred e.g. at
+~ function call sites. While defining a var you have to be explicit.
+var sk SomeKinds = .kind1
+
+~ maps.
+var gx = {
+    "one" = 1,
+    "two" = 2,
+    "five" = 5}
+
+~ arrays.
+var ga = [
+    1, 2, 3, 4, 5 ]
+
+~ matrix / 2D array
+var g2d = [
+    1, 2, 3;
+    4, 5, 6;
+    7, 8, 9 ]
+
+~ there is no top-level executable code (for now). Everything starts in:
+func start()
+    print("The name is: $name") ~ string interpolation
+    ~ print("The name is $(name).") ~ string interpolation
+    var s = Structure() ~ default constructor
+    json(s) ~ serialize built-in
+end

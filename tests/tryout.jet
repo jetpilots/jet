@@ -1,0 +1,51 @@
+
+
+func foo()
+    var ls[] Int
+    ~ chaining can be allowed only when it can be proven that a func
+    ~ always returns self. Otherwise it is a compile-time error.
+    ls!.push(3).push(32).push(67).shift(1)
+    ls!.print()
+
+    var sted[] String
+    sted!.pushn(["hello", "there", "wowee"])
+    sted!.shift("hey").insert("bouk", at=4).push("adsa")
+    sted.print()  ~ YOU CAN'T TAG ON print() to the above chain!!!
+    sted!.snap()
+    sted.join().print()
+end
+
+func foo()
+    var ls[] Int
+    ~ push!(ls, item=3)
+    ~ push!(ls, item=32)
+    ~ push!(ls, item=67)
+    ~ shift!(ls, item=1)
+    shift!(push!(push!(push!(ls, item=3), item=32), item=67), item=1)
+    print(ls)
+
+    var sted[] String
+    push!(sted, items=["hello", "there", "wowee"])
+    shift!(sted, item="hey")
+    insert!(sted, item="bouk", at=4)
+    push!(sted, item="adsa")
+    print(sted)  ~ YOU CAN'T TAG ON print() to the above chain!!!
+    print(join(sted))
+end
+
+func foo()
+    var ls[] Int
+    ls[end+1] = 3
+    ls[end+1] = 32
+    ls[end+1] = 67
+    ls[0] = 1
+    print(ls)
+
+    var sted[] String
+    sted[end+1:] = ["hello", "there", "wowee"]
+    sted[0] = "hey"
+    sted[4] = "bouk"
+    sted[end+1] = "adsa"
+    print(sted)  ~ YOU CAN'T TAG ON print() to the above chain!!!
+    print(join(sted))
+end
