@@ -55,5 +55,5 @@ struct ASTExpr : public ASTNode {
     const char* typeName();
     void catarglabels();
     int strarglabels(char* buf, int bufsize);
-    int countCommaList(ASTExpr* expr);
+    int countCommaList();
 };

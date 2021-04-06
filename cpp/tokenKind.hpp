@@ -1,4 +1,4 @@
-#include "TokenKindDefs.h"
+#include "TokenKindDefs.hpp"
 
 static const char* TokenKind_repr(const TokenKind kind, bool spacing) {
     return spacing ? tksrepr[kind] : tkrepr[kind];

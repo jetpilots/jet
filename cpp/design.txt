@@ -1,25 +1,32 @@
-Parser
-IssueMgr -> Reporter
-Analyzer
-ASTModule
-ASTScope
-ASTType
-ASTFunc
-ASTTest
-ASTVar
-ASTTypeSpec
-ASTImport
-ASTExpr
+parse
+parse.Parser
 
-ASTLocation
+issues
+resolve
+analysis
+format ~ (token-based only)
+generate.jet
+generate.c99
 
-List
-Array
-Pool
-CString
-String
-Interval
-File
-Process
-Thread
-Clock
+ast
+ast.Module
+ast.Scope
+ast.Type
+ast.Function
+ast.Test
+ast.Var
+ast.TypeSpec
+ast.Import
+ast.Expr
+ast.Location
+
+core.List
+core.Array
+core.Pool
+core.CString
+core.String
+core.Interval
+core.File
+core.Process
+core.Thread
+core.Clock

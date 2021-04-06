@@ -1,0 +1,32 @@
+
+~ numpy style
+
+var c = zeros(67)
+
+var d = zeros(67)
+
+d[:] = c[:] ~ copies elemwise
+d = c ~ assigns ref
+d = c[6:end] ~ assigns slice ref. if much smaller than orig array consider copying so orig array can be released sooner
+e = d
+
+
+~ ignore below, its just NO NO NO
+var c[:,:,:] in [0:1] = zeros([67*length(h), 78, 9])
+
+var ci => c[:,:,2:end-1] ~ ci is a ref that can move within this slice
+
+var ci2 => ci
+~ move ptr (only inbounds allowed)
+ci +> 1
+ci -> 1
+ci => ci2
+
+~ f90 style
+
+var c Int[67*length(h), 78, 9] = 0
+
+var d = c ~ elemwise copy, same as d[:] = c[:]
+
+var df[] = [expr.sig, exprs[2:end].name]
+

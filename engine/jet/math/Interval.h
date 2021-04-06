@@ -6,7 +6,7 @@
 #include "limits.h"
 #include <float.h>
 
-#include "base.h"
+#include "../base.h"
 MKSTAT(IntRange)
 MKSTAT(RealRange)
 

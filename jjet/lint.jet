@@ -1,0 +1,385 @@
+
+func lint(ASTImport* import, int level)
+    printf("import %s%s%s\n", import.name, import.alias ? " as " : "",
+        import.alias ? import.alias : "")
+end
+
+func lint(ASTTypeSpec* spec, int level)
+    match (spec.typeType)
+    case .object
+        printf("%s", spec.type.name)
+    case .unresolved
+        printf("%s", spec.name)
+    case
+        printf("%s", TypeType_name(spec.typeType))
+    end
+
+    match spec.collectionType
+    case .dictS
+        printf("[DICTY.]")
+        break
+    case .array
+        printf("[]")
+        break
+    case .tensor
+        if (spec.dims)
+            static const char* dimsstr
+                = ":,:,:,:,:,:,:,:,:,:,:,:,:,:,:,:,:,:,:"
+            ~        char str[32]
+            ~        str[31]=0
+            ~        int sz= 2 + dims + (dims ? (dims-1) : 0) + 1
+            ~        str[0] = '['
+            ~        str[sz-2] = ']'
+            ~        str[sz-1] = 0
+            ~        for (i=0  i<sz  i++)
+            ~            str[i*2+1]=':'
+            ~            str[i*2+2]=','
+            ~        end
+            printf("[%.*s]", 2 * spec.dims - 1, dimsstr)
+        else
+            printf("[?]")
+        end
+        break
+    default:
+    end
+end
+
+
+
+func lint(ASTVar* var, int level)
+    printf("%.*s%s%s", level, spaces,
+        var.isVar       ? "var "
+            : var.isLet ? "let "
+                         : "",
+        var.name)
+    TokenKind kind = var.init ? var.init.kind : .unknown
+
+    var genType = yes  ~ set it here to override
+    ~ if ((var.init and var.init.kind == .functionCall
+    ~         and !strcmp(var.init.string, var.typeSpec.name)))
+    ~ else if ((var.init and var.init.kind == .number
+    ~                or var.init.kind == .regexp or var.init.kind ==
+    ~                .string or var.init.kind == .rawString))
+    if kind == .functionCall  ~ unresolved constructor
+        and var.init.string == var.typeSpec.name
+    else if kind == .functionCallResolved ..
+        and var.typeSpec.typeType == .object ..
+        and var.init.func.name == var.typeSpec.type.name
+        ~ resolved constructor, so type is also resolved
+    else if kind in [.number, .regexp, .kwNo, .kwYes, .string, .rawString]  ~ simple literals
+    else if var.typeSpec.typeType == .errorType ..
+        or var.typeSpec.typeType == .noType ..
+        or var.typeSpec.typeType == .unresolved and var.typeSpec.name == ""
+        genType = false
+    else
+        genType = yes
+    end
+
+    if (genType)
+        printf(" ")  ~ as ")
+        lint(var.typeSpec, level + STEP)
+    end
+    ~ end
+    ~ else
+    ~     ~ should make this Expr_defaultType and it does it recursively
+    ~     for
+    ~     ~ [, etc
+    ~     const char* ctyp = TokenKind_defaultType(
+    ~         self.init ? self.init.kind : .unknown)
+    ~     if (self.init and self.init.kind == .listLiteral)
+    ~         ctyp = TokenKind_defaultType(
+    ~             self.init.right ? self.init.right.kind : .unknown)
+    ~     if (self.init and self.init.kind == .functionCall
+    ~         and *self.init.name >= 'A' and *self.init.name <= 'Z')
+    ~         ctyp = NULL
+    ~     if (ctyp) printf(" as %s", ctyp)
+    ~ end
+    if (var.init)
+        printf(" = ")
+        lint(var.init, 0, yes, false)
+    end
+end
+
+func lint(ASTScope* scope, int level)
+    for expr = scope.stmts
+        match expr.kind
+        case .kwCase
+        case .kwMatch
+            printf("%.*s", level, spaces)
+            printf("%s ", repr(expr.kind, false))
+            if (expr.left) lint(expr.left, 0, yes, false)
+            print("")
+            if (expr.kind == .kwMatch)
+                if (expr.body) lint(expr.body, level)
+                printf("%.*send %s\n", level, spaces, "")  ~ "match")
+            else
+                if (expr.body) lint(expr.body, level + STEP)
+            end
+            break
+
+        case .kwFor
+        case .kwIf
+        case .kwElif
+        case .kwElse
+        case .kwWhile:
+            printf("%.*s", level, spaces)
+            printf("%s ", TokenKind_repr(expr.kind, false))
+            if (expr.left) lint(expr.left, 0, yes, false)
+            print("")
+            if (expr.body) lint(expr.body, level + STEP)  ~, yes, escapeStrings)
+            ~            const char* tok = TokenKind_repr(expr.kind, false)
+            ~            if (expr.kind == .kwElse or expr.kind ==
+            ~            .kwElif)
+            ~                tok = "if"
+            if (expr.kind == .kwIf or expr.kind == .kwElif)
+                if (exprList.next)
+                    ASTExpr* next = exprList.next.item
+                    if (next.kind == .kwElse
+                        or next.kind == .kwElif)
+                        break
+                end
+            printf("%.*send %s\n", level, spaces, "")  ~ tok)
+        end break
+        default
+            lint(expr, level, yes, false)
+            print("")
+        end
+    end
+end
+
+func lint(ASTType* type, int level)
+    if (type.isDeclare) printf("declare ")
+    printf("type %s", type.name)
+    if (type.super)
+        printf(" extends ")
+        lint(type.super, level)
+    end
+    print("")
+    if (!type.body) return
+
+    foreach (ASTExpr*, stmt, type.body.stmts)
+        if (!stmt) continue
+        lint(stmt, level + STEP, yes, false)
+        print("")
+    end
+    print("end\n")
+end
+
+func lint(ASTType* type, int level)
+    ~ if (!type.body) printf("declare ")
+    printf("enum %s\n", type.name)
+    ~ if (type.super)
+    ~     printf(" extends ")
+    ~     lint(type.super, level)
+    ~ end
+    ~ print("")
+    if (type.body)
+        foreach (ASTExpr*, stmt, type.body.stmts)
+            if (!stmt) continue
+            lint(stmt, level + STEP, yes, false)
+            print("")
+        end
+    end
+    print("end\n")
+end
+
+func lint(ASTFunc* func, int level)
+    if func.isDefCtor or func.intrinsic then return
+    if func.isDeclare printf("declare ")
+
+    printf("%s%s(", func.isStmt ? "\n" : "function ", func.name)
+
+    for arg = func.args
+        lint(arg, level)
+        printf(args.next ? ", " : "")
+    end
+    printf(")")
+
+    if (func.returnSpec and !func.isStmt)
+        printf(" as ")
+        lint(func.returnSpec, level)
+    end
+    if (func.isDeclare)
+        print("")
+        return
+    else if (!func.isStmt)
+        print("")
+        lint(func.body, level + STEP)
+        print("end\n")
+    else
+        ASTExpr* def = func.body.stmts.item
+        def = def.right  ~ its a return expr
+        printf(" := ")
+        lint(def, 0, yes, false)
+        print("\n")
+    end
+end
+
+func lint(ASTTest* test, int level)
+    printf("test '%s'\n", test.name)
+    lint(test.body, level + STEP)
+    print("end\n")
+end
+
+func lint(ASTExpr* expr, int level, bool spacing, bool escapeStrings)
+    ~ generally an expr is not split over several lines (but maybe in
+    ~ rare cases). so level is not passed on to recursive calls.
+    printf("%.*s", level, spaces)
+
+    match (expr.kind)
+    case .number
+    case .multiDotNumber
+        printf("%s", expr.string)
+        break
+    case .rawString
+        printf("'%s'", expr.string + 1)
+        break
+    case .regexp
+        printf("`%s`", expr.string + 1)
+        break
+
+    case .identifier
+    case .argumentLabel
+    case .identifierResolved:
+        char* tmp = (expr.kind != .identifierResolved) ? expr.string
+                                                         : expr.var.name
+        printf("%s", tmp)
+    end break
+
+    case .string
+        printf(escapeStrings ? "\\%s\\\"" : "%s\"", expr.string)
+        break
+    case .kwNo
+        printf("no")
+        break
+    case .kwYes
+        printf("yes")
+        break
+    case .kwNil
+        printf("nil")
+        break
+
+    case .lineComment
+        printf("%s%s", TokenKind_repr(.lineComment, *expr.string != ' '),
+            expr.string)
+        break
+
+    case .functionCall
+    case .functionCallResolved
+        char* tmp = (expr.kind == .functionCallResolved) ? expr.func.name
+                                                           : expr.string
+        printf("%s(", tmp)
+        if (expr.left) lint(expr.left, 0, false, escapeStrings)
+        printf(")")
+    end break
+
+    case .subscript
+    case .subscriptResolved
+        char* tmp = (expr.kind == .subscriptResolved) ? expr.var.name
+                                                        : expr.string
+        printf("%s[", tmp)
+        if (expr.left) lint(expr.left, 0, false, escapeStrings)
+        printf("]")
+    end break
+
+    case .objectInit
+    case .objectInitResolved
+        break
+
+    case .period
+        if (expr.left and expr.left.typeType == .object
+            and !expr.left.var.typeSpec.type.isEnum)
+            lint(expr.left, 0, spacing, escapeStrings)
+        printf(".")
+        lint(expr.right, 0, spacing, escapeStrings)
+        break
+
+    case .varAssign
+        ~ var x as XYZ = abc_. . becomes an ASTVar and an ASTExpr
+        ~ (to keep location). Send it to lint.
+        check expr.var != NULL
+        lint(expr.var, 0)
+        break
+
+    case .arrayOpen
+    case .braceOpen
+        printf("%s", .repr[expr.kind])
+        if (expr.right)
+            lint(
+                expr.right, level, expr.kind != .arrayOpen, escapeStrings)
+        printf("%s", .repr[TokenKind_reverseBracket(expr.kind)])
+        break
+
+    case
+        if not expr.prec then break
+        ~ not an operator, but this should be error if you reach here
+        var leftBr = 0 < expr.left.prec < expr.prec
+        var rightBr =
+            expr.right.kind != .kwReturn and ~ found in 'or return'
+            0 < expr.right.prec < expr.prec
+
+        if expr.kind == .opColon
+            ~ expressions like arr[a:x-3:2] should become
+            ~ arr[a:(x-3):2]
+            ~ or list literals [8, 9, 6, 77, sin(c)]
+            leftBr = expr.left.kind not in
+                [ .number, .identifier, .string, .opColon, .unaryMinus ]
+            rightBr = expr.right.kind not in
+                [ .number, .identifier, .string, .opColon, .unaryMinus ]
+
+        end
+
+        if (expr.kind == .power and !spacing) putc('(', stdout)
+
+        var lpo = leftBr and expr.left.kind == .opColon ? '[' : '('
+        var lpc = leftBr and expr.left.kind == .opColon ? ']' : ')'
+        if leftBr then putc(lpo, stdout)
+        if (expr.left)
+            lint(expr.left, 0,
+                spacing and !leftBr and expr.kind != .opColon, escapeStrings)
+        if leftBr then putc(lpc, stdout)
+
+        printf("%s", TokenKind_repr(expr.kind, spacing))
+
+        var rpo = rightBr and expr.right.kind == .opColon ? '[' : '('
+        var rpc = rightBr and expr.right.kind == .opColon ? ']' : ')'
+        if (rightBr) putc(rpo, stdout)
+        if (expr.right)
+            lint(expr.right, 0,
+                spacing and !rightBr and expr.kind != .opColon, escapeStrings)
+        if (rightBr) putc(rpc, stdout)
+
+        if (expr.kind == .power and !spacing) putc(')', stdout)
+        ~ if (expr.kind == .arrayOpen) putc(']', stdout)
+        ~ if (expr.kind == .braceOpen) putc('end', stdout)
+    end
+end
+
+func lint(ASTModule* module)
+    printf("~ module %s\n", module.name)
+
+    foreach (ASTImport*, import, module.imports)
+        lint(import, 0)
+
+    print("")
+
+    foreach (ASTVar*, var, module.scope.locals)
+        lint(var, 0)
+        print("")
+    end ~ foreach (ASTVar*, var, mod.scope.locals)
+    ~     if (var.init)
+    ~         analyseExpr(parser, var.init, mod.scope, mod, false)
+    print("")
+
+    foreach (ASTType*, type, module.types)
+        lint(type, 0)
+
+    foreach (ASTType*, en, module.enums)
+        ASTEnum_lint(en, 0)
+
+    foreach (ASTFunc*, func, module.funcs)
+        lint(func, 0)
+
+    foreach (ASTTest*, test, module.tests)
+        ASTTest_lint(test, 0)
+end

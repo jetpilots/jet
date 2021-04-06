@@ -1,0 +1,38 @@
+Need to have in:
+
+
+base
+
+PtrArray
+x push(void*)
+- shift(void*)
+- reset()
+
+PtrList
+x push(void*)
+x shift(void*)
+
+String
+- asRef(char*)
+x append(String)
+x appendChars(char*, size_t)
+
+File
+x slurp(char*)
+- size()
+
+Pool
+x alloc(size_t)
+- stats()
+
+(other)
+x random() in [-inf:inf]
+x random1() in [0:1]
+x randomi() in [-inf:1:inf]
+x randomu() in [0:1:inf]
+---- randoms all use erand48 w/ threadlocal state
+- num()
+
+- clock_get()
+- clock_elapsed()
+x tic(), toc() -> uses threadlocal global

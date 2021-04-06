@@ -1,0 +1,105 @@
+~ Number can be elided from args if all subsequent args are Number
+func sigmoid(x)   := 1 / (1+exp(-x))
+func dsigmoid(x)  := exp(-x) / (exp(-x) + 1)^2
+
+~ func softmax(x) ret ~ Numerically stable with large exponentials
+~     var exps[] = exp(x - max(x))
+~     ret = exps / sum(exps)
+~ end
+
+func relu(x)      => max(0, x)
+func drelu(x)     => (x > 0) ? 1 : 0
+
+func elu(x, a)    => (x > 0) ? x : a * (exp(x)-1)
+func delu(x, a)   => (x > 0) ? 1 : elu(x) + a
+
+func lrelu(x, a)  := (x > 0) ? x : a*x
+func dlrelu(x, a) := (x > 0) ? 1 : a
+
+var selulam   = 1.0507009873554804934193349852946
+var selualph  = 1.6732632423543772848170429916717
+func selu(x)      := selulam * ((x > 0) ? x : selualph*exp(x)-selualph)
+func dselu(x)     := selulam * ((x > 0) ? 1 : selualph*exp(x))
+
+func gelu(x)      := 0.5*x * (1+tanh(sqrt(2/pi)*(x+0.044715*x^3)))
+func dgelu(x) :=
+    0.5*tanh(0.0356774*x^3+0.797885*x) ..
+    + (0.0535161*x^3+0.398942*x)*sech(0.0356774*x^3+0.797885*x)^2 ..
+    + 0.5
+
+~ x +> 7
+~ x -> 6
+~ x => xnew
+
+~ simple example of why scalarisation is hard! y-yref below will generate a
+~ temporary array
+cost(y[], yref[]) := sum((y[]-yref[])^2)/len(y[])
+~ all elementwise ops must actually be generated as iterators?
+~ & collected implicitly when needed
+
+func cost(y[], yref[]) ret
+    var d = (y - yref)^2
+    var n = len(y)
+    ret = sum(d) / n ~ what if i explicitly extract the var? it is still
+    ~ not used otherwise so the temp array is useless
+end
+~ this is legal in python:
+~     var summed = sum(pred for pred in predictions) / 100.0
+~ so I guess sum() takes an iterable: how about having a struct with
+~ slice and an associated func? or something similar to zip?
+~   var ret = sum((yi-yrefi)^2 for yi,yrefi in zip(y,yref))
+~ which should be legal in python, like the previous example.
+
+~ BUT do it the poor man's way for now until Jet is ready to fly
+func cost(y[], yref[]) ret
+    for i in [1:len(y)] do ret += (y[i] - yref[i])^2
+    ret /= len(y)
+end
+
+~ func toCategorical(x[]) ret[]
+~     for xi in x
+~         grow!(ret, to=xi)
+~         ret[xi] += 1
+~     end
+~ end
+
+type Layer
+    var weights[:,:] Number
+    var activation[] Number
+    var bias = 0
+    var learnRate = 1
+    var prev Layer
+    var next Layer
+    var activationFunc func (Number) Number = ident
+    var activationFuncDeriv func (Number) Number = const1
+end
+
+func Layer(nodes) ret
+    ret = Layer()
+    resize!(ret.activation, to=nodes)
+end
+
+func Layer(prev Layer, nodes) ret
+    ret = Layer()
+    resize!(ret.activation, to=nodes)
+    resize!(ret.weights, to=[len(prev), nodes])
+    ret.prev = prev
+    ret.prev.next = ret
+end
+
+func Layer(prev Layer, nodes Number, act func (Number) Number) ret
+    ret = Layer(prev=prev, nodes=nodes)
+    ret.activationFunc = act
+end
+
+func len(l Layer) := len(l.activation[])
+
+func forward!(layer Layer)
+    forward!(layer.prev)
+    layer.activation[:] = layer.activationFunc(
+        layer.weights[:,:] ** layer.prev.activation[:] + layer.bias)
+end
+
+
+
+gradient clipping or scaling

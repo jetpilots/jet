@@ -1,0 +1,37 @@
+json(s String) := print('"$s"')
+json(n Number) := print('$n')
+json(b Boolean) := print(truefalse(b))
+
+func json(obj T, level Number) with dims(obj) == 0
+    print("{")
+    print('"_obj_": "$obj.fqid"', indent=level)
+    for (n, v) = fields(obj)
+        print(",")
+        print('"$n": ', indent=level)
+        json(v, level+2)
+    end
+    print("}")
+    ~ this loop to be fully unrolled
+end
+
+func json(arr T, level Number) with dims(arr) == 1
+    print("[")
+    for v = arr
+        json(v, level+2)
+        print(",")
+    end
+    print("]")
+    ~ this loop to be fully unrolled
+end
+
+func fromJSON!(obj T, json String)
+    var jsp = JSONStream(json)
+    jsp.onNumeric = func (key String, value Number)
+        set!(obj, field=key, numericValue=value)
+    end
+    jsp.onString = func (key String, value String)
+        set!(obj, field=key, numericValue=value)
+    end
+    jsp.onObject = func (key String, json String)
+        fromJSON!(get(obj, field=key), )
+end

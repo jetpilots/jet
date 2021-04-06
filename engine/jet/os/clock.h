@@ -4,10 +4,8 @@
  * Copyright (c) 2016-2020, Yann Collet, Facebook, Inc.
  * All rights reserved.
  *
- * This source code is licensed under both the BSD-style license (found in the
- * LICENSE file in the root directory of this source tree) and the GPLv2 (found
- * in the COPYING file in the root directory of this source tree).
- * You may select, at your option, one of the above-listed licenses.
+ * This source code is licensed under the BSD-style license (see COPYING.md in
+ * the root folder).
  */
 
 /*-****************************************
@@ -223,4 +221,18 @@ void clock_waitForNextTick(void) {
     do {
         clockEnd = clock_getTime();
     } while (clock_getSpanTimeNano(clockStart, clockEnd) == 0);
+}
+
+thread_local clock_Time __last_tic;
+
+// tic() sets the saved timepoint to the current time. Use with a matching
+// toc().
+void tic() { __last_tic = clock_getTime(); }
+
+// toc() prints the elapsed time from the previous tic().
+void toc() {
+    clock_Time now = clock_getTime();
+    PreciseTime diffms = clock_getSpanTimeMicro(__last_tic, now);
+    fprintf(stderr, "Elapsed time: %f ms\n", diffms / 1.0e3);
+    // __last_tic = now;
 }

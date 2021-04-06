@@ -1,0 +1,587 @@
+~ #define RELF(s) (*s == '/' ? "" : "./"), s
+
+~ #define fatal(str, ...)                                                        \
+~     {                                                                          \
+~         eprintf(str, __VA_ARGS__)                                             \
+~         exit(1)                                                               \
+~     end
+
+~ func errorIncrement!(parser Parser) {
+~     if (++parser.issues.errCount < parser.issues.errLimit) return
+~     if (parser.mode == PMLint) {
+~         fatal(
+~             "\n*** too many errors (%d), quitting\n", parser.issues.errLimit)
+~     else
+~         fatal("\n*** %s has errors, please lint it first.\n", parser.filename)
+~     end
+~ end
+~ static const const char carets
+~     = "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
+~       "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
+~ #define _PRLINE(line)                                                          \
+~     if (line > 0 and line <= parser.orig.used)                                 \
+~         eprintf("\e[02m%4d | %s\e[0m\n", line + offs,                         \
+~             parser.orig.ref[line + offs - 1])
+~ void _PRREDLINE(
+~     parser Parser, int line, int col, int len, int offs, msg char) {
+~     c char = parser.orig.ref[line + offs - 1]
+~     if (!col) len = strlen(c), col = 1
+~     eprintf("\e[311m%4d |\e[0m %.*s", line + offs, col - 1, c)
+~     eprintf("\e[31m%.*s\e[0m", len, c + col - 1)
+~     eprintf("%s\n", c + col + len - 1)
+~     eprintf(
+~         "\e[311m       %.*s%.*s %s\e[0m\n", col - 1, spaces, len, carets, msg)
+~ end
+
+void _printSourceLinesWithOffset(
+    parser Parser, int line, int col, int len, int offs, msg char) {
+    ~ eputs("\n") ~-----+\n")
+    _PRLINE(line - 2)
+    _PRLINE(line - 1)
+    _PRREDLINE(parser, line, col, len, offs, msg)
+    _PRLINE(line + 1)
+    _PRLINE(line + 2)
+
+    eputs("\n\n") ~-----+\n")
+end
+
+func printSourceLines(parser Parser, int line, int col, int len, msg char) {
+    _printSourceLinesWithOffset(parser, line, col, len, 0, msg)
+end
+
+enum WarningKinds
+    unused
+end
+
+enum ErrorKinds
+    unknown
+    invalid
+    redefined
+    mismatch
+    missing
+    cycle
+    expected
+    unexpected
+end
+
+enum ErrorNodes
+    variable
+    function
+    type
+    member
+    module
+    operator
+end
+
+func error!(parser Parser, issue ErrorCodes, what ErrorNodes, where SourceLoc, msg String)
+    var s = "$parser.filename:$where.line:$where.col: "
+    var msg1 = value(issue)
+    var msg2 = value(what)
+    eprint("{b}$s{fg=red}error:{/fg} [$code] $msg1 $msg2 $msg{/b}")
+    printSourceLines(parser, loc=where, contextLines=2)
+
+    parser.diagnostics.errCount += 1
+    var diag = parser.diagnostics
+    if parser.mode != .lint ~ in compile mode, bail on the first error.
+        fatal("$parser.filename has errors, please lint it first.")
+    else if diag.errCount >= diag.errLimit
+        fatal("*** too many errors ($diag.errLimit), quitting.")
+    end
+end
+
+func warn!(parser Parser, issue WarningKinds, what WarningNodes, where SourceLoc)
+    var diag = parser.diagnostics
+    var s = "$parser.filename:$where.line:$where.col: "
+    var msg1 = value(issue)
+    var msg2 = value(what)
+    eprint("{b}$s{fg=yellow}error:{/fg} [$code] $msg1 $msg2 $msg{/b}")
+    printSourceLines(parser, loc=loc, contextLines=2)
+
+    parser.diagnostics.warnCount += 1
+end
+
+func hint(parser Parser, where SourceLoc, msg String)
+    var s = "$parser.filename:$where.line:$where.col: "
+    eprint("{b}$s{fg=green}hint:{/fg} $msg", indent=len(s))
+    printSourceLines(parser, loc=loc, contextLines=0)
+end
+
+func info(parser Parser, where SourceLoc, msg String)
+    var s = "$parser.filename:$where.line:$where.col: "
+    eprint("{b}$s{fg=gray}info:{/fg} $msg", indent=len(s))
+    printSourceLines(parser, loc=loc, contextLines=0)
+end
+
+func skipline!(parser) :=
+    while parser.token.kind not in [.newline, .null] do advance!(parser)
+
+func errorExpectedToken!(parser Parser, TokenKind expected)
+    var found = repr(parser.token.kind)
+    error!(parser, code=.expected, msg="$expected but found: $found")
+    skipline!(parser)
+end
+
+func isKeywordKind(kind TokenKind) ret Boolean
+    match kind
+    case .kwCheater, .kwFor, .kwWhile, .kwIf, .kwEnd, .kwEnum, .kwMatch,
+         .kwCase, .kwFunction, .kwDeclare, .kwTest, .kwCheck, .kwNot,
+         .kwNotin, .kwAnd, .kwYes, .kwNo, .kwNil, .kwOr, .kwIn, .kwDo,
+         .kwThen, .kwAs, .kwElse, .kwElif, .kwType, .kwReturn, .kwResult,
+         .kwExtends, .kwVar, .kwLet, .kwImport
+        ret= yes
+    case
+        ret = no
+    end
+end
+
+func errorParsingExpr!(parser Parser, expr ASTExpr)
+    if isKeywordKind(expr.kind) then hint(parser, where=expr.location,
+        msg="this keyword cannot be used as an identifier")
+    error!(parser, issue=.invalid, what=.syntax, where=expr.location, hint=hint)
+    parser.diagnostics.hasParseErrors = yes
+end
+
+func errorInvalidIdent!(parser Parser) :=
+    error!(parser, issue=.invalid, what=.identifier)
+
+func errorInvalidTypeMember!(parser Parser) :=
+    error!(parser, issue=.invalid, what=.member)
+
+func errorUnknownVar!(parser Parser, expr ASTExpr) :=
+    error!(parser, issue=.unknown, what=.variable, where=expr.location)
+
+similar(s1 String, _s2 String) := distance(s1, _s2) <= 3
+
+func errorUnknownMember!(parser Parser, atype ASTType, expr ASTExpr)
+    error!(parser, issue=.unknown, what=.type, where=expr.location)
+    for var = atype.body.locals do if similar(var.name, expr.string)
+        hint(parser, where=var.location, msg="did you mean: $var.name?"
+    end
+end
+
+warnUnusedArg!(parser Parser, var ASTVar) :=
+    warn!(parser, issue=.unused, what=.argument, where=var.location)
+
+warnUnusedVar!(parser Parser, var ASTVar) :=
+    warn!(parser, issue=.unused, what=.variable, where=var.location)
+
+warnUnusedFunc!(parser Parser, func ASTFunc) :=
+    warn!(parser, issue=.unused, what=.function, where=func.location)
+
+warnUnusedType!(parser Parser, type ASTType) :=
+    warn!(parser, issue=.unused, what=.type, where=type.location)
+
+func errorDuplicateVar(parser Parser, var ASTVar, orig ASTVar)
+    error!(parser, issue=.duplicate, what=.variable, where=var.location)
+    hint(parser, where=orig.location, msg="originally defined here")
+end
+
+func errorDuplicateType(parser Parser, type ASTType, orig ASTType)
+    error!(parser, issue=.duplicate, what=.type, where=type.location)
+    hint(parser, where=orig.location, msg="originally defined here")
+end
+
+func errorDuplicateEnum(parser Parser, type ASTType, orig ASTType)
+    error!(parser, issue=.duplicate, what=.enum, where=type.location)
+    hint(parser, where=orig.location, msg="originally defined here")
+end
+
+
+func errorTypeInheritsSelf(parser Parser, type ASTType) {
+    eprintf("\n(%d) \e[31merror:\e[0m type inherits from parser "
+            "\e[34m%s\e[0m at %s%s:%d:%d\n",
+        parser.issues.errCount + 1, type.name, RELF(parser.filename),
+        type.line, type.col)
+    errorIncrement!(parser)
+end
+
+func errorCtorHasType(
+    parser Parser, func ASTFunc, orig ASTType) {
+    eprintf("\n(%d) \e[31merror:\e[0m constructor needs no return "
+            "type: \e[34m%s\e[0m at %s%s:%d:%d\n"
+            "             type declared at %s%s:%d:%d\n"
+            "             remove the return type specification\n",
+        parser.issues.errCount + 1, func.name, RELF(parser.filename),
+        func.line, 1, RELF(parser.filename), orig.line, orig.col)
+    errorIncrement!(parser)
+end
+
+func warnCtorCase(parser Parser, func ASTFunc) {
+    orig ASTType = func.returnSpec.type
+    eprintf("\n(%d) \e[33mwarning:\e[0m wrong case "
+            "\e[34m%s\e[0m for constructor at %s%s:%d:%d\n"
+            "             type declared at %s%s:%d:%d\n"
+            "             change it to \e[34m%s\e[0m or lint the "
+            "file\n",
+        ++parser.issues.warnCount, func.name, RELF(parser.filename),
+        func.line, 1, RELF(parser.filename), orig.line, orig.col,
+        orig.name)
+end
+
+func errorDuplicateFunc(
+    parser Parser, func ASTFunc, orig ASTFunc) {
+    eprintf("\n(%d) \e[31merror:\e[0m duplicate function "
+            "\e[34m%s\e[0m at %s%s:%d:%d\n"
+            "             already declared at %s%s:%d:%d\n"
+            "             selector is \e[34m%s\e[0m\n",
+        parser.issues.errCount + 1, func.name, RELF(parser.filename),
+        func.line, 1, RELF(parser.filename), orig.line, 1, func.selector)
+    errorIncrement!(parser)
+end
+
+func errorDuplicateTest(
+    parser Parser, test ASTTest, orig ASTTest) {
+    eprintf("\n(%d) \e[31merror:\e[0m duplicate test "
+            "\e[34m%s\e[0m at %s%s:%d:%d\n"
+            "             already declared at %s%s:%d:%d\n",
+        parser.issues.errCount + 1, test.name, RELF(parser.filename),
+        test.line, 1, RELF(parser.filename), orig.line, 1)
+    errorIncrement!(parser)
+end
+
+func errorUnknownFunc(parser Parser, expr ASTExpr, selector String)
+    if (selector == '<') return ~ invalid type already error'd
+    error!(parser, issue=.unknown, what=.function, where=expr.location)
+    info(parser, where=expr.location, msg="no function with selector $selector")
+end
+
+func errorStringInterp(parser Parser, expr ASTExpr, pos char) {
+    eprintf("\n\e[3114m ERROR                                    "
+            "           "
+            "                       \e[0m\n %s%s:%d:%d:\n There is "
+            "a syntax "
+            "error within"
+            " this string:\n"
+            "     %s\"\n"
+            " $ is used to specify a variable whose value is to be "
+            "interpolated into the\n"
+            " string. If you want a literal $ sign in the string, "
+            "write it as "
+            "\\$.\n",
+        RELF(parser.filename), expr.line,
+        expr.col + (int)(pos - expr.string), expr.string)
+    errorIncrement!(parser)
+end
+
+// basically type mismatch should handle it
+func errorCallingFuncWithVoid(parser Parser, expr ASTExpr, arg ASTExpr) {
+    eprintf("\n\e[3114m ERROR                                    "
+            "           "
+            "                       \e[0m\n %s%s:%d:%d:\n The "
+            "\e[1m%s\e[0m function does not return a value.\n"
+            " You cannot use it as an argument in the call to "
+            "\e[1m%s\e[0m.\n",
+        RELF(parser.filename), expr.line, expr.col, arg.func.name,
+        expr.string)
+    errorIncrement!(parser)
+end
+
+func errorInheritanceCycle(parser Parser, type ASTType) {
+    eprintf("\n\e[3114m ERROR                                    "
+            "           "
+            "                       \e[0m\n %s%s:%d:%d:\n Type "
+            "\e[1m%s\e[0m has a cycle in its inheritance graph.",
+        RELF(parser.filename), type.line, type.col, type.name)
+    super ASTType = type.super.type
+    eputs("\e[2m")
+    do {
+        eprintf("\n extends \e[12m%s\e[02m (defined at %s%s:%d:%d)",
+            super.name, RELF(parser.filename), super.line, super.col)
+        if (super == super.super.type or super == type) {
+            if (type != super) eprintf("\n extends %s", super.name)
+            break
+        end
+        super = super.super.type
+    end while (1)
+    eputs("\n ...\e[0m\n")
+    errorIncrement!(parser)
+end
+
+func errorConstructorHasCycle(parser Parser, type ASTType) {
+    eprintf("\n\e[3114m ERROR                                    "
+            "           "
+            "                       \e[0m\n %s%s:%d:%d:\n Type "
+            "\e[1m%s\e[0m has an endless cycle in its "
+            "initialization.\n",
+        RELF(parser.filename), type.line, type.col, type.name)
+    errorIncrement!(parser)
+end
+
+func errorArgsCountMismatch(parser Parser, expr ASTExpr)
+    check expr.kind == .functionCallResolved
+    error!(parser, issue=.mismatch, what=.argument)
+    eprintf("\n(%d) \e[31merror:\e[0m arg count mismatch for "
+            "\e[34m%s\e[0m at %s%s:%d:%d\n"
+            "          have %d args, need %d, func defined at "
+            "%s%s:%d\n",
+        parser.issues.errCount + 1, expr.func.name, RELF(parser.filename),
+        expr.line, expr.col, ASTExpr_countCommaList(expr.left),
+        expr.func.argCount, RELF(parser.filename), expr.func.line)
+    errorIncrement!(parser)
+end
+
+func errorIndexDimsMismatch(
+    parser Parser, expr ASTExpr, int nhave) {
+    assert(expr.kind == .subscriptResolved)
+    if (expr.var.typeSpec.typeType == TYErrorType
+        or expr.var.typeSpec.typeType == TYUnresolved)
+        return
+    ~ ^ type resolution failed (and must have raised error) so
+    ~ don't process further
+    int reqdDims = expr.var.typeSpec.dims
+    if (!reqdDims)
+        eprintf("\n(%d) \e[31merror:\e[0m not an array: "
+                "\e[34m%s\e[0m at %s%s:%d:%d\n"
+                "          indexing a non-array with %d dims, var "
+                "defined "
+                "at %s%s:%d\n",
+            parser.issues.errCount + 1, expr.var.name,
+            RELF(parser.filename), expr.line, expr.col, nhave,
+            RELF(parser.filename), expr.var.typeSpec.line)
+    else {
+        eprintf("(%d) \e[31merror:\e[0m index dims mismatch for "
+                "\e[34m%s\e[0m at %s%s:%d:%d\n"
+                "          have %d indexes, need %d, var defined "
+                "at %s%s:%d\n",
+            parser.issues.errCount + 1, expr.var.name,
+            RELF(parser.filename), expr.line, expr.col, nhave, reqdDims,
+            RELF(parser.filename), expr.var.typeSpec.line)
+    end
+    errorIncrement!(parser)
+end
+
+func errorMissingInit(parser Parser, expr ASTExpr) {
+    assert(expr.kind == .varAssign)
+    eprintf("\n(%d) \e[31merror:\e[0m missing initializer for "
+            "\e[34m%s\e[0m at %s%s:%d-%d\n",
+        parser.issues.errCount + 1, expr.var.name, RELF(parser.filename),
+        expr.line - 1, expr.line)
+    parser.issues.hasParseErrors = 1
+    errorIncrement!(parser)
+end
+
+func errorUnknownType(
+    parser Parser, typeSpec ASTTypeSpec) {
+    eprintf("\n(%d) \e[31merror:\e[0m unknown typespec \e[33m%s\e[0m "
+            "at %s%s:%d:%d\n",
+        parser.issues.errCount + 1, typeSpec.name, RELF(parser.filename),
+        typeSpec.line, typeSpec.col)
+    errorIncrement!(parser)
+end
+
+func errorUnknownCtor(parser Parser, func ASTFunc) {
+    eprintf("\n(%d) \e[31merror:\e[0m unknown type \e[33m%s\e[0m "
+            "for constructor at %s%s:%d\n",
+        parser.issues.errCount + 1, func.name, RELF(parser.filename),
+        func.line)
+    errorIncrement!(parser)
+end
+
+func errorInvalidTestName(parser Parser) {
+    eprintf("\n(%d) \e[31merror:\e[0m invalid test name "
+            "\e[33m%.*s\e[0m at %s%s:%d"
+            "\n       test names must be strings\n",
+        parser.issues.errCount + 1, parser.token.matchlen, parser.token.pos,
+        RELF(parser.filename), parser.token.line)
+    errorIncrement!(parser)
+end
+
+func errorTypeMismatchBinOp(parser Parser, expr ASTExpr) {
+    ~ if one of the types is "<invalid>", an error has already been
+    ~ reported for it so don't bother
+    const leftTypeName char = ASTExpr_typeName(expr.left)
+    const rightTypeName char = ASTExpr_typeName(expr.right)
+    if (*leftTypeName == '<' or *rightTypeName == '<') return
+    eprintf("\n(%d) \e[31merror:\e[0m type mismatch at %s%s:%d:%d\n"
+            "             can't apply '\e[34m%s\e[0m' to \e[34m%s\e[0m"
+            " and \e[34m%s\e[0m\n",
+        parser.issues.errCount + 1, RELF(parser.filename), expr.line,
+        expr.col, TokenKind_repr(expr.kind, false), leftTypeName,
+        rightTypeName)
+    errorIncrement!(parser)
+end
+
+func errorTypeMismatch(parser Parser, e1 ASTExpr, e2 ASTExpr) {
+    ~ if one of the types is "<invalid>", an error has already been
+    ~ reported for it so don't bother
+    const leftTypeName char = ASTExpr_typeName(e1)
+    const rightTypeName char = ASTExpr_typeName(e2)
+    if (*leftTypeName == '<' or *rightTypeName == '<') return
+    eprintf("\n(%d) \e[31merror:\e[0m expected same types at:\n"
+            "       %s%s:%d:%d: found '\e[33m%s\e[0m'\n"
+            "       %s%s:%d:%d: found '\e[33m%s\e[0m'\n",
+        parser.issues.errCount + 1, RELF(parser.filename), e1.line, e1.col,
+        leftTypeName, RELF(parser.filename), e2.line, e2.col, rightTypeName)
+    errorIncrement!(parser)
+end
+
+func errorInitMismatch(parser Parser, expr ASTExpr) {
+    ~ if one of the types is "<invalid>", an error has already been
+    ~ reported for it so don't bother
+    const leftTypeName char = ASTTypeSpec_name(expr.var.typeSpec)
+    const rightTypeName char = ASTExpr_typeName(expr.var.init)
+    ~    if (*leftTypeName == '<' or *rightTypeName == '<') return
+
+    ~ for collections, RHS is allowed to be an empty [] or {end to
+    ~ indicate that the array starts out empty. Any-dim arrays can
+    ~ be initialized with []. e.g. var arr[:,:,:] as Number = [] of
+    ~ course, the LHS must have a type, you cannot have e.g. var
+    ~ arr[:,:,:] = [] that would be an error.
+    if ((expr.var.init.kind == .arrayOpen
+            or expr.var.init.kind == .braceOpen)
+        and expr.var.typeSpec.collectionType != CTYNone
+        and !expr.var.init.right
+        and expr.var.typeSpec.typeType != TYUnresolved)
+        return
+
+    eprintf("\n(%d) \e[31merror:\e[0m initializer mismatch at "
+            "%s%s:%d:%d\n"
+            "             can't init \e[34m%s\e[0m with an expression "
+            "of "
+            "type \e[34m%s\e[0m\n"
+            "             just remove the type, the linter will take "
+            "care of it.\n",
+        parser.issues.errCount + 1, ~
+        RELF(parser.filename), ~
+        expr.line,
+        expr.col, ~
+        leftTypeName, ~
+        rightTypeName)
+    errorIncrement!(parser)
+end
+
+func errorInitDimsMismatch(
+    parser Parser, expr ASTExpr, int dims) {
+    ~ if one of the types is "<invalid>", an error has already been
+    ~ reported for it so don't bother
+    ~    leftTypeName char =
+    ~    ASTTypeSpec_name(expr.var.typeSpec) rightTypeName char
+    ~    = ASTExpr_typeName(expr.var.init) if (*leftTypeName ==
+    ~    '<' or *rightTypeName == '<') return
+    eprintf("\n(%d) \e[31merror:\e[0m dimensions mismatch at "
+            "%s%s:%d:%d\n"
+            "             can't init a \e[34m%dD\e[0m array "
+            "\e[34m%s\e[0m with "
+            "a \e[34m%dD\e[0m literal. \n"
+            "             just remove the dimension specification, "
+            "the linter "
+            "will take "
+            "care of it.\n",
+        parser.issues.errCount + 1, ~
+        RELF(parser.filename), ~
+        expr.line,
+        expr.col, ~
+        expr.var.typeSpec.dims, ~
+        expr.var.name, dims)
+    errorIncrement!(parser)
+end
+
+func errorBinOpDimsMismatch(parser Parser, expr ASTExpr) {
+
+    eprintf("\n(%d) \e[31merror:\e[0m dimensions mismatch at "
+            "%s%s:%d:%d\n"
+            "             operator '%s' has \e[34m%dD\e[0m on left, "
+            "\e[34m%dD\e[0m on right\n",
+        parser.issues.errCount + 1, ~
+        RELF(parser.filename), ~
+        expr.line,
+        expr.col, ~
+        .repr[expr.kind], ~
+        expr.left.dims, ~
+        expr.right.dims)
+    errorIncrement!(parser)
+end
+
+func errorReadOnlyVar(parser Parser, expr ASTExpr) {
+    eprintf("\n(%d) \e[31merror:\e[0m mutating read-only variable '"
+            "\e[34m%s\e[0m' at %s%s:%d:%d\n",
+        parser.issues.errCount + 1, ~
+        expr.var.name, ~
+        RELF(parser.filename), ~
+        expr.line, ~
+        expr.col)
+    errorIncrement!(parser)
+end
+
+func errorNoEnumInferred(parser Parser, expr ASTExpr) {
+    eprintf("\n(%d) \e[31merror:\e[0m cannot infer enum type for '"
+            "\e[34m.%s\e[0m' at %s%s:%d:%d\n",
+        parser.issues.errCount + 1, ~
+        expr.string, ~
+        RELF(parser.filename), ~
+        expr.line, ~
+        expr.col)
+    errorIncrement!(parser)
+end
+
+func errorInvalidTypeForOp(parser Parser, expr ASTExpr) {
+    if (expr.left.typeType == TYErrorType
+        or expr.right.typeType == TYErrorType)
+        return
+
+    eprintf("\n(%d) \e[31merror:\e[0m invalid types for operator '"
+            "\e[34m%s\e[0m' at %s%s:%d:%d\n",
+        parser.issues.errCount + 1, ~
+        TokenKind_repr(expr.kind, false), ~
+        RELF(parser.filename), ~
+        expr.line, expr.col)
+    errorIncrement!(parser)
+end
+
+func errorArgTypeMismatch(
+    parser Parser, expr ASTExpr, var ASTVar) {
+    eprintf("\n(%d) \e[31merror:\e[0m type mismatch for argument '"
+            "\e[34m%s\e[0m' at %s%s:%d:%d\n"
+            "    need %s (%d), got %s (%d)\n",
+        parser.issues.errCount + 1, ~
+        var.name, ~
+        RELF(parser.filename), ~
+        expr.line, ~
+        expr.col, ~
+        ASTTypeSpec_name(var.typeSpec),
+        var.typeSpec.typeType, ~
+        ASTExpr_typeName(expr), ~
+        expr.typeType)
+    parser.issues.hasParseErrors = 1
+    errorIncrement!(parser)
+end
+
+func errorUnexpectedToken(parser Parser, msg char) {
+    eprintf( ~"\n_________________________________" ~
+             ~"____________________________________ \e[311m#%d\e[0m\n" ~
+        "\e[1m%s%s:%d:%d: \e[31merror:\e[01m unexpected token "
+        "\e[341m'%.*s'\e[01m" ~
+        "\e[0m\n",
+        ~ parser.issues.errCount + 1, ~
+        RELF(parser.filename), ~
+        parser.token.line, ~
+        parser.token.col, ~
+        parser.token.matchlen, ~
+        parser.token.pos ~
+    )
+
+    _printSourceLines(parser, parser.token.line, parser.token.col,
+        parser.token.matchlen, msg)
+
+    ~ when you have an unexpected token on one line, the rest are also going to
+    ~ be unexpected. so skip to the next newline.
+    while (!matches(parser, .newline)
+        and !matches(parser, .nullChar))
+        Token_advance(&parser.token)
+
+    errorIncrement!(parser)
+end
+
+func errorUnexpectedExpr(parser Parser, expr ASTExpr) {
+    eprintf("\n(%d) \e[31merror:\e[0m at %s%s:%d:%d\n"
+            "      unexpected expr '%s' (%s)\n",
+        parser.issues.errCount + 1, ~
+        RELF(parser.filename), ~
+        expr.line, ~
+        expr.col,
+        expr.prec ~
+            ? TokenKind_repr(expr.kind, false) ~
+            : expr.string,
+        TokenKind_str[expr.kind] + 2)
+    errorIncrement!(parser)
+end

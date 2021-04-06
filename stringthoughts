@@ -1,0 +1,49 @@
+s = s.lower().trim().tr('c','C')
+
+s = lower(s)
+s = trim(s)
+s = tr(s, 'c', 'C')
+
+s!.lower()
+s!.trim()
+s!.tr('c', 'C')
+
+s!.lower().trim().tr('c','C') ~ -- savage and barbaric
+
+a = s.copy()!.lower().trim().tr('c','C') ~ -- meh
+
+a = s.copy()
+a!.lower().trim().tr('c','C') ~ -- meh + barbaric + no way i'm doing two steps
+
+
+a = s.lower().trim().tr('c','C') ~ ++ natural, no mutation on s implied
+
+a = s.copy().lower().trim().tr('c','C') ~ -- no one will remember to do this
+
+------
+~ so only 1 choice
+s = s.lower().trim().tr('c','C') ~ mutates in place!, same target
+a = s.lower().trim().tr('c','C') ~ returns new copy, new target
+
+print(s.lower().trim().tr('c','C')) ~ no target, new copy
+
+
+
+
+par.modpath = par.filename.rstrip(".jet").replace('/', '.')
+par.modout = par.modpath.replace('.', '_')
+par.modname = par.modpath.basename('.')
+
+func basename(x,sep) ~ func not inplaceable right?
+    pos = rfind(x,sep)
+    ret = x[pos:]
+end
+
+~ LHS goes in as a hidden last arg to the func.
+~ if it is the same as the base of the RHS funcs (s) then send s
+~ if it is not the same then send copy(s)
+
+~ inside the string funcs, in & out are aliased for case (A), so the operation
+~ is in place. If the func is not inplaceable you should be sending copy(s)
+~ everytime!
+

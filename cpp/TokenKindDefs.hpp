@@ -1,6 +1,6 @@
 
 
-enum enum_TokenKind {
+enum TokenKind {
     tkNullChar,
     tkKeyword_cheater,
     tkKeyword_for,

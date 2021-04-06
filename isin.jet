@@ -1,0 +1,14 @@
+enum MyEnum
+    number
+    string
+    bool
+end
+
+func start()
+    var g = 2
+    var f = g in [1, 2, 3]
+    var b MyEnum = .number
+    var q = b not in [.number, .string, .bool]
+    describe(f)
+    describe(q)
+end

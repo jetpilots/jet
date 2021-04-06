@@ -13,23 +13,6 @@ static void analyseType(Parser* parser, ASTType* type, ASTModule* mod);
 static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod);
 
 ///////////////////////////////////////////////////////////////////////////
-static bool isCmpOp(ASTExpr* expr) {
-    return expr->kind == tkOpLE //
-        || expr->kind == tkOpLT //
-        || expr->kind == tkOpGT //
-        || expr->kind == tkOpGE //
-        || expr->kind == tkOpEQ //
-        || expr->kind == tkOpNE;
-}
-
-///////////////////////////////////////////////////////////////////////////
-static bool isBoolOp(ASTExpr* expr) {
-    return expr->kind == tkKeyword_and //
-        || expr->kind == tkKeyword_or //
-        || expr->kind == tkKeyword_not;
-}
-
-///////////////////////////////////////////////////////////////////////////
 static void analyseDictLiteral(Parser* parser, ASTExpr* expr, ASTModule* mod) {
     // check that
     // - dict keys in the dict literal are of the same type.
@@ -244,6 +227,8 @@ static void ASTExpr_setEnumBase(
     case tkOpComma:
     case tkOpEQ:
         ASTExpr_setEnumBase(parser, expr->left, spec, mod);
+        fallthrough;
+    case tkArrayOpen:
         ASTExpr_setEnumBase(parser, expr->right, spec, mod);
     default:;
     }
@@ -753,12 +738,27 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
         // TODO: analyse regex, compile it already, whatever
         //        break;
         // -------------------------------------------------- //
+        // case tkKeyword_in:
+        // case tkKeyword_notin:
+        // these ops may take an array of enums, so set their base type.
+        // if (expr->left->kind==tkIdentifierResolved)
+
+        // there's some work being done on these as standard binops, so
+        // fallthrough;
     default:
         if (expr->prec) {
             if (!expr->unary && expr->left)
                 analyseExpr(
                     parser, expr->left, scope, mod, ownerFunc, inFuncArgs);
             // some exprs like return can be used without any args
+
+            if (expr->kind == tkKeyword_in || expr->kind == tkKeyword_notin) {
+                ASTTypeSpec* leftSpec = ASTExpr_getObjectTypeSpec(expr->left);
+                if (leftSpec->typeType == TYObject && leftSpec->type->isEnum) {
+                    ASTExpr_setEnumBase(parser, expr->right, leftSpec, mod);
+                }
+            }
+
             if (expr->right)
                 analyseExpr(
                     parser, expr->right, scope, mod, ownerFunc, inFuncArgs);
@@ -767,8 +767,7 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
                 // Handle the 'or' keyword used to provide alternatives for
                 // a nullable expression.
                 ;
-            } else if (isCmpOp(expr) || isBoolOp(expr)
-                || expr->kind == tkKeyword_in) {
+            } else if (isCmpOp(expr) || isBoolOp(expr)) {
                 // Handle comparison and logical operators (always return a
                 // bool)
                 expr->typeType
@@ -808,12 +807,6 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
                     // with a scalar.
                     if (expr->left->dims != 0 && expr->right->dims != 0) {
                         Parser_errorBinOpDimsMismatch(parser, expr);
-                        //                         unreachable("TODO: make
-                        //                         error: dims mismatch at line
-                        //                         "
-                        //         "%d col %d\n    %d vs %d\n",
-                        // expr->line, expr->col, expr->left->dims,
-                        // expr->right->dims);
                         expr->right->typeType = TYErrorType;
                     } else if (expr->kind == tkPlus //
                         || expr->kind == tkMinus //
@@ -830,7 +823,8 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
                         // eprintf("ok `[+-*/^%]` dims@ %d %d %d %d\n",
                         // expr->line,
                         //     expr->col, expr->left->dims, expr->right->dims);
-                    } else if (expr->kind == tkKeyword_in
+                    } else if ((expr->kind == tkKeyword_in
+                                   || expr->kind == tkKeyword_notin)
                         && expr->left->dims == 0 && expr->right->dims == 1) {
                         // eprintf("ok `in` dims@ %d %d %d %d\n", expr->line,
                         //     expr->col, expr->left->dims, expr->right->dims);
@@ -842,12 +836,6 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
                         //     expr->col, expr->left->dims, expr->right->dims);
                         // expr->dims = 1;
                     } else {
-                        // unreachable(
-                        //     "TODO: make error: dims mismatch for op '%s' line
-                        //     "
-                        //     "%d col %d\n    %d vs %d\n",
-                        //     tkrepr[expr->kind], expr->line, expr->col,
-                        //     expr->left->dims, expr->right->dims);
                         Parser_errorBinOpDimsMismatch(parser, expr);
                     }
 

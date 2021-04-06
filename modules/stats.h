@@ -33,13 +33,13 @@ static void printstats(Parser* const parser, double tms) {
     allocstat(ASTFunc);
     allocstat(ASTModule);
     allocstat(PtrList);
-    allocstat(List_ASTExpr);
-    allocstat(List_ASTVar);
-    allocstat(List_ASTModule);
-    allocstat(List_ASTFunc);
-    allocstat(List_ASTType);
-    allocstat(List_ASTImport);
-    allocstat(List_ASTScope);
+    // allocstat(List_ASTExpr);
+    // allocstat(List_ASTVar);
+    // allocstat(List_ASTModule);
+    // allocstat(List_ASTFunc);
+    // allocstat(List_ASTType);
+    // allocstat(List_ASTImport);
+    // allocstat(List_ASTScope);
     allocstat(Parser);
     eputs("-------------------------------------------------------"
           "\n");

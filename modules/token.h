@@ -461,6 +461,9 @@ static void Token_detect(Token* token) {
         tt_ret = tkArrayDims;
         break;
 
+        // tkPeriod is not unary; a NULL is inserted for inferred enum members
+        // on the left. Anyway I'm thinking of switching to # for inferred enum
+        // members, allowing #123 #== #<= etc.
         // case tkPeriod:
         //     tt_ret = Token_isUnaryAfter(tt_lastNonSpace) ? tk : tt;
 

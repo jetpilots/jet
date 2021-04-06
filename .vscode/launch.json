@@ -5,11 +5,23 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug current file",
+            "name": "Debug current file (linter)",
             "program": "${workspaceRoot}/jetc-dbg",
             "args": [
                 "${fileDirname}/${fileBasename}",
                 "l"
+            ],
+            "cwd": "${fileDirname}",
+            "MIMode": "lldb",
+            "request": "launch",
+            "type": "cppdbg",
+            "preLaunchTask": "Run make jetc-dbg"
+        },
+        {
+            "name": "Debug current file (compiler)",
+            "program": "${workspaceRoot}/jetc-dbg",
+            "args": [
+                "${fileDirname}/${fileBasename}"
             ],
             "cwd": "${fileDirname}",
             "MIMode": "lldb",

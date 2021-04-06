@@ -1,0 +1,436 @@
+type Token
+    var kind = TokenKind.unknown
+    var pos = 0
+    var end = 0
+    var line in [1:65|k]= 0
+    var col in [1:240] = 0
+end
+
+var tokenKindTable[] = [
+    [1:31] = .unknown,
+    [32] = .spaces,
+    ['a':'z', 'A':'Z'] = .alphabet,
+    ['0':'9'] = .digit,
+    [127:255] = .unknown ]
+
+
+
+~ ~ Holds information about a syntax self.token.
+~ typedef struct Token
+
+~     char* pos
+~     uint32_t matchlen : 24
+~     struct
+~         bool skipWhiteSpace : 1,
+~             mergeArrayDims : 1, ~ merge [:,:,:] into one self.token
+~             noKeywosrdDetect : 1, ~ leave keywords as idents
+~             strictSpacing : 1 ~ missing spacing around operators etc. is a
+~                                ~ compile error YES YOU HEARD IT RIGHT
+~                                ~ but why need this AND skipWhiteSpace?
+~     end
+~     uint16_t line
+~     uint8_t col
+~     TokenKind kind : 8
+~ end Token
+
+~ Peek at the char after the current (complete) token
+func peekCharAfter(token Token)
+    var s = token.pos + token.matchlen
+    if token.skipWhiteSpace then while *s == ' ' s += 1
+    ret = *s
+end
+
+~ #define compareKeywordAlt(tok, actual)                                   \
+~     if sizeof(#tok) - 1 == l and !strncasecmp(#tok, s, l))                    \
+~         token.kind = .kw_##actual                                      \
+~         ret =                                                                \
+~     end
+~ #define compareKeyword(tok) compareKeywordAlt(tok, tok)
+
+~ #define compareKeyword(tok) compareKeywordWith(tok,tok)
+
+~ Check if an (ident) self.token matches a keyword and ret = its type
+~ accordingly.
+func tryKeywordMatch!(token Token)
+    check token.kind == .identifier
+    var kwDict = {
+        "and" = .kwAnd, "as" = .kwAs, "case" = .kwCase, "cheater" = .kwCheater,
+        "check" = .kwCheck, "declare" = .kwDeclare, "do" = .kwDo,
+        "else if" = .kwElseIf, "else" = .kwElse, "end" = .kwEnd, "yes" = .kwYes,
+        "enum" = .kwEnum, "extends" = .kwExtends, "for" = .kwFor,
+        "function" = .kwFunction, "if" = .kwIf, "import" = .kwImport,
+        "in" = .kwIn, "let" = .kwLet, "match" = .kwMatch, "nil" = .kwNil,
+        "no" = .kwNo, "not in" = .kwNotIn, "not" = .kwNot, "or" = .kwOr,
+        "result" = .kwResult, "ret =" = .kwReturn, "test" = .kwTest,
+        "then" = .kwThen, "type" = .kwType, "var" = .kwVar, "while" = .kwWhile,
+    }
+    token.kind = kwDict[token.pos] or .identifier
+end
+
+~ Get the token kind based only on the char at the current position
+~ (or an offset).
+func getType(token Token, const size_t offset)
+    const char c = token.pos[offset]
+    const char cn = c ? token.pos[1 + offset] : 0
+    TokenKind ret = (TokenKind)TokenKindTable[(unsigned char)c]
+    match (c)
+    case '<'
+        match (cn)
+        case '='
+            ret = .opLE
+        case
+            ret = .opLT
+        end
+    case '>'
+        match (cn)
+        case '='
+            ret = .opGE
+        case
+            ret = .opGT
+        end
+    case '='
+        match (cn)
+        case '='
+            ret = .opEQ
+        case '>'
+            ret = .opResults
+        case
+            ret = .opAssign
+        end
+    case '+'
+        match (cn)
+        case '='
+            ret = .plusEq
+        end
+        ret = .plus
+    case '-'
+        match (cn)
+        case '='
+            ret = .minusEq
+        end
+        ret = .minus
+    case '*'
+        match (cn)
+        case '='
+            ret = .timesEq
+        end
+        ret = .times
+    case '/'
+        match (cn)
+        case '='
+            ret = .slashEq
+        end
+        ret = .slash
+    case '^'
+        match (cn)
+        case '='
+            ret = .powerEq
+        end
+        ret = .power
+    case '%'
+        match (cn)
+        case '='
+            ret = .opModEq
+        end
+        ret = .opMod
+    case '!'
+        match (cn)
+        case '='
+            ret = .opNE
+        end
+        ret = .exclamation
+    case ':'
+        match (cn)
+        case '='
+            ret = .colEq
+        case
+            ret = .opColon
+        end
+    case
+        ret = ret
+    end
+end
+
+func isUnaryAfter(TokenKind .)
+    match (.)
+    case .parenClose
+    case .identifier: ~ TODO: keywords too?
+    case .number
+    case .arrayClose
+    case .arrayDims
+    case .multiDotNumber
+        ret = yes
+    case
+    end
+    ret = no
+end
+
+func detect(token Token)
+    TokenKind tt = getType(token, 0)
+    TokenKind ttRet = .unknown ~ = tt
+    static TokenKind ttLast = .unknown
+    ~ the previous self.token that was found
+    static TokenKind ttLastNonSpace = .unknown
+    ~ the last non-space self.token found
+    TokenKind tmp
+    char* start = token.pos
+    bool foundE = no, foundDot = no ~, foundCmt = no
+    ~    uint8_t foundSpc = 0
+
+    match (tt)
+    case .stringBoundary
+    case .regexpBoundary
+    case .rawStringBoundary
+        tmp = tt ~ remember which it is exactly
+
+        ~ Incrementing pos is a side effect of getTypeAtCurrentPos(...)
+        while tt != .nullChar
+            ~ here we want to consume the ending " so we move next
+            ~ before
+            token.pos += 1
+            tt = getType(token, 0)
+            if tt == .nullChar or tt == tmp
+                *token.pos = 0
+                token.pos += 1
+                break
+            end
+            if tt == .backslash and getType(token, 1) == tmp
+                token.pos += 1
+            if tt == .newline)
+                token.line += 1
+                token.col = 0
+            end
+        end
+        match tmp
+        case .stringBoundary
+            ttRet = .string
+        case .regexpBoundary
+            ttRet = .regexp
+        case .rawStringBoundary
+            ttRet = .rawString
+        case
+            ttRet = .unknown
+            printf("unreachable %s:%d\n", __FILE__, __LINE__)
+        end
+
+    case .spaces
+        if ttLast == .oneSpace ~ if prev char was a space ret =
+                                   ~ this as a run of spaces
+            while tt != .nullChar
+                ~ here we dont want to consume the end char, so break
+                ~ before
+                tt = getType(token, 1)
+                token.pos += 1
+                if tt != .spaces then break
+            end
+        else
+            token.pos += 1
+        end
+        ~ else its a single space
+        ttRet = .spaces
+        break
+
+    case .colEq
+        token.pos += 1 ~ 2-char token
+        fallthrough
+        ~ since .colEq is also a line continuation token
+        ~ like , and
+    case .opComma
+    case .opSemiColon
+    case .opAssign
+        ~        line continuation tokens
+        ttRet = tt
+
+        while tt != .nullChar)
+            tt = getType(token, 1)
+            token.pos += 1
+            if tt == .hash
+                while *token.pos != '\n' and *token.pos != '\0') token.pos += 1
+                tt = getType(token, 0)
+            end
+            if tt == .newline
+                token.line += 1
+                token.col = 0
+            end
+            if tt not in [.spaces, .newline, .hash] then break
+        end
+
+    case .arrayOpen
+    case .braceOpen
+        ~ go on for array open [. here you need to identify [:,:,:] as a single
+        ~ token
+        ~        self.pos += 1
+
+        while token.pos and *token.pos
+            token.pos += 1
+            if *token.pos == '#'
+                while *token.pos and *token.pos != '\n' do token.pos += 1
+
+            if *token.pos == '\n'
+                token.line += 1
+                token.col = 0
+            end
+            if *token.pos != ' ' and *token.pos != '\n' and *token.pos != '#'
+                token.pos -= 1
+                break
+            end
+        end
+        ~ ttRet = tt == .arrayOpen ? .listLiteral : .dictLiteral
+
+        ~ mergearraydims should be set only when reading func args
+        if not token.mergeArrayDims then goto defaultToken
+
+        ~ during mergeDims [:,:] is considered 1 token.
+        ~ hopefully nobody embeds spaces and comments here, but...
+        ~ TODO: parse comments and spaces embedded in .arrayDims
+        while tt != .nullChar
+            tt = getType(token, 1)
+            token.pos += 1
+            if tt != .opColon and tt != .opComma then break
+        end
+        tt = getType(token, 0)
+        if tt != .arrayClose
+            unreachable("expected a ']', found a '$1'. now what?\n" % *token.pos)
+        end
+        token.pos += 1
+        ttRet = .arrayDims
+
+        ~ case .period
+        ~     ttRet = isUnaryAfter(ttLastNonSpace) ? . : tt
+
+    case .alphabet
+    case .underscore
+        while tt != .nullChar
+            tt = getType(token, 1)
+            token.pos += 1
+            if tt not in [.alphabet, .digit, .underscore] then break
+                ~ and tt != .period)
+                ~ break ~ validate in parser not here
+        end
+        ttRet = .identifier
+
+    case .tilde ~ .exclamation
+        while tt != .nullChar
+            tt = getType(token, 1)
+            token.pos += 1
+            if tt == .newline then break
+        end
+        ttRet = .lineComment
+
+    case .pipe
+        while tt != .nullChar
+            tt = getType(token, 1)
+            token.pos += 1
+            if tt not in [.alphabet, .digit, .slash, .period] then break
+        end
+        ttRet = .units
+
+    case .digit
+        ttRet = .number
+
+        while tt != .nullChar
+
+            tt = getType(token, 1)
+            ~ numbers such as 1234500.00 are allowed
+            ~ very crude, error-checking is parser's job not tokenizer's
+            token.pos += 1
+
+            if token.pos[0] in "eDdE"  ~ will all be changed to e btw
+                foundE = yes
+                skip
+            end
+            if foundE
+                foundE = no
+                skip
+            end
+            if tt == .period)
+                foundDot = yes
+                skip
+            end
+            if foundDot and tt == .period then ttRet = .multiDotNumber
+
+            if tt != .digit and tt != .period and *token.pos != 'i') break
+        end
+
+    case .minus
+        ttRet = isUnaryAfter(ttLastNonSpace) ? .unaryMinus : tt
+        token.pos += 1
+        break
+
+    case .opNotResults
+        ~ 3-char tokens
+        token.pos += 1
+        fallthrough
+
+    case .opEQ
+    case .opGE
+    case .opLE
+    case .opNE
+    case .opResults
+    case .backslash
+    case .plusEq
+    case .minusEq
+    case .timesEq
+    case .slashEq
+    case .powerEq
+    case .opModEq
+
+        ~ 2-char tokens
+        token.pos += 1
+        fallthrough
+
+    case
+    defaultToken:
+        ttRet = tt
+        token.pos += 1
+        break
+    end
+
+    token.matchlen = (uint32_t)(token.pos - start)
+    token.pos = start
+    token.kind = ttRet
+
+    if token.kind == .identifier then tryKeywordMatch!(token)
+
+    if token.kind == .spaces and token.matchlen == 1)
+        token.kind = .oneSpace
+
+    ttLast = token.kind
+    if ttLast != .oneSpace and ttLast != .spaces) ttLastNonSpace = ttLast
+end
+
+~ Advance to the next self.token (skip whitespace if `skipws` is set).
+func advance!(token Token)
+    match (token.kind)
+    case .nullChar
+        unreachable("Advancing token at end of file!", "")
+        return
+    case .identifier, .string, .number, .multiDotNumber, .functionCall,
+        .subscript, .digit, .alphabet, .rawString, .regexp, .units, .kwCheater,
+        .kwFor, .kwWhile, .kwIf, .kwEnd, .kwFunction, .kwTest, .kwNot, .kwAnd,
+        .kwOr, .kwIn, .kwDo, .kwThen, .kwAs, .kwElse, .kwType, .kwReturn,
+        .kwExtends, .kwVar, .kwLet, .kwImport, .unknown ~ bcz start of the file is this
+        ~    case .arrayOpen
+        ~    case .braceOpen
+
+    case
+        *token.pos = 0 ~ trample it so that idents etc. can be assigned
+                         ~ in-situ
+    end
+
+    token.pos  +=  token.matchlen
+    token.col  +=  token.matchlen
+    token.matchlen = 0
+    detect(token)
+
+    if token.kind == .newline)
+        ~ WHY don't you do self.token advance here?
+        token.line += 1
+        token.col = 0 ~ position of the nl itself is 0
+    end
+    if token.skipWhiteSpace
+        and (token.kind == .spaces
+            or (token.strictSpacing and token.kind == .oneSpace)))
+        advance!(token)
+end
+

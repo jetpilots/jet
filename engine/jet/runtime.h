@@ -149,7 +149,7 @@ MAKE_cmp3way(Number)
 #define print printf
 #define String_print puts
 #define CString_print puts
-#define Boolean_print(x) printf("%g\n", _fp_bools_yn_[x])
+#define Boolean_print(x) printf("%s\n", _fp_bools_yn_[x])
 #define Number_print(x) printf("%g\n", x)
 #define CString_describe(x) printf("%s as String =\n    \"%s\"\n", #x, x)
 #define Number_describe(x) printf("%s as Number =\n    %g\n", #x, x)

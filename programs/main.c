@@ -662,6 +662,25 @@ static size_t ASTFunc_calcSizeUsage(ASTFunc* self) {
     return sum;
 }
 
+///////////////////////////////////////////////////////////////////////////
+static bool isCmpOp(ASTExpr* expr) {
+    return expr->kind == tkOpLE //
+        || expr->kind == tkOpLT //
+        || expr->kind == tkOpGT //
+        || expr->kind == tkOpGE //
+        || expr->kind == tkOpEQ //
+        || expr->kind == tkOpNE;
+}
+
+///////////////////////////////////////////////////////////////////////////
+static bool isBoolOp(ASTExpr* expr) {
+    return expr->kind == tkKeyword_and //
+        || expr->kind == tkKeyword_or //
+        || expr->kind == tkKeyword_in //
+        || expr->kind == tkKeyword_notin //
+        || expr->kind == tkKeyword_not;
+}
+
 static size_t ASTType_calcSizeUsage(ASTType* self) {
     size_t size = 0, sum = 0;
     foreach (ASTVar*, var, self->body->locals) {
@@ -1041,7 +1060,7 @@ static Parser* Parser_fromFile(char* filename, bool skipws, ParserMode mode) {
     Parser* ret = NEW(Parser);
 
     ret->filename = filename;
-    ret->noext = CString_noext(filename);
+    ret->noext = CString_noext(CString_clone(filename));
     fseek(file, 0, SEEK_END);
     const size_t size = ftell(file) + 2;
 
@@ -1057,9 +1076,9 @@ static Parser* Parser_fromFile(char* filename, bool skipws, ParserMode mode) {
         }
         ret->data[size - 1] = 0;
         ret->data[size - 2] = 0;
-        ret->moduleName = CString_tr(ret->noext, '/', '.');
-        ret->mangledName = CString_tr(ret->noext, '/', '_');
-        ret->capsMangledName = CString_upper(ret->mangledName);
+        ret->moduleName = CString_tr(CString_clone(ret->noext), '/', '.');
+        ret->mangledName = CString_tr(CString_clone(ret->noext), '/', '_');
+        ret->capsMangledName = CString_upper(CString_clone(ret->mangledName));
         ret->end = ret->data + size;
         ret->orig = (PtrArray) {};
         PtrArray_push(&ret->orig, malloc(size));
@@ -1172,7 +1191,7 @@ static void getSelector(ASTFunc* func) {
             remain -= wrote;
         }
         // TODO: why not use pstrndup here?
-        func->selector = pstrndup(buf, selLen + 1);
+        func->selector = CString_pndup(buf, selLen + 1);
         // func->selector = PoolB_alloc(strPool, selLen + 1);
         // memcpy(func->selector, buf, selLen + 1);
 
@@ -1196,14 +1215,14 @@ static void getSelector(ASTFunc* func) {
             remain -= wrote;
         }
         selLen += snprintf(bufp, 2, ")");
-        func->prettySelector = pstrndup(buf, selLen + 1);
+        func->prettySelector = CString_pndup(buf, selLen + 1);
 
     } else {
         func->selector = func->name;
         char buf[128];
         buf[127] = 0;
         int n = snprintf(buf, 127, "%s()", func->name);
-        func->prettySelector = pstrndup(buf, n + 1);
+        func->prettySelector = CString_pndup(buf, n + 1);
         ;
     }
 }
@@ -1351,7 +1370,7 @@ int main(int argc, char* argv[]) {
     if (parser->issues.warnCount)
         eprintf("\n\e[33m*** %d warnings\e[0m\n", parser->issues.warnCount);
 
-    if (!printDiagnostics) eprintf("*** cgen in %.2f ms\n", elap);
+    // if (!printDiagnostics) eprintf("*** cgen in %.2f ms\n", elap);
 
     // returns the last error kind (from enum ParserErrors) so that test
     // scripts can check for specific errors raised.

@@ -6,11 +6,9 @@
 static void ASTImport_emit(ASTImport* import, int level) {
     CString_tr_ip(import->name, '.', '_', 0);
     printf("\n#include \"%s.h\"\n", import->name);
-    if (import->alias)
-        printf("#define %s %s\n", import->alias,
-            import
-                ->name); // TODO: remove #defines! There could be a field of any
-                         // struct with the same name that will get clobbered
+    if (import->alias) printf("#define %s %s\n", import->alias, import->name);
+    // TODO: remove #defines! There could be a field of any
+    // struct with the same name that will get clobbered
     CString_tr_ip(import->name, '_', '.', 0);
 }
 
@@ -225,7 +223,7 @@ static ASTExpr* ASTExpr_findPromotionCandidate(ASTExpr* expr) {
 static char* newTmpVarName(int num, char c) {
     char buf[8];
     int l = snprintf(buf, 8, "_%c%d", c, num);
-    return pstrndup(buf, l);
+    return CString_pndup(buf, l);
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -416,6 +414,7 @@ static void ASTScope_emit(ASTScope* scope, int level) {
         // You need to know if the ASTExpr_emit will in fact generate something.
         // This is true in general unless it is an unused var init.
         if (stmt->kind != tkVarAssign || stmt->var->used) {
+
             if (genCoverage || genLineProfile) //
                 printf("    /************/ ");
             if (genCoverage) printf("JET_COVERAGE_UP(%d); ", stmt->line);
@@ -1474,6 +1473,47 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
         ASTExpr_emit(expr->right, 0);
         break;
 
+    case tkKeyword_notin:
+        printf("!");
+        fallthrough;
+    case tkKeyword_in:
+        // the RHS should be dims==1 or another kind of collection, you should
+        // have checked it in the analysis phase.
+        switch (expr->right->kind) {
+        case tkArrayOpen:
+            if (expr->right->right->kind == tkOpColon)
+                goto inRangeOp; // x in [a:b]
+            // now its a literal array. that makes it easy, you can either call
+            // isin() or the macro ISIN() if you have relatively few items in
+            // the array.
+
+            {
+                int c = ASTExpr_countCommaList(expr->right->right);
+                // if (c <= 64) {
+                // TODO: ISIN/isin must be specialized for types other than
+                // int. in particular strings cannot be used yet
+                printf("%s(%d, ", c <= 64 ? "ISIN" : "isin", c);
+                ASTExpr_emit(expr->left, 0);
+                printf(", ");
+                ASTExpr_emit(expr->right->right, 0);
+                printf(")");
+                // }
+            }
+
+            break;
+        case tkSubscript:
+            // maybe slice or something
+            break;
+        case tkOpColon: // x in a:b
+        inRangeOp:
+            break;
+        default:
+            unreachable("inside in operator: rhs is %s",
+                TokenKind_repr(expr->right->kind, false));
+            // for anything else, figure it out.
+        }
+        break;
+
     case tkOpEQ:
     case tkOpNE:
     case tkOpGE:
@@ -1500,7 +1540,9 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
             printf(")");
             break;
         }
-        fallthrough default : if (!expr->prec) break;
+        fallthrough;
+    default:
+        if (!expr->prec) break;
         // not an operator, but this should be error if you reach here
         bool leftBr
             = expr->left && expr->left->prec && expr->left->prec < expr->prec;

@@ -54,7 +54,7 @@ void ASTExpr::emit_tkSubscriptResolved(int level) {
 
         printf("Tensor%dD_get_%s(%s, {", this->var->typeSpec->dims,
             this->var->typeSpec->cname(), name);
-        index.emit(0);
+        index->emit(0);
         printf("})");
 
         break;
@@ -62,7 +62,7 @@ void ASTExpr::emit_tkSubscriptResolved(int level) {
     case tkOpColon:
 
         printf("Array_getSlice_%s(%s, ", this->var->typeSpec->name(), name);
-        index.emit(0);
+        index->emit(0);
         printf(")");
         break;
 
@@ -77,7 +77,7 @@ void ASTExpr::emit_tkSubscriptResolved(int level) {
     case tkKeyword_not:
 
         printf("Array_copy_filter_%s(%s, ", this->var->typeSpec->name(), name);
-        index.emit(0);
+        index->emit(0);
         printf(")");
         break;
 
@@ -94,13 +94,13 @@ void ASTExpr::emit_tkFunctionCallResolved(int level) {
     const char* tmpc = "";
     if (arg1) {
         if (arg1->kind == tkOpComma) arg1 = arg1->left;
-        tmpc = arg1->collectionType->CollectionType_nativeName();
+        tmpc = CollectionType_nativeName(arg1->collectionType);
     }
     printf("%s%s", tmpc, tmp);
     if (*tmp >= 'A' && *tmp <= 'Z' && !strchr(tmp, '_')) printf("_new_");
     printf("(");
 
-    if (this->left) this->left.emit(0);
+    if (this->left) this->left->emit(0);
 
     if (!this->func->isDeclare) {
         printf("\n#ifdef DEBUG\n"
@@ -192,15 +192,15 @@ void ASTExpr::emit_tkCheck(int level) {
     printf("{\n");
     if (!checkExpr->unary) {
         printf("%.*s%s _lhs = ", level, spaces, lhsExpr->typeName());
-        lhsExpr.emit(0);
+        lhsExpr->emit(0);
         printf(";\n");
     }
     printf("%.*s%s _rhs = ", level, spaces, rhsExpr->typeName());
-    rhsExpr.emit(0);
+    rhsExpr->emit(0);
     printf(";\n");
     printf("%.*sif (!(", level, spaces);
 
-    checkExpr.emit(0);
+    checkExpr->emit(0);
 
     printf(")) {\n");
     printf("%.*sprintf(\"\\n\\n\e[31mruntime error:\e[0m check "
@@ -208,11 +208,11 @@ void ASTExpr::emit_tkCheck(int level) {
            "       "
            "   THISFILE, \"",
         level + STEP, spaces, this->line, this->col + 6);
-    checkExpr.lint(0, true, true);
+    checkExpr->lint(0, true, true);
     printf("\");\n");
     printf("#ifdef DEBUG\n%.*sCHECK_HELP_OPEN;\n", level + STEP, spaces);
 
-    checkExpr.genPrintVars(level + STEP);
+    checkExpr->genPrintVars(level + STEP);
 
     if (!checkExpr->unary) {
 
@@ -223,9 +223,9 @@ void ASTExpr::emit_tkCheck(int level) {
             if (lhsExpr->kind != tkIdentifierResolved
                 || !lhsExpr->var->visited) {
                 printf("%.*s%s", level + STEP, spaces, "printf(\"    %s = ");
-                printf("%s", lhsExpr->typeType.format(true));
+                printf("%s", TypeType_format(lhsExpr->typeType, true));
                 printf("%s", "\\n\", \"");
-                lhsExpr.lint(0, true, true);
+                lhsExpr->lint(0, true, true);
                 printf("%s", "\", _lhs);\n");
             }
         }
@@ -234,7 +234,7 @@ void ASTExpr::emit_tkCheck(int level) {
         && rhsExpr->kind != tkNumber && rhsExpr->kind != tkRawString) {
         if (rhsExpr->kind != tkIdentifierResolved || !rhsExpr->var->visited) {
             printf("%.*s%s", level + STEP, spaces, "printf(\"    %s = ");
-            printf("%s", rhsExpr->typeType.format(true));
+            printf("%s", TypeType_format(rhsExpr->typeType, true));
             printf("%s", "\\n\", \"");
             rhsExpr->lint(0, true, true);
             printf("%s", "\", _rhs);\n");
@@ -325,17 +325,17 @@ void ASTExpr::emit(int level) {
 
                 printf("%s_set(%s, %s,%s, ", this->left->typeName(),
                     this->left->var->name, this->left->left->string,
-                    this->kind.repr(true));
-                this->right.emit(0);
+                    TokenKind_repr(this->kind, true));
+                this->right->emit(0);
                 printf(")");
                 break;
 
             case tkOpColon:
                 printf("%s_setSlice(%s, ", this->left->typeName(),
                     this->left->var->name);
-                this->left->left.emit(0);
-                printf(",%s, ", this->kind.repr(true));
-                this->right.emit(0);
+                this->left->left->emit(0);
+                printf(",%s, ", TokenKind_repr(this->kind, true));
+                this->right->emit(0);
                 printf(")");
                 break;
 
@@ -350,9 +350,9 @@ void ASTExpr::emit(int level) {
             case tkKeyword_not:
                 printf("%s_setFiltered(%s, ", this->left->typeName(),
                     this->left->var->name);
-                this->left->left.emit(0);
-                printf(",%s, ", this->kind.repr(true));
-                this->right.emit(0);
+                this->left->left->emit(0);
+                printf(",%s, ", TokenKind_repr(this->kind, true));
+                this->right->emit(0);
                 printf(")");
                 break;
 
@@ -376,7 +376,7 @@ void ASTExpr::emit(int level) {
         case tkIdentifierResolved:
         case tkPeriod:
             this->left->emit(0);
-            printf("%s", this->kind.repr(true));
+            printf("%s", TokenKind_repr(this->kind, true));
             this->right->emit(0);
             break;
         case tkIdentifier:
@@ -404,7 +404,7 @@ void ASTExpr::emit(int level) {
         } else {
             printf("Array_make(((%s[]) {", "double");
 
-            this->right.emit(0);
+            this->right->emit(0);
             printf("})");
             printf(", %d)", this->right->countCommaList());
         }
@@ -421,19 +421,19 @@ void ASTExpr::emit(int level) {
 
             ASTExpr* p = this->right;
             while (p && p->kind == tkOpComma) {
-                p->left->left.emit(0);
+                p->left->left->emit(0);
                 printf(", ");
                 p = p->right;
             };
-            p->left.emit(0);
+            p->left->emit(0);
             printf("}, (%s[]){", Vtype);
             p = this->right;
             while (p && p->kind == tkOpComma) {
-                p->left->right.emit(0);
+                p->left->right->emit(0);
                 printf(", ");
                 p = p->right;
             };
-            p->right.emit(0);
+            p->right->emit(0);
             printf("})");
         }
     } break;
@@ -472,7 +472,7 @@ void ASTExpr::emit(int level) {
 
     case tkKeyword_elif:
         puts("else if (");
-        this->left.emit(0);
+        this->left->emit(0);
         puts(") {");
         if (this->body) this->body.emit(level + STEP);
         printf("%.*s}", level, spaces);
@@ -480,7 +480,7 @@ void ASTExpr::emit(int level) {
 
     case tkKeyword_match: {
         printf("{%s __match_cond = ", this->left->typeName());
-        this->left.emit(0);
+        this->left->emit(0);
         if (this->left->typeType > TYInt8
             || (this->left->typeType == TYObject
                 && this->left->getObjectType()->isEnum))
@@ -507,39 +507,39 @@ void ASTExpr::emit(int level) {
             if (cond->typeType > TYInt8
                 || (cond->typeType == TYObject && cond->getEnumType())) {
                 printf("case ");
-                cond->left.emit(0);
+                cond->left->emit(0);
                 printf(": ");
                 while (cond->right->kind == tkOpComma) {
                     cond = cond->right;
                     printf("case ");
-                    cond->left.emit(0);
+                    cond->left->emit(0);
                     printf(": ");
                 }
                 printf("case ");
-                cond->right.emit(0);
+                cond->right->emit(0);
                 puts(": {");
             } else if (cond->typeType == TYString) {
                 printf("else if (!strcmp(__match_cond, ");
-                cond->left.emit(0);
+                cond->left->emit(0);
                 printf(")");
                 while (cond->right->kind == tkOpComma) {
                     cond = cond->right;
                     printf(" || !strcmp(__match_cond, ");
-                    cond->left.emit(0);
+                    cond->left->emit(0);
                     printf(")");
                 }
                 printf(" || !strcmp(__match_cond, ");
-                cond->right.emit(0);
+                cond->right->emit(0);
                 puts(")) do {");
             } else {
                 printf("else if (__match_cond == ");
-                cond->left.emit(0);
+                cond->left->emit(0);
                 while (cond->right->kind == tkOpComma) {
                     cond = cond->right;
                     printf(" || __match_cond == (");
-                    cond->left.emit(0);
+                    cond->left->emit(0);
                 }
-                cond->right.emit(0);
+                cond->right->emit(0);
                 puts(")) do {");
             };
 
@@ -547,19 +547,19 @@ void ASTExpr::emit(int level) {
             if (cond->typeType > TYInt8
                 || (cond->typeType == TYObject && cond->getEnumType())) {
                 printf("case ");
-                cond.emit(0);
+                cond->emit(0);
                 puts(": {");
             } else if (cond->typeType == TYString) {
                 printf("else if (!strcmp(__match_cond, ");
-                cond.emit(0);
+                cond->emit(0);
                 puts(")) do {");
             } else {
                 printf("else if (__match_cond == (");
-                cond.emit(0);
+                cond->emit(0);
                 puts(")) do {");
             };
         };
-        if (this->body) this->body.emit(level);
+        if (this->body) this->body->emit(level);
         printf("%.*s}", level, spaces);
         if (cond->typeType > TYInt8
             || (cond->typeType == TYObject && cond->getEnumType()))
@@ -575,26 +575,26 @@ void ASTExpr::emit(int level) {
         if (this->kind == tkKeyword_for)
             printf("FOR(");
         else
-            printf("%s (", this->kind.repr(true));
+            printf("%s (", TokenKind_repr(this->kind, true));
         if (this->kind == tkKeyword_for) this->left->kind = tkOpComma;
-        if (this->left) this->left.emit(0);
+        if (this->left) this->left->emit(0);
         if (this->kind == tkKeyword_for) this->left->kind = tkOpAssign;
         puts(") {");
-        if (this->body) this->body.emit(level + STEP);
+        if (this->body) this->body->emit(level + STEP);
         printf("%.*s}", level, spaces);
         break;
 
     case tkPower:
         printf("pow(");
-        this->left.emit(0);
+        this->left->emit(0);
         printf(",");
-        this->right.emit(0);
+        this->right->emit(0);
         printf(")");
         break;
 
     case tkKeyword_return:
         printf("{_err_ = NULL; STACKDEPTH_DOWN; return ");
-        if (this->right) this->right.emit(0);
+        if (this->right) this->right->emit(0);
         printf(";}\n");
         break;
 
@@ -603,14 +603,14 @@ void ASTExpr::emit(int level) {
         break;
 
     case tkPeriod:
-        this->left.emit(0);
+        this->left->emit(0);
         if (this->left->typeType == TYObject
             && this->left->getObjectType()->isEnum)
             printf("_");
         else
             printf("->");
 
-        this->right.emit(0);
+        this->right->emit(0);
         break;
 
     case tkOpEQ:
@@ -623,22 +623,24 @@ void ASTExpr::emit(int level) {
             && (this->left->kind == tkOpLE | this->left->kind == tkOpLT)) {
             printf("%s_cmp3way_%s_%s(", this->left->right->typeName(),
                 this->kind.ascrepr(false), this->left->kind.ascrepr(false));
-            this->left->left.emit(0);
+            this->left->left->emit(0);
             printf(", ");
-            this->left->right.emit(0);
+            this->left->right->emit(0);
             printf(", ");
-            this->right.emit(0);
+            this->right->emit(0);
             printf(")");
             break;
         } else if (this->right->typeType == TYString) {
             printf("CString_cmp(%s, ", tksrepr[this->kind]);
-            this->left.emit(0);
+            this->left->emit(0);
             printf(", ");
-            this->right.emit(0);
+            this->right->emit(0);
             printf(")");
             break;
         }
-        fallthrough default : if (!this->prec) break;
+    // fallthrough
+    default:
+        if (!this->prec) break;
 
         bool leftBr
             = this->left && this->left->prec && this->left->prec < this->prec;
@@ -649,25 +651,23 @@ void ASTExpr::emit(int level) {
         char lpo = '(';
         char lpc = ')';
         if (leftBr) putc(lpo, stdout);
-        if (this->left) this->left.emit(0);
+        if (this->left) this->left->emit(0);
         if (leftBr) putc(lpc, stdout);
 
         if (this->kind == tkArrayOpen)
             putc('{', stdout);
         else
-            printf("%s", this->kind.repr(true));
+            printf("%s", TokenKind_repr(this->kind, true));
 
         char rpo = '(';
         char rpc = ')';
         if (rightBr) putc(rpo, stdout);
-        if (this->right) this->right.emit(0);
+        if (this->right) this->right->emit(0);
         if (rightBr) putc(rpc, stdout);
 
         if (this->kind == tkArrayOpen) putc('}', stdout);
     }
 }
-
-void ASTExpr::emit(int level);
 
 bool ASTExpr::mustPromote(const char* name) {
 
@@ -711,7 +711,7 @@ void ASTExpr::genPrintVars(int level) {
     case tkVarAssign:
         if (this->var->visited) break;
         printf("%.*sprintf(\"    %s = %s\\n\", %s);\n", level, spaces,
-            this->var->name, this->typeType.format(true), this->var->name);
+            this->var->name, this->typeType->format(true), this->var->name);
         this->var->visited = true;
         break;
 
@@ -727,13 +727,13 @@ void ASTExpr::genPrintVars(int level) {
     case tkKeyword_else:
     case tkKeyword_for:
     case tkKeyword_while:
-        this->left.genPrintVars(level);
+        this->left->genPrintVars(level);
         break;
 
     default:
         if (this->prec) {
-            if (!this->unary) this->left.genPrintVars(level);
-            this->right.genPrintVars(level);
+            if (!this->unary) this->left->genPrintVars(level);
+            this->right->genPrintVars(level);
         }
     }
 }
@@ -838,7 +838,7 @@ void ASTExpr::lint(int level, bool spacing, bool escapeStrings) {
         char* tmp = (this->kind == tkFunctionCallResolved) ? this->func->name
                                                            : this->string;
         printf("%s(", tmp);
-        if (this->left) this->left.lint(0, false, escapeStrings);
+        if (this->left) this->left->lint(0, false, escapeStrings);
         printf(")");
     } break;
 
@@ -847,7 +847,7 @@ void ASTExpr::lint(int level, bool spacing, bool escapeStrings) {
         char* tmp = (this->kind == tkSubscriptResolved) ? this->var->name
                                                         : this->string;
         printf("%s[", tmp);
-        if (this->left) this->left.lint(0, false, escapeStrings);
+        if (this->left) this->left->lint(0, false, escapeStrings);
         printf("]");
     } break;
 
@@ -858,23 +858,23 @@ void ASTExpr::lint(int level, bool spacing, bool escapeStrings) {
     case tkPeriod:
         if (this->left && this->left->typeType == TYObject
             && !this->left->var->typeSpec->type->isEnum)
-            this->left.lint(0, spacing, escapeStrings);
+            this->left->lint(0, spacing, escapeStrings);
         printf(".");
-        this->right.lint(0, spacing, escapeStrings);
+        this->right->lint(0, spacing, escapeStrings);
         break;
 
     case tkVarAssign:
 
         assert(this->var != NULL);
-        this->var.lint(0);
+        this->var->lint(0);
         break;
 
     case tkArrayOpen:
     case tkBraceOpen:
         printf("%s", tkrepr[this->kind]);
         if (this->right)
-            this->right.lint(level, this->kind != tkArrayOpen, escapeStrings);
-        printf("%s", tkrepr[TokenKind::reverseBracket(this->kind)]);
+            this->right->lint(level, this->kind != tkArrayOpen, escapeStrings);
+        printf("%s", tkrepr[TokenKind_reverseBracket(this->kind)]);
         break;
 
     default:
@@ -918,17 +918,17 @@ void ASTExpr::lint(int level, bool spacing, bool escapeStrings) {
         char lpc = leftBr && this->left->kind == tkOpColon ? ']' : ')';
         if (leftBr) putc(lpo, stdout);
         if (this->left)
-            this->left.lint(0, spacing && !leftBr && this->kind != tkOpColon,
+            this->left->lint(0, spacing && !leftBr && this->kind != tkOpColon,
                 escapeStrings);
         if (leftBr) putc(lpc, stdout);
 
-        printf("%s", this->kind.repr(spacing));
+        printf("%s", TokenKind_repr(this->kind, spacing));
 
         char rpo = rightBr && this->right->kind == tkOpColon ? '[' : '(';
         char rpc = rightBr && this->right->kind == tkOpColon ? ']' : ')';
         if (rightBr) putc(rpo, stdout);
         if (this->right)
-            this->right.lint(0, spacing && !rightBr && this->kind != tkOpColon,
+            this->right->lint(0, spacing && !rightBr && this->kind != tkOpColon,
                 escapeStrings);
         if (rightBr) putc(rpc, stdout);
 
@@ -936,16 +936,16 @@ void ASTExpr::lint(int level, bool spacing, bool escapeStrings) {
     }
 }
 
-static ASTExpr* ASTExpr::fromToken(const Token* this) {
+ASTExpr* ASTExpr::fromToken(const Token* this) {
     ASTExpr* ret = new ASTExpr;
     ret->kind = this->kind;
     ret->line = this->line;
     ret->col = this->col;
 
-    ret->prec = ret->kind->TokenKind::getPrecedence();
+    ret->prec = ret->kind->TokenKind_getPrecedence();
     if (ret->prec) {
-        ret->rassoc = ret->kind->TokenKind::isRightAssociative();
-        ret->unary = ret->kind->TokenKind::isUnary();
+        ret->rassoc = ret->kind->TokenKind_isRightAssociative();
+        ret->unary = ret->kind->TokenKind_isUnary();
     }
 
     exprsAllocHistogram[ret->kind]++;
@@ -1009,7 +1009,7 @@ static ASTExpr* ASTExpr::fromToken(const Token* this) {
     return ret;
 }
 
-static bool ASTExpr::throws() {
+bool ASTExpr::throws() {
 
     if (!this) return false;
     switch (this->kind) {
@@ -1040,7 +1040,7 @@ static bool ASTExpr::throws() {
         return this->left->throws() || this->right->throws();
     }
 }
-static ASTTypeSpec* ASTExpr::getObjectTypeSpec() {
+ASTTypeSpec* ASTExpr::getObjectTypeSpec() {
     if (!this) return NULL;
 
     switch (this->kind) {
@@ -1062,7 +1062,7 @@ static ASTTypeSpec* ASTExpr::getObjectTypeSpec() {
     return NULL;
 }
 
-static ASTType* ASTExpr::getEnumType() {
+ASTType* ASTExpr::getEnumType() {
     ASTType* ret = NULL;
     if (!this || this->typeType != TYObject) return ret;
 
@@ -1085,7 +1085,7 @@ static ASTType* ASTExpr::getEnumType() {
     return ret;
 }
 
-static ASTType* ASTExpr::getObjectType() {
+ASTType* ASTExpr::getObjectType() {
     if (!this || this->typeType != TYObject) return NULL;
 
     switch (this->kind) {
@@ -1104,7 +1104,7 @@ static ASTType* ASTExpr::getObjectType() {
     return NULL;
 }
 
-static ASTType* ASTExpr::getTypeOrEnum() {
+ASTType* ASTExpr::getTypeOrEnum() {
     if (!this || this->typeType != TYObject) return NULL;
 
     switch (this->kind) {

@@ -233,9 +233,9 @@ static ASTExpr* parseExpr(Parser* parser) {
                     PtrArray_push(&rpn, p);
                 }
 
-                if (PtrArray_empty(&rpn)) {
+                if (PtrArray_empty(&rpn) && !expr->unary) {
                     Parser_errorUnexpectedToken(
-                        parser, "operator with no operand(s)");
+                        parser, "binary op with no left operand");
                     // TODO: again unexpected Expr
                     goto error;
                 }
@@ -1154,7 +1154,7 @@ static ASTFunc* ASTType_makeDefaultCtor(ASTType* type) {
     ctor->name = type->name;
     char buf[128];
     int l = snprintf(buf, 128, "%s_new_", type->name);
-    ctor->selector = pstrndup(buf, l);
+    ctor->selector = CString_pndup(buf, l);
     ASTTypeSpec* tspec = ASTTypeSpec_new(TYObject, CTYNone);
     tspec->type = type;
     ctor->returnSpec = tspec;
@@ -1196,7 +1196,7 @@ static ASTModule* parseModule(
     // To break recursion, add the root to the existingModules list right away.
     // The name is all that is required for this module to be found later.
     PtrList_shift(existingModulesPtr, root);
-    eprintf("Parsing %s\n", root->name);
+    // eprintf("Parsing %s\n", root->name);
     // root->scope = NEW(ASTScope);
 
     const bool onlyPrintTokens = false;

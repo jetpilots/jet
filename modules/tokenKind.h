@@ -89,9 +89,11 @@ static uint8_t TokenKind_getPrecedence(TokenKind kind) {
         [tkOpGT] = 41,
         [tkOpGE] = 41,
         [tkKeyword_in] = 41,
+        [tkKeyword_notin] = 41,
 
         [tkOpEQ] = 40,
-        [tkTilde] = 40, // regex match op e.g. sIdent ~ '[a-zA-Z_][a-zA-Z0-9_]'
+        // [tkTilde] = 40,
+        // regex match op e.g. sIdent ~ '[a-zA-Z_][a-zA-Z0-9_]'
         [tkOpNE] = 40,
 
         [tkKeyword_not] = 32,

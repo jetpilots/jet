@@ -1,0 +1,119 @@
+
+func hash(expr ASTExpr, cseDict ASTExpr[UInt32])
+    if not expr unreachable("%s", "expr is NULL")
+    match expr.kind
+    case .string, .rawString
+        expr.hash = hash(expr.string)
+
+    case .number:
+        char* c = strpbrk(expr.string, "e.")
+        if c
+            expr.hash = hash(atof(expr.string))
+        else
+            expr.hash = hash(atoll(expr.string))
+        end
+
+    case .varAssign
+        hash!(expr.var.init, cseDict)
+        ~        expr.hash = expr.var.init.hash
+
+    case .functionCallResolved, .identifierResolved, .subscriptResolved
+        union
+            ~ char buf[9]
+            UInt64 h64
+            UInt32 hash[2]
+        end str =   .h64 = 0 end ~.buf =   1, 1, 1, 1, 1, 1, 1, 1, 0 end end
+        str.hash[0] = hash((UInt64)expr.right) ~.name)
+        ~ TODO: hash the right ptr instead
+        ~ here we exploit the fact that name is at the same offset within
+        ~ ASTFunc and ASTVar, so the deref will get the right thing
+        if expr.left
+            hash!(expr.left, cseDict)
+            str.hash[1] = expr.left.hash
+        end
+        expr.hash = hash(str.h64) ~ CString_hash(str.buf)
+    end
+    case
+        if expr.prec
+            union
+                char buf[13]
+                UInt64 h64
+                UInt32 hash[2]
+            end str =   .h64 = 0 end ~.buf =  1,1,1,1,1,1,1,1,1,1,1,1,0end end
+
+            ~            UInt32 kind = expr.kind
+            str.hash[0] = hash(expr.kind)
+            str.hash[1] = 0
+            if expr.right)
+                hash!(expr.right, cseDict)
+                str.hash[1] = expr.right.hash
+            end
+            UInt32 tmphash = hash(str.h64)
+
+            if !expr.unary)
+                hash!(expr.left, cseDict)
+                str.hash[0] = expr.left.hash
+                str.hash[1] = tmphash
+                tmphash = hash(str.h64)
+            end
+
+            expr.hash = tmphash ~ CString_hash(str.buf)
+
+            ~ just hashing the kind for now, maybe we need
+            ~ the typeinfo as well
+        end
+    end
+    ~    printf("./%s:%02d:%02d: %-24s hash: %u\n",parser.filename,
+    ~    expr.line, expr.col,
+    ~        TokenKind_str[expr.kind], expr.hash)
+
+    if expr.kind not in [.number, .identifierResolved, .varAssign]
+        ~ we don't want to put every small thing in the table, esp not literals
+        ~ and idents. We'll put strings, so that they are effectively uniq'd
+        ~ within the func. Also regexes. What we really want are binops, calls,
+        ~ subscripts, etc.
+        cseDict[expr.hash] = expr
+    end
+end
+
+~ This function checks the hashes, going DOWN the tree. It happens after the
+~ hashes have been generated in hash (which is bottom-up, so checking
+~ cannot happen inline).
+func checkHashes(expr ASTExpr, cseDict ASTExpr[UInt32])
+
+    var orig ASTExpr = cseDict[expr.hash]
+    if orig != nil and orig != expr and orig.kind == expr.kind
+        ~ unfortunately there ARE collisions, so check again
+        eprintf("\n-- found same exprs at\n%02d:%02d hash %d and\n",
+            /* parser.filename, */ expr.line, expr.col, expr.hash)
+        ~ TODO: make gen print to stderr
+        ~ gen(expr, 4, true, false)
+        eprintf("\n:%02d:%02d hash %d\n",
+            /* parser.filename, */ orig.line, orig.col, orig.hash)
+        ~ gen(orig, 4, true, false)
+        eputs("")
+        return
+    end
+
+    ~ this expr isn't a candidate for CSE. Check subexprs.
+    match expr.kind
+    case .varAssign
+        checkHashes(expr.var.init, cseDict)
+    case .functionCallResolved, .subscriptResolved
+        if expr.left checkHashes(expr.left, cseDict)
+    case
+        if expr.prec
+            if not expr.unary then checkHashes(expr.left, cseDict)
+            if expr.right then checkHashes(expr.right, cseDict)
+        end
+    end
+end
+
+func hash(fun ASTFunc)
+    var cseDict ASTExpr[UInt32] = {}
+
+    for stmt in fun.body.stmts
+        hash!(stmt, cseDict)
+        checkHashes(stmt, cseDict)
+    end
+end

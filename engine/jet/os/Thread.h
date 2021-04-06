@@ -125,28 +125,6 @@ uint32_t pcg32_random_r(pcg32_random_t* rng) {
     return (xorshifted >> rot) | (xorshifted << ((-rot) & 31));
 }
 
-// Jet standard library random() functions (may be replaced by above)
-uint64_t makerandstate(uint64_t id) {
-    FILE* urandom = fopen("/dev/urandom", "r");
-    setvbuf(urandom, NULL, _IONBF, 0); // turn off buffering
-    // setup state buffer
-    union {
-        uint64_t u64;
-        short s[4];
-    } u;
-    // actually it only needs 3 shorts.
-    // unsigned short randstate[4] = {};
-    // fgetc() returns a `char`, we need to fill a `short`
-    u.s[0] = (fgetc(urandom) << 8) | fgetc(urandom);
-    u.s[1] = (fgetc(urandom) << 8) | fgetc(urandom);
-    u.s[2] = (fgetc(urandom) << 8) | fgetc(urandom);
-    u.s[3] = (fgetc(urandom) << 8) | fgetc(urandom);
-    // cleanup urandom
-    fclose(urandom);
-    return u.u64 | id;
-}
-double frand(uint64_t* state) { return erand48((unsigned short*)state); }
-
 void avgsqrt(int n, double* sum) {
     // FILE* urandom = fopen("/dev/urandom", "r");
     // setvbuf(urandom, NULL, _IONBF, 0); // turn off buffering

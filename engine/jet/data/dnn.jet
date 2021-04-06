@@ -1,0 +1,245 @@
+~ https://developer.ibm.com/technologies/artificial-intelligence/articles/neural-networks-from-scratch/
+
+from sklearn.datasets import fetchopenml
+from keras.utils.nputils import tocategorical
+import numpy as np
+from sklearn.modelselection import traintestsplit
+import time
+
+x, yo = fetchopenml('mnist784', version=1, returnXy=True)
+x /= 255 ~(x/255).astype('float32')
+y = tocategorical(yo)
+
+xtrain, xval, ytrain, yval = traintestsplit(x, y, testsize=0.15, randomstate=42)
+
+type DeepNeuralNetwork
+    var sizes = sizes
+    var epochs = 10
+    var lrate = 0.001
+
+    ~ we save all parameters in the neural network in this dictionary
+    var params = nn.initialization()
+end
+func sigmoid(nn, x, derivative=False):
+    if derivative:
+        return (exp(-x))/((exp(-x)+1)**2)
+    return 1/(1 + exp(-x))
+
+func softmax(nn, x):
+    ~ Numerically stable with large exponentials
+    exps = exp(x - x.max())
+    return exps / sum(exps, axis=0)
+
+func initialization!(nn)
+    ~ number of nodes in each layer
+    var inputlayer = nn.sizes[0]
+    var hidden1 = nn.sizes[1]
+    var hidden2 = nn.sizes[2]
+    var outputlayer = nn.sizes[3]
+
+    nn.w1 = random.randn(hidden1, inputlayer) * sqrt(1 / hidden1)
+    nn.w2 = random.randn(hidden2, hidden1) * sqrt(1 / hidden2)
+    nn.w3 = random.randn(outputlayer, hidden2) * sqrt(1 / outputlayer)
+
+func forwardpass(nn, xtrain):
+    var params = nn.params
+
+    ~ input layer activations becomes sample
+    nn.a0 = xtrain
+
+    ~ input layer to hidden layer 1
+    nn.z1 = nn.w1 ** nn.a0
+    nn.a1 = sigmoid(nn.z1)
+
+    ~ hidden layer 1 to hidden layer 2
+    nn.z2 = nn.w2 ** nn.a1
+    nn.a2 = sigmoid(nn.z2)
+
+    ~ hidden layer 2 to output layer
+    nn.z3 = nn.w3 ** nn.a2
+    nn.a3 = softmax(nn.z3)
+
+    ~ just contemplating in-place array deps if dy & y aliased
+    dy[1:end-1] = y[2:end] - y[1:end-1] ~ no issue
+    dy[2:end] = y[2:end] - y[1:end-1]  ~ issue!
+
+func backwardpass!(nn, ytrain, output):
+    ~ var params = nn.params
+    ~ var changew = {}
+
+    ~ ssp: rewrite this as per-layer backward()  since we want a chain
+    ~ of Layer objects and not directly a DNN object with everything inside
+    ~ we also want a DNN object, but for not much more than just holding ptrs
+    ~ to first and last layers.
+
+    ~ Calculate W3 update
+    var resid = output - ytrain
+    nn.cw3 = resid ** nn.a3
+
+    ~ Calculate W2 update
+    resid = transpose(nn.w3) ** resid * dsigmoid(nn.z2)
+    nn.cw2 = resid ** nn.a2
+
+    ~ Calculate W1 update
+    resid = transpose(nn.w2) ** resid * dsigmoid(nn.z1) )
+    nn.cw1 = resid ** nn.a1
+
+
+func updatenetworkparameters!(nn, changestow):
+
+    ~ for key, value in changestow.items():
+    ~     for warr in nn.params[key]:
+            nn.w1 -= nn.lrate * nn.cw1
+            nn.w2 -= nn.lrate * nn.cw2
+            nn.w3 -= nn.lrate * nn.cw3
+
+func computeaccuracy(nn, xval, yval):
+    var predictions = []
+
+    for x, y in zip(xval, yval):
+        var output = nn.forwardpass(x)
+        var pred = argmax(output)
+        predictions.append(pred == y)
+
+    var summed = sum(pred for pred in predictions) / 100.0
+    ret = average(summed)
+
+func train(nn, xtrain, ytrain, xval, yval):
+    starttime = time.time()
+    for iteration in range(nn.epochs):
+        for x,y in zip(xtrain, ytrain):
+            output = nn.forwardpass(x)
+            nn.backwardpass(y, output)
+            nn.updatenetworkparameters()
+
+        accuracy = nn.computeaccuracy(xval, yval)
+        print('Epoch: {0}, Time Spent: {1:.2f}s, Accuracy: {2}'.format(
+            iteration+1, time.time() - starttime, accuracy
+        ))
+
+dnn = DeepNeuralNetwork(sizes=[784, 128, 64, 10])
+dnn.train(xtrain, ytrain, xval, yval)
+
+
+
+~ program mnist
+~     implicit none
+
+~     var :: &
+~         a0(784), a1(128),     a2(64),     a3(10), &
+~                  b1(128),     b2(64),     b3(10), &
+~                  z1(128),     z2(64),     z3(10), &
+~                  w1(128,784), w2(64,128), w3(10,64), &
+~                  cw1(128,784), cw2(64,128), cw3(10,64)
+
+~     var, parameter:: lrate = 0.001
+
+~     ~ forward
+~     ~ z2[] = matmul(w2[:,:], a1[]) + b2[]; a2[] = sigmoid(z2[])
+~     ~ z3[] = matmul(w3[:,:], a2[]) + b3[]; a3[] = sigmoid(z3[])
+~     ~ z4[] = matmul(w4[:,:], a3[]) + b4[]; a4[] = sigmoid(z4[])
+
+
+~ contains
+
+
+func init()
+    ~ number of nodes in each layer
+    var inputlayer = 784
+    var hidden1 = 128
+    var hidden2 = 64
+    var outputlayer = 10
+
+    w1[:,:] = 1 ~random(hidden1, inputlayer) * sqrt(1 / hidden1)
+    w2[:,:] = 1 ~random(hidden2, hidden1) * sqrt(1 / hidden2)
+    w3[:,:] = 1 ~random(outputlayer, hidden2) * sqrt(1 / outputlayer)
+end
+
+func forwardpass(xtrain[])
+    a0[] = xtrain
+    z1[] = matmul(w1 , a0) + b1
+    a1[] = sigmoid(z1) ~ input layer to hidden layer 1
+    z2[] = matmul(w2 , a1) + b2
+    a2[] = sigmoid(z2) ~ hidden layer 1 to hidden layer 2
+    z3[] = matmul(w3 , a2) + b3
+    a3[] = softmax(z3) ~ hidden layer 2 to output layer
+end
+
+func backwardpass(ytrain[])
+    var resid3[] = zeros(len(a3))
+    var resid2[] = zeros(len(a2))
+    var resid1[] = zeros(len(a1))
+
+    ~ Calculate W3 update
+    resid3[] = a3[] - ytrain[]
+    cw3[] =  resid3[] **  a3[]
+    ~ Calculate W2 update
+    resid2[] = transpose(w3[:,:]) ** resid3[] * dsigmoid(z2[])
+    cw2[] =  resid2[] **  a2[]
+    ~ Calculate W1 update
+    resid1[] = transpose(w2[:,:]) ** resid2[] * dsigmoid(z1[])
+    cw1[] =  resid1[] **  a1[]
+end
+
+func updatenetworkparameters()
+    w1 -= lrate * cw1
+    w2 -= lrate * cw2
+    w3 -= lrate * cw3
+end
+
+func computeaccuracy( xval[:,:], yval[:,:]) result ret
+
+    for i = 1:len(xval,1)
+        forwardpass(xval[i,:])
+        if maxl(a3) == maxl(yval[i,:]) then
+            predictions[i] = 1
+        else
+            predictions[i] = 0
+        end if
+    end
+
+    summed = sum(predictions) / 100.0
+    ret = summed ~sum(summed)
+end
+
+func train( xtrain[:,:], ytrain[:,:], xval[:,:], yval[:,:])
+     ~ starttime = time.time()
+    var epochs=1000
+    for iteration in 1:epochs
+        for i in 1:len(xtrain,1 )
+            forwardpass(xtrain[i,:])
+            backwardpass(ytrain[i,:])
+            updatenetworkparameters()
+        end
+    end
+    accuracy = computeaccuracy(xval[:,:], yval[:,:])
+
+    write(*,*) 'Epoch: ', iteration+1
+    ~ write(*,*) 'Time Spent: ', timedelta
+    write(*,*) 'Accuracy: ', accuracy
+
+end
+
+func maxl(x[] Number) i Number
+    var xmax = -1e34
+    i = 1
+    for j in 1:len(x) do if (x[j]>xmax) then i = j
+end
+
+func sigmoid(x[?]) result s
+    s = 1 / (1-exp(x))
+end
+
+func dsigmoid(x[?]) result s
+    s = (exp(-x))/((exp(-x)+1)**2)
+end
+
+func softmax(x[]) result ans[]
+    ~ var :: x[], ans(len(x))
+    ~ Numerically stable with large exponentials
+    ~ var exps(len(x))
+    ~ var :: xmax
+    var xmax = maxval(x)
+    ans = exp(x - xmax)
+    ans /= sum(ans)
+end

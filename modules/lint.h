@@ -58,7 +58,7 @@ static void ASTVar_lint(ASTVar* var, int level) {
         var->name);
     TokenKind kind = var->init ? var->init->kind : tkUnknown;
 
-    bool genType = true; // set it here to override
+    bool genType = false; // set it here to override
     // if ((var->init and var->init->kind == tkFunctionCall
     //         and !strcmp(var->init->string, var->typeSpec->name))) {
     // } else if ((var->init and var->init->kind == tkNumber
@@ -73,7 +73,14 @@ static void ASTVar_lint(ASTVar* var, int level) {
     } else if ((kind == tkNumber || kind == tkRegexp || kind == tkKeyword_no
                    || kind == tkKeyword_yes || kind == tkString
                    || kind == tkRawString)) { // simple literals
-    } else if (var->typeSpec->typeType == TYErrorType
+    } else if (var->init
+        && (isBoolOp(var->init)
+            || isCmpOp(var->init))) { // simple stuff that gives Boolean
+    }
+    // else if (var->typeSpec->typeType == TYObject
+    //     && var->typeSpec->type->isEnum) {
+    // }
+    else if (var->typeSpec->typeType == TYErrorType
         || var->typeSpec->typeType == TYNoType
         || (var->typeSpec->typeType == TYUnresolved
             && *var->typeSpec->name == '\0')) {
@@ -317,6 +324,15 @@ static void ASTExpr_lint(
             ASTExpr_lint(
                 expr->right, level, expr->kind != tkArrayOpen, escapeStrings);
         printf("%s", tkrepr[TokenKind_reverseBracket(expr->kind)]);
+        break;
+
+    case tkKeyword_in:
+    case tkKeyword_notin:
+        // these seem to add precedence parens aruns expr->right if done as
+        // normal binops. so ill do them separately here.
+        ASTExpr_lint(expr->left, 0, spacing, escapeStrings);
+        printf("%s", tkrepr[expr->kind]);
+        ASTExpr_lint(expr->right, 0, spacing, escapeStrings);
         break;
 
     default:

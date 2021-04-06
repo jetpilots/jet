@@ -98,7 +98,7 @@ monostatic size_t _called_strlen = 0;
 // This macro should be invoked on each struct defined.
 #define MKSTAT(T) static int T##_allocTotal = 0;
 #define allocstat(T)                                                           \
-    if (T##_allocTotal)                                                        \
+    if (1 || T##_allocTotal)                                                   \
         eprintf("*** %-24s %4ld B x %5d = %7ld B\n", #T, sizeof(T),            \
             T##_allocTotal, T##_allocTotal * sizeof(T));
 
@@ -253,6 +253,10 @@ MKSTAT(PtrList)
 #include "jet/core/List.h"
 
 #include "jet/os/clock.h"
+#include "jet/math/random.h"
+
+#include "jet/core/isin.h"
+
 // FIXME: this should go into runtime.h
 
 // DO NOT USE strdup,strndup,strcasecmp,strncasecmp: OK reimplemented

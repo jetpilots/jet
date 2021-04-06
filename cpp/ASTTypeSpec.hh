@@ -1,7 +1,7 @@
 struct ASTTypeSpec {
     union {
         ASTType* type;
-        char* name;
+        char* _name;
         Interval* intv;
 
         ASTUnits* units;
@@ -19,9 +19,9 @@ struct ASTTypeSpec {
     uint32_t line : 24, col, : 8;
 
     ASTTypeSpec* ASTTypeSpec::neew(TypeTypes tt, CollectionTypes ct);
-    const char* ASTTypeSpec::name(ASTTypeSpec* self);
-    const char* ASTTypeSpec::cname(ASTTypeSpec* self);
+    const char* ASTTypeSpec::name();
+    const char* ASTTypeSpec::cname();
     void emit(int level, bool isconst);
     void lint(int level);
-    void resolveTypeSpec(Parser* parser, ASTTypeSpec* typeSpec, ASTModule* mod);
+    void resolveTypeSpec(Parser* parser, ASTModule* mod);
 };

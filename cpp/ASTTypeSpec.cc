@@ -10,22 +10,22 @@ ASTTypeSpec* ASTTypeSpec::neew(TypeTypes tt, CollectionTypes ct) {
 const char* ASTTypeSpec::name() {
     switch (this->typeType) {
     case TYUnresolved:
-        return this->name;
+        return this->_name;
     case TYObject:
         return this->type->name;
     default:
-        return TypeType::name(this->typeType);
+        return TypeType_name(this->typeType);
     }
 }
 
 const char* ASTTypeSpec::cname() {
     switch (this->typeType) {
     case TYUnresolved:
-        return this->name;
+        return this->_name;
     case TYObject:
         return this->type->name;
     default:
-        return TypeType::name(this->typeType);
+        return TypeType_name(this->typeType);
     }
 }
 
@@ -47,8 +47,8 @@ void ASTTypeSpec::emit(int level, bool isconst) {
         break;
     case TYUnresolved:
         unreachable(
-            "unresolved: '%s' at %d:%d", this->name, this->line, this->col);
-        printf("%s", *this->name ? this->name : "Error_Type");
+            "unresolved: '%s' at %d:%d", this->_name, this->line, this->col);
+        printf("%s", *this->_name ? this->_name : "Error_Type");
         break;
     default:
         printf("%s", TypeType_name(this->typeType));
@@ -64,10 +64,10 @@ void ASTTypeSpec::lint(int level) {
         printf("%s", this->type->name);
         break;
     case TYUnresolved:
-        printf("%s", this->name);
+        printf("%s", this->_name);
         break;
     default:
-        printf("%s", TypeType::name(this->typeType));
+        printf("%s", TypeType_name(this->typeType));
         break;
     }
 
@@ -95,13 +95,13 @@ void ASTTypeSpec::resolveTypeSpec(
     Parser* parser, ASTTypeSpec* typeSpec, ASTModule* mod) {
 
     if (this->typeType != TYUnresolved) return;
-    if (!*this->name) return;
+    if (!*this->_name) return;
 
-    TypeTypes tyty = TypeType_byName(this->name);
+    TypeTypes tyty = TypeType_byName(this->_name);
     if (tyty) {
         this->typeType = tyty;
     } else {
-        ASTType* type = getType(mod, this->name);
+        ASTType* type = mod->type(this->_name);
         if (type) {
             this->typeType = TYObject;
             this->type = type;

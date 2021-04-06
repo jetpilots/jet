@@ -1,0 +1,76 @@
+
+type DataFrame
+    var dat[:,:] NumStr
+    ~ numstr* ref
+    ~ var rows = 0
+    ~ var cols = 0
+end
+
+~ NumStr will need to be numstr*
+getp_(df DataFrame, row Number, col Number) := df.dat[row, col]
+get(df DataFrame, row Number, col Number) := get(getp_(df, row, col))
+convall_(df DataFrame) := get(df.dat[:]) ~for di in df.dat do get(di)
+
+func dumpbin(df DataFrame, outFile String)
+    convall_(df)
+    ...
+end
+
+
+func dumpcsv(DataFrame df, outFile String)
+~     ~ you DON'T need to to do _convall here!
+~     ~ strings will be written out as strings
+~     ~ a nice test case: read a csv, modify a few values & write csv back.
+~     ~ benchmark with other language CSV reader/writers. they usually
+~     ~ don't have numstrs
+end
+
+~ BTW dataframe should support both strings and nums!!!
+func pushrow!(df DataFrame, row[] NumStr)
+    check row.used == df.cols
+    push!(df.dat, items=row)
+end
+
+func readcsv(filename String, sep String) ret DataFrame
+    var str = slurp(filename)
+    ~ ^ if you do strdup for each line it may be better for GC
+    ~ since individual lines can be released after done
+
+    ~ you really should cache CSV files into a binary file in the user's
+    ~ home folder (make a jetcache folder). store bin files based on full
+    ~ path name of the CSV, and then just load them whenever asked to load
+    ~ a csv (unless the CSV is really newer).
+
+    var p = 0
+    var row[] NumStr
+    var refcols = 1
+    var cols = 0
+
+    while str[p] and str[p] != '\n'
+        if str[p] == sep then refcols += 1
+
+    while str[p]  ~ within file
+        cols = refcols
+        while str[p] and str[p] != '\n'  ~ each row
+            push!(row, str[p:])
+
+            while str[p] and str[p] not in ['\n', sep] do p += 1
+
+            if str[p] == sep
+                str[p] = 0  ~ trample separator (comma/semicolon)
+                p += 1
+            end
+            cols -= 1
+        end
+
+        if str[p] == '\n' then
+            str[p] = 0  ~ trample newline
+            p += 1
+        end
+
+        if cols != 0 then throw "column count mismatch"
+              ~ error raise
+        pushrow!(ret, row)
+        reset!(row)
+    end
+end

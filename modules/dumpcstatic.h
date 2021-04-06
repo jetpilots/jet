@@ -63,11 +63,15 @@ void ASTExpr_dumpcstatic(ASTExpr* expr) { }
 void ASTUnits_dumpcstatic(ASTUnits* units) { }
 
 void ASTVar_dumpcstatic(ASTVar* var) {
-    dumpcstatic_s(&var->name);
+    printf(".name = \"%s\",", var->name);
+    printf(".typeSpec = ");
     ASTTypeSpec_dumpcstatic(var->typeSpec);
-    dumpcstatic((void**)&var->typeSpec);
+    printf(".init = ");
     ASTExpr_dumpcstatic(var->init);
-    dumpcstatic((void**)&var->init);
+
+    // dumpcstatic_s(&var->name);
+    // dumpcstatic((void**)&var->typeSpec);
+    // dumpcstatic((void**)&var->init);
 }
 
 void ASTScope_dumpcstatic(ASTScope* scope) {
@@ -84,6 +88,9 @@ void ASTScope_dumpcstatic(ASTScope* scope) {
 }
 
 void ASTType_dumpcstatic(ASTType* type) {
+    printf(".name = \"%s\",", type->name);
+    printf(".isEnum = %d,", type->isEnum);
+
     ASTScope_dumpcstatic(type->body);
     dumpcstatic((void**)&type->body);
     dumpcstatic_s(&type->name);
@@ -93,8 +100,10 @@ void ASTType_dumpcstatic(ASTType* type) {
 void ASTImport_dumpcstatic(ASTImport* import) {
     // ASTScope_dumpcstatic(type->body);
     // dumpcstatic(&type->body);
-    dumpcstatic_s(&import->name);
+    // dumpcstatic_s(&import->name);
     // TODO: type super?
+    printf(".name = \"%s\",", import->name);
+    printf(".alias = \"%s\",", import->alias);
 }
 
 void ASTTypeSpec_dumpcstatic(ASTTypeSpec* typeSpec) {
@@ -125,7 +134,7 @@ void ASTFunc_dumpcstatic(ASTFunc* func) {
     printf(".args = ");
     List_dumpc(ASTVar, func->args);
     printf(".returnSpec = ", func->name);
-    printf(".args = \"%s\",", func->name);
+    // printf(".args = \"%s\",", func->name);
 
     // foreach (ASTVar*, arg, func->args)
     //     ASTVar_dumpcstatic(arg);

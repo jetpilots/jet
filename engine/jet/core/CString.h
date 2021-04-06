@@ -1,19 +1,37 @@
 typedef char* CString;
 
-monostatic CString pstrndup(const CString str, size_t len) {
-    CString ret = Pool_alloc(sPool, roundm8(len + 1));
+monostatic CString CString_palloc(size_t len) {
+    return Pool_alloc(sPool, roundm8(len + 1));
+}
+
+monostatic CString CString_malloc(size_t len) {
+    return malloc(roundm8(len + 1));
+}
+
+monostatic CString CString_pndup(const CString str, size_t len) {
+    CString ret = CString_palloc(len);
     memcpy(ret, str, len); // sPool uses calloc, so no need to zero last
     return ret;
 }
 
-monostatic CString pstrdup(const CString str) {
-    const size_t len = strlen(str);
-    return pstrndup(str, len);
+monostatic CString CString_pclone(const CString str) {
+    return CString_pndup(str, strlen(str));
+}
+
+monostatic CString CString_ndup(const CString str, size_t len) {
+    CString ret = CString_malloc(len);
+    memcpy(ret, str, len); // sPool uses calloc, so no need to zero last
+    ret[len] = 0;
+    return ret;
+}
+
+monostatic CString CString_clone(const CString str) {
+    return CString_ndup(str, strlen(str));
 }
 
 monostatic size_t CString_length(CString str) { return strlen(str); }
-monostatic CString CString_clone(CString str) { return pstrdup(str); }
-monostatic CString CString_sysClone(CString str) { return strdup(str); }
+// monostatic CString CString_clone(CString str) { return pstrdup(str); }
+// monostatic CString CString_sysClone(CString str) { return strdup(str); }
 monostatic CString CString_indexOf(CString str, char c) {
     return strchr(str, c);
 }
@@ -44,7 +62,7 @@ monostatic unsigned long long CString_toULongLong(CString str) {
 
 monostatic CString CString_noext(CString str) {
     const size_t len = strlen(str);
-    CString s = pstrndup(str, len);
+    CString s = str; // pstrndup(str, len);
     CString sc = s + len;
     while (sc > s && *sc != '.') sc--;
     if (sc >= s) *sc = '\0';
@@ -67,7 +85,7 @@ monostatic CString CString_base(CString str, char sep, size_t slen) {
 
 monostatic CString CString_dir(CString str) {
     const size_t len = strlen(str);
-    CString s = pstrndup(str, len);
+    CString s = str; // pstrndup(str, len);
     CString sc = s + len;
     while (sc > s && *sc != '/') sc--;
     if (sc >= s) *sc = '\0';
@@ -75,7 +93,7 @@ monostatic CString CString_dir(CString str) {
 }
 
 monostatic CString CString_upper(CString str) {
-    CString s = pstrdup(str);
+    CString s = str; // pstrdup(str);
     CString sc = s - 1;
     while (*++sc)
         if (*sc >= 'a' && *sc <= 'z') *sc -= 32;
@@ -93,7 +111,7 @@ monostatic void CString_tr_ip(
 
 monostatic CString CString_tr(CString str, const char oldc, const char newc) {
     size_t len = strlen(str);
-    CString s = pstrndup(str, len);
+    CString s = str; // pstrndup(str, len);
     CString_tr_ip(s, oldc, newc, len);
     return s;
 }

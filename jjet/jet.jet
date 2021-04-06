@@ -1,0 +1,48 @@
+func start()
+    if argc == 1
+        print("jet: no input files. What are you trying to do?")
+        return 1
+    end
+    var printDiagnostics = (args[2] == 'd') or no
+
+    var t0 = clock()
+    var modules[] ASTModule
+
+    var mode = ParserMode.emitC
+    if argv[3] == 'l' then mode = .lint
+    if argv[2] == 'l' then mode = .lint
+    if argv[3] == 't' then mode = .genTests
+    if argv[2] == 't' then mode = .genTests
+    var parser = Parser(fromFile=argv[1], skipws=yes, mode=mode)
+
+    var root ASTModule = parseModule!(parser, nil)
+
+    if parser.mode == .lint and not parser.issues.hasParseErrors
+        lint(modules[:])
+    else if not parser.issues.errCount
+        match parser.mode
+        case .emitC
+            emitOpen(parser)
+            print('#include "jet/runtime.h"')
+            emit(modules[:])
+            emitClose(parser)
+        case .genTests
+            print('#include "jet/tester.h"')
+            genTests(modules[:])
+        end
+    end
+
+    var elap|ms = clockSpan(t0)
+    if printDiagnostics printstats(parser, elap)
+
+    if parser.issues.errCount
+        print("[[red]]THERE ARE $parser.issues.errCount ERRORS.[[/]]
+            How about fixing them? Reading the code would be a good start.")
+    end
+
+    if parser.issues.warnCount
+        print("[[red,bold]]*** %d warnings[[/]]", parser.issues.warnCount
+    end
+
+    if not printDiagnostics then print("*** cgen in $elap ms")
+end

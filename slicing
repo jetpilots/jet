@@ -1,0 +1,24 @@
+if slices -> base array
+  + refcounting easier
+  ~ ranges static, fixed when defined. later changes in base array size not visible
+  - perf: always adding offset? when accessing by index yes. otherwise; only when setting first iterator. looping is then ok
+  + can always check inbounds
+Slice {
+    Array *base;
+    Int start,step,end,len;
+}
+
+if slices -> base array's storage
+  + ranges dynamic, later changes in base array size reflected
+  - refcounting issues if not copying
+  - cant check inbounds anymore for specific index
+Slice {
+    T* begin,*end; Int step,len;
+}
+if slices -> keep base array for refcount/boundscheck and ref storage directly for access <--- OK this!
+
+Slice {
+    Array* base;
+    T *begin,*end; //-> always begin >= base.begin && end <= base.end
+    Int step,len;
+}

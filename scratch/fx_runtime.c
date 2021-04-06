@@ -54,6 +54,12 @@ typedef union fx__Value {
 } fx__Value;
 typedef fx__Value* var;
 
+// TODO: I guess it can be made faster. instead of setting individual bits
+// after setting nanbits, you can define masks for B_F, B_O, B_A, etc. which
+// includes the nanbits. Then constructing doubles is a simple double copy
+// (possibly optimized away) and for pointers it is one additional bitwise or.
+// and stop malloc'ing everything!!! var is 8B, pass it around by value.
+
 // o a t f s n -
 // ALL BITS 0 IS DOUBLE 0.0 IS IN BAND!!!
 // null: all bits are 0, so any member compares true to 0.

@@ -32,17 +32,19 @@ void _PRREDLINE(
     eprintf(
         "\e[31;1m       %.*s%.*s %s\e[0m\n", col - 1, spaces, len, carets, msg);
 }
+
 void Parser__printSourceLinesWithOffset(
     Parser* parser, int line, int col, int len, int offs, char* msg) {
-    eputs("\n"); //-----+\n");
+    // eputs("\n"); //-----+\n");
     _PRLINE(line - 2)
     _PRLINE(line - 1)
     _PRREDLINE(parser, line, col, len, offs, msg);
     _PRLINE(line + 1)
     _PRLINE(line + 2)
 
-    eputs("\n"); //-----+\n");
+    eputs("\n\n"); //-----+\n");
 }
+
 void Parser__printSourceLines(
     Parser* parser, int line, int col, int len, char* msg) {
     Parser__printSourceLinesWithOffset(parser, line, col, len, 0, msg);
@@ -359,6 +361,7 @@ static void Parser_errorTypeInheritsSelf(Parser* parser, ASTType* type) {
         type->line, type->col);
     Parser_errorIncrement(parser);
 }
+
 static void Parser_errorCtorHasType(
     Parser* parser, ASTFunc* func, ASTType* orig) {
     eprintf("\n(%d) \e[31merror:\e[0m constructor needs no return "
@@ -369,6 +372,7 @@ static void Parser_errorCtorHasType(
         func->line, 1, RELF(parser->filename), orig->line, orig->col);
     Parser_errorIncrement(parser);
 }
+
 static void Parser_warnCtorCase(Parser* parser, ASTFunc* func) {
     ASTType* orig = func->returnSpec->type;
     eprintf("\n(%d) \e[33mwarning:\e[0m wrong case "
@@ -736,16 +740,17 @@ static void Parser_errorArgTypeMismatch(
 }
 
 static void Parser_errorUnexpectedToken(Parser* parser, char* msg) {
-    eprintf("\n_________________________________" //
-            "____________________________________ \e[31;1m#%d\e[0m\n" //
-            "\e[31;1merror:\e[0;1m unexpected token \e[34;1m'%.*s'\e[0;1m\n" //
-            " file:\e[0m %s%s:%d:%d\n",
-        parser->issues.errCount + 1, //
-        parser->token.matchlen, //
-        parser->token.pos, //
+    eprintf( //"\n_________________________________" //
+             //"____________________________________ \e[31;1m#%d\e[0m\n" //
+        "\e[;1m%s%s:%d:%d: \e[31merror:\e[0;1m unexpected token "
+        "\e[34;1m'%.*s'\e[0;1m" //
+        "\e[0m\n",
+        // parser->issues.errCount + 1, //
         RELF(parser->filename), //
         parser->token.line, //
-        parser->token.col //
+        parser->token.col, //
+        parser->token.matchlen, //
+        parser->token.pos //
     );
 
     Parser__printSourceLines(parser, parser->token.line, parser->token.col,

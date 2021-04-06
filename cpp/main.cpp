@@ -2,11 +2,14 @@
 
 #include "jet/base.h"
 
+#include "Array.cc"
+#include "List.cc"
+
 #define STEP 4
 
-#include "types.h"
-#include "tokenKind.h"
-#include "token.h"
+#include "types.hpp"
+#include "tokenKind.hpp"
+#include "token.hpp"
 
 #define JOIN(x, y) x##y
 
@@ -32,8 +35,8 @@ static uint32_t exprsAllocHistogram[128];
 #pragma mark - AST EXPR IMPL.
 #pragma mark - AST MODULE IMPL.
 
-#include "lint.h"
-#include "emit.h"
+// #include "lint.cc"
+// #include "emit.cc"
 
 #pragma mark - PARSER
 
@@ -57,16 +60,26 @@ static const char* const banner
       "______(_)______  /_ _|  The next-gen language of computing\n"
       "_____  /_  _ \\  __/ _|  %s %s %4d-%02d-%02d\n"
       "____  / /  __/ /_  __|\n"
-      "___  /  \\___/\\__/ ___|  https:
+      "___  /  \\___/\\__/ ___| "
       "/___/ ______________________________________________________\n\n";
 #define FILE_SIZE_MAX 1 << 24
 
-#include "errors.h"
-#include "stats.h"
+#include "ASTExpr.cc"
+#include "ASTType.cc"
+#include "ASTFunc.cc"
+#include "ASTModule.cc"
+#include "ASTTypeSpec.cc"
+#include "ASTImport.cc"
+#include "ASTScope.cc"
+#include "ASTTest.cc"
+#include "ASTVar.cc"
+
+#include "errors.hpp"
+#include "stats.hpp"
 
 #pragma mark - PARSING BASICS
 
-#include "resolve.h"
+// #include "resolve.h"
 
 static ASTExpr lparen[] = { { .kind = tkParenOpen } };
 static ASTExpr rparen[] = { { .kind = tkParenClose } };
@@ -76,9 +89,9 @@ static ASTExpr expr_const_no[] = { { .kind = tkKeyword_no } };
 static ASTExpr expr_const_nil[] = { { .kind = tkKeyword_nil } };
 static ASTExpr expr_const_empty[] = { { .kind = tkString, .string = "" } };
 
-#include "analyse.h"
+// #include "analyse.h"
 
-#include "parse.h"
+// #include "parse.h"
 
 void Parser::emit_open(Parser* parser) {
     printf("#ifndef HAVE_%s\n#define HAVE_%s\n\n", parser->capsMangledName,
@@ -91,12 +104,12 @@ void Parser::emit_open(Parser* parser) {
 void Parser::emit_close(Parser* parser) {
     printf("#undef THISMODULE\n");
     printf("#undef THISFILE\n");
-    printf("#endif
+    printf("#endif");
 }
 
 void alloc_stat() { }
 
-#include "ptr2off.h"
+// #include "ptr2off.h"
 
 #pragma mark - main
 int main(int argc, char* argv[]) {

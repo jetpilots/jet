@@ -1,0 +1,193 @@
+
+isSelfMutOp(expr ASTExpr) := expr.kind in [
+    .plusEq, .minusEq, .slashEq, .timesEq, .powerEq, .opModEq, .opAssign]
+
+isArithOp(expr ASTExpr) := expr.kind in [
+    .plusEq, .minusEq, .slashEq, .timesEq, .powerEq, .opModEq, .plus,
+    .minus, .slash, .times, .power, .opMod]
+
+~ isSelfMutOp(expr as ASTExpr) := expr.kind in [
+~     .plusEq, .minusEq, .slashEq, .timesEq, .opModEq, .opAssign
+~ ]
+
+~ function resolve(typeSpec as ASTTypeSpec, mod as ASTModule, par as Parser)
+~     if typeSpec.typeType != .unresolved then return
+~     if typeSpec.name == "" then return
+~     var tyty = typeTypeByName(typeSpec.name)
+~     if tyty != .unresolved
+~         typeSpec.typeType = tyty
+~     else
+~         type = lookupType(typeSpec.name, module = mod)
+~         typeSpec.typeType = .object
+~         typeSpec.type = type
+~     end if
+~     on error .itemNotFound
+~         errorUnrecognized(typeSpec, parser = parser)
+~ end function
+
+func resolveTypeSpec(parser Parser, typeSpec ASTTypeSpec, mod ASTModule)
+    ~ TODO: disallow a type that derives from itself!
+    if (typeSpec.typeType != TYUnresolved) return
+    if (typeSpec.name=="") return
+
+    ~ TODO: DO THIS IN PARSE... stuff!!
+
+    TypeTypes tyty = TypeType_byName(typeSpec.name)
+    if (tyty)  ~ can be member of ASTTypeSpec!
+        typeSpec.typeType = tyty
+    else
+        type ASTType = ASTModule_getType(mod, typeSpec.name)
+        if (type)
+            typeSpec.typeType = TYObject
+            typeSpec.type = type
+            return
+        end
+        Parser_errorUnrecognizedType(parser, typeSpec)
+        return
+    end
+    if (typeSpec.dims)
+        ~ set collection type, etc.
+        ~ for this we will need info about the var and its usage
+        ~ patterns. so this will probably be a separate func that is
+        ~ called during such analysis.
+    end
+end
+~ function checkUnusedVars(scope as ASTScope, parser as Parser)
+~     for var = scope.locals
+~
+~     end for
+~ end function
+
+func checkUnusedVars!(parser Parser, scope ASTScope)
+    for var in scope.locals
+        if not var.used then warnUnusedVar!(parser, var)
+    end
+    for stmt in scope.stmts
+        if isCtrlExpr(stmt) then checkUnusedVars!(parser, scope=stmt.body)
+    end
+end
+
+func checkUnusedVars!(parser Parser, afunc ASTFunc)
+    for arg in func.args
+        if not arg.used then warnUnusedArg!(parser, arg)
+    end
+    checkUnusedVars!(parser, scope=func.body)
+end
+
+
+checkUnusedVars!(parser Parser, atest ASTTest) :=
+    checkUnusedVars!(parser, scope=test.body)
+
+
+~ TODO: Btw there should be a module level scope to hold lets (and
+~ comments). That will be the root scope which has parent==nil.
+
+func resolveMember(parser Parser, expr ASTExpr, atype ASTType)
+    check expr.kind in [.identifier, .subscript]
+    var ret TokenKind = (expr.kind == .identifier) ? .identifierResolved
+                                                 : .subscriptResolved
+    var found ASTVar =
+        getVar(atype.body, byName=expr.string) or
+        throw .unresolved
+
+    expr.kind = ret
+    expr.var = found
+    expr.var.used = yes
+
+    catch .unresolved do errs.unrecognized!(parser, type=atype, member=expr)
+end
+
+~ This function is called in one pass, during the line-by-line parsing.
+~ (since variables cannot be "forward-declared").
+func resolveVars!(parser Parser, expr ASTExpr, scope ASTScope, inFuncCall Bool)
+    match expr.kind
+    case .identifierResolved
+
+    case .identifier, .subscript
+        var ret TokenKind = (expr.kind == .identifier) ? .identifierResolved
+                                                     : .subscriptResolved
+        var found ASTVar =
+            getVar(scope, byName=expr.string) or
+            throw .unresolved
+
+        expr.kind = ret
+        expr.var = found
+        expr.var.used = yes
+
+        catch .unresolved do errs.unrecognized!(parser, var=expr)
+
+        if expr.kind in [.subscriptResolved, .subscript]
+            resolveVars!(parser, expr=expr.left, scope=scope, inFuncCall=inFuncCall)
+        end
+
+    case .functionCall
+        resolveVars!(parser, expr=expr.left, scope=scope, inFuncCall=yes)
+
+    case .period:
+        resolveVars!(parser, expr=expr.left, scope=scope, inFuncCall=inFuncCall)
+
+        if expr.right.kind in [.subscript, .subscriptResolved]
+            resolveVars(parser, expr=expr.right.left, scope=scope, inFuncCall=inFuncCall)
+        end
+
+    case .string
+        ~ strings may have embedded variable names of the form $name or
+        ~ $(name), so resolve them. by the time this func is called, the string
+        ~ will be null-terminated
+        var pos CString = find(expr.string, char='$')
+        while pos
+            if pos[-1] != '\\ '
+                if pos[2] == '(' then pos += 1
+                var buf = substr(pos+1, matching=`[A-Za-z0-9]`)
+                if buf == "" then throw .syntax
+
+                var va ASTVar = getVar(scope, byName=buf)
+                if not va
+                    CString orig = expr.string
+                    expr.string = buf
+                    expr.col += (pos - orig) + 1
+                    errs.unrecognized!(parser, var=expr)
+                    expr.col -= (pos - orig) + 1
+                    expr.string = orig
+                else
+                    ~ we're not going to actually "resolve" the embedded
+                    ~ var, just lint the name here so it is in the correct
+                    ~ case
+                    memcpy(pos + 1, va.name, len)
+                end
+
+                catch .syntax do errs.stringInterp!(parser, expr=expr, name=pos)
+            end
+            pos = find(pos + 1, char='$')
+        end
+    end
+
+    case
+        if not expr.prec return
+
+        if not (expr.unary or (inFuncCall and expr.kind == .opAssign))
+            resolveVars!(parser, expr.left, scope, inFuncCall)
+        end
+        resolveVars!(parser, expr.right, scope, inFuncCall)
+
+        if isSelfMutOp(expr)
+            var v ASTVar = nil
+            var varExpr ASTExpr = expr.left
+            if varExpr.kind in [.identifierResolved, .subscriptResolved]
+                v = varExpr.var
+            else if varExpr.kind == .period and
+                varExpr.left.kind == .identifierResolved
+
+                varExpr = varExpr.left
+                v = varExpr.var
+            end
+
+            var.changed = yes
+            if expr.kind == .opAssign then var.reassigned = yes
+            if not v.isVar then errs.readonly(parser, var=varExpr)
+            ~ ^ does this evaluate true if you ignore NULLs and var is null?
+            ~ yes because it becomes if (!(v && v->isVar)) which is further
+            ~ if (!v || !v->isVar)
+        end
+    end
+end

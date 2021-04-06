@@ -1,5 +1,5 @@
 #define _btLimit_ 10
-#define ERROR_TRACE (char*)0xFFFFFFFFFFFFFFFF
+static const char* const ERROR_TRACE = (const char*)0xFFFFFFFFFFFFFFFF;
 #define DONE                                                                   \
     {                                                                          \
         _err_ = ERROR_TRACE;                                                   \

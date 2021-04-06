@@ -1031,7 +1031,7 @@ static const uint64_t mantissa_128[] = {
     0x58180fddd97723a6,
     0x570f09eaa7ea7648,
 };
-static really_inline double compute_float_64(
+static double compute_float_64(
     int64_t power, uint64_t i, bool negative, bool* success) {
 #if (FLT_EVAL_METHOD != 1) && (FLT_EVAL_METHOD != 0)
     if (0 <= power && power <= 22 && i <= 9007199254740991) {
@@ -1101,6 +1101,7 @@ static really_inline double compute_float_64(
     *success = true;
     return d;
 }
+
 static const char* fdp_parse_float_strtod(const char* ptr, double* outDouble) {
     char* endptr;
 #if defined(JET_SYS_SOLARIS) || defined(JET_SYS_CYGWIN)
@@ -1118,8 +1119,10 @@ static const char* fdp_parse_float_strtod(const char* ptr, double* outDouble) {
     if (!isfinite(*outDouble)) { return NULL; }
     return endptr;
 }
-WARN_UNUSED
-really_inline const char* fdp_parse_number(const char* p, double* outDouble) {
+
+// WARN_UNUSED
+// really_inline
+static const char* fdp_parse_number(const char* p, double* outDouble) {
     const char* pinit = p;
     bool found_minus = (*p == '-');
     bool negative = false;
@@ -1213,6 +1216,17 @@ really_inline const char* fdp_parse_number(const char* p, double* outDouble) {
     *outDouble = compute_float_64(exponent, i, negative, &success);
     if (!success) { return fdp_parse_float_strtod(pinit, outDouble); }
     return p;
+}
+
+// this is the only entrypoint into this module. dont call other funcs!
+// doesn't need to be static as long as you generate a num.o from this file.
+// if you want to put this in a bigger .o then make it monostatic.
+double num(char* str) {
+    double d;
+    char* end = fdp_parse_number(str, &d);
+    if (!end)
+        ; // handle error or report
+    return d;
 }
 
 #endif

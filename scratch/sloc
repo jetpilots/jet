@@ -2,3 +2,5 @@
 make clean
 echo total  `cat *.[ch] | wc -l`
 echo source `grep -ve '^\( *//.*\| *\)$' *.[ch] | wc -l`
+
+for f in `find engine -name '*.[ch]' `; do wc $f; done  | sort -nrk 3 | awk ' {print $0;nl+=$1;nb+=$3} END{print "\ntotal: " nl " lines,", nb/1024 " kB"}'
