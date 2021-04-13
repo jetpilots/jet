@@ -37,7 +37,7 @@ static void analyseDictLiteral(Parser* parser, ASTExpr* expr, ASTModule* mod) {
 static void ASTExpr_prepareInterp(
     Parser* parser, ASTExpr* expr, ASTScope* scope) {
     static Array(Ptr) vars;
-    assert(expr->kind == tkString);
+    assert(expr->kind == tkString || expr->kind == tkRawString);
     PtrList** exprvars = &expr->vars;
     // at some point you should make it so that only strings with a preceding
     // $ get scanned for vars.
@@ -223,13 +223,14 @@ static void ASTExpr_setEnumBase(
         expr->left->line = expr->line;
         expr->left->col = expr->col;
         resolveVars(parser, expr, mod->scope, false);
-    case tkPlus:
+    case tkOpPlus:
     case tkOpComma:
     case tkOpEQ:
+    case tkOpNE:
         ASTExpr_setEnumBase(parser, expr->left, spec, mod);
         fallthrough;
-    case tkArrayOpen:
-        ASTExpr_setEnumBase(parser, expr->right, spec, mod);
+    case tkOpAssign:
+    case tkArrayOpen: ASTExpr_setEnumBase(parser, expr->right, spec, mod);
     default:;
     }
 }
@@ -344,8 +345,8 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
                     if (!strcasecmp(expr->string, func->name)) {
                         eprintf("\e[36;1minfo:\e[0;2m   not viable: %s with %d "
                                 "arguments at %s:%d\e[0m\n",
-                            func->prettySelector, func->argCount,
-                            parser->filename, func->line);
+                            func->prettySelector, func->argCount, mod->filename,
+                            func->line);
                         sugg++;
                     }
                     if (!func->intrinsic && strcasecmp(expr->string, func->name)
@@ -356,7 +357,7 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
                         eprintf("\e[36;1minfo:\e[0m did you mean: "
                                 "\e[34m%s\e[0m (%s at "
                                 "./%s:%d)\n",
-                            func->name, func->prettySelector, parser->filename,
+                            func->name, func->prettySelector, mod->filename,
                             func->line);
                         sugg++;
                     }
@@ -380,15 +381,9 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
             // and arrays of anything can be left without an init.
             if (!typeSpec->dims) // goto errorMissingInit;
                 switch (typeSpec->typeType) {
-                case TYReal64:
-                    expr->var->init = expr_const_0;
-                    break;
-                case TYString:
-                    expr->var->init = expr_const_empty;
-                    break;
-                case TYBool:
-                    expr->var->init = expr_const_no;
-                    break;
+                case TYReal64: expr->var->init = expr_const_0; break;
+                case TYString: expr->var->init = expr_const_empty; break;
+                case TYBool: expr->var->init = expr_const_no; break;
                 case TYObject:
                     if (!typeSpec->type->isEnum) {
                         expr->var->init = expr_const_nil;
@@ -408,13 +403,31 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
 
             analyseExpr(parser, init, scope, mod, ownerFunc, false);
 
-            expr->typeType = init->typeType;
-            expr->collectionType = init->collectionType;
-            expr->nullable = init->nullable;
-            expr->elemental = init->elemental;
-            expr->throws = init->throws;
-            expr->impure = init->impure;
-            expr->dims = init->dims;
+            if (init->typeType != TYNilType) {
+                // if not nil, get type info from init expr.
+                expr->typeType = init->typeType;
+                expr->collectionType = init->collectionType;
+                expr->nullable = init->nullable;
+                expr->elemental = init->elemental;
+                expr->throws = init->throws;
+                expr->impure = init->impure;
+                expr->dims = init->dims;
+            } else if (typeSpec->typeType == TYObject) {
+                // if nil, and typespec given and resolved, set type info from
+                // typespec.
+                expr->typeType = typeSpec->typeType;
+
+            } else if (typeSpec->typeType == TYUnresolved) {
+                // this will already have caused an error while resolution.
+                // since specified type is unresolved and init is nil, there
+                // is nothing to do except to mark it an error type.
+                typeSpec->typeType = expr->typeType = TYErrorType;
+
+            } else {
+                // this would be something like init'ing primitives with nil.
+                Parser_errorInitMismatch(parser, expr);
+                typeSpec->typeType = expr->typeType = TYErrorType;
+            }
 
             if (typeSpec->typeType == TYUnresolved) {
                 typeSpec->typeType = init->typeType;
@@ -450,8 +463,9 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
                     analyseType(parser, typeSpec->type, mod);
                 }
             } else if (typeSpec->typeType != init->typeType
-                && init->typeType != TYAnyType) {
-                // init can be nil, which is a TYAnyType
+                // && init->typeType != TYNilType
+            ) {
+                // init can be nil, which is a TYNilType
                 Parser_errorInitMismatch(parser, expr);
                 expr->typeType = TYErrorType;
             }
@@ -553,18 +567,12 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
         ASTExpr_prepareInterp(parser, expr, scope);
         break;
 
-    case tkNumber:
-        expr->typeType = TYReal64;
-        break;
+    case tkNumber: expr->typeType = TYReal64; break;
 
     case tkKeyword_yes:
-    case tkKeyword_no:
-        expr->typeType = TYBool;
-        break;
+    case tkKeyword_no: expr->typeType = TYBool; break;
 
-    case tkKeyword_nil:
-        expr->typeType = TYAnyType;
-        break;
+    case tkKeyword_nil: expr->typeType = TYNilType; break;
 
     case tkIdentifier:
         // by the time analysis is called, all vars must have been resolved
@@ -686,12 +694,12 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
             }
         }
 
-        if (member->kind != tkIdentifier && member->kind != tkSubscript) {
+        if (!ISIN(3, member->kind, tkIdentifier, tkSubscript, tkFunctionCall)) {
             Parser_errorUnexpectedExpr(parser, member);
             break;
         }
         //  or member->kind == tkFunctionCall);
-        if (member->kind != tkIdentifier)
+        if (member->kind != tkIdentifier && member->left)
             analyseExpr(
                 parser, member->left, scope, mod, ownerFunc, inFuncArgs);
 
@@ -702,6 +710,7 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
             expr->typeType = TYErrorType;
             break;
         }
+        assert(expr->left->var->typeSpec->typeType != TYNilType);
 
         ASTType* type = expr->left->var->typeSpec->type;
         if (!type) {
@@ -727,8 +736,7 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
         expr->dims = expr->right->dims;
     } break;
 
-    case tkLineComment:
-        break;
+    case tkLineComment: break;
 
     case tkArgumentLabel:
 
@@ -752,10 +760,17 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
                     parser, expr->left, scope, mod, ownerFunc, inFuncArgs);
             // some exprs like return can be used without any args
 
-            if (expr->kind == tkKeyword_in || expr->kind == tkKeyword_notin) {
-                ASTTypeSpec* leftSpec = ASTExpr_getObjectTypeSpec(expr->left);
-                if (leftSpec->typeType == TYObject && leftSpec->type->isEnum) {
-                    ASTExpr_setEnumBase(parser, expr->right, leftSpec, mod);
+            if (ISIN(5, expr->kind, tkKeyword_in, tkKeyword_notin, tkOpAssign,
+                    tkOpEQ, tkOpNE)) {
+                ASTTypeSpec* spec = ASTExpr_getObjectTypeSpec(expr->left);
+                if (spec && spec->typeType == TYObject && spec->type->isEnum) {
+                    ASTExpr_setEnumBase(parser, expr->right, spec, mod);
+                } else {
+                    spec = ASTExpr_getObjectTypeSpec(expr->left);
+                    if (spec && spec->typeType == TYObject
+                        && spec->type->isEnum) {
+                        ASTExpr_setEnumBase(parser, expr->right, spec, mod);
+                    }
                 }
             }
 
@@ -808,11 +823,11 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
                     if (expr->left->dims != 0 && expr->right->dims != 0) {
                         Parser_errorBinOpDimsMismatch(parser, expr);
                         expr->right->typeType = TYErrorType;
-                    } else if (expr->kind == tkPlus //
-                        || expr->kind == tkMinus //
-                        || expr->kind == tkTimes //
-                        || expr->kind == tkSlash //
-                        || expr->kind == tkPower //
+                    } else if (expr->kind == tkOpPlus //
+                        || expr->kind == tkOpMinus //
+                        || expr->kind == tkOpTimes //
+                        || expr->kind == tkOpSlash //
+                        || expr->kind == tkOpPower //
                         || expr->kind == tkOpMod) {
                         expr->dims = expr->left->dims + expr->right->dims;
                         expr->collectionType = max(expr->left->collectionType,
@@ -902,7 +917,7 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
             // TODO: some ops have a predefined type e.g. : is of type Range
             // etc,
         } else {
-            unreachable("unknown expr kind: %s", TokenKind_str[expr->kind]);
+            unreachable("unknown expr kind: %s", TokenKinds_names[expr->kind]);
         }
     }
 }

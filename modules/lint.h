@@ -1,29 +1,20 @@
 
 static void ASTImport_lint(ASTImport* import, int level) {
-    printf("import %s%s%s\n", import->name, import->alias ? " as " : "",
-        import->alias ? import->alias : "");
+    char* alias = import->name + import->aliasOffset;
+    printf("import %s%s%s\n", import->name, alias ? " as " : "",
+        alias ? alias : "");
 }
 
 static void ASTTypeSpec_lint(ASTTypeSpec* spec, int level) {
     switch (spec->typeType) {
-    case TYObject:
-        printf("%s", spec->type->name);
-        break;
-    case TYUnresolved:
-        printf("%s", spec->name);
-        break;
-    default:
-        printf("%s", TypeType_name(spec->typeType));
-        break;
+    case TYObject: printf("%s", spec->type->name); break;
+    case TYUnresolved: printf("%s", spec->name); break;
+    default: printf("%s", TypeType_name(spec->typeType)); break;
     }
 
     switch (spec->collectionType) {
-    case CTYDictS:
-        printf("[DICTK]");
-        break;
-    case CTYArray:
-        printf("[]");
-        break;
+    case CTYDictS: printf("[DICTK]"); break;
+    case CTYArray: printf("[]"); break;
     case CTYTensor:
         if (spec->dims) {
             static const char* dimsstr
@@ -157,9 +148,7 @@ static void ASTScope_lint(ASTScope* scope, int level) {
                 }
             printf("%.*send %s\n", level, spaces, ""); // tok);
         } break;
-        default:
-            ASTExpr_lint(expr, level, true, false);
-            puts("");
+        default: ASTExpr_lint(expr, level, true, false); puts("");
         }
     }
 }
@@ -244,15 +233,9 @@ static void ASTExpr_lint(
 
     switch (expr->kind) {
     case tkNumber:
-    case tkMultiDotNumber:
-        printf("%s", expr->string);
-        break;
-    case tkRawString:
-        printf("'%s'", expr->string + 1);
-        break;
-    case tkRegexp:
-        printf("`%s`", expr->string + 1);
-        break;
+    case tkMultiDotNumber: printf("%s", expr->string); break;
+    case tkRawString: printf("'%s'", expr->string + 1); break;
+    case tkRegexp: printf("`%s`", expr->string + 1); break;
 
     case tkIdentifier:
     case tkArgumentLabel:
@@ -265,15 +248,9 @@ static void ASTExpr_lint(
     case tkString:
         printf(escapeStrings ? "\\%s\\\"" : "%s\"", expr->string);
         break;
-    case tkKeyword_no:
-        printf("no");
-        break;
-    case tkKeyword_yes:
-        printf("yes");
-        break;
-    case tkKeyword_nil:
-        printf("nil");
-        break;
+    case tkKeyword_no: printf("no"); break;
+    case tkKeyword_yes: printf("yes"); break;
+    case tkKeyword_nil: printf("nil"); break;
 
     case tkLineComment:
         printf("%s%s", TokenKind_repr(tkLineComment, *expr->string != ' '),
@@ -299,8 +276,7 @@ static void ASTExpr_lint(
     } break;
 
     case tkObjectInit:
-    case tkObjectInitResolved:
-        break;
+    case tkObjectInitResolved: break;
 
     case tkPeriod:
         if (expr->left && expr->left->typeType == TYObject
@@ -319,11 +295,11 @@ static void ASTExpr_lint(
 
     case tkArrayOpen:
     case tkBraceOpen:
-        printf("%s", tkrepr[expr->kind]);
+        printf("%s", TokenKinds_repr[expr->kind]);
         if (expr->right)
             ASTExpr_lint(
                 expr->right, level, expr->kind != tkArrayOpen, escapeStrings);
-        printf("%s", tkrepr[TokenKind_reverseBracket(expr->kind)]);
+        printf("%s", TokenKinds_repr[TokenKind_reverseBracket(expr->kind)]);
         break;
 
     case tkKeyword_in:
@@ -331,7 +307,7 @@ static void ASTExpr_lint(
         // these seem to add precedence parens aruns expr->right if done as
         // normal binops. so ill do them separately here.
         ASTExpr_lint(expr->left, 0, spacing, escapeStrings);
-        printf("%s", tkrepr[expr->kind]);
+        printf("%s", TokenKinds_repr[expr->kind]);
         ASTExpr_lint(expr->right, 0, spacing, escapeStrings);
         break;
 
@@ -354,10 +330,8 @@ static void ASTExpr_lint(
                 case tkString:
                 case tkOpColon:
                 case tkMultiDotNumber:
-                case tkUnaryMinus:
-                    break;
-                default:
-                    leftBr = true;
+                case tkOpUnaryMinus: break;
+                default: leftBr = true;
                 }
             if (expr->right) switch (expr->right->kind) {
                 case tkNumber:
@@ -365,10 +339,8 @@ static void ASTExpr_lint(
                 case tkString:
                 case tkOpColon:
                 case tkMultiDotNumber:
-                case tkUnaryMinus:
-                    break;
-                default:
-                    rightBr = true;
+                case tkOpUnaryMinus: break;
+                default: rightBr = true;
                 }
         }
 
@@ -389,7 +361,7 @@ static void ASTExpr_lint(
         //            }
         //        }
 
-        if (expr->kind == tkPower && !spacing) putc('(', stdout);
+        if (expr->kind == tkOpPower && !spacing) putc('(', stdout);
 
         char lpo = leftBr && expr->left->kind == tkOpColon ? '[' : '(';
         char lpc = leftBr && expr->left->kind == tkOpColon ? ']' : ')';
@@ -409,7 +381,7 @@ static void ASTExpr_lint(
                 spacing && !rightBr && expr->kind != tkOpColon, escapeStrings);
         if (rightBr) putc(rpc, stdout);
 
-        if (expr->kind == tkPower && !spacing) putc(')', stdout);
+        if (expr->kind == tkOpPower && !spacing) putc(')', stdout);
         // if (expr->kind == tkArrayOpen) putc(']', stdout);
         // if (expr->kind == tkBraceOpen) putc('}', stdout);
     }

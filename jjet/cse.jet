@@ -14,8 +14,8 @@ func hash(expr ASTExpr, cseDict ASTExpr[UInt32])
         end
 
     case .varAssign
-        hash!(expr.var.init, cseDict)
-        ~        expr.hash = expr.var.init.hash
+        hash!(expr.va.init, cseDict)
+        ~        expr.hash = expr.va.init.hash
 
     case .functionCallResolved, .identifierResolved, .subscriptResolved
         union
@@ -23,7 +23,7 @@ func hash(expr ASTExpr, cseDict ASTExpr[UInt32])
             UInt64 h64
             UInt32 hash[2]
         end str =   .h64 = 0 end ~.buf =   1, 1, 1, 1, 1, 1, 1, 1, 0 end end
-        str.hash[0] = hash((UInt64)expr.right) ~.name)
+        str.hash[0] = hash(expr.right) ~.name)
         ~ TODO: hash the right ptr instead
         ~ here we exploit the fact that name is at the same offset within
         ~ ASTFunc and ASTVar, so the deref will get the right thing
@@ -98,13 +98,13 @@ func checkHashes(expr ASTExpr, cseDict ASTExpr[UInt32])
     ~ this expr isn't a candidate for CSE. Check subexprs.
     match expr.kind
     case .varAssign
-        checkHashes(expr.var.init, cseDict)
+        checkHashes(expr.va.init, cseDict)
     case .functionCallResolved, .subscriptResolved
-        if expr.left checkHashes(expr.left, cseDict)
+        expr.left and checkHashes(expr.left, cseDict)
     case
         if expr.prec
-            if not expr.unary then checkHashes(expr.left, cseDict)
-            if expr.right then checkHashes(expr.right, cseDict)
+            expr.unary and checkHashes(expr.left, cseDict)
+            expr.right and checkHashes(expr.right, cseDict)
         end
     end
 end

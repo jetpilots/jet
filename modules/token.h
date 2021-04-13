@@ -14,14 +14,14 @@ static const uint8_t TokenKindTable[256] = {
     /* 32   */ tkSpaces, /* 33 ! */ tkExclamation,
     /* 34 " */ tkStringBoundary, /* 35 # */ tkHash, /* 36 $ */ tkDollar,
     /* 37 % */ tkOpMod, /* 38 & */ tkAmpersand, /* 39 ' */ tkRawStringBoundary,
-    /* 40 ( */ tkParenOpen, /* 41 ) */ tkParenClose, /* 42 * */ tkTimes,
-    /* 43 + */ tkPlus, /* 44 , */ tkOpComma, /* 45 - */ tkMinus,
-    /* 46 . */ tkPeriod, /* 47 / */ tkSlash, /* 48 0 */ tkDigit,
+    /* 40 ( */ tkParenOpen, /* 41 ) */ tkParenClose, /* 42 * */ tkOpTimes,
+    /* 43 + */ tkOpPlus, /* 44 , */ tkOpComma, /* 45 - */ tkOpMinus,
+    /* 46 . */ tkPeriod, /* 47 / */ tkOpSlash, /* 48 0 */ tkDigit,
     /* 49 1 */ tkDigit, /* 50 2 */ tkDigit, /* 51 3 */ tkDigit,
     /* 52 4 */ tkDigit, /* 53 5 */ tkDigit, /* 54 6 */ tkDigit,
     /* 55 7 */ tkDigit, /* 56 8 */ tkDigit, /* 57 9 */ tkDigit,
     /* 58 : */ tkOpColon, /* 59 ; */ tkOpSemiColon, /* 60 < */ tkOpLT,
-    /* 61 = */ tkOpAssign, /* 62 > */ tkOpGT, /* 63 ? */ tkQuestion,
+    /* 61 = */ tkOpAssign, /* 62 > */ tkOpGT, /* 63 ? */ tkOpQuestion,
     /* 64 @ */ tkAt,
     /* 65 A */ tkAlphabet, /* 66 B */ tkAlphabet, /* 67 C */ tkAlphabet,
     /* 68 D */ tkAlphabet, /* 69 E */ tkAlphabet, /* 70 F */ tkAlphabet,
@@ -32,8 +32,8 @@ static const uint8_t TokenKindTable[256] = {
     /* 83 S */ tkAlphabet, /* 84 T */ tkAlphabet, /* 85 U */ tkAlphabet,
     /* 86 V */ tkAlphabet, /* 87 W */ tkAlphabet, /* 88 X */ tkAlphabet,
     /* 89 Y */ tkAlphabet, /* 90 Z */ tkAlphabet,
-    /* 91 [ */ tkArrayOpen, /* 92 \ */ tkBackslash, /* 93 ] */ tkArrayClose,
-    /* 94 ^ */ tkPower, /* 95 _ */ tkUnderscore,
+    /* 91 [ */ tkArrayOpen, /* 92 \ */ tkOpBackslash, /* 93 ] */ tkArrayClose,
+    /* 94 ^ */ tkOpPower, /* 95 _ */ tkUnderscore,
     /* 96 ` */ tkRegexpBoundary,
     /* 97 a */ tkAlphabet, /* 98 b */ tkAlphabet, /* 99 c */ tkAlphabet,
     /* 100 d */ tkAlphabet, /* 101 e */ tkAlphabet, /* 102 f */ tkAlphabet,
@@ -130,7 +130,6 @@ static const uint8_t TokenKindTable[256] = {
 
 // Holds information about a syntax self->token.
 typedef struct Token {
-
     char* pos;
     uint32_t matchlen : 24;
     struct {
@@ -173,7 +172,7 @@ static void Token_tryKeywordMatch(Token* token) {
     const int l = token->matchlen;
 
     Token_compareKeyword(and)
-    Token_compareKeyword(cheater)
+    // Token_compareKeyword(cheater)
     Token_compareKeyword(for)
     Token_compareKeyword(do)
     Token_compareKeyword(while)
@@ -236,78 +235,61 @@ static TokenKind Token_getType(Token* token, const size_t offset) {
     switch (c) {
     case '<':
         switch (cn) {
-        case '=':
-            return tkOpLE;
-        default:
-            return tkOpLT;
+        case '=': return tkOpLE;
+        default: return tkOpLT;
         }
     case '>':
         switch (cn) {
-        case '=':
-            return tkOpGE;
-        default:
-            return tkOpGT;
+        case '=': return tkOpGE;
+        default: return tkOpGT;
         }
     case '=':
         switch (cn) {
-        case '=':
-            return tkOpEQ;
-        case '>':
-            return tkOpResults;
-        default:
-            return tkOpAssign;
+        case '=': return tkOpEQ;
+        case '>': return tkOpResults;
+        default: return tkOpAssign;
         }
     case '+':
         switch (cn) {
-        case '=':
-            return tkPlusEq;
+        case '=': return tkOpPlusEq;
         }
-        return tkPlus;
+        return tkOpPlus;
     case '-':
         switch (cn) {
-        case '=':
-            return tkMinusEq;
+        case '=': return tkOpMinusEq;
         }
-        return tkMinus;
+        return tkOpMinus;
     case '*':
         switch (cn) {
-        case '=':
-            return tkTimesEq;
+        case '=': return tkOpTimesEq;
         }
-        return tkTimes;
+        return tkOpTimes;
     case '/':
         switch (cn) {
-        case '=':
-            return tkSlashEq;
+        case '=': return tkOpSlashEq;
         }
-        return tkSlash;
+        return tkOpSlash;
     case '^':
         switch (cn) {
-        case '=':
-            return tkPowerEq;
+        case '=': return tkOpPowerEq;
         }
-        return tkPower;
+        return tkOpPower;
     case '%':
         switch (cn) {
-        case '=':
-            return tkOpModEq;
+        case '=': return tkOpModEq;
         }
         return tkOpMod;
     case '!':
         switch (cn) {
-        case '=':
-            return tkOpNE;
+        case '=': return tkOpNE;
         }
         return tkExclamation;
     case ':':
         switch (cn) {
-        case '=':
-            return tkColEq;
-        default:
-            return tkOpColon;
+        case '=': return tkOpColEq;
+        default: return tkOpColon;
         }
-    default:
-        return ret;
+    default: return ret;
     }
 }
 
@@ -318,11 +300,10 @@ static bool Token_isUnaryAfter(TokenKind tk) {
     case tkNumber:
     case tkArrayClose:
     case tkArrayDims:
-    case tkMultiDotNumber:
-        return true;
+    case tkMultiDotNumber: return false;
     default:;
     }
-    return false;
+    return true;
 }
 
 static void Token_detect(Token* token) {
@@ -354,7 +335,7 @@ static void Token_detect(Token* token) {
                 token->pos++;
                 break;
             }
-            if (tt == tkBackslash && Token_getType(token, 1) == tmp)
+            if (tt == tkOpBackslash && Token_getType(token, 1) == tmp)
                 token->pos++;
             if (tt == tkNewline) {
                 token->line++;
@@ -362,15 +343,9 @@ static void Token_detect(Token* token) {
             }
         }
         switch (tmp) {
-        case tkStringBoundary:
-            tt_ret = tkString;
-            break;
-        case tkRegexpBoundary:
-            tt_ret = tkRegexp;
-            break;
-        case tkRawStringBoundary:
-            tt_ret = tkRawString;
-            break;
+        case tkStringBoundary: tt_ret = tkString; break;
+        case tkRegexpBoundary: tt_ret = tkRegexp; break;
+        case tkRawStringBoundary: tt_ret = tkRawString; break;
         default:
             tt_ret = tkUnknown;
             printf("unreachable %s:%d\n", __FILE__, __LINE__);
@@ -393,7 +368,7 @@ static void Token_detect(Token* token) {
         tt_ret = tkSpaces;
         break;
 
-    case tkColEq:
+    case tkOpColEq:
         token->pos++; // 2-char token
         // fallthrough, since tkColEq is also a line continuation token
         // like , and ;
@@ -461,11 +436,10 @@ static void Token_detect(Token* token) {
         tt_ret = tkArrayDims;
         break;
 
-        // tkPeriod is not unary; a NULL is inserted for inferred enum members
-        // on the left. Anyway I'm thinking of switching to # for inferred enum
-        // members, allowing #123 #== #<= etc.
-        // case tkPeriod:
-        //     tt_ret = Token_isUnaryAfter(tt_lastNonSpace) ? tk : tt;
+    case tkPeriod:
+        tt_ret = Token_isUnaryAfter(tt_lastNonSpace) ? tkUnaryDot : tt;
+        token->pos++;
+        break;
 
     case tkAlphabet:
     case tkUnderscore:
@@ -476,6 +450,7 @@ static void Token_detect(Token* token) {
                 // and tt != tkPeriod)
                 break; /// validate in parser not here
         }
+        if (tt == tkExclamation) token->pos++; // include it in ident
         tt_ret = tkIdentifier;
         break;
 
@@ -492,7 +467,7 @@ static void Token_detect(Token* token) {
         while (tt != tkNullChar) {
             tt = Token_getType(token, 1);
             token->pos++;
-            if (tt != tkAlphabet && tt != tkDigit && tt != tkSlash
+            if (tt != tkAlphabet && tt != tkDigit && tt != tkOpSlash
                 && tt != tkPeriod)
                 break;
         }
@@ -528,42 +503,28 @@ static void Token_detect(Token* token) {
         }
         break;
 
-    case tkMinus:
-        tt_ret = Token_isUnaryAfter(tt_lastNonSpace) ? tkUnaryMinus : tt;
-        // switch (tt_lastNonSpace) {
-        // case tkParenClose:
-        // case tkIdentifier: // TODO: keywords too?
-        // case tkNumber:
-        // case tkArrayClose:
-        // case tkArrayDims:
-        // case tkMultiDotNumber:
-        //     tt_ret = tt;
-        //     break;
-        // default:
-        //     tt_ret = tkUnaryMinus;
-        //     break;
-        // }
+    case tkOpMinus:
+        tt_ret = Token_isUnaryAfter(tt_lastNonSpace) ? tkOpUnaryMinus : tt;
         token->pos++;
         break;
 
-    case tkOpNotResults:
-        // 3-char tokens
-        token->pos++;
+    // 3-char tokens
+    case tkOpNotResults: token->pos++;
+
+    // 2-char tokens
     case tkOpEQ:
     case tkOpGE:
     case tkOpLE:
     case tkOpNE:
     case tkOpResults:
-    case tkBackslash:
-    case tkPlusEq:
-    case tkMinusEq:
-    case tkTimesEq:
-    case tkSlashEq:
-    case tkPowerEq:
-    case tkOpModEq:
+    case tkOpBackslash:
+    case tkOpPlusEq:
+    case tkOpMinusEq:
+    case tkOpTimesEq:
+    case tkOpSlashEq:
+    case tkOpPowerEq:
+    case tkOpModEq: token->pos++;
 
-        // 2-char tokens
-        token->pos++;
     default:
     defaultToken:
         tt_ret = tt;
@@ -588,7 +549,8 @@ static void Token_detect(Token* token) {
 static void Token_advance(Token* token) {
     switch (token->kind) {
     case tkNullChar:
-        unreachable("Advancing token at end of file!", "");
+        unreachable("Advancing token at end of file! %p", token->pos);
+        exit(1);
         return;
     case tkIdentifier:
     case tkString:
@@ -601,7 +563,7 @@ static void Token_advance(Token* token) {
     case tkRawString:
     case tkRegexp:
     case tkUnits:
-    case tkKeyword_cheater:
+    // case tkKeyword_cheater:
     case tkKeyword_for:
     case tkKeyword_while:
     case tkKeyword_if:
@@ -622,10 +584,7 @@ static void Token_advance(Token* token) {
     case tkKeyword_var:
     case tkKeyword_let:
     case tkKeyword_import:
-    case tkUnknown: // bcz start of the file is this
-        //    case tkArrayOpen:
-        //    case tkBraceOpen:
-        break;
+    case tkUnknown: break;
     default:
         *token->pos = 0; // trample it so that idents etc. can be assigned
                          // in-situ
@@ -638,6 +597,7 @@ static void Token_advance(Token* token) {
 
     if (token->kind == tkNewline) {
         // WHY don't you do self->token advance here?
+        // TODO: if (token->col>80) warning
         token->line++;
         token->col = 0; // position of the nl itself is 0
     }

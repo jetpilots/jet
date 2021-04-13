@@ -3,10 +3,11 @@ import imported as imp
 var mes = 4
 
 func noko()
-   var c = print("ghjghjgh" + mes)
+   ~ var c = print("ghjghjgh" + mes)
+   print("noko")
 end
 
-func start()
-   var c = print("ghjghjgh" + mes)
+func stiart()
+   ~ var c = print("ghjghjgh" + mes)
 end
 

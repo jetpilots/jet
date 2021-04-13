@@ -1,0 +1,277 @@
+func arrs()
+    var x = [9, 8, 7, 6, 5]
+    print(x)
+    print(x[3])
+    var g = x[3] + x[1]
+    print(g)
+    print("there's d = $g")
+end
+
+type Boxy
+    var g = "this is right"
+end
+
+func mas()
+    var b = Boxy()
+    match b.g
+    case "boxy"
+    case "bing"
+    case "this is right"
+        print("ok '$b.g' is it")
+    end
+end
+
+func jip()
+
+end
+
+enum CompilerModes
+lint
+build
+run
+runtest
+end
+
+enum ErrKinds
+missing
+invalid
+unknown
+duplicate
+end
+enum ErrItems
+atype
+    afunc
+        avar
+        expr
+        token
+        main
+    end
+
+type Diagnostics
+
+    var issues Issue[]
+
+end
+    func count(d Diagnostics)
+        return count(d.issues)
+    end
+    func error(d Diagnostics,kind ErrKinds ,item ErrItems)
+        end
+    func missingMain(d Diagnostics)
+        error(d, .missing, .main, nil)
+    end
+
+type JetVar
+  var name SmallString
+  var info TypeInfo
+    ~ flags
+end
+
+declare type JetExpr
+  var kind ExprKinds
+    ~ union
+      var left JetExpr
+     var vars  JetVar[]
+    ~ end
+    ~ union
+     var right  JetExpr
+        ~ SmallString string
+        ~ JetVar* var
+        ~ JetFunc* func
+        ~ JetImport* import
+    ~ end
+    ~ long hash
+    ~ unsigned line : 16, col : 8
+end
+
+type JetImport
+ end
+type Scope
+    var vars JetVar[] = []
+    var stmts JetExpr[] = []
+    var parent Scope
+end
+func getvar(s Scope, name String) JetVar
+    for v = s.vars do if name==v.name return v
+    if s.parent then return getvar(s.parent, name)
+    return nil
+end
+end
+end
+type JetFunc
+  var name = ""
+  var body Scope
+  var args JetVar[]
+  var retVal JetVar
+end
+
+type JetType
+    var name = ""
+    var body Scope
+end
+
+type JetModule
+    var errs Diagnostics
+    var funcs JetFunc[]
+    var types JetType[]
+    var imports JetImport[]
+    var scope Scope
+end
+
+func loadModule(filename String) as JetModule
+    return nil
+    end
+
+    func save()
+     return
+    end
+    func getfunc(selector String) as JetFunc
+     return nil
+        end
+    func gettype(name String) as JetType
+     return nil
+        end
+    func getvar(name String) as JetVar
+     return nil
+    end
+    func getimport(alias String) as JetImport
+     return nil
+    end
+
+    func write()
+         return
+    end
+
+    func emit()
+        end
+
+    func analyse(fun JetFunc)
+        analyse(fun.body, fun)
+    end
+    func analyse(scope Scope, fun JetFunc)
+        for va JetVar = scope.vars do analyse(va)
+        for stmt JetExpr = scope.stmts do analyse(stmt, nil, scope, fun)
+        end
+    end
+    end
+    func analyse(expr JetExpr, parentexpr JetExpr, scope Scope, fn JetFunc)
+        end
+
+    func analyse(va JetVar)
+        end
+    func analyse()
+        end
+~ end
+
+type Compiler
+    var root JetModule
+    var parser Parser
+    var errs Diagnostics
+    var filename String
+    var mode CompilerModes
+end
+    func Compiler(args String[])
+        var c = Compiler()
+        parseOpts!(c, args)
+        return c
+    end
+
+    func start(com Compiler)
+        loadRootModule!(com)
+        if com.mode >= #lint
+            if com.root != nil
+                write(com.root)
+            else
+                format(com.parser)
+            end
+        if com.mode >= #build then build!(com)
+        if com.mode >= #run then run(com)
+        if com.mode >= #runtest then test(com)
+
+    end
+end
+end
+end
+end
+func loadRootModule!(com Compiler)
+    com.root = loadModule(filename)
+    if com.root then return
+    com.root = module(com.parser)
+    if com.root
+        if com.mode >= .build
+            var fun = getfunc(com.root, "main()")
+            fun and analyse(com.root, fun) or missingMain(com.errs)
+        else
+            analyse(com.root)
+        end
+        if not count(com.root.errs) do save(com.root)
+
+            end
+
+    end
+end
+end
+end
+func build(com Compiler)
+    end
+func run(com Compiler)
+    end
+func runtest(com Compiler)
+    end
+func parseOpts(com Compiler, args String[])
+    end
+~ end
+
+~         : =..
+
+type Token
+    char *pos, *ends
+    unsigned long line, col, len
+end
+func format(tok Token)
+        return
+end
+
+type Parser
+    var file = ""
+    var data = ""
+    ~ long size
+ var token Token
+var lines String[]
+end
+~ SmallArray<SmallString> lines
+
+
+func format()
+        for line = par.lines
+            ~ var cols = line.len()
+            while isnt(token, tkNullChar) do format(par.token)
+            discard(token, tkNullChar)
+
+            end
+
+        end
+    end
+
+func parseModule(par Parser) as JetModule
+    end
+func parseFunc(par Parser) as JetFunc
+    end
+func parseStmtfunc(par Parser) as JetFunc
+    end
+func parseVar(par Parser) as JetVar
+    end
+func parseScope(par Parser) as Scope
+    end
+func parseType(par Parser) as JetType
+    end
+func parseImport(par Parser) as JetImport
+    end
+func parseExpr(scope Scope) as JetExpr
+    end
+~ end
+
+func main()
+    var com Compiler = Compiler(os.args)
+    start(com)
+end

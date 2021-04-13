@@ -1,3 +1,5 @@
+~ #!/usr/local/bin/jetc
+
 enum ASTTypeTypes
     unresolved = 0
 end

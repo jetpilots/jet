@@ -1,7 +1,8 @@
 type Token
     var kind = TokenKind.unknown
     var pos = 0
-    var end = 0
+    var ends = 0
+    var matchlen = 0
     var line in [1:65|k]= 0
     var col in [1:240] = 0
 end
@@ -36,7 +37,9 @@ var tokenKindTable[] = [
 ~ Peek at the char after the current (complete) token
 func peekCharAfter(token Token)
     var s = token.pos + token.matchlen
-    if token.skipWhiteSpace then while *s == ' ' s += 1
+    if token.skipWhiteSpace
+        while *s == ' ' do s += 1
+        end
     ret = *s
 end
 
@@ -151,10 +154,10 @@ func getType(token Token, const size_t offset)
     end
 end
 
-func isUnaryAfter(TokenKind .)
-    match (.)
+func isUnaryAfter(tk TokenKind)
+    match tk
     case .parenClose
-    case .identifier: ~ TODO: keywords too?
+    case .identifier ~ TODO: keywords too?
     case .number
     case .arrayClose
     case .arrayDims
@@ -165,12 +168,12 @@ func isUnaryAfter(TokenKind .)
     ret = no
 end
 
-func detect(token Token)
-    TokenKind tt = getType(token, 0)
-    TokenKind ttRet = .unknown ~ = tt
-    static TokenKind ttLast = .unknown
+func detect!(token Token)
+    var tt TokenKind = getType(token, 0)
+    var ttRet TokenKind = .unknown ~ = tt
+    var ttLast TokenKind = .unknown
     ~ the previous self.token that was found
-    static TokenKind ttLastNonSpace = .unknown
+    var ttLastNonSpace TokenKind = .unknown
     ~ the last non-space self.token found
     TokenKind tmp
     char* start = token.pos

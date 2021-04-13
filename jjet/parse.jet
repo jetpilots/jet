@@ -1,41 +1,54 @@
 
+declare type ASTExpr
+ var kind = 0
+end
 
-func pa.expr!(parser Parser) ASTExpr
+declare type Token
+var kind = 0
+end
+declare type Parser
+var token = Token()
+end
+
+var lparen = ASTExpr()
+var rparen = ASTExpr()
+
+func parseExpr(parser Parser) as ASTExpr
     ~ there are 2 steps to this madness.
     ~ 1. parse a sequence of tokens into RPN using shunting-yard.
     ~ 2. walk the rpn stack as a sequence and copy it into a res
     ~ stack, collapsing the stack when you find nonterminals (ops, func
-    ~ calls, array index, #..)
+    ~ calls, array index, ...)
 
     ~ I guess if you want to parse something like if x == 3 x = 4 -- NO WAY
     ~ NEVER then you have to fold the rpn as soon as you have two consecutive
     ~ non-ops on the stack and are pushing a third. (x 3) opstack (==) pushing
-    ~ x # fold. but dont allow this monstrosity! this is why `if x == 3 then x
+    ~ x . fold. but dont allow this monstrosity! this is why `if x == 3 then x
     ~ = 4` is needed
 
-    var rpn[] ASTExpr
-    var ops[] ASTExpr
-    var res[] ASTExpr
+    var rpn ASTExpr[]
+    var ops ASTExpr[]
+    var res ASTExpr[]
 
     var precTop = 0
     var p ASTExpr = nil
-    var revBrkt TokenKind = #unknown
+    var revBrkt TokenKind = .unknown
 
     ~ ******* STEP 1 CONVERT TOKENS INTO RPN
 
-    while parser.token.kind not in [#nullChar, #newline, #lineComment] ~ build RPN
+    while parser.token.kind not in [.nullChar, .newline, .lineComment] ~ build RPN
 
         ~ you have to ensure that ops have a space around them, etc.
         ~ so don't just skip the one spaces like you do now.
-        if pa.matches(parser, kind=.oneSpace) advance!(parser)
-        if pa.matches(parser, kind=.identifier) and find(parser.token.pos, char='_')
-            errorInvalidIdent!(parser) ~ but continue parsing
+        if matches(parser, kind=.oneSpace) then advance(&parser)
+        if matches(parser, kind=.identifier) and find(parser.token.pos, char='_')
+            errorInvalidIdent(&parser) ~ but continue parsing
         end
-        var expr ASTExpr
+        var expr ASTExpr = nil
 
-        if pa.matches(parser, kind =.parenOpen))
+        if matches(parser, kind =.parenOpen))
             expr = lparen
-        else if pa.matches(parser, kind=.parenClose))
+        else if matches(parser, kind=.parenClose))
             expr = rparen
         else
             expr = ASTExpr(fromToken=parser.token) ~ dont advance yet
@@ -45,124 +58,125 @@ func pa.expr!(parser Parser) ASTExpr
         var lookAheadChar = peek(parser.token, offset=1)
 
         match expr.kind
-        case #identifier
-            if find(parser.token, char='_') then errorInvalidIdent!(parser) ~ but continue parsing
+        case .identifier
+            if find(parser.token, char='_') then errorInvalidIdent(&parser) ~ but continue parsing
             expr.slen = parser.token.matchlen
             match lookAheadChar
             case '('
-                expr.kind = #functionCall
+                expr.kind = .functionCall
                 expr.prec = 60
-                push!(ops, expr)
+                push(&ops, expr)
             case '['
-                expr.kind = #subscript
+                expr.kind = .subscript
                 expr.prec = 60
-                push!(ops, expr)
+                push(&ops, expr)
             case ' '
-                if parser.token.pos[2] != '{')
-                    push!(rpn, expr)
+                if parser.token.pos[2] != '{'
+                    push(&rpn, expr)
                 else
                     fallthrough
                 end
             case '{'
-                expr.kind = #objectInit
+                expr.kind = .objectInit
                 expr.prec = 60
-                push!(ops, expr)
-            case
-                push!(rpn, expr)
+                push(&ops, expr)
+            case ''
+                push(&rpn, expr)
             end
 
-        case #parenOpen
-            push!(ops, expr)
-            if top(ops).kind == #functionCall then push!(rpn, item=expr)
-            if ops.top().kind == #functionCall then rpn!.push(expr)
-            if lookAheadChar == ')' then push!(rpn, item=nil) ~ for empty func() push null for no args
-            if lookAheadChar == '&' then advance!(parser.token)
+        case .parenOpen
+            push(&ops, expr)
+            if top(ops).kind == .functionCall then push(&rpn, item=expr)
+            if lookAheadChar == ')' then push(&rpn, item=nil)
+            ~ ^ for empty func() push null for no args
+            if lookAheadChar == '&' then advance(&parser.token)
             ~ ^ for mutating funcs,  is applied to the first arg on a call
 
-        case #arrayOpen
-            push!(ops, expr)
-            if top(ops).kind == #subscript then push!(rpn, expr)
-            if lookAheadChar == ']' then push!(rpn, nil)
+        case .arrayOpen
+            push(&ops, expr)
+            if top(ops).kind == .subscript then push(&rpn, expr)
+            if lookAheadChar == ']' then push(&rpn, nil)
             ~ for empty arr[] push null for no args
 
-        case #braceOpen
-            push!(ops, expr)
-            if top(ops).kind == #objectInit then push!(rpn, expr)
-            if lookAheadChar == 'end' then push!(rpn, nil)
-            ~ for empty Obj {end push null for no args
+        case .braceOpen
+            push(&ops, expr)
+            if top(ops).kind == .objectInit then push(&rpn, expr)
+            if lookAheadChar == '}' then push(&rpn, nil)
+            ~ for empty Obj {} push null for no args
 
-        case #parenClose
-        case #arrayClose
-        case #braceClose
+        case .parenClose
+        case .arrayClose
+        case .braceClose
 
             revBrkt = reverseBracket(expr.kind)
             if empty(ops) ~ need atleast the opening bracket of the current kind
-                errorParsingExpr!(parser, expr)
-                goto error
+                errorParsingExpr(&parser, expr)
+                throw .error
             end
 
             else
                 while not empty(ops)
-                    p = pop!(ops)
+                    p = pop(&ops)
                     if p.kind == revBrkt then break
-                    push!(rpn, p)
+                    push(&rpn, p)
                 end
+            end
 
-            ~ #arrayOpen is a unary op.
-            if p.kind == #arrayOpen
-                if empty(ops) or top(rpn).kind != #subscript
+            ~ .arrayOpen is a unary op.
+            if p.kind == .arrayOpen
+                if empty(ops) or top(rpn).kind != .subscript
                     ~ don't do this if its part of a subscript
-                    or empty(rpn) or top(rpn).kind != #opColon
+                    or empty(rpn) or top(rpn).kind != .opColon
                     ~ or aa range. range exprs are handled separately. by
                     ~ themselves they don't need a surrounding [], but for
                     ~ grouping like 2+[8:66] they do.
-                    push!(rpn, p)
+                    push(&rpn, p)
                 end
 
             ~ a dict literal (another unary op).
-            else if p.kind == #braceOpen and empty(ops) or top(rpn).kind != #objectInit
+            else if p.kind == .braceOpen and empty(ops) or top(rpn).kind != .objectInit
                 ~ again, not if it is an object init
-                push!(rpn, p)
-            ~ Object { member1 = 3, member3 = "train" end
-            ~ ^^ this is an object init, not a dict
-            ~ { "bing" = 34, "whang" = 33 end
-            ~ ^^ this is a dict
+                push(&rpn, p)
+                ~ Object { member1 = 3, member3 = "train" end
+                ~ ^^ this is an object init, not a dict
+                ~ { "bing" = 34, "whang" = 33 end
+                ~ ^^ this is a dict
             end
 
-        case #keywordCheck
-            push!(ops, expr)
+        case .keywordCheck
+            push(&ops, expr)
 
-        case #exclamation
-            if empty(rpn) or top(rpn).kind != #identifier
-                errorParsingExpr!(parser, expr)
+        case .exclamation
+            if empty(rpn) or top(rpn).kind != .identifier
+                errorParsingExpr(&parser, expr)
                 ~ TODO: change error to "invalid use of ! operator or something"
             end
 
-        case #keywordReturn
-            push!(ops, expr)
-            if lookAheadChar in '!\n' then push!(rpn, nil)
+        case .keywordReturn
+            push(&ops, expr)
+            if lookAheadChar in '!\n' then push(rpn, nil)
             ~ for empty return, push a nil if there is no expr coming.
 
-        case #period
-            if empty(rpn) or not empty(ops) then push!(rpn, nil) ~  rpn.used > 1
+        case .period
+            if empty(rpn) or not empty(ops) then push(&rpn, nil) ~  rpn.used > 1
                 ~                     topAs(ASTExpr, rpn).kind !=
-                ~                    #identifier))
+                ~                    .identifier))
             ~ fallthru
 
         case
             if prec
-                if expr.kind == #opColon
+                if expr.kind == .opColon
                     if empty(rpn)
-                        or not (op(rpn) and top(ops).kind != #opColon)
-                        or (top(rpn).kind == #opColon and !empty(ops) and
-                             (top(ops).kind in [.opComma, #arrayOpen]))
+                        or not (op(rpn) and top(ops).kind != .opColon)
+                        or (top(rpn).kind == .opColon and !empty(ops) and
+                             (top(ops).kind in [.opComma, .arrayOpen]))
                         ~ TODO: better way to parse :, 1:, :-1, etc.
                         ~ while passing tokens to RPN, if you see a
                         ~ with nothing on the RPN or comma or [, push a
                         ~ nil. while unwinding the op stack, if you
                         ~ pop a : and see a nil or comma on the rpn,
                         ~ push another nil.
-                        push!(rpn, exprConst0)
+                        push(&rpn, exprConst0)
                     ~ indicates empty operand
                 end
                 while not empty(ops)
@@ -170,162 +184,165 @@ func pa.expr!(parser Parser) ASTExpr
                     if not precTop then break ~ left parenthesis
                     if prec > precTop then break
                     if prec == precTop and rassoc then break
-                    p = pop!(ops)
+                    p = pop(&ops)
 
-                    if p.kind not in [.opComma, #opSemiColon, #functionCall, #subscript]
-                        and top(rpn).kind == #opComma
-                        errorUnexpectedToken!(parser, "unsupported use of comma")
+                    if p.kind not in [.opComma, .opSemiColon, .functionCall, .subscript]
+                        and top(rpn).kind == .opComma
+                        errorUnexpectedToken(&parser, "unsupported use of comma")
                         ~ TODO: make this an error of unexpected expr instead
-                        goto error
+                        throw .error
                     end if
 
                     if not (p.prec or p.unary)
-                        and p.kind not in [.functionCall, #opColon, #subscript]
+                        and p.kind not in [.functionCall, .opColon, .subscript]
                         and rpn.used < 2
-                        errorUnexpectedToken!(parser, "need 2 operands to binary op")
+                        errorUnexpectedToken(&parser, "need 2 operands to binary op")
                         ~ TODO: make this errorUnexpectedExpr
-                        goto error
+                        throw .error
                     end if
 
-                    push!(rpn, p)
-                end while
+                    push(&rpn, p)
+                end
 
                 if empty(rpn)
-                    errorUnexpectedToken!(parser, "operator with no operand(s)")
+                    errorUnexpectedToken(&parser, "operator with no operand(s)")
                     ~ TODO: again unexpected Expr
-                    goto error
-                end if
-                if expr.kind == #opColon and lookAheadChar in ",:])"
-                    push!(rpn, exprConst0)
-                end if
-                push!(ops, expr)
+                    throw .error
+                end
+                if expr.kind == .opColon and lookAheadChar in ",:])"
+                    push(&rpn, exprConst0)
+                end
+                push(&ops, expr)
             else
-                push!(rpn, expr)
+                push(&rpn, expr)
             end if
         end match
-        advance!(parser.token)
-        if parser.token.kind == #oneSpace then advance!(parser.token)
+        advance(&parser.token)
+        ignore(&parser, token=.oneSpace)
+        ~ if parser.token.kind == .oneSpace then advance(&parser.token)
     end while
 
 exitloop
 
     while not empty(ops)
-        p = pop!(ops)
+        p = pop(&ops)
 
-        if p.kind not in [.opComma, #functionCall, #subscript, #arrayOpen]
-            and top(rpn).kind == #opComma
-            and top(rpn).kind != #opPlus
+        if p.kind not in [.opComma, .functionCall, .subscript, .arrayOpen]
+            and top(rpn).kind == .opComma
+            and top(rpn).kind != .opPlus
 
-            errorUnexpectedExpr!(parser, top(rpn))
-            goto error
+            errorUnexpectedExpr(&parser, top(rpn))
+            throw .error
         end
 
-        if not (p.prec or p.unary) and p.kind not in [.functionCall, #subscript] and rpn.used < 2
-            errorParsingExpr!(parser, p)
-            goto error
+        if not (p.prec or p.unary) and p.kind not in [.functionCall, .subscript] and rpn.used < 2
+            errorParsingExpr(&parser, p)
+            throw .error
             ~ TODO: even if you have more than two, neither of the top
             ~ two should be a comma
         end
 
-        push!(rpn, p)
+        push(&rpn, p)
     end
 
     ~ *** STEP 2 CONVERT RPN INTO EXPR TREE
 
     var arg ASTExpr
-    for i in 1:rpn.used
+    for i = 1:rpn.used
         if p != rpn.ref[i] goto justpush
         match p.kind
-        case #functionCall, #subscript
+        case .functionCall, .subscript
             if res.used > 0
-                arg = pop!(res)
-                if arg and p.kind == #subscript
-                    ~ assert(arg.kind == #arrayOpen)
-                    if arg.kind == #arrayOpen then arg = arg.right
+                arg = pop(&res)
+                if arg and p.kind == .subscript
+                    ~ assert(arg.kind == .arrayOpen)
+                    if arg.kind == .arrayOpen then arg = arg.right
                 end
                 p.left = arg
             end if
 
-        case #number, #string, #rawString, #regexp, #units, #multiDotNumber,
-             #identifier, #keywordNo, #keywordNil, #keywordYes, #parenOpen,
-             #lineComment
+        case .number, .string, .rawString, .regexp, .units, .multiDotNumber,
+             .identifier, .keywordNo, .keywordNil, .keywordYes, .parenOpen,
+             .lineComment
             break
 
         case
             ~ everything else is a nonterminal, needs left/right
             if not p.prec
-                errorParsingExpr!(parser, p)
-                goto error
+                errorParsingExpr(&parser, p)
+                throw .error
             end
 
             if empty(res)
-                errorParsingExpr!(parser, p)
-                goto error
+                errorParsingExpr(&parser, p)
+                throw .error
             end
 
-            p.right = pop!(res)
+            p.right = pop(&res)
 
             if not p.unary
                 if empty(res)
-                    errorParsingExpr!(parser, p)
-                    goto error
+                    errorParsingExpr(&parser, p)
+                    throw .error
                 end
-                p.left = pop!(res)
+                p.left = pop(&res)
             end
         end match
     justpush
-        push!(res, p)
+        push(&res, p)
     end for
 
     if not res.used
-        errs.unexpectedToken!(parser, "nothing parsed") ~    (parser, p)
-        goto error
+        errs.unexpectedToken(&parser, "nothing parsed") ~    (parser, p)
+        throw .error
     else if res.used != 1
-        if top(res).kind != #lineComment
-            errs.syntax!(parser, p)
-            goto error
+        if top(res).kind != .lineComment
+            errs.syntax(&parser, p)
+            throw .error
         end
     end
 
     var ret = res[0]
-    clear!(ops) ~ in C this would just reset the array count. But here it will release each element and decr refcount and free etc
-    clear!(rpn)
-    clear!(res)
+    clear(&ops) ~ in C this would just reset the array count. But here it will release each element and decr refcount and free etc
+    clear(&rpn)
+    clear(&res)
     return ret
 
-error
+catch .error
 
     while parser.token.pos < parser.end and parser.token.kind not in [
-        #newline, #lineComment, #nullChar] do advance!(parser.token)
+        .newline, .lineComment, .nullChar] do advance(&parser.token)
 
     if ops.used
         print("      ops: $1" % join(tokenKindRepr(ops[:].kind, spacing=no), with=' ')
     end
 
     if rpn.used
-        for e = rpn do if not e
-            printf("NUL ")
-        else
-            printf("%.*s ", 32, e.prec ? TokenKind_repr(e.kind, no) : e.string)
+        for e = rpn
+            if not e
+                print("NUL ")
+            else
+                print("%.*s ", 32, e.prec ? TokenKind_repr(e.kind, no) : e.string)
+            end
         end
         print("")
     end
 
     if res.used
-        printf("      res: ")
-        for (int i = 0 i < res.used i++)
+        print("      res: ")
+        for i = 1:res.used
             if not (esult.ref[i])
-                printf("NUL ")
+                print("NUL ")
             else {
                 ASTExpr e = res.ref[i]
-                printf("%.*s ", 32,
+                print("%.*s ", 32,
                     e.prec ? TokenKind_repr(e.kind, no) : e.string)
             end
         puts("")
     end
 
     if p
-        printf("      p: %.*s ", 32,
+        print("      p: %.*s ", 32,
             p.prec ? TokenKind_repr(p.kind, no) : p.string)
         puts("")
     end
@@ -336,22 +353,22 @@ error
     return nil
 end
 
-~ #pragma mark - PARSE TYPESPEC
-func parseTypeSpec!(parser Parser) ret ASTTypeSpec
+~ .pragma mark - PARSE TYPESPEC
+func parseTypeSpec(&parser Parser) ret ASTTypeSpec
     parser.token.mergeArrayDims = yes
 
     ret = ASTTypeSpec()
     ret.line = parser.token.line
     ret.col = parser.token.col
 
-    if '_' in parser.token.pos then errorInvalidIdent!(parser)
+    if '_' in parser.token.pos then errorInvalidIdent(&parser)
      ~ pos is a String with len!
 
-    ret.name = parseIdent!(parser)
-    ~ advance!(parser.token)
+    ret.name = parseIdent(&parser)
+    ~ advance(&parser.token)
 
-    if pa.matches(parser, kind=.arrayDims)
-        if isalpha(parser.token.pos[0]
+    if matches(parser, kind=.arrayDims)
+        if isalpha(parser.token.pos[0])
             ~ Dict
         else
             ret.dims = count(parser.token.pos, matching=':') or 1
@@ -360,88 +377,88 @@ func parseTypeSpec!(parser Parser) ret ASTTypeSpec
             ~ if not (ypeSpec.dims typeSpec.dims = 1
             ret.collectionType = ret.dims == 1 ? CTYArray : CTYTensor
         end
-        advance!(parser.token)
+        advance(&parser.token)
     end
 
-    pa.ignore!(parser, kind=.units)
+    ignore(&parser, kind=.units)
 
-    check parser.token.kind != #units
-    check parser.token.kind != #arrayDims
+    check parser.token.kind != .units
+    check parser.token.kind != .arrayDims
 
     parser.token.mergeArrayDims = no
 end
 
-~ #pragma mark - PARSE VAR
-func parseVar(parser Parser) var ASTVar
-    var = ASTVar()
-    var.isVar = (parser.token.kind == #keywordVar)
-    var.isLet = (parser.token.kind == #keywordLet)
+~ .pragma mark - PARSE VAR
+func parseVar!(parser Parser) va ASTVar
+    var va = ASTVar()
+    va.isVar = (parser.token.kind == .keywordVar)
+    va.isLet = (parser.token.kind == .keywordLet)
 
-    if var.isVar then pa.consume!(parser, #keywordVar)
-    if var.isLet then pa.consume!(parser, #keywordLet)
-    if var.isVar or var.isLet then pa.consume!(parser, #oneSpace)
+    if va.isVar then consume(&parser, .keywordVar)
+    if va.isLet then consume(&parser, .keywordLet)
+    if va.isVar or va.isLet then consume(&parser, .oneSpace)
 
-    var.line = parser.token.line
-    var.col = parser.token.col
+    va.line = parser.token.line
+    va.col = parser.token.col
 
     parser.token.mergeArrayDims = yes
 
     if memchr(parser.token.pos, '_', parser.token.matchlen))
         errorInvalidIdent(parser)
-    if *parser.token.pos < 'a' or *parser.token.pos > 'z')
+    if parser.token.pos[0] < 'a' or parser.token.pos[0] > 'z')
         errorInvalidIdent(parser)
-    var.name = parseIdent(parser)
+    va.name = parseIdent(parser)
 
-    ~ if pa.matches(parser, #exclamation)
+    ~ if matches(parser, .exclamation)
     ~     ~ ! is only used in func arguments. We set isVar here, but the
     ~     ~ caller parseFunc should set isArg on each of its parsed arguments.
     ~     ~ Then the linter/emitter know how to generate the var.
     ~     var.isVar = yes
-    ~     advance!(parser.token)
+    ~     advance(&parser.token)
     ~ end
 
     var dims = 0
-    ~ if pa.matches(parser, #arrayDims)
+    ~ if matches(parser, .arrayDims)
     ~     for (int i = 0 i < parser.token.matchlen i++)
     ~         if parser.token.pos[i] == ':') dims++
     ~     if not (dims) dims = 1
-    ~     advance!(parser.token)
+    ~     advance(&parser.token)
     ~ end
     parser.token.mergeArrayDims = no
 
-    if pa.ignore!(parser, kind=.oneSpace) and pa.matches(parser, kind=.identifier)
-    ~         pa.ignore!(parser, #keywordAs)
-    ~      pa.consume!(parser, #oneSpace)
-        var.typeSpec = parseTypeSpec(parser)
+    if ignore(&parser, kind=.oneSpace) and matches(parser, kind=.identifier)
+    ~         ignore(&parser, .keywordAs)
+    ~      consume(&parser, .oneSpace)
+        va.typeSpec = parseTypeSpec(parser)
     else
-        var.typeSpec = ASTTypeSpec()
-        var.typeSpec.line = parser.token.line
-        var.typeSpec.col = parser.token.col
-        var.typeSpec.name = ""
+        va.typeSpec = ASTTypeSpec()
+        va.typeSpec.line = parser.token.line
+        va.typeSpec.col = parser.token.col
+        va.typeSpec.name = ""
     end
     ~ var.typeSpec.dims = dims
 
-    pa.ignore!(parser, kind=.oneSpace)
-    if pa.ignore!(parser, kind=.opAssign) then var.init = pa.expr!(parser)
+    ignore(&parser, kind=.oneSpace)
+    if ignore(&parser, kind=.opAssign) then va.init = expr(&parser)
 
 end
 
-func parseArgs(parser as Parser) result (args[] as ASTVar)
-    pa.consume!(parser, #parenOpen)
-    if pa.ignore!(parser, #parenClose) return
+func parseArgs(parser Parser) result (args[] as ASTVar)
+    consume(&parser, .parenOpen)
+    if ignore(&parser, .parenClose) return
 
     do
         var arg = parseVar(parser)
         arg.isArg = yes
-        push!(args, arg)
-    while pa.ignore!(parser, #opComma)
+        push(&args, arg)
+    while ignore(&parser, .opComma)
 
-    pa.consume!(parser, #parenClose)
+    consume(&parser, .parenClose)
 
 end
 
 
-eof(parser as Parser) := (parser.token.pos >= parser.end)
+eof(parser Parser) := (parser.token.pos >= parser.end)
 
 func parseScopeCases(parser Parser, parent ASTScope)  ASTScope
 
@@ -452,7 +469,7 @@ func parseScopeCases(parser Parser, parent ASTScope)  ASTScope
 
     while not eof(parser)
         match parser.token.kind
-        case #keywordCase
+        case .keywordCase
             ~ if startedCase
             ~     startedCase = no
             ~     break
@@ -460,59 +477,58 @@ func parseScopeCases(parser Parser, parent ASTScope)  ASTScope
             ~ startedCase = yes
             ~ startedCase = !startedCase
             ~ if not (tartedCase
-            ~     stmts = push!(stmts, expr)
+            ~     stmts = push(&stmts, expr)
             ~     break
             ~ end
-            ~ case #keywordMatch
-            ~ if isTypeBody) errs.invalidTypeMember!(parser)
+            ~ case .keywordMatch
+            ~ if isTypeBody) errs.invalidTypeMember(&parser)
             ~ tt = parser.token.kind ~ either match or case
-            expr = match!(parser, #keywordCase)
-            expr.left = pa.expr!(parser)
-            advance!(parser.token) ~ trample null
-            if expr.left) rs.resolveVars!(parser, expr.left, scope, no)
+            expr = match(&parser, .keywordCase)
+            expr.left = expr(&parser)
+            advance(&parser.token) ~ trample null
+            if expr.left) rs.resolveVars(&parser, expr.left, scope, no)
 
-            expr.body = pa.scope!(parser, scope, no)
+            expr.body = scope(&parser, scope, no)
             ~ match's body is a scope full of cases
             ~ case's body is a scope
 
-            ~ 'case' and 'else' should never pa.consume the 'end', leave it for
+            ~ 'case' and 'else' should never consume the 'end', leave it for
             ~ 'match' or 'if' resp. see later for 'else' as well
-            ~ if tt == #keywordMatch
-            ~     pa.consume!(parser, #keywordEnd)
-            ~     pa.ignore!(parser, #oneSpace)
-            ~     pa.ignore!(parser, #keywordMatch)
+            ~ if tt == .keywordMatch
+            ~     consume(&parser, .keywordEnd)
+            ~     ignore(&parser, .oneSpace)
+            ~     ignore(&parser, .keywordMatch)
             ~ end
 
-            push!(stmts, expr)
+            push(&stmts, expr)
 
             break
 
-        case #newline
-        case #oneSpace
-        case #lineComment
-            advance!(parser.token)
+        case .newline, .oneSpace, .lineComment
+            advance(&parser.token)
 
             break
 
-        case #keywordEnd
+        case .keywordEnd
             goto exitloop
 
         case
-            errs.unexpectedToken!(parser, hint="expected 'case' or 'end'")
-            advance!(parser.token)
+            errs.unexpectedToken(&parser, hint="expected 'case' or 'end'")
+            advance(&parser.token)
         end
     end
 exitloop
     return scope
 end
 
-#pragma mark - PARSE SCOPE
-func ASTScope* pa.scope!(parser Parser, parent ASTScope, bool isTypeBody
+
+
+func ASTScope* scope(&parser Parser, parent ASTScope, bool isTypeBody
     scope ASTScope = NEW(ASTScope)
 
     ASTVar *var = nil, *orig = nil
     ASTExpr expr = nil
-    TokenKind tt = #unknown
+    TokenKind tt = .unknown
     forScope ASTScope = nil
 
     scope.parent = parent
@@ -522,23 +538,23 @@ func ASTScope* pa.scope!(parser Parser, parent ASTScope, bool isTypeBody
     ASTVar[]** locals = scope.locals
     ASTVar[]** stmts = scope.stmts
 
-    while (parser.token.kind != #keywordEnd
+    while (parser.token.kind != .keywordEnd
 
         match parser.token.kind
 
-        case #nullChar
-            errs.expectedToken!(parser, expected=.unknown)
+        case .nullChar
+            errs.expectedToken(&parser, expected=.unknown)
             goto exitloop
 
-        case #keywordVar
-        case #keywordLet
+        case .keywordVar
+        case .keywordLet
             var = parseVar(parser)
             if not (ar)
                 continue
             else
-                advance!(parser.token)
+                advance(&parser.token)
             if (orig = ASTScope_getVar(scope, var.name)))
-                errs.duplicateVar!(parser, var, orig)
+                errs.duplicateVar(&parser, var, orig)
             ~ TODO: why only idents and binops for rs.resolveVars!??
 
             ~ resolveType(var.typeSpec, scope)
@@ -546,29 +562,29 @@ func ASTScope* pa.scope!(parser Parser, parent ASTScope, bool isTypeBody
             ~ `var x = x + 1` x should not resolve
             ~ if var.typeSpec is nil then set the type
             ~ if it isn't nil then check the types match
-            locals = push!(locals, var)
+            locals = push(&locals, var)
             ~ TODO: validation should raise issue if var.init is
             ~ missing
             expr = NEW(ASTExpr)
-            expr.kind = #varAssign
+            expr.kind = .varAssign
             expr.line = var.init ? var.init.line : parser.token.line
             expr.col = var.init ? var.init.col : 1
             expr.prec = TokenKind_getPrecedence(.opAssign)
             expr.var = var
 
-            ~ and (var.init.prec or var.init.kind == #identifier))
+            ~ and (var.init.prec or var.init.kind == .identifier))
             ~ TODO: you actually need to send the PtrList item which is
             ~ generated in the next line as the topExpr, not the expr
             ~ itself
-            if var.init) rs.resolveVars!(parser, var.init, scope, no)
+            if var.init) rs.resolveVars(&parser, var.init, scope, no)
 
             ~ TODO: KEEP THE LAST LISTITEM AND APPEND TO THAT!
-            push!(stmts, expr)
+            push(&stmts, expr)
 
 
-            ~ case #keywordMatch
+            ~ case .keywordMatch
 
-        case #keywordCase
+        case .keywordCase
             ~     ~ if startedCase
             ~     ~     startedCase = no
             ~     ~     break
@@ -576,65 +592,65 @@ func ASTScope* pa.scope!(parser Parser, parent ASTScope, bool isTypeBody
         ~     ~ startedCase = yes
         ~     startedCase = !startedCase
         ~     if not (tartedCase
-        ~         stmts = push!(stmts, expr)
+        ~         stmts = push(&stmts, expr)
         ~         break
         ~     end
-        case #keywordMatch
+        case .keywordMatch
             ~ expr = parseScopeMatch(parser)
 
-            if isTypeBody) errs.invalidTypeMember!(parser)
+            if isTypeBody) errs.invalidTypeMember(&parser)
             ~ tt = parser.token.kind ~ either match or case
-            expr = match!(parser, #keywordMatch)
-            expr.left = pa.expr!(parser)
-            advance!(parser.token)
-            if expr.left) rs.resolveVars!(parser, expr.left, scope, no)
+            expr = match(&parser, .keywordMatch)
+            expr.left = expr(&parser)
+            advance(&parser.token)
+            if expr.left) rs.resolveVars(&parser, expr.left, scope, no)
 
-            expr.body = pa.scope!Cases!(parser, scope)
+            expr.body = scope!Cases(&parser, scope)
             ~ match's body is a scope full of cases
             ~ case's body is a scope
 
-            ~ 'case' and 'else' should never pa.consume the 'end', leave it
+            ~ 'case' and 'else' should never consume the 'end', leave it
             ~ for 'match' or 'if' resp. see later for 'else' as well
-            ~ if tt == #keywordMatch
-            pa.consume!(parser, #keywordEnd)
-            pa.ignore!(parser, #oneSpace)
-            pa.ignore!(parser, #keywordMatch)
+            ~ if tt == .keywordMatch
+            consume(&parser, .keywordEnd)
+            ignore(&parser, .oneSpace)
+            ignore(&parser, .keywordMatch)
             ~ end
-            stmts = push!(stmts, expr)
+            stmts = push(&stmts, expr)
 
             break
 
-        case #keywordElse
-        case #keywordElif
+        case .keywordElse
+        case .keywordElif
             if not (startedElse) goto exitloop
-        case #keywordIf
-        case #keywordFor
-        case #keywordWhile
-            if isTypeBody) errs.invalidTypeMember!(parser)
+        case .keywordIf
+        case .keywordFor
+        case .keywordWhile
+            if isTypeBody) errs.invalidTypeMember(&parser)
             tt = parser.token.kind
-            expr = pa.match!(parser, tt)
-            expr.left = (tt != #keywordElse) ? pa.expr!(parser) : nil
+            expr = match(&parser, tt)
+            expr.left = (tt != .keywordElse) ? expr(&parser) : nil
 
             ~ because we are going to be calling rs.resolveVars! right now, we
             ~ need to trample the newline
-            pa.advance!(parser.token)
+            advance(&parser.token)
 
             ~ if(parser.token.pos)
             ~ TODO: for must <parse its expr as a VarDecl, because it can
             ~ have 'as Type' etc. Now you parse an assignment Expr and hack
             ~ an ASTVar out of it.
-            if tt == #keywordFor
+            if tt == .keywordFor
                 ~ TODO: new error
                 fvar ASTVar = nil
                 if not (xpr.left)
                     unreachable("Missing for-loop condition at %d:%d\n",
                         expr.line, expr.col)
                 else {
-                    if expr.left.kind != #keywordIn)
+                    if expr.left.kind != .keywordIn)
                         unreachable("Invalid for-loop condition: %s\n",
                             TokenKind_repr(expr.left.kind, no))
 
-                    rs.resolveVars!(parser, expr.left.right, scope, no)
+                    rs.resolveVars(&parser, expr.left.right, scope, no)
 
                     fvar = NEW(ASTVar)
                     fvar.name = expr.left.left.string
@@ -646,84 +662,84 @@ func ASTScope* pa.scope!(parser Parser, parent ASTScope, bool isTypeBody
                     fvar.typeSpec.typeType = TYReal64
 
                     if (orig = ASTScope_getVar(scope, fvar.name)))
-                        errs.duplicateVar!(parser, fvar, orig)
+                        errs.duplicateVar(&parser, fvar, orig)
                 end
                 forScope = NEW(ASTScope)
-                if fvar) shift!(forScope.locals, fvar)
+                if fvar) shift(&forScope.locals, fvar)
                 forScope.parent = scope
 
-                ~ scope = forScope ~ so that when pa.scope! is called
+                ~ scope = forScope ~ so that when scope! is called
                 ~ for the child scope, it receives the for variable's scope
                 ~ as parent
 
             else if expr.left
-                rs.resolveVars!(parser, expr.left, scope, no)
+                rs.resolveVars(&parser, expr.left, scope, no)
             end ~ TODO: `for` necessarily introduces a counter variable, so
             ~ check if that var name doesn't already exist in scope.
             ~ Also assert that the cond of a for expr has kind
-            ~ #opAssign.
+            ~ .opAssign.
             ~ insert a temp scope holding the var that for declares, then
             ~ later move that var to the parsed scope
-            if tt == #keywordFor
+            if tt == .keywordFor
                 ~ TODO: here it is too late to add the variable,
-                ~ because pa.scope! will call rs.resolveVars!.
+                ~ because scope! will call rs.resolveVars!.
                 ~ var = NEW(ASTVar)
                 ~ var.name = expr.left.left.string
                 ~ var.init = expr.left.right
                 ~ var.typeSpec = NEW(ASTTypeSpec)
                 ~ var.typeSpec.typeType = TYUInt32
-                ~ push!(expr.body.locals, var)
-                expr.body = pa.scope!(parser, forScope, isTypeBody)
+                ~ push(&expr.body.locals, var)
+                expr.body = scope(&parser, forScope, isTypeBody)
 
             else
-                expr.body = pa.scope!(parser, scope, isTypeBody)
+                expr.body = scope(&parser, scope, isTypeBody)
             end
 
-            if pa.matches(parser, kind=.keywordElse) or ~
-                pa.matches(parser, kind=.keywordElif)
+            if matches(parser, kind=.keywordElse) or ~
+                matches(parser, kind=.keywordElif)
                 startedElse = yes
             else
-                pa.consume!(parser, #keywordEnd)
-                pa.ignore!(parser, #oneSpace)
-                pa.ignore!(parser,
-                    tt == #keywordElse or tt == #keywordElif ? #keywordIf
+                consume(&parser, .keywordEnd)
+                ignore(&parser, .oneSpace)
+                ignore(&parser,
+                    tt == .keywordElse or tt == .keywordElif ? .keywordIf
                                                                  : tt)
             end
-            stmts = push!(stmts, expr)
+            stmts = push(&stmts, expr)
             break
 
-        case #newline
-        case #oneSpace
-            advance!(parser.token)
+        case .newline
+        case .oneSpace
+            advance(&parser.token)
             break
 
-        case #keywordFunction
-        case #keywordType
-        case #keywordEnum
-        case #keywordTest
+        case .keywordFunction
+        case .keywordType
+        case .keywordEnum
+        case .keywordTest
             ~ in this case, it is probably an error propagating all through the
             ~ file because an early func or type missed an end. How about we
             ~ stop parsing the scope here.
             goto exitloop
 
-        case #lineComment
+        case .lineComment
             if parser.generateCommentExprs
                 expr = fromToken(parser.token)
-                stmts = push!(stmts, expr)
+                stmts = push(&stmts, expr)
             end
-            advance!(parser.token)
+            advance(&parser.token)
             break
 
         default
-            expr = pa.expr!(parser)
+            expr = expr(&parser)
             if expr  isTypeBody
-                errs.invalidTypeMember!(parser)
+                errs.invalidTypeMember(&parser)
                 expr = nil
             end
             if not (xpr) break
-            stmts = push!(stmts, expr)
-            advance!(parser.token) ~ eat the newline
-            rs.resolveVars!(parser, expr, scope, no)
+            stmts = push(&stmts, expr)
+            advance(&parser.token) ~ eat the newline
+            rs.resolveVars(&parser, expr, scope, no)
 
         end
     end
@@ -739,66 +755,66 @@ func ASTScope* parseEnumBody(parser Parser, globScope ASTScope
     ASTVar[]** vars = scope.locals
     ASTVar[]** stmts = scope.stmts
 
-    while (parser.token.kind != #keywordEnd
+    while (parser.token.kind != .keywordEnd
         match parser.token.kind
 
-        case #nullChar
-            errs.expectedToken!(parser, #unknown)
+        case .nullChar
+            errs.expectedToken(&parser, .unknown)
             goto exitloop
 
-        case #newline
-        case #oneSpace
-            advance!(parser.token)
+        case .newline
+        case .oneSpace
+            advance(&parser.token)
             break
 
-        case #lineComment
+        case .lineComment
             if parser.generateCommentExprs
                 expr = fromToken(parser.token)
-                push!(scope.stmts, expr)
+                push(&scope.stmts, expr)
             end
-            advance!(parser.token)
+            advance(&parser.token)
             break
 
-        case #identifier
+        case .identifier
 
-            ~ if parser.token.kind != #identifier
-            ~     errs.invalidTypeMember!(parser)
-            ~     while (parser.token.pos != #newline)
-            ~         advance!(parser.token)
-            ~     advance!(parser.token) ~ eat the newline
+            ~ if parser.token.kind != .identifier
+            ~     errs.invalidTypeMember(&parser)
+            ~     while (parser.token.pos != .newline)
+            ~         advance(&parser.token)
+            ~     advance(&parser.token) ~ eat the newline
             ~     break
             ~ end
 
-            expr = pa.expr!(parser)
+            expr = expr(&parser)
 
             if not (expr) break
-            if expr.kind not in [#identifier, #assign]
-                errs.invalidTypeMember!(parser)
+            if expr.kind not in [.identifier, .assign]
+                errs.invalidTypeMember(&parser)
                 unreachable("%s\n", TokenKind_str[expr.kind])
                 expr = nil
             end
-            stmts = push!(stmts, expr)
-            advance!(parser.token) ~ eat the newline
+            stmts = push(&stmts, expr)
+            advance(&parser.token) ~ eat the newline
 
             var = NEW(ASTVar)
             var.typeSpec = NEW(ASTTypeSpec)
             var.line = expr.line
-            var.col = (expr.kind == #assign) ? expr.left.col : expr.col
-            var.name = (expr.kind == #assign) ? expr.left.string
+            var.col = (expr.kind == .assign) ? expr.left.col : expr.col
+            var.name = (expr.kind == .assign) ? expr.left.string
                                                    : expr.string
             var.init = expr.right
-            vars = push!(vars, var)
+            vars = push(&vars, var)
 
             ~ var.typeSpec.typeType = TYObject
             ~ var.typeSpec.type =
 
-            if expr.kind == #opAssign
-                rs.resolveVars!(parser, expr.right, scope, no)
+            if expr.kind == .opAssign
+                rs.resolveVars(&parser, expr.right, scope, no)
             break
 
         default
 
-            errs.expectedToken!(parser, parser.token.kind)
+            errs.expectedToken(&parser, parser.token.kind)
             goto exitloop
         end
     end
@@ -806,28 +822,28 @@ exitloop
     return scope
 end
 
-#pragma mark - PARSE PARAM
+.pragma mark - PARSE PARAM
 func parseParams(parser Parser) ASTVar[]
-    pa.consume!(parser, #opLT)
+    consume(&parser, .opLT)
     var params ASTVar[]
     param ASTVar
     do {
         param = ASTVar()
         param.name = parseIdent(parser)
-        if pa.ignore!(parser, #as))
+        if ignore(&parser, .as))
             param.typeSpec = parseTypeSpec(parser)
-        if pa.ignore!(parser, #assign)) param.init = pa.expr!(parser)
-        push!(params, param)
-    end while (pa.ignore!(parser, #comma))
-    pa.consume!(parser, #gt)
+        if ignore(&parser, .assign)) param.init = expr(&parser)
+        push(&params, param)
+    end while (ignore(&parser, .comma))
+    consume(&parser, .gt)
     return params
 end
 
-#pragma mark - PARSE FUNC / STMT-FUNC
+.pragma mark - PARSE FUNC / STMT-FUNC
 func ASTFunc* parseFunc(
     parser Parser, globScope ASTScope, bool shouldParseBody
-    pa.consume!(parser, #keywordFunction)
-    pa.consume!(parser, #oneSpace)
+    consume(&parser, .keywordFunction)
+    consume(&parser, .oneSpace)
     ASTFunc* func = NEW(ASTFunc)
 
     func.line = parser.token.line
@@ -835,18 +851,18 @@ func ASTFunc* parseFunc(
     func.nameLen = parser.token.matchlen
     if memchr(parser.token.pos, '_', parser.token.matchlen))
         errorInvalidIdent(parser)
-    func.name = parseIdent!(parser)
+    func.name = parseIdent(&parser)
     func.isDeclare = !shouldParseBody
 
-    func.args = parseArgs!(parser)
+    func.args = parseArgs(&parser)
     func.argCount = count(func.args)
 
     var fn = ASTFunc with
         .line = parser.token.line
         .nameLen = parser.token.matchlen
-        .name = parserIdent!(parser)
+        .name = parserIdent(&parser)
         .isDeclare = not shouldParseBody
-        .args = parseArgs!(parser)
+        .args = parseArgs(&parser)
         .argCount = count(.args)
         .click = func (e Event)
             ...
@@ -855,24 +871,24 @@ func ASTFunc* parseFunc(
 
     fn.argCount = count(fn.args)
 
-    if pa.ignore!(parser, #oneSpace)
-         pa.ignore!(parser, #kwas)
-        pa.consume!(parser, #oneSpace)
+    if ignore(&parser, .oneSpace)
+         ignore(&parser, .kwas)
+        consume(&parser, .oneSpace)
         func.returnSpec = parseTypeSpec(parser)
     end
 
     if shouldParseBody
-        pa.consume!(parser, #newline)
+        consume(&parser, .newline)
 
         var funcScope = ASTScope with
             .parent = globScope
             .locals = func.args
         end
-        func.body = pa.scope!(parser, parent=funcScope, inType=no)
+        func.body = scope(&parser, parent=funcScope, inType=no)
 
-        pa.consume!(parser, #end)
-        pa.ignore!(parser, #space)
-        pa.ignore!(parser, #func)
+        consume(&parser, .end)
+        ignore(&parser, .space)
+        ignore(&parser, .func)
     end
 
     return func
@@ -890,7 +906,7 @@ func ASTFunc* parseStmtFunc(parser Parser, globScope ASTScope
 
     func.args = parseArgs(parser)
     func.argCount = PtrList_count(func.args)
-    pa.ignore!(parser, #oneSpace)
+    ignore(&parser, .oneSpace)
 
     func.returnSpec = ASTTypeSpec with
         .line = parser.token.line
@@ -901,60 +917,60 @@ func ASTFunc* parseStmtFunc(parser Parser, globScope ASTScope
     ASTExpr ret = exprFromCurrentToken(parser)
 
     ~ if you have toplevel code (eg func call) it tends to reach here
-    if ret.kind != #colEq) return nil
+    if ret.kind != .colEq) return nil
 
-    ret.kind = #keywordReturn
+    ret.kind = .keywordReturn
     ret.unary = yes
 
-    ret.right = pa.expr!(parser)
+    ret.right = expr(&parser)
     ASTScope* scope = NEW(ASTScope)
-    push!(scope.stmts, ret)
+    push(&scope.stmts, ret)
 
     ASTScope* funcScope = NEW(ASTScope)
     funcScope.locals = func.args
     scope.parent = funcScope
     func.body = scope
 
-    pa.consume!(parser, #newline)
-    rs.resolveVars!(parser, ret.right, funcScope, no)
+    consume(&parser, .newline)
+    rs.resolveVars(&parser, ret.right, funcScope, no)
 
     return func
 end
 
-#pragma mark - PARSE TEST
+.pragma mark - PARSE TEST
 func ASTTest* parseTest(parser Parser, globScope ASTScope
-    pa.consume!(parser, #keywordTest)
-    pa.consume!(parser, #oneSpace)
+    consume(&parser, .keywordTest)
+    consume(&parser, .oneSpace)
     ASTTest* test = NEW(ASTTest)
 
     test.line = parser.token.line
 
-    if parser.token.kind != #string and parser.token.kind != #rawString)
+    if parser.token.kind != .string and parser.token.kind != .rawString)
         errorInvalidTestName(parser)
     test.name = parser.token.pos + 1
-    advance!(parser.token)
+    advance(&parser.token)
 
-    pa.consume!(parser, #newline)
+    consume(&parser, .newline)
 
-    test.body = pa.scope!(parser, nil, no)
+    test.body = scope(&parser, nil, no)
 
-    pa.consume!(parser, #keywordEnd)
-    pa.ignore!(parser, #oneSpace)
-    pa.ignore!(parser, #keywordTest)
+    consume(&parser, .keywordEnd)
+    ignore(&parser, .oneSpace)
+    ignore(&parser, .keywordTest)
 
     return test
 end
 
-#pragma mark - PARSE UNITS
+.pragma mark - PARSE UNITS
 func ASTUnits* parseUnits(parser Parser return nil end
 
-#pragma mark - PARSE TYPE
+.pragma mark - PARSE TYPE
 func ASTType* parseType(
     parser Parser, globScope ASTScope, bool shouldParseBody
     ASTType* type = NEW(ASTType)
 
-    pa.consume!(parser, #keywordType)
-    pa.consume!(parser, #oneSpace)
+    consume(&parser, .keywordType)
+    consume(&parser, .oneSpace)
 
     type.line = parser.token.line
     type.col = parser.token.col
@@ -965,12 +981,12 @@ func ASTType* parseType(
         errorInvalidIdent(parser)
     type.name = parseIdent(parser)
 
-    if parser!.pa.ignore(.oneSpace)
-         pa.ignore!(parser, #keywordExtends)
-        pa.consume!(parser, #oneSpace)
+    if parser!.ignore(.oneSpace)
+         ignore(&parser, .keywordExtends)
+        consume(&parser, .oneSpace)
         type.super = parseTypeSpec(parser)
     end
-    pa.ignore!(parser, #newline)
+    ignore(&parser, .newline)
 
     type.body = nil ~ this means type is declare
     if typeTypeByName(type.name) != TYUnresolved
@@ -980,41 +996,41 @@ func ASTType* parseType(
 
     ~ if not (houldParseBody) return type
 
-    type.body = parser!.pa.scope!(globScope, yes)
+    type.body = parser!.scope(&globScope, yes)
 
-    parser!.pa.consume(.keywordEnd).pa.ignore(.oneSpace).pa.ignore(.keywordType)
+    parser!.consume(.keywordEnd).ignore(.oneSpace).ignore(.keywordType)
 
     return type
 end
 
 func ASTType* parseEnum(parser Parser, globScope ASTScope) en ASTType {
 
-    pa.consume!(parser, #keywordEnum)
-    pa.consume!(parser, #oneSpace)
+    consume(&parser, .keywordEnum)
+    consume(&parser, .oneSpace)
 
     en = ASTType()
     en.line = parser.token.line
     en.col = parser.token.col
     en.isEnum = yes
 
-    if '_' in parser.token.pos then errorInvalidIdent!(parser)
-    if not pa.matches(parser.token.pos[0], regex=`[A-Z]`) then errorInvalidIdent!(parser)
+    if '_' in parser.token.pos then errorInvalidIdent(&parser)
+    if not matches(parser.token.pos[0], regex=`[A-Z]`) then errorInvalidIdent(&parser)
 
     en.name = parseIdent(parser)
 
-    pa.consume!(parser, #newline)
+    consume(&parser, .newline)
 
     if typeTypeByName(en.name) != TYUnresolved
         ~ conflicts with a primitive type name
-        errorDuplicateEnum!(parser, en, nil)
+        errorDuplicateEnum(&parser, en, nil)
         return
     end
 
-    en.body = parseEnumBody!(parser, globScope)
+    en.body = parseEnumBody(&parser, globScope)
 
-    pa.consume!(parser, #keywordEnd)
-    pa.ignore!(parser, #oneSpace)
-    pa.ignore!(parser, #keywordEnum)
+    consume(&parser, .keywordEnd)
+    ignore(&parser, .oneSpace)
+    ignore(&parser, .keywordEnum)
 
     return en
 end
@@ -1022,15 +1038,15 @@ end
 func ASTImport* parseImport(parser Parser, ownerMod ASTModule
     ASTImport* import = NEW(ASTImport)
     char* tmp
-    pa.consume!(parser, #keywordImport)
-    pa.consume!(parser, #oneSpace)
+    consume(&parser, .keywordImport)
+    consume(&parser, .oneSpace)
 
-    ~ import.isPackage = pa.ignore!(parser, #at)
+    ~ import.isPackage = ignore(&parser, .at)
 
     if memchr(parser.token.pos, '_', parser.token.matchlen))
         errorInvalidIdent(parser)
 
-    assert(pa.matches(parser, kind=.identifier))
+    assert(matches(parser, kind=.identifier))
     import.name = parser.token.pos ~ parseIdent(parser)
 
     char* cend = import.name
@@ -1040,13 +1056,13 @@ func ASTImport* parseImport(parser Parser, ownerMod ASTModule
     detect(parser.token)
 
     ~    size_t len = parser.token.pos - import.name
-    pa.ignore!(parser, #oneSpace)
-    if pa.ignore!(parser, #keywordAs)
+    ignore(&parser, .oneSpace)
+    if ignore(&parser, .keywordAs)
 
-        pa.ignore!(parser, #oneSpace)
+        ignore(&parser, .oneSpace)
         ~      import.hasAlias = yes
 
-        assert(pa.matches(parser, kind=.identifier))
+        assert(matches(parser, kind=.identifier))
         if memchr(parser.token.pos, '_', parser.token.matchlen))
             errorInvalidIdent(parser)
 
@@ -1068,17 +1084,17 @@ func ASTImport* parseImport(parser Parser, ownerMod ASTModule
     *parser.token.pos = endchar
     ~ ^ need to restore the nl since it is used for line counting
 
-    ~ pa.ignore!(parser, #oneSpace)
+    ~ ignore(&parser, .oneSpace)
 
-    ~ if parser.token.kind != #lineComment  parser.token.kind !=
-    ~ #newline)
+    ~ if parser.token.kind != .lineComment  parser.token.kind !=
+    ~ .newline)
     ~     errorUnexpectedToken(parser)
     ~ while (
-    ~     parser.token.kind != #lineComment ~
-    ~      parser.token.kind != #newline~
+    ~     parser.token.kind != .lineComment ~
+    ~      parser.token.kind != .newline~
     ~      parser.token.kind!=.nullChar
     ~     )
-    ~     advance!(parser.token)
+    ~     advance(&parser.token)
     return import
 end
 
@@ -1097,10 +1113,10 @@ func makeDefaultCtor(typ ASTType) ctor ASTFunc
     ctor.returnSpec = ASTTypeSpec(tt=TYObject, ct=CTYNone)
 end
 
-~ this func should just be replaced by pa.scope! handling func type etc
+~ this func should just be replaced by scope! handling func type etc
 
 ~,
-~        #init = (ASTExpr[] { #kind = #number, #string = "1" end end end
+~        .init = (ASTExpr[] { .kind = .number, .string = "1" end end end
 ~end
 ~
 
@@ -1129,16 +1145,16 @@ func parseModule(parser Parser, existing[] ASTModule, importer ASTModule) root A
     root.name = parser.moduleName
     ~ To break recursion, add the root to the existingModules list right away.
     ~ The name is all that is required for this module to be found later.
-    shift!(existing, root)
+    shift(&existing, root)
     eprintf("Parsing %s\n", root.name)
     ~ root.scope = NEW(ASTScope)
 
     var onlyPrintTokens = no
-    advance!(parser.token) ~ maybe put this in parser ctor
+    advance(&parser.token) ~ maybe put this in parser ctor
 
     var import ASTImport = nil
 
-    while parser.token.kind != #null
+    while parser.token.kind != .null
 
 
 
@@ -1152,38 +1168,38 @@ func parseModule(parser Parser, existing[] ASTModule, importer ASTModule) root A
         if onlyPrintTokens
 
 
-            printf("%s %2d %3d %3d %-20s\t%.*s\n", parser.moduleName,
+            print("%s %2d %3d %3d %-20s\t%.*s\n", parser.moduleName,
                 parser.token.line, parser.token.col, parser.token.matchlen,
                 TokenKind_str[parser.token.kind],
-                parser.token.kind == #newline ? 0 : parser.token.matchlen,
+                parser.token.kind == .newline ? 0 : parser.token.matchlen,
                 parser.token.pos)
-            advance!(parser.token)
+            advance(&parser.token)
             skip
         end
 
 
         match parser.token.kind
 
-        case #declare
+        case .declare
 
-            advance!(parser.token)
-            pa.consume!(parser, #space)
-            if parser.token.kind == #func
+            advance(&parser.token)
+            consume(&parser, .space)
+            if parser.token.kind == .func
                 var func ASTFunc = parseFunc(parser, gscope, no)
                 func.isDeclare = yes
-                push!(root.funcs, func)
+                push(&root.funcs, func)
             end
-            if parser.token.kind == #type
+            if parser.token.kind == .type
                 var type ASTType = parseType(parser, gscope, no)
                 type.isDeclare = yes
-                push!(root.types, type)
+                push(&root.types, type)
             end
 
-        case #func
-            funcs = push!(funcs, parseFunc(parser, gscope, yes))
+        case .func
+            funcs = push(&funcs, parseFunc(parser, gscope, yes))
 
-        case #enum
-            push!(enums, pa.parseEnum(parser, gscope))
+        case .enum
+            push(&enums, parseEnum(parser, gscope))
             ~ add a global of the corresponding type so that it can be used
             ~ to access members.
             assert(en)
@@ -1195,30 +1211,30 @@ func parseModule(parser Parser, existing[] ASTModule, importer ASTModule) root A
             enumv.typeSpec = ASTTypeSpec()
             enumv.typeSpec.typeType = TYObject
             enumv.typeSpec.type = en
-            push!(gvars, enumv)
+            push(&gvars, enumv)
 
             var enumv = ASTVar with
                 .name = en.name
                 .line = en.line
                 .col = en.col
                 .typeSpec = ASTTypeSpec with
-                    .typeType = #object
+                    .typeType = .object
                     .type = en
                 end
             end
 
-            push!(gvars, enumv)
+            push(&gvars, enumv)
 
 
 
-        case #type
+        case .type
 
-            var type ASTType = pa.parseType!(parser, parent=gscope, body=yes)
-            push!(root.types, type)
+            var type ASTType = parseType(&parser, parent=gscope, body=yes)
+            push(&root.types, type)
             ~ if (*types).next) types = (*types).next
 
             ~ create default constructor
-            push!(root.funcs, makeDefaultCtor(type))
+            push(&root.funcs, makeDefaultCtor(type))
             ~ if (*funcs).next) funcs = (*funcs).next
 
             ~ create some extra func declares
@@ -1229,15 +1245,15 @@ func parseModule(parser Parser, existing[] ASTModule, importer ASTModule) root A
                     createDeclaredFunc(fn, retType="", argType=type.name)
                 func.line = type.line
                 func.intrinsic = yes
-                push!(root.funcs, func)
+                push(&root.funcs, func)
                 ~ if (*funcs).next) funcs = (*funcs).next
             end
 
-        case #import
+        case .import
             import = parseImport(parser, root)
             if import
 
-                imports = push!(imports, import)
+                imports = push(&imports, import)
 
                 import.module
                     = Parser_lookupModule(*existing, import.name)
@@ -1250,7 +1266,7 @@ func parseModule(parser Parser, existing[] ASTModule, importer ASTModule) root A
                     ~ CString_tr_ip(filename, '.', '/', len - 5)
                     ~ strcpy(filename + len - 5, ".jet")
                     var filename = "$(1).jet" %
-                        replace!(copy(import.name), char='.', with='/')
+                        replace(&copy(import.name), char='.', with='/')
                     ~ filename += ".jet"÷
 
                     ~ later you can have a fancier routine that figures out
@@ -1265,71 +1281,71 @@ func parseModule(parser Parser, existing[] ASTModule, importer ASTModule) root A
                         import.module
                             = parseModule(subParser, existing, root)
                 end
-                ~ push!(modules, subMods)
+                ~ push(&modules, subMods)
             end
             break
 
-        case #test
-            tests = push!(tests, parseTest(parser, gscope))
+        case .test
+            tests = push(&tests, parseTest(parser, gscope))
             ~ if (*tests).next) tests = (*tests).next
             break
 
-        case #var, #let
+        case .var, .let
             ~ TODO: add these to exprs
                 var var ASTVar = parseVar(parser)
                 var orig ASTVar
                 if not var
-                    advance!(parser.token)
+                    advance(&parser.token)
                     continue
                 end
-                if orig = getVar(gscope, var.name) then errs.duplicateVar!(parser, var, orig)
+                if orig = getVar(gscope, var.name) then errs.duplicateVar(&parser, var, orig)
                 if lookup(root, importAlias=var.name) or lookup(root, funcName=var.name)
                     unreachable("name already used by func or import: %s", var.name)
                 end
-                if var.init then rs.resolveVars!(parser, var.init, gscope, no)
+                if var.init then rs.resolveVars(&parser, var.init, gscope, no)
                 var.isLet = yes
                 var.isVar = no
-                push!(gvars, var)
+                push(&gvars, var)
 
                 ~ TODO: validation should raise issue if var.init is
                 ~ missing
                 ASTExpr expr = NEW(ASTExpr)
-                expr.kind = #varAssign
+                expr.kind = .varAssign
                 expr.line = var.init ? var.init.line : parser.token.line
                 expr.col = var.init ? var.init.col : 1
                 expr.prec = tokenKindGetPrecedence(.opAssign)
                 expr.var = var
 
-                ~ and (var.init.prec or var.init.kind == #identifier))
+                ~ and (var.init.prec or var.init.kind == .identifier))
                 ~ TODO: you actually need to send the PtrList item which is
                 ~ generated in the next line as the topExpr, not the expr
                 ~ itself
-                if var.init rs.resolveVars!(parser, var.init, gscope, no)
+                if var.init rs.resolveVars(&parser, var.init, gscope, no)
 
                 ~ TODO: KEEP THE LAST LISTITEM AND APPEND TO THAT!
-                push!(gexprs, expr)
+                push(&gexprs, expr)
             end
             ~ if (*globalsTop).next) globalsTop =
             ~ (*globalsTop).next
             break
-        case #newline
+        case .newline
             *(parser.token.pos) = 0
         ~ fallthrough
-        case #comment
+        case .comment
         ~ TODO: add line comment to module exprs
-        case #space
-            advance!(parser.token)
+        case .space
+            advance(&parser.token)
             break
-        case #identifier: ~ stmt funcs: f(x) := f(y, w = 4) etc.
+        case .identifier: ~ stmt funcs: f(x) := f(y, w = 4) etc.
             if peekCharAfter(parser.token) == '('
-                funcs = push!(funcs, parseStmtFunc(parser, gscope))
+                funcs = push(&funcs, parseStmtFunc(parser, gscope))
                 ~ if (*funcs).next) funcs = (*funcs).next
                 break
             end
         default
             errorUnexpectedToken(parser, "expected a keyword here")
-            ~ while parser.token.kind not in [.newline, #lineComment, #nullChar]
-            advance!(parser.token, until=[.newline, #lineComment, #nullChar])
+            ~ while parser.token.kind not in [.newline, .lineComment, .nullChar]
+            advance(&parser.token, until=[.newline, .lineComment, .nullChar])
             ~ end
         end
     end
@@ -1347,7 +1363,7 @@ func parseModule(parser Parser, existing[] ASTModule, importer ASTModule) root A
     ~             defFuncs[i], retTypes[i], defTypes[j])
     ~         func.intrinsic = yes
     ~         ~ func.nameLen=strlen
-    ~         funcs = push!(funcs, func)
+    ~         funcs = push(&funcs, func)
     ~         ~ if (*funcs).next) funcs = (*funcs).next
     ~     end
 
@@ -1358,12 +1374,12 @@ func parseModule(parser Parser, existing[] ASTModule, importer ASTModule) root A
         for fun in defFuncs
             var func = createDeclaredFunc(fun, retType=retTypes[it], argType=defTypes[it])
             func.intrinsic = yes
-            push!(funcs, func)
+            push(&funcs, func)
         end
     end
     ~ do some analysis that happens after the entire module is loaded
     analyseModule(parser, root)
-    if importer <> nil then shift!(importer.importedBy, root)
+    if importer <> nil then shift(&importer.importedBy, root)
     return root
 end
 
@@ -1397,20 +1413,20 @@ func analyse(parser Parser, module ASTModule)
 
     ~ If we are linting, the whole file must be analysed. this happens
     ~ regardless of whether start was found or not
-    if parser.mode in [#test, #lint]
+    if parser.mode in [.test, .lint]
         ~ for stmt = mod.scope.stmts
-        analyse!(parser, expr=mod.scope.stmts[:], inScope=mod.scope, inModule=mod, nil, no)
+        analyse(&parser, expr=mod.scope.stmts[:], inScope=mod.scope, inModule=mod, nil, no)
         ~ for var = mod.scope.locals
         ~     if var.init)
         ~         analyseExpr(parser, var.init, mod.scope, mod, no)
         ~ for test = mod.tests
-        analyse!(parser, test=mod.tests[:], inModule=mod)
+        analyse(&parser, test=mod.tests[:], inModule=mod)
         ~ for func = mod.funcs
-        analyse!(parser, func=mod.funcs[:], inModule=mod)
+        analyse(&parser, func=mod.funcs[:], inModule=mod)
         ~ for type = mod.types
-        analyse!(parser, type=mod.types[:], inModule=mod)
+        analyse(&parser, type=mod.types[:], inModule=mod)
         ~ for en = mod.enums
-        analyse!(parser, enum=mod.enums[:], inModule=mod)
+        analyse(&parser, enum=mod.enums[:], inModule=mod)
 
     else if fstart
         ~ TODO: what if you have tests and a start()? Now you will have to
@@ -1424,7 +1440,7 @@ func analyse(parser Parser, module ASTModule)
         analyse(parser, fstart, mod)
         ~ Check dead code -- unused funcs and types, and report warnings.
         for func = mod.funcs do if not (func.analysed and not func.isDefCtor)
-            warnUnusedFunc!(parser, func)
+            warnUnusedFunc(&parser, func)
         end
         for type = mod.types do if not type.analysed
             warnUnusedType(parser, type)
@@ -1471,7 +1487,7 @@ func analyse(parser Parser, module ASTModule)
         if checkCycles(parser, type)
             ~ cycle was detected. err has been reported along with a
             ~ backtrace. now just unset the dim control codes.
-            eprintf(" #..%s\n", "\e[0m")
+            eprintf(" ...%s\n", "\e[0m")
             ~ just report the first cycle found. typically there will
             ~ be only one cycle and you will end up reporting the same
             ~ cycle for all types that are in it, which is useless.
@@ -1491,7 +1507,7 @@ end
 func checkCycles(parser Parser, type ASTType) ret Number
     ret = 0
     for stmt = type.body.stmts do if markTypesVisited(parser, stmt)
-        eprintf("  # created in type \e[12m%s\e[02m at #/%s:%d:%d \n",
+        eprintf("  . created in type \e[12m%s\e[02m at ./%s:%d:%d \n",
             type.name, parser.filename, stmt.line, stmt.col)
         ret = -1
     end
@@ -1501,11 +1517,11 @@ func markTypesVisited(parser Parser, expr ASTExpr ) Number
     var type ASTType = nil
     if not (xpr) return 0
     match expr.kind
-    case #varAssign
+    case .varAssign
         return markTypesVisited(parser, expr.var.init)
-    case #call
+    case .call
         return markTypesVisited(parser, expr.left)
-    case #callResolved
+    case .callResolved
         if markTypesVisited(parser, expr.left) return -1
         ~ if expr.func.isDefCtor) type =
         ~ expr.func.returnSpec.type
@@ -1513,10 +1529,10 @@ func markTypesVisited(parser Parser, expr ASTExpr ) Number
              expr.func.returnsNewObjectAlways)
             type = expr.func.returnSpec.type
         break
-    case #subscript, #subscriptResolved
+    case .subscript, .subscriptResolved
         return markTypesVisited(parser, expr.left)
-    case #identifierResolved, #string, #identifier, #no, #yes,
-         #nil, #number, #rawString, #comment
+    case .identifierResolved, .string, .identifier, .no, .yes,
+         .nil, .number, .rawString, .comment
         return 0
     default
         if expr.prec

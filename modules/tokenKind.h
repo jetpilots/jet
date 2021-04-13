@@ -1,9 +1,9 @@
-#include "TokenKindDefs.h"
+#include "TokenKinds.h"
 
 // Return the repr of a self->token kind (for debug)
 
 static const char* TokenKind_repr(const TokenKind kind, bool spacing) {
-    return spacing ? tksrepr[kind] : tkrepr[kind];
+    return spacing ? TokenKinds_srepr[kind] : TokenKinds_repr[kind];
 }
 
 // alternative ascii repr of a token kind
@@ -14,27 +14,21 @@ static const char* TokenKind_repr(const TokenKind kind, bool spacing) {
 
 static const char* TokenKind_ascrepr(const TokenKind kind, bool spacing) {
     switch (kind) {
-    case tkOpGT:
-        return "GT";
-    case tkOpLT:
-        return "LT";
-    case tkOpGE:
-        return "GE";
-    case tkOpLE:
-        return "LE";
-    case tkOpNE:
-        return "NE";
-    case tkOpEQ:
-        return "EQ";
-    default:
-        return TokenKind_repr(kind, spacing);
+    case tkOpGT: return "GT";
+    case tkOpLT: return "LT";
+    case tkOpGE: return "GE";
+    case tkOpLE: return "LE";
+    case tkOpNE: return "NE";
+    case tkOpEQ: return "EQ";
+    default: return TokenKind_repr(kind, spacing);
     }
 }
 
 static bool TokenKind_isUnary(TokenKind kind) {
-    static const uint8_t unop[sizeof(TokenKind_str)] = { //
+    static const uint8_t unop[sizeof(TokenKinds_names)] = { //
         [tkKeyword_not] = 1,
-        [tkUnaryMinus] = 1,
+        [tkOpUnaryMinus] = 1,
+        [tkUnaryDot] = 1,
         [tkKeyword_return] = 1,
         [tkArrayOpen] = 1,
         [tkKeyword_check] = 1,
@@ -55,9 +49,9 @@ static bool TokenKind_isUnary(TokenKind kind) {
 }
 
 static bool TokenKind_isRightAssociative(TokenKind kind) {
-    static const uint8_t rassoc[sizeof(TokenKind_str)] = { //
+    static const uint8_t rassoc[sizeof(TokenKinds_names)] = { //
         [tkPeriod] = 1,
-        [tkPower] = 1,
+        [tkOpPower] = 1,
         [tkOpComma] = 1,
         [tkOpSemiColon] = 1
     };
@@ -69,18 +63,19 @@ static bool TokenKind_isRightAssociative(TokenKind kind) {
 }
 
 static uint8_t TokenKind_getPrecedence(TokenKind kind) {
-    static const uint8_t prec[sizeof(TokenKind_str)] = { //
+    static const uint8_t prec[sizeof(TokenKinds_names)] = { //
         [tkPeriod] = 57,
-        [tkUnaryMinus] = 55,
+        [tkUnaryDot] = 57,
+        [tkOpUnaryMinus] = 55,
         [tkPipe] = 53,
-        [tkPower] = 51,
+        [tkOpPower] = 51,
 
-        [tkTimes] = 49,
-        [tkSlash] = 49,
+        [tkOpTimes] = 49,
+        [tkOpSlash] = 49,
         [tkOpMod] = 49,
 
-        [tkPlus] = 47,
-        [tkMinus] = 47,
+        [tkOpPlus] = 47,
+        [tkOpMinus] = 47,
 
         [tkOpColon] = 45,
 
@@ -105,16 +100,17 @@ static uint8_t TokenKind_getPrecedence(TokenKind kind) {
 
         [tkOpAssign] = 22,
 
-        [tkPlusEq] = 20,
-        [tkColEq] = 20,
-        [tkMinusEq] = 20,
-        [tkTimesEq] = 20,
-        [tkSlashEq] = 20,
+        [tkOpPlusEq] = 20,
+        [tkOpColEq] = 20,
+        [tkOpMinusEq] = 20,
+        [tkOpTimesEq] = 20,
+        [tkOpSlashEq] = 20,
 
         [tkOpComma] = 10, // list separator
         [tkOpSemiColon] = 9, // 2-D array / matrix row separator
 
         [tkKeyword_do] = 5, // for i in arr do ...
+        // [tkKeyword_then] = 5, // if i == x then ...
 
         [tkArrayOpen] = 1,
         [tkBraceOpen] = 1
@@ -184,18 +180,12 @@ static uint8_t TokenKind_getPrecedence(TokenKind kind) {
 
 static TokenKind TokenKind_reverseBracket(TokenKind kind) {
     switch (kind) {
-    case tkArrayOpen:
-        return tkArrayClose;
-    case tkParenOpen:
-        return tkParenClose;
-    case tkBraceOpen:
-        return tkBraceClose;
-    case tkArrayClose:
-        return tkArrayOpen;
-    case tkBraceClose:
-        return tkBraceOpen;
-    case tkParenClose:
-        return tkParenOpen;
+    case tkArrayOpen: return tkArrayClose;
+    case tkParenOpen: return tkParenClose;
+    case tkBraceOpen: return tkBraceClose;
+    case tkArrayClose: return tkArrayOpen;
+    case tkBraceClose: return tkBraceOpen;
+    case tkParenClose: return tkParenOpen;
     default:
         printf("unexpected at %s:%d\n", __FILE__, __LINE__);
         return tkUnknown;

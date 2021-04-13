@@ -17,7 +17,7 @@ static void analyseDictLiteral(Parser* parser, ASTExpr* expr, ASTModule* mod) {
 
 static void ASTExpr_prepareInterp(
     Parser* parser, ASTExpr* expr, ASTScope* scope) {
-    static Array(Ptr) vars;
+    static Array<ASTVar> vars;
     assert(expr->kind == tkString);
     PtrList** exprvars = &expr->vars;
 
@@ -153,7 +153,7 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
         expr->elemental = expr->elemental && expr->left->elemental;
         expr->throws = expr->left->throws || expr->func->throws;
         ASTExpr* currArg = expr->left;
-        foreach (ASTVar*, arg, expr->func->args) {
+        for (ASTVar& arg : expr->func->args) {
             ASTExpr* cArg
                 = (currArg->kind == tkOpComma) ? currArg->left : currArg;
             if (cArg->kind == tkOpAssign) cArg = cArg->right;
@@ -321,7 +321,7 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
                     analyseType(parser, typeSpec->type, mod);
                 }
             } else if (typeSpec->typeType != init->typeType
-                && init->typeType != TYAnyType) {
+                && init->typeType != TYNilType) {
 
                 Parser_errorInitMismatch(parser, expr);
                 expr->typeType = TYErrorType;
@@ -416,7 +416,7 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
         break;
 
     case tkKeyword_nil:
-        expr->typeType = TYAnyType;
+        expr->typeType = TYNilType;
         break;
 
     case tkIdentifier:

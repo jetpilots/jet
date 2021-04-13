@@ -12,6 +12,14 @@
 
 # printf "  ...\r" 1>&2
 
+abspath() {
+    cd "$(dirname "$1")"
+    case $(basename $1) in
+        ..) echo "$(dirname $(pwd))";;
+        .)  echo "$(pwd)";;
+        *)  echo "$(pwd)/$(basename $1)";;
+    esac
+}
 
 # internal use
 # jet_run <TGT> <DIAG>
@@ -26,7 +34,8 @@ jet_run() {
         TGT="$1"
     fi
 
-   /usr/bin/time make -C $DN -s -r -j DIAG=$2 JETHOME="$JETHOME" -f $JETHOME/Makerunner "$TGT" && [ -f "$DN/$TGT" ] && $DN/$TGT $*
+#    /usr/bin/time
+    make -C $DN -s -r -j DIAG=$2 JETHOME="$JETHOME" -f $JETHOME/Makerunner "$TGT" && [ -f "$DN/$TGT" ] && $DN/$TGT $*
 }
 
 # jet <FILE> [d]

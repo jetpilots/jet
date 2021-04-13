@@ -4,9 +4,10 @@
 
 ///////////////////////////////////////////////////////////////////////////
 static void ASTImport_emit(ASTImport* import, int level) {
+    char* alias = import->aliasOffset + import->name;
     CString_tr_ip(import->name, '.', '_', 0);
     printf("\n#include \"%s.h\"\n", import->name);
-    if (import->alias) printf("#define %s %s\n", import->alias, import->name);
+    if (alias) printf("#define %s %s\n", alias, import->name);
     // TODO: remove #defines! There could be a field of any
     // struct with the same name that will get clobbered
     CString_tr_ip(import->name, '_', '.', 0);
@@ -14,7 +15,7 @@ static void ASTImport_emit(ASTImport* import, int level) {
 
 ///////////////////////////////////////////////////////////////////////////
 static void ASTImport_undefc(ASTImport* import) {
-    if (import->alias) printf("#undef %s\n", import->alias);
+    // if (import->alias) printf("#undef %s\n", import->alias);
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -49,9 +50,7 @@ static void ASTTypeSpec_emit(ASTTypeSpec* typeSpec, int level, bool isconst) {
             typeSpec->col);
         printf("%s", *typeSpec->name ? typeSpec->name : "Error_Type");
         break;
-    default:
-        printf("%s", TypeType_name(typeSpec->typeType));
-        break;
+    default: printf("%s", TypeType_name(typeSpec->typeType)); break;
     }
 
     //     if (isconst ) printf(" const"); // only if a ptr type
@@ -93,9 +92,7 @@ static bool mustPromote(const char* name) {
 static void ASTExpr_unmarkVisited(ASTExpr* expr) {
     switch (expr->kind) {
     case tkIdentifierResolved:
-    case tkVarAssign:
-        expr->var->visited = false;
-        break;
+    case tkVarAssign: expr->var->visited = false; break;
     case tkFunctionCallResolved:
     case tkFunctionCall: // shouldnt happen
     case tkSubscriptResolved:
@@ -103,9 +100,7 @@ static void ASTExpr_unmarkVisited(ASTExpr* expr) {
     case tkKeyword_if:
     case tkKeyword_for:
     case tkKeyword_else:
-    case tkKeyword_while:
-        ASTExpr_unmarkVisited(expr->left);
-        break;
+    case tkKeyword_while: ASTExpr_unmarkVisited(expr->left); break;
     default:
         if (expr->prec) {
             if (!expr->unary) ASTExpr_unmarkVisited(expr->left);
@@ -154,9 +149,7 @@ static void ASTExpr_genPrintVars(ASTExpr* expr, int level) {
     case tkKeyword_if:
     case tkKeyword_else:
     case tkKeyword_for:
-    case tkKeyword_while:
-        ASTExpr_genPrintVars(expr->left, level);
-        break;
+    case tkKeyword_while: ASTExpr_genPrintVars(expr->left, level); break;
 
     default:
         if (expr->prec) {
@@ -186,8 +179,7 @@ static ASTExpr* ASTExpr_findPromotionCandidate(ASTExpr* expr) {
         // TODO: here see if the subscript itself needs to be promoted up
         return ASTExpr_findPromotionCandidate(expr->left);
 
-    case tkSubscript:
-        return ASTExpr_findPromotionCandidate(expr->left);
+    case tkSubscript: return ASTExpr_findPromotionCandidate(expr->left);
 
     case tkKeyword_if:
     case tkKeyword_for:
@@ -870,9 +862,7 @@ static void ASTExpr_emit_tkSubscriptResolved(ASTExpr* expr, int level) {
         printf(")");
         break;
 
-    default:
-        unreachable("bad kind: %s", TokenKind_str[expr->kind]);
-        break;
+    default: unreachable("bad kind: %s", TokenKinds_names[expr->kind]); break;
     }
 }
 
@@ -1078,33 +1068,21 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
 
     printf("%.*s", level, spaces);
     switch (expr->kind) {
-    case tkNumber:
-        ASTExpr_emit_tkNumber(expr, level);
-        break;
+    case tkNumber: ASTExpr_emit_tkNumber(expr, level); break;
 
-    case tkKeyword_no:
-        printf("no");
-        break;
-    case tkKeyword_yes:
-        printf("yes");
-        break;
-    case tkKeyword_nil:
-        printf("nil");
-        break;
+    case tkKeyword_no: printf("no"); break;
+    case tkKeyword_yes: printf("yes"); break;
+    case tkKeyword_nil: printf("nil"); break;
 
     case tkMultiDotNumber:
-    case tkIdentifier:
-        printf("%s", expr->string);
-        break;
+    case tkIdentifier: printf("%s", expr->string); break;
 
     case tkString: // TODO: parse vars inside, escape stuff, etc.
         ASTExpr_emit_tkString(expr, level);
         // printf(escStrings ? "\\%s\\\"" : "%s\"", expr->string);
         break;
 
-    case tkIdentifierResolved:
-        printf("%s", expr->var->name);
-        break;
+    case tkIdentifierResolved: printf("%s", expr->var->name); break;
 
     case tkRawString: // 'raw strings' or 'regexes'
         printf("\"%s\"", expr->string + 1);
@@ -1135,11 +1113,11 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
         break;
 
     case tkOpAssign:
-    case tkPlusEq:
-    case tkMinusEq:
-    case tkTimesEq:
-    case tkSlashEq:
-    case tkPowerEq:
+    case tkOpPlusEq:
+    case tkOpMinusEq:
+    case tkOpTimesEq:
+    case tkOpSlashEq:
+    case tkOpPowerEq:
     case tkOpModEq:
 
         switch (expr->left->kind) {
@@ -1200,7 +1178,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
                 // arr[func(x)]
                 break;
             default:
-                unreachable("%s\n", TokenKind_str[expr->left->kind]);
+                unreachable("%s\n", TokenKinds_names[expr->left->kind]);
                 assert(0);
             }
             break;
@@ -1218,15 +1196,14 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
             ASTExpr_emit(expr->right, 0);
             // function call arg label, do not generate ->left
             break;
-        case tkString:
-            break;
+        case tkString: break;
         default:
             // error: not a valid lvalue
             // TODO: you should at some point e,g, during resolution
             // check for assignments to invalid lvalues and raise an
             // error
             unreachable(
-                "found token kind %s\n", TokenKind_str[expr->left->kind]);
+                "found token kind %s\n", TokenKinds_names[expr->left->kind]);
         }
         // if (! inFuncArgs) {
         //     ASTExpr_emit(self->left, 0,
@@ -1444,7 +1421,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
         printf("%.*s}", level, spaces);
         break;
 
-    case tkPower:
+    case tkOpPower:
         printf("pow(");
         ASTExpr_emit(expr->left, 0);
         printf(",");
@@ -1458,9 +1435,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
         printf(";}\n");
         break;
 
-    case tkKeyword_check:
-        ASTExpr_emit_tkCheck(expr, 0);
-        break;
+    case tkKeyword_check: ASTExpr_emit_tkCheck(expr, 0); break;
 
     case tkPeriod:
         ASTExpr_emit(expr->left, 0);
@@ -1473,9 +1448,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
         ASTExpr_emit(expr->right, 0);
         break;
 
-    case tkKeyword_notin:
-        printf("!");
-        fallthrough;
+    case tkKeyword_notin: printf("!"); fallthrough;
     case tkKeyword_in:
         // the RHS should be dims==1 or another kind of collection, you should
         // have checked it in the analysis phase.
@@ -1533,7 +1506,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
             printf(")");
             break;
         } else if (expr->right->typeType == TYString) {
-            printf("CString_cmp(%s, ", tksrepr[expr->kind]);
+            printf("CString_cmp(%s, ", TokenKinds_srepr[expr->kind]);
             ASTExpr_emit(expr->left, 0);
             printf(", ");
             ASTExpr_emit(expr->right, 0);

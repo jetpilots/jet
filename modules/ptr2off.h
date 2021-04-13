@@ -171,5 +171,5 @@ void ASTModule_ptr2off(ASTModule* mod) {
     ptr2off((void**)&mod->enums);
     ptr2off((void**)&mod->types);
     ptr2off_s(&mod->name);
-    ptr2off_s(&mod->moduleName);
+    // ptr2off_s(&mod->moduleName);
 }

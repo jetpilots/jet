@@ -1,0 +1,58 @@
+Compiler
+- modules[] Module
+- diag Diagnostics
+- load(filename) - a module
+- build()
+- run()
+- make()
+- test()
+- package()
+- clean()
+
+Diagnostics
+- issues[] Issue
+- maxerr, errcount
+- error()
+- warning()
+- info()
+
+Issue
+- filename
+- line, col, len
+- kind, severity
+- entity1, entity2
+- message()
+
+Token
+- pos, end
+- line, col, len
+- advance()
+- is(kind)
+
+Module
+- name
+- filename
+- data, lines[]
+- diag Diagnostics
+- format()
+- read() - creates Parser
+- resolve()
+- analyze()
+- write() - lint to .jet
+- optimize()
+- emit()
+- save() - binary
+- load() - binary
+
+
+Parser
+- filename
+- data, lines[]
+- token Token
+- diag Diagnostics
+- is(kind)
+- ignore(kind)
+- discard(kind)
+- expect(kind) Expr
+- parse()
+

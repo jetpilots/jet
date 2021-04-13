@@ -2,13 +2,11 @@
 #include "jet/core/Dict.h"
 
 static void ASTExpr_hash(
-    /* Parser* parser, */ ASTExpr* expr, Dict(UInt32, Ptr) * cseDict) {
+    /* Compiler* com, */ ASTExpr* expr, Dict(UInt32, Ptr) * cseDict) {
     if (!expr) unreachable("%s", "expr is NULL");
     switch (expr->kind) {
     case tkString:
-    case tkRawString:
-        expr->hash = CString_hash(expr->string);
-        break;
+    case tkRawString: expr->hash = CString_hash(expr->string); break;
     case tkNumber: {
         char* c = strpbrk(expr->string, "e.");
         if (c) {
@@ -69,7 +67,7 @@ static void ASTExpr_hash(
             // the typeinfo as well
         }
     }
-    //    printf("./%s:%02d:%02d: %-24s hash: %u\n",parser->filename,
+    //    printf("./%s:%02d:%02d: %-24s hash: %u\n",com->filename,
     //    expr->line, expr->col,
     //        TokenKind_str[expr->kind], expr->hash);
 
@@ -89,7 +87,7 @@ static void ASTExpr_hash(
 // hashes have been generated in ASTExpr_hash (which is bottom-up, so checking
 // cannot happen inline).
 static void ASTExpr_checkHashes(
-    /* Parser* parser, */ ASTExpr* expr, Dict(UInt32, Ptr) * cseDict) {
+    /* Compiler* com, */ ASTExpr* expr, Dict(UInt32, Ptr) * cseDict) {
 
     UInt32 idx = Dict_get(UInt32, Ptr)(cseDict, expr->hash);
 
@@ -98,11 +96,11 @@ static void ASTExpr_checkHashes(
         if (orig != expr && orig->kind == expr->kind) {
             // unfortunately there ARE collisions, so check again
             eprintf("\n-- found same exprs at\n%02d:%02d hash %d and\n",
-                /* parser->filename, */ expr->line, expr->col, expr->hash);
+                /* com->filename, */ expr->line, expr->col, expr->hash);
             // TODO: make gen print to stderr
             // ASTExpr_gen(expr, 4, true, false);
             eprintf("\n:%02d:%02d hash %d\n",
-                /* parser->filename, */ orig->line, orig->col, orig->hash);
+                /* com->filename, */ orig->line, orig->col, orig->hash);
             // ASTExpr_gen(orig, 4, true, false);
             eputs("");
             return;
@@ -129,7 +127,7 @@ static void ASTExpr_checkHashes(
     }
 }
 
-static void ASTFunc_hashExprs(/* Parser* parser,  */ ASTFunc* func) {
+static void ASTFunc_hashExprs(/* Compiler* com,  */ ASTFunc* func) {
     static Dict(UInt32, Ptr)* cseDict = NULL; // FIXME: will leak
     if (!cseDict) cseDict = Dict_init(UInt32, Ptr)();
     Dict_clear(UInt32, Ptr)(cseDict);

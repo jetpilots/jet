@@ -39,6 +39,9 @@
         "*.txt": "plaintext",
         "__locale": "c",
         "__threading_support": "c",
-        "__functional_03": "c"
+        "__functional_03": "c",
+        "__node_handle": "cpp",
+        "optional": "cpp",
+        "system_error": "cpp"
     }
 }

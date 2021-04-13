@@ -12,3 +12,27 @@ func start()
     describe(f)
     describe(q)
 end
+
+
+type Parser
+    var token = Token()
+end
+type Token
+    var mergeArrayDims=yes
+end
+func starst()
+    var parser = Parser()
+  var glob = Glob()
+  glob.val = .two
+  prinst(parser.token.mergeArrayDims)
+end
+
+type Glob
+    var val EnG = .one
+end
+
+enum EnG
+    one = 1
+    two = 2
+    three = 3
+end

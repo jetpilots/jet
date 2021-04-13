@@ -6,3 +6,4 @@ AlwaysBreakTemplateDeclarations: true
 AllowShortLoopsOnASingleLine: true
 AllowShortIfStatementsOnASingleLine: true
 AllowShortFunctionsOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine: true

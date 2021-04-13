@@ -31,7 +31,7 @@ void ASTFunc::emit(int level) {
     if (!this->body || !this->analysed || this->isDeclare) return;
 
     size_t stackUsage = this->size();
-    stackUsage->printStackUsageDef();
+    printStackUsageDef(stackUsage);
 
     printf("#define DEFAULT_VALUE %s\n",
         this->returnSpec->getDefaultValueForType());
@@ -56,9 +56,9 @@ void ASTFunc::emit(int level) {
     printf("    IFDEBUG(  const char* sig_ = \"");
     printf("%s%s(", this->isStmt ? "" : "function ", this->name);
 
-    foreachn(ASTVar*, arg, args, this->args) {
-        arg->lint(level);
-        printf(args->next ? ", " : "");
+    for (auto& arg : this->args) {
+        arg.lint(level);
+        printf(args.next ? ", " : "");
     }
     printf(")");
     if (this->returnSpec) {
@@ -190,14 +190,14 @@ void ASTFunc::getSelector() {
             remain -= wrote;
         }
         selLen += snprintf(bufp, 2, ")");
-        this->prettySelector = buf->pstrndup(selLen + 1);
+        this->prettySelector = pstrndup(buf, selLen + 1);
 
     } else {
         this->selector = this->name;
         char buf[128];
         buf[127] = 0;
         int n = snprintf(buf, 127, "%s()", this->name);
-        this->prettySelector = buf->pstrndup(n + 1);
+        this->prettySelector = pstrndup(buf, n + 1);
         ;
     }
 }

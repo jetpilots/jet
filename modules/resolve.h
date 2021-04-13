@@ -1,24 +1,28 @@
 
 static bool isSelfMutOp(ASTExpr* expr) {
-    return expr->kind == tkPlusEq //
-        || expr->kind == tkMinusEq //
-        || expr->kind == tkSlashEq //
-        || expr->kind == tkTimesEq //
-        || expr->kind == tkPowerEq //
-        || expr->kind == tkOpModEq //
-        || expr->kind == tkOpAssign;
+    return expr->kind > __tk__selfMutOps__begin
+        && expr->kind < __tk__selfMutOps__end;
+    //  expr->kind == tkPlusEq //
+    //     || expr->kind == tkMinusEq //
+    //     || expr->kind == tkSlashEq //
+    //     || expr->kind == tkTimesEq //
+    //     || expr->kind == tkPowerEq //
+    //     || expr->kind == tkOpModEq //
+    //     || expr->kind == tkOpAssign;
 }
 
 static bool isArithOp(ASTExpr* expr) {
-    return expr->kind == tkPlusEq //
-        || expr->kind == tkMinusEq //
-        || expr->kind == tkSlashEq //
-        || expr->kind == tkTimesEq //
-        || expr->kind == tkPowerEq //
-        || expr->kind == tkOpModEq //
-        || expr->kind == tkPlus || expr->kind == tkMinus
-        || expr->kind == tkSlash || expr->kind == tkTimes
-        || expr->kind == tkPower || expr->kind == tkOpMod;
+    return expr->kind > __tk__arithOps__begin
+        && expr->kind < __tk__arithOps__end;
+    // == tkPlusEq //
+    //     || expr->kind == tkMinusEq //
+    //     || expr->kind == tkSlashEq //
+    //     || expr->kind == tkTimesEq //
+    //     || expr->kind == tkPowerEq //
+    //     || expr->kind == tkOpModEq //
+    //     || expr->kind == tkPlus || expr->kind == tkMinus
+    //     || expr->kind == tkSlash || expr->kind == tkTimes
+    //     || expr->kind == tkPower || expr->kind == tkOpMod;
 }
 
 // isSelfMutOp(expr as ASTExpr) := expr.kind in [
@@ -36,7 +40,7 @@ static bool isArithOp(ASTExpr* expr) {
 //         typeSpec.typeType = .object
 //         typeSpec.type = type
 //     end if
-//     on error .itemNotFound
+//     on error . itemNotFound
 //         errorUnrecognized(typeSpec, parser = parser)
 // end function
 
@@ -129,8 +133,7 @@ static void resolveVars(Parser* parser, ASTExpr* expr, ASTScope* scope,
 
     if (!expr) return;
     switch (expr->kind) {
-    case tkIdentifierResolved:
-        break;
+    case tkIdentifierResolved: break;
 
     case tkIdentifier:
     case tkSubscript: {
@@ -143,7 +146,14 @@ static void resolveVars(Parser* parser, ASTExpr* expr, ASTScope* scope,
             expr->var->used = true;
             // expr->var->lastUsed = topExpr;
         } else {
+            // ASTImport* import = ASTModule_getImportByAlias(mod,
+            // expr->string); if (import) {
+            //     expr->kind = tkKeyword_import;
+            //     expr->import = import;
+            //     import->used = true;
+            // } else {
             Parser_errorUnrecognizedVar(parser, expr);
+            // }
         }
         if (expr->kind == tkSubscriptResolved || expr->kind == tkSubscript) {
             resolveVars(parser, expr->left, scope, inFuncCall);

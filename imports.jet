@@ -1,4 +1,4 @@
-import imported as imp
+import imported as im
 import import3 as impa
 import import4 as impd
 import imported as impe
@@ -6,9 +6,10 @@ import imported as impe
 var imp = 4
 
 type Jax
-
+   var x = 6
 end
 
 func start()
    print("yellow")
+   im.noko()
 end

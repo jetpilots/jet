@@ -33,9 +33,9 @@ typedef struct ASTLocation {
 
 struct ASTModule;
 typedef struct ASTImport {
-    char *name, *alias;
+    char* name; //, *alias;
     struct ASTModule* module;
-    // uint32_t aliasOffset;
+    uint32_t aliasOffset, line : 16, col : 8, used : 1;
     // bool isPackage, hasAlias;
 } ASTImport;
 
@@ -254,6 +254,7 @@ typedef struct ASTExpr {
         struct ASTVar* var; // for array subscript, or a tkVarAssign
         struct ASTScope* body; // for if/for/while
         struct ASTExpr* right;
+        struct ASTImport* import; // for imports tkKeyword_import
     };
     // TODO: the code motion routine should skip over exprs with
     // promote=false this is set for exprs with func calls or array
@@ -301,7 +302,7 @@ typedef struct ASTFunc {
     char* name;
     ASTScope* body;
     List(ASTVar) * args;
-    List(ASTVar) * callers, *callees;
+    List(ASTFunc) * callers, *callees;
     ASTTypeSpec* returnSpec;
     char *selector, *prettySelector;
     struct {
@@ -309,7 +310,7 @@ typedef struct ASTFunc {
         struct {
             uint16_t throws : 1,
                 isRecursive : 1, // usesNet : 1,usesIO : 1, usesGUI : 1,
-                usesSerialisation : 1, //
+                mutator : 1, // usesSerialisation : 1, //
                 isExported : 1, //
                 usesReflection : 1, //
                 nodispatch : 1, //
@@ -353,18 +354,27 @@ typedef struct ASTTest {
 } ASTTest;
 
 typedef struct ASTModule {
-    char* name;
+
+    ASTScope scope[1]; // global scope contains vars + exprs
     List(ASTFunc) * funcs;
     List(ASTTest) * tests;
     // List(ASTExpr) * exprs; // global exprs
-    List(ASTType) * types;
-    ASTScope scope[1]; // global scope contains vars + exprs
+    List(ASTType) * types, *enums;
     // List(ASTVar) * vars; // global vars
     List(ASTImport) * imports;
-    List(ASTType) * enums;
+    // List(ASTType) * enums;
     List(ASTModule) * importedBy; // for dependency graph. also use
                                   // imports[i]->module over i
-    char* moduleName;
+    char *name, *fqname, *filename;
+
+    // DiagnosticReporter reporter;
+
+    struct {
+        bool complex : 1, json : 1, yaml : 1, xml : 1, html : 1, http : 1,
+            ftp : 1, imap : 1, pop3 : 1, smtp : 1, frpc : 1, fml : 1, fbin : 1,
+            rational : 1, polynomial : 1, regex : 1, datetime : 1, colour : 1,
+            range : 1, table : 1, gui : 1;
+    } requires;
 } ASTModule;
 
 // better keep a set or map instead and add as you encounter in code
@@ -434,12 +444,9 @@ static ASTTypeSpec* ASTTypeSpec_new(TypeTypes tt, CollectionTypes ct) {
 
 static const char* ASTTypeSpec_name(ASTTypeSpec* self) {
     switch (self->typeType) {
-    case TYUnresolved:
-        return self->name;
-    case TYObject:
-        return self->type->name;
-    default:
-        return TypeType_name(self->typeType);
+    case TYUnresolved: return self->name;
+    case TYObject: return self->type->name;
+    default: return TypeType_name(self->typeType);
     }
     // what about collectiontype???
 }
@@ -447,12 +454,9 @@ static const char* ASTTypeSpec_name(ASTTypeSpec* self) {
 // The name of this type spec as it will appear in the generated C code.
 static const char* ASTTypeSpec_cname(ASTTypeSpec* self) {
     switch (self->typeType) {
-    case TYUnresolved:
-        return self->name;
-    case TYObject:
-        return self->type->name;
-    default:
-        return TypeType_name(self->typeType);
+    case TYUnresolved: return self->name;
+    case TYObject: return self->type->name;
+    default: return TypeType_name(self->typeType);
     }
     // what about collectiontype???
 }
@@ -464,10 +468,8 @@ static const char* getDefaultValueForType(ASTTypeSpec* type) {
         unreachable(
             "unresolved: '%s' at %d:%d", type->name, type->line, type->col);
         return "ERROR_ERROR_ERROR";
-    case TYString:
-        return "\"\"";
-    default:
-        return "0";
+    case TYString: return "\"\"";
+    default: return "0";
     }
 }
 
@@ -486,7 +488,7 @@ static ASTExpr* ASTExpr_fromToken(const Token* self) {
     exprsAllocHistogram[ret->kind]++;
 
     switch (ret->kind) {
-    case tkKeyword_cheater:
+    // case tkKeyword_cheater:
     case tkKeyword_for:
     case tkKeyword_while:
     case tkKeyword_if:
@@ -556,21 +558,17 @@ static bool ASTExpr_throws(ASTExpr* self) { // NOOO REMOVE This func and set the
     case tkIdentifier:
     case tkIdentifierResolved:
     case tkString:
-    case tkLineComment:
-        return false;
+    case tkLineComment: return false;
     case tkFunctionCall:
     case tkFunctionCallResolved:
         return true; // self->func->throws;
         // actually  only if the func really throws
     case tkSubscript:
-    case tkSubscriptResolved:
-        return ASTExpr_throws(self->left);
-    case tkVarAssign:
-        return self->var->used && ASTExpr_throws(self->var->init);
+    case tkSubscriptResolved: return ASTExpr_throws(self->left);
+    case tkVarAssign: return self->var->used && ASTExpr_throws(self->var->init);
     case tkKeyword_for:
     case tkKeyword_if:
-    case tkKeyword_while:
-        return false; // actually the condition could throw.
+    case tkKeyword_while: return false; // actually the condition could throw.
     default:
         if (!self->prec) return false;
         return ASTExpr_throws(self->left) || ASTExpr_throws(self->right);
@@ -714,11 +712,8 @@ static ASTTypeSpec* ASTExpr_getObjectTypeSpec(const ASTExpr* const self) {
         //        return "Range";
         // TODO: what else???
     case tkPeriod:
-    case tkOpComma:
-
-        return ASTExpr_getObjectTypeSpec(self->right);
-    default:
-        break;
+    case tkOpComma: return ASTExpr_getObjectTypeSpec(self->right);
+    default: break;
     }
     return NULL;
 }
@@ -728,9 +723,7 @@ static ASTType* ASTExpr_getEnumType(const ASTExpr* const self) {
     if (!self || self->typeType != TYObject) return ret;
     // all that is left is object
     switch (self->kind) {
-    case tkFunctionCallResolved:
-        ret = self->func->returnSpec->type;
-        break;
+    case tkFunctionCallResolved: ret = self->func->returnSpec->type; break;
     case tkIdentifierResolved:
     case tkSubscriptResolved:
         ret = self->var->typeSpec->type;
@@ -742,10 +735,8 @@ static ASTType* ASTExpr_getEnumType(const ASTExpr* const self) {
                //        return "Range";
                // TODO: what else???
     case tkPeriod:
-    case tkOpComma:
-        ret = ASTExpr_getEnumType(self->left);
-    default:
-        break;
+    case tkOpComma: ret = ASTExpr_getEnumType(self->left);
+    default: break;
     }
     if (ret && !ret->isEnum) ret = NULL;
     return ret;
@@ -756,8 +747,7 @@ static ASTType* ASTExpr_getObjectType(const ASTExpr* const self) {
 
     // all that is left is object
     switch (self->kind) {
-    case tkFunctionCallResolved:
-        return self->func->returnSpec->type;
+    case tkFunctionCallResolved: return self->func->returnSpec->type;
     case tkIdentifierResolved:
     case tkSubscriptResolved:
         return self->var->typeSpec->type;
@@ -769,10 +759,8 @@ static ASTType* ASTExpr_getObjectType(const ASTExpr* const self) {
         //        return "Range";
         // TODO: what else???
     case tkPeriod:
-    case tkOpComma:
-        return ASTExpr_getObjectType(self->right);
-    default:
-        break;
+    case tkOpComma: return ASTExpr_getObjectType(self->right);
+    default: break;
     }
     return NULL;
 }
@@ -782,8 +770,7 @@ static ASTType* ASTExpr_getTypeOrEnum(const ASTExpr* const self) {
 
     // all that is left is object
     switch (self->kind) {
-    case tkFunctionCallResolved:
-        return self->func->returnSpec->type;
+    case tkFunctionCallResolved: return self->func->returnSpec->type;
     case tkIdentifierResolved:
     case tkSubscriptResolved:
         return self->var->typeSpec->type;
@@ -799,10 +786,8 @@ static ASTType* ASTExpr_getTypeOrEnum(const ASTExpr* const self) {
         if (!type->isEnum) type = ASTExpr_getObjectType(self->right);
         return type;
     }
-    case tkOpComma:
-        return ASTExpr_getTypeOrEnum(self->left);
-    default:
-        break;
+    case tkOpComma: return ASTExpr_getTypeOrEnum(self->left);
+    default: break;
     }
     return NULL;
 }
@@ -819,8 +804,7 @@ static const char* ASTExpr_typeName(const ASTExpr* const self) {
 
     // all that is left is object
     switch (self->kind) {
-    case tkFunctionCallResolved:
-        return self->func->returnSpec->type->name;
+    case tkFunctionCallResolved: return self->func->returnSpec->type->name;
     case tkIdentifierResolved:
     case tkSubscriptResolved:
         return self->var->typeSpec->type->name;
@@ -837,10 +821,8 @@ static const char* ASTExpr_typeName(const ASTExpr* const self) {
         ASTType* type = ASTExpr_getObjectType(self->left);
         return (type->isEnum) ? type->name : ASTExpr_typeName(self->right);
     }
-    case tkOpComma:
-        return ASTExpr_typeName(self->left);
-    default:
-        break;
+    case tkOpComma: return ASTExpr_typeName(self->left);
+    default: break;
     }
     return "<invalid>";
 }
@@ -851,11 +833,8 @@ static void ASTExpr_catarglabels(ASTExpr* self) {
         ASTExpr_catarglabels(self->left);
         ASTExpr_catarglabels(self->right);
         break;
-    case tkOpAssign:
-        printf("_%s", self->left->string);
-        break;
-    default:
-        break;
+    case tkOpAssign: printf("_%s", self->left->string); break;
+    default: break;
     }
 }
 
@@ -869,8 +848,7 @@ static int ASTExpr_strarglabels(ASTExpr* self, char* buf, int bufsize) {
     case tkOpAssign:
         ret += snprintf(buf, bufsize, "_%s", self->left->string);
         break;
-    default:
-        break;
+    default: break;
     }
     return ret;
 }
@@ -908,8 +886,8 @@ monostatic ASTImport* ASTModule_getImportByAlias(
     ASTModule* module, const char* alias) {
     foreach (ASTImport*, imp, module->imports) //
     {
-        eprintf("import: %s %s\n", imp->alias, alias);
-        if (!strcmp(imp->alias, alias)) return imp;
+        eprintf("import: %s %s\n", imp->name + imp->aliasOffset, alias);
+        if (!strcmp(imp->name + imp->aliasOffset, alias)) return imp;
     }
     return NULL;
 }
@@ -943,8 +921,47 @@ monostatic ASTVar* ASTModule_getVar(ASTModule* module, const char* name) {
 
 #pragma mark - PARSER
 
-typedef enum ParserMode { PMLint, PMEmitC, PMGenTests } ParserMode;
+typedef enum CompilerMode {
+    PMTokenize, // just tokenize (debug only)
+    PMLint, // format on stdout, ALL errors on stderr
+    PMEmitC, // parse, stop on first error, or emit C
+    // PMBuildO, // generate the object file
+    PMMake, // run make and build the target
+    PMRun, // run the executable in debug mode (build it first)
+    PMTest // generate test code and run it
+} CompilerMode;
+
+static const char* CompilerMode__str[] = { //
+    [PMTokenize] = "PMTokenize",
+    [PMLint] = "PMLint",
+    [PMEmitC] = "PMEmitC",
+    [PMMake] = "PMMake",
+    [PMRun] = "PMRun",
+    [PMTest] = "PMTest"
+};
+
+// typedef enum DiagnosticSeverity {
+//     DiagError,
+//     DiagWarning,
+//     DiagHint
+// } DiagnosticSeverity;
+
+// typedef struct Diagnostic {
+//     unsigned short line;
+//     unsigned char col;
+//     DiagnosticSeverity severity : 8;
+//     // DiagnosticKind kind : 8;
+//     // DiagnosticEntity entity : 8;
+//     union {
+//         ASTType* type;
+//         ASTFunc* func;
+//         ASTVar* var;
+//         ASTExpr* expr;
+//     };
+// } Diagnostic;
+
 typedef struct IssueMgr {
+    char* filename;
     uint16_t errCount, warnCount, errLimit;
     uint8_t lastError /*enum type*/, warnUnusedVar : 1, warnUnusedFunc : 1,
         warnUnusedType : 1, warnUnusedArg : 1, hasParseErrors : 1;
@@ -961,13 +978,11 @@ typedef struct Parser {
 
     Token token; // current
     IssueMgr issues;
+    List(ASTModule) * modules;
 
-    List(ASTModule*) * modules; // module node of the AST
-                                // Stack(ASTScope*) scopes; // a stack
-                                // that keeps track of scope nesting
-    // uint32_t errCount, warnCount;
-    // uint16_t errLimit;
-    ParserMode mode : 8;
+    CompilerMode mode;
+    // JetOpts opts;
+
     bool generateCommentExprs; // set to false when compiling, set to
                                // true when linting
 
@@ -981,36 +996,39 @@ typedef struct Parser {
     } requires;
 } Parser;
 
-static const int sgr = sizeof(Parser);
+// static const int sgr = sizeof(Compiler);
 
-#define STR(x) STR_(x)
-#define STR_(x) #x
+// #define STR(x) STR_(x)
+// #define STR_(x) #x
 
-static const char* const banner = //
-    "________     _____  _\n"
-    "______(_)______  /_ _|  The next-gen language of computing\n"
-    "_____  /_  _ \\  __/ _|  %s %s %4d-%02d-%02d\n"
-    "____  / /  __/ /_  __|\n"
-    "___  /  \\___/\\__/ ___|  https://github.com/jetpilots/jet\n"
-    "/___/ ______________________________________________________\n\n";
+// static const char* const banner = //
+//     "________     _____  _\n"
+//     "______(_)______  /_ _|  The next-gen language of computing\n"
+//     "_____  /_  _ \\  __/ _|  %s %s %4d-%02d-%02d\n"
+//     "____  / /  __/ /_  __|\n"
+//     "___  /  \\___/\\__/ ___|  https://github.com/jetpilots/jet\n"
+//     "/___/ ______________________________________________________\n\n";
 
 static void Parser_fini(Parser* parser) {
-    free(parser->data);
-    free(parser->noext);
-    free(parser->moduleName);
-    free(parser->mangledName);
-    free(parser->capsMangledName);
+    // free(parser->data);
+    // free(parser->orig.ref[0]);
+    // free(parser->noext);
+    // free(parser->moduleName);
+    // free(parser->mangledName);
+    // free(parser->capsMangledName);
 }
 #define FILE_SIZE_MAX 1 << 24
 
-void recordNewlines(Parser* parser) {
+long recordNewlines(Parser* parser) {
     // push a new entry to get hold of the current source line later
     // this is the pointer in the original (unmodified) buffer
     char* cptr = parser->orig.ref[0];
     char* cend = cptr + (parser->end - parser->data);
+    long lines = 1;
     for (char* c = cptr; c < cend; c++) {
         if (*c == '\n') {
             *c = 0;
+            lines++;
             // while (*cptr) {
             //     while (*cptr != '\n')
             //        cptr++ ;
@@ -1027,9 +1045,10 @@ void recordNewlines(Parser* parser) {
     // for_to(i, parser->orig.used)
     //     printf("%4d: %s\n", i + 1, parser->orig.ref[i]);
     // abort();
+    return lines;
 }
-static Parser* Parser_fromFile(char* filename, bool skipws, ParserMode mode) {
 
+static Parser* Parser_fromFile(char* filename, bool skipws, CompilerMode mode) {
     size_t flen = CString_length(filename);
 
     // Error: the file might not end in .ch
@@ -1053,7 +1072,6 @@ static Parser* Parser_fromFile(char* filename, bool skipws, ParserMode mode) {
         eprintf("jet: no permission to read file '%s'.\n", filename);
         return NULL;
     }
-
     FILE* file = fopen(filename, "r");
     assert(file);
 
@@ -1066,45 +1084,64 @@ static Parser* Parser_fromFile(char* filename, bool skipws, ParserMode mode) {
 
     // 2 null chars, so we can always lookahead
     if (size < FILE_SIZE_MAX) {
-        ret->data = (char*)malloc(size);
+        char* data = malloc(size);
+        data[size - 1] = 0;
+        data[size - 2] = 0;
+
         fseek(file, 0, SEEK_SET);
-        if (fread(ret->data, size - 2, 1, file) != 1) {
-            eprintf("F+: the whole file '%s' could not be read.\n", filename);
+        if (fread(data, size - 2, 1, file) != 1) {
+            eprintf("jet: error: file '%s' could not be read\n", filename);
             fclose(file);
             return NULL;
             // would leak if ret was malloc'd directly, but we have a pool
         }
-        ret->data[size - 1] = 0;
-        ret->data[size - 2] = 0;
-        ret->moduleName = CString_tr(CString_clone(ret->noext), '/', '.');
-        ret->mangledName = CString_tr(CString_clone(ret->noext), '/', '_');
-        ret->capsMangledName = CString_upper(CString_clone(ret->mangledName));
-        ret->end = ret->data + size;
+        fclose(file);
+
+        ret = NEW(Parser);
+
+        ret->filename = filename;
+        // ret->noext = CString_noext(CString_clone(filename));
+        ret->data = data;
+        // ret->moduleName = CString_tr(CString_clone(ret->noext), '/', '.');
+        // ret->mangledName = CString_tr(CString_clone(ret->noext), '/', '_');
+        // ret->capsMangledName =
+        // CString_upper(CString_clone(ret->mangledName));
+        ret->end = ret->data + size - 2;
         ret->orig = (PtrArray) {};
-        PtrArray_push(&ret->orig, malloc(size));
-        memcpy(ret->orig.ref[0], ret->data, size);
-        ret->token.pos = ret->data;
-        ret->token.skipWhiteSpace = skipws;
-        ret->token.mergeArrayDims = false;
-        ret->token.kind = tkUnknown;
-        ret->token.line = 1;
-        ret->token.col = 1;
-        ret->mode = mode; // parse args to set this
-        ret->issues.errCount = 0;
-        ret->issues.warnCount = 0;
-        ret->issues.errLimit = 50000;
+        PtrArray_push(&ret->orig, strndup(data, size));
+        // memcpy(ret->orig.ref[0], ret->data, size);
+        ret->token = (Token) { //
+            .pos = ret->data,
+            .skipWhiteSpace = skipws,
+            .mergeArrayDims = false,
+            .kind = tkUnknown,
+            .line = 1,
+            .col = 1
+        };
+        ret->issues = (IssueMgr) { .errLimit = 50000 };
+        ret->mode = mode;
         ret->generateCommentExprs = (ret->mode == PMLint);
 
         // If you ar not linting, even a single error is enough to stop and tell
         // the user to LINT THE DAMN FILE FIRST.
         if (ret->mode != PMLint) ret->issues.errLimit = 1;
+        // ret->nlines =
+        recordNewlines(ret);
+        // ^ make that ret->orig = CString_splitlines(Cstring_clone(ret->data));
+
+        if (ret->orig.used > 65535) {
+            eprintf("%s: error: too many lines (%u); limit is 65000\n",
+                filename, ret->orig.used);
+            Parser_fini(ret);
+            ret = NULL;
+        }
 
     } else {
-        eputs("Source files larger than 16MB are not allowed.\n");
+        eprintf("%s: error: file with %zu MB exceeds 16 MB\n", filename,
+            (size - 2) / 1024 / 1024);
     }
 
-    fclose(file);
-    recordNewlines(ret);
+    // fclose(file);
     return ret;
 }
 static bool Parser_matches(Parser* parser, TokenKind expected);
@@ -1240,30 +1277,6 @@ static ASTExpr expr_const_nil[] = { { .kind = tkKeyword_nil } };
 static ASTExpr expr_const_empty[] = { { .kind = tkString, .string = "" } };
 
 #include "analyse.h"
-// static ASTExpr expr_const_no[] = { { .name = "no",
-//     .typeSpec = (ASTTypeSpec[]) { { .typeType = TYBool } },
-//     .used = 1,
-//     .init = (ASTExpr[]) { { .kind = tkNumber, .string = "0" } } } };
-// static ASTExpr expr_const_yes[] = { { .name = "yes",
-//     .typeSpec = (ASTTypeSpec[]) { { .typeType = TYBool } },
-//     .used = 1,
-//     .init = (ASTExpr[]) { { .kind = tkNumber, .string = "1" } } } };
-// static ASTExpr expr_const_nil[] = { { .name = "nil",
-//     .typeSpec = (ASTTypeSpec[]) { { .typeType = TYAnyType } },
-//     .used = 1,
-//     .init = (ASTExpr[]) { { .kind = tkNumber, .string = "0" } } } };
-// static ASTExpr expr_const_emptystr[] = { { .name = "nil",
-//     .typeSpec = (ASTTypeSpec[]) { { .typeType = TYAnyType } },
-//     .used = 1,
-//     .init = (ASTExpr[]) { { .kind = tkNumber, .string = "0" } } } };
-// static void initStaticExprs()
-// {
-//     expr_const_0.kind = tkNumber;
-//     expr_const_0.string = "0";
-//     lparen.kind = tkParenOpen;
-//     rparen.kind = tkParenClose;
-// }
-
 #include "parse.h"
 
 // TODO: this should be in ASTModule open/close
@@ -1273,10 +1286,6 @@ static void Parser_emit_open(Parser* parser) {
     printf("#define THISMODULE %s\n", parser->mangledName);
     printf("#define THISFILE \"%s\"\n", parser->filename);
     printf("#define NUMLINES %d\n", parser->token.line);
-    // if(genCoverage)
-    // printf("static UInt64 _cov_[NUMLINES] = {};\n");
-    // printf("static ticks _lprof_last_, _lprof_tmp_;\n");
-    // printf("static ticks _lprof_[NUMLINES] = {};\n");
 }
 
 static void Parser_emit_close(Parser* parser) {
@@ -1290,27 +1299,52 @@ static void alloc_stat() { }
 #include "ptr2off.h"
 
 #pragma mark - main
+
 int main(int argc, char* argv[]) {
     // fprintf(stderr, banner, "v0.2.2", "asd762345asd", 2020, 9, 21);
     if (argc == 1) {
         eputs("jet: no input files. What are you trying to do?\n");
         return 1;
     }
-    bool printDiagnostics = (argc > 2 && *argv[2] == 'd') || false;
+    // bool printDiagnostics = (argc > 2 && *argv[2] == 'd') || false;
 
     clock_Time t0 = clock_getTime();
-    List(ASTModule) * modules;
-    Parser* parser;
+
+    // JetOpts opts[1];
+    // if (!getOpts(argc, argv, opts)) return 3;
+
+    // todo: mode 'x' must be replaced with 'd', 'r', 'z' for build modes
+    // TODO: these short circuits should not be here but in the mode switch
+    // below. When you are in compile or build mode check these to save some
+    // repeated generation. When linting this has no effect, unless of course
+    // you have dumped the AST into a binary format and want to check for that.
+    // if (!(needsBuild(opts->srcfile, 'x') || opts->forceBuild)) return 0;
+    // if (!(needsBuild(opts->srcfile, 'o') || opts->forceBuild)) return 0;
+    // if (!(needsBuild(opts->srcfile, 'c') || opts->forceBuild)) return 0;
 
     // initStaticExprs();
-    ParserMode mode = PMEmitC;
-    if (argc > 3 && *argv[3] == 'l') mode = PMLint;
-    if (argc > 2 && *argv[2] == 'l') mode = PMLint;
-    if (argc > 3 && *argv[3] == 't') mode = PMGenTests;
-    if (argc > 2 && *argv[2] == 't') mode = PMGenTests;
-    parser = Parser_fromFile(argv[1], true, mode);
+    CompilerMode mode = PMEmitC;
+    bool stats = false;
+    // if (argc > 3 && *argv[3] == 'l') mode = PMLint;
+    char* filename = argv[1];
+    if (argc > 2)
+        if (*argv[2] == 'c' || *argv[2] == 'C')
+            mode = PMEmitC, stats = (*argv[2] == 'C');
+    if (argc > 2)
+        if (*argv[2] == 'l' || *argv[2] == 'L')
+            mode = PMLint, stats = (*argv[2] == 'L');
+    if (argc > 2)
+        if (*argv[2] == 't' || *argv[2] == 'T')
+            mode = PMTest, stats = (*argv[2] == 'T');
+    // if (argc > 3 && *argv[3] == 't') mode = PMTest;
+    // if (argc > 2 && *argv[2] == 't') mode = PMTest;
+
+    Parser* parser = Parser_fromFile(filename, true, mode);
     if (!parser) return 2;
 
+    List(ASTModule) * modules;
+
+    // com lives for the duration of main. it appears in parseModule
     ASTModule* root = parseModule(parser, &modules, NULL);
 
     if (parser->mode == PMLint) {
@@ -1322,9 +1356,6 @@ int main(int argc, char* argv[]) {
         }
     } else if (!(parser->issues.errCount)) {
         switch (parser->mode) {
-            // case PMLint: {
-            //     foreach(ASTModule*, mod, modules) ASTModule_lint(mod, 0);
-            // } break;
 
         case PMEmitC: {
             // TODO: if (monolithic) printf("#define function static\n");
@@ -1335,9 +1366,10 @@ int main(int argc, char* argv[]) {
             foreach (ASTModule*, mod, modules)
                 ASTModule_emit(mod);
             Parser_emit_close(parser);
+
         } break;
 
-        case PMGenTests: {
+        case PMTest: {
             printf("#include \"jet/tester.h\"\n");
             // TODO : THISFILE must be defined since function callsites need
             // it, but the other stuff in Parser_emit_open isn't required.
@@ -1348,15 +1380,12 @@ int main(int argc, char* argv[]) {
                 ASTModule_genTests(mod);
         } break;
 
-        default:
-            break;
+        default: break;
         }
     }
 
-    // if (printDiagnostics) printstats(parser, elapsed(getticks(), t0) /
-    // 1e6);
     double elap = clock_clockSpanMicro(t0) / 1.0e3;
-    if (printDiagnostics) printstats(parser, elap);
+    if (stats) printstats(parser, elap);
 
     if (parser->issues.errCount) {
         eprintf("\n\e[31;1;4m THERE ARE %2d ERRORS.                        "

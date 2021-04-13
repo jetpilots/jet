@@ -18,18 +18,18 @@ monostatic CString CString_pclone(const CString str) {
     return CString_pndup(str, strlen(str));
 }
 
-monostatic CString CString_ndup(const CString str, size_t len) {
+monostatic CString CString_ndup(const char* str, size_t len) {
     CString ret = CString_malloc(len);
     memcpy(ret, str, len); // sPool uses calloc, so no need to zero last
     ret[len] = 0;
     return ret;
 }
 
-monostatic CString CString_clone(const CString str) {
+monostatic CString CString_clone(const char* str) {
     return CString_ndup(str, strlen(str));
 }
 
-monostatic size_t CString_length(CString str) { return strlen(str); }
+monostatic size_t CString_length(const char* str) { return strlen(str); }
 // monostatic CString CString_clone(CString str) { return pstrdup(str); }
 // monostatic CString CString_sysClone(CString str) { return strdup(str); }
 monostatic CString CString_indexOf(CString str, char c) {

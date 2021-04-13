@@ -2,26 +2,26 @@
 #include <string.h>
 typedef char bool;
 
-static const char* words[] = { "function", "test", "returns", "type", "var",
-    "let", "return", "as", "and", "check", "extends", "public", "private",
-    "print", "describe", "json", "repr" };
+static const char* words[] = { "func", "test", "returns", "type", "var", "let",
+    "return", "as", "and", "check", "extends", "public", "private", "in",
+    "not in", "not", "repr", "or" };
 
-static const size_t nWords = 1; // sizeof(words) / sizeof(words[0]);
+static const size_t nWords = sizeof(words) / sizeof(words[0]);
 
 static const char* const spaces64 = //
     "                                                                ";
 static const int indentStep = 4;
 char accum[64] = {};
 
-bool hasPrefix(char* word, int len) {
+int findPrefix(char* word, int len) {
     for (int iw = 0; iw < nWords; iw++)
-        if (!strncmp(words[iw], word, len)) return 1;
+        if (!strncmp(words[iw], word, len)) return iw;
     return 0;
 }
 
-bool hasWord(char* word) {
+int findWord(char* word) {
     for (int iw = 0; iw < nWords; iw++)
-        if (!strcmp(words[iw], word)) return 1;
+        if (!strcmp(words[iw], word)) return iw;
     return 0;
 }
 
@@ -52,8 +52,10 @@ void recur(int level) {
     const int indent = (level + 1) * indentStep;
     printf("%.*sswitch(*++pos) {\n", indent, spaces64);
     // printf("// accum: %s\n", accum);
-    if (hasWord(accum))
-        printf("%.*scase '\\0': THE_CODE(%s);\n", indent, spaces64, accum);
+    int idx;
+    if ((idx = findWord(accum)))
+        printf("%.*scase '\\0': THE_CODE(%s, %d); break;\n", indent, spaces64,
+            accum, idx);
 
     for (int j = 0; j < nCharSet; j++) {
         for (int iw = 0; iw < nWords; iw++) {
@@ -61,7 +63,7 @@ void recur(int level) {
             // if (*words[iw] != *accum) continue;
             // printf("%.*s%s %s %d\n", indent, spaces64, words[iw], accum,
             // level + 1);
-            if (hasPrefix(accum, level + 1)) {
+            if (findPrefix(accum, level + 1)) {
                 printf("%.*scase '%c':\n", indent, spaces64, accum[level]);
                 recur(level + 1);
                 accum[level + 1] = 0;

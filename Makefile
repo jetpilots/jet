@@ -4,6 +4,9 @@ CCLIBS=-lc -lm
 CC=gcc
 
 
+install: jetc
+	@cp jetc /usr/local/bin
+
 jetc: programs/main.c modules/*.h
 	@ $(CC)  $(CCFLAGS) $< $(CCLIBS) -o $@
 

@@ -76,7 +76,7 @@ typedef enum TypeTypes {
     TYUnresolved = 0,
 
     TYNoType,
-    TYAnyType,
+    TYNilType,
     TYObject,
 
     TYErrorType,
@@ -106,7 +106,7 @@ static const char* TypeType_name(TypeTypes tyty) {
     switch (tyty) {
     case TYUnresolved:
         return NULL;
-    case TYAnyType:
+    case TYNilType:
         return "Anything";
     case TYNoType:
         return "Void";
@@ -136,7 +136,7 @@ static const char* TypeType_name(TypeTypes tyty) {
 static const char* TypeType_c_name[] = {
     [TYUnresolved] = "<unresolved>",
     [TYNoType] = "void",
-    [TYAnyType] = "(any)",
+    [TYNilType] = "(any)",
     [TYErrorType] = "<invalid>",
     [TYString] = "CString",
     [TYBool] = "bool",
@@ -158,7 +158,7 @@ static const char* TypeType_format(TypeTypes tyty, bool quoted) {
     switch (tyty) {
     case TYUnresolved:
     case TYNoType:
-    case TYAnyType:
+    case TYNilType:
     case TYErrorType:
         return NULL;
     case TYObject:
@@ -198,7 +198,7 @@ static unsigned int TypeType_size(TypeTypes tyty) {
     switch (tyty) {
     case TYUnresolved:
     case TYNoType:
-    case TYAnyType:
+    case TYNilType:
     case TYErrorType:
         return 0;
     case TYObject:

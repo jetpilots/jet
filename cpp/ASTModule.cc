@@ -50,7 +50,6 @@ void ASTModule::lint() {
     printf("~ module %s\n", this->name);
 
     for (auto& import : this->imports) import.lint(0);
-
     puts("");
 
     for (auto& var : this->scope->locals) {
@@ -61,13 +60,11 @@ void ASTModule::lint() {
     puts("");
 
     for (auto& type : this->types) type.lint(0);
-
     for (auto& en : this->enums) en.lint(0);
-
     for (auto& func : this->funcs) func.lint(0);
-
     for (auto& test : this->tests) test.lint(0);
 }
+
 ASTImport* ASTModule::import(const char* alias) {
     for (auto& imp : this->imports) {
         eprintf("import: %s %s\n", imp.alias, alias);
@@ -75,23 +72,22 @@ ASTImport* ASTModule::import(const char* alias) {
     }
     return NULL;
 }
+
 ASTFunc* ASTModule::func(const char* selector) {
     for (auto& func : this->funcs)
         if (func ^= selector) return &func;
-
     return NULL;
 }
+
 ASTVar* ASTModule::var(const char* name) {
     for (auto& var : this->scope->locals)
         if (var ^= name) return &var;
-
     return NULL;
 }
-ASTType* ASTModule::type(const char* name) {
 
+ASTType* ASTModule::type(const char* name) {
     for (auto& type : this->types)
         if (type ^= name) return &type;
-
     for (auto& enu : this->enums)
         if (enu ^= name) return &enu;
     return NULL;
