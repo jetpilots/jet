@@ -118,12 +118,14 @@ typedef struct ASTVar {
     // USE?
     ASTLocation loc[0];
     uint32_t line : 24, col : 8; //
-    //, lineLastUsed;
+    uint16_t lastUsage, used, changed;
     // ^ YOu canot use the last used line no to decide drops etc. because code
     // motion can rearrange statements and leave the line numbers stale.
+    // --- YES YOU CAN if you use == to compare when dropping and not >=. Also
+    // for multiline exprs you should save the toplevel expr line and not the
+    // line of the actual tkIdentifierResolved.
     struct {
-        bool used : 1, //
-            changed : 1, //
+        bool //
             isLet : 1, //
             isVar : 1, //
             isArg : 1, // a function arg, not a local var
@@ -265,6 +267,7 @@ typedef struct ASTScope {
     List(ASTExpr) * stmts;
     List(ASTVar) * locals;
     struct ASTScope* parent;
+    bool isLoop; // this affects drops: loop scopes cannot drop parent vars.
     // still space left
 } ASTScope;
 
@@ -306,7 +309,7 @@ typedef struct ASTFunc {
     ASTTypeSpec* returnSpec;
     char *selector, *prettySelector;
     struct {
-        uint16_t line;
+        uint16_t line, used;
         struct {
             uint16_t throws : 1,
                 isRecursive : 1, // usesNet : 1,usesIO : 1, usesGUI : 1,
@@ -1341,6 +1344,11 @@ int main(int argc, char* argv[]) {
 
     Parser* parser = Parser_fromFile(filename, true, mode);
     if (!parser) return 2;
+
+    parser->issues.warnUnusedArg = //
+        parser->issues.warnUnusedFunc = //
+        parser->issues.warnUnusedType = //
+        parser->issues.warnUnusedVar = 1;
 
     List(ASTModule) * modules;
 

@@ -618,7 +618,8 @@ static ASTScope* parseScope(Parser* parser, ASTScope* parent, bool isTypeBody) {
             goto exitloop;
 
         case tkKeyword_var:
-        case tkKeyword_let:
+        case tkKeyword_let: {
+            int col = parser->token.col + parser->token.matchlen;
             var = parseVar(parser);
             if (!var)
                 continue;
@@ -640,7 +641,7 @@ static ASTScope* parseScope(Parser* parser, ASTScope* parent, bool isTypeBody) {
             expr->kind = tkVarAssign;
             expr->line = var->init ? var->init->line : var->line;
             // parser->token.line;
-            expr->col = var->init ? var->init->col : 1;
+            expr->col = col; // var->init ? var->init->col : 1;
             expr->prec = TokenKind_getPrecedence(tkOpAssign);
             expr->var = var;
 
@@ -652,7 +653,7 @@ static ASTScope* parseScope(Parser* parser, ASTScope* parent, bool isTypeBody) {
 
             // TODO: KEEP THE LAST LISTITEM AND APPEND TO THAT!!
             stmts = PtrList_append(stmts, expr);
-            break;
+        } break;
 
             // case tkKeyword_match:
 
@@ -763,10 +764,11 @@ static ASTScope* parseScope(Parser* parser, ASTScope* parent, bool isTypeBody) {
                 // var->typeSpec->typeType = TYUInt32;
                 // PtrList_append(&expr->body->locals, var);
                 expr->body = parseScope(parser, forScope, isTypeBody);
-
             } else {
                 expr->body = parseScope(parser, scope, isTypeBody);
             }
+            // Mark the scope as a loop scope if it is a 'for' or 'while'.
+            expr->body->isLoop = tt == tkKeyword_for || tkKeyword_while;
 
             if (Parser_matches(parser, tkKeyword_else) || //
                 Parser_matches(parser, tkKeyword_elif)) {
@@ -1378,6 +1380,7 @@ static ASTModule* parseModule(
         case tkKeyword_let:
             // TODO: add these to exprs
             {
+                int col = parser->token.col + parser->token.matchlen;
                 ASTVar *var = parseVar(parser), *orig;
                 if (!var) {
                     Token_advance(&parser->token);
@@ -1402,7 +1405,8 @@ static ASTModule* parseModule(
                 ASTExpr* expr = NEW(ASTExpr);
                 expr->kind = tkVarAssign;
                 expr->line = var->init ? var->init->line : parser->token.line;
-                expr->col = var->init ? var->init->col : 1;
+                expr->col = col;
+                // printf("%d\n", col);
                 expr->prec = TokenKind_getPrecedence(tkOpAssign);
                 expr->var = var;
 
@@ -1477,7 +1481,10 @@ void analyseModule(Parser* parser, ASTModule* mod) {
     // don't break on the first match, keep looking so that duplicate starts
     // can be found
     foreach (ASTFunc*, func, mod->funcs)
-        if (!strcmp(func->name, "start")) fstart = func;
+        if (!strcmp(func->name, "start")) {
+            fstart = func;
+            fstart->used = 1;
+        }
 
     // If we are linting, the whole file must be analysed. this happens
     // regardless of whether start was found or not
@@ -1507,18 +1514,18 @@ void analyseModule(Parser* parser, ASTModule* mod) {
 
         ASTFunc_analyse(parser, fstart, mod);
         // Check dead code -- unused funcs and types, and report warnings.
-        foreach (ASTFunc*, func, mod->funcs)
-            if (!func->analysed && !func->isDefCtor)
-                Parser_warnUnusedFunc(parser, func);
-        foreach (ASTType*, type, mod->types)
-            if (!type->analysed) Parser_warnUnusedType(parser, type);
 
     } else { // TODO: new error, unless you want to get rid of start
         eputs("\n\e[31m*** error:\e[0m cannot find function "
               "\e[33mstart\e[0m.\n");
         parser->issues.errCount++;
     }
-
+    foreach (ASTFunc*, func, mod->funcs)
+        if (!func->intrinsic
+            && (!func->used || (!func->analysed && !func->isDefCtor)))
+            Parser_warnUnusedFunc(parser, func);
+    foreach (ASTType*, type, mod->types)
+        if (!type->analysed) Parser_warnUnusedType(parser, type);
     // Check each type for cycles in inheritance graph.
     // Actually if there is no inheritance and composition is favoured, you
     // have to check each statement in the type body instead of just walking

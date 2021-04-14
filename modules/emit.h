@@ -424,9 +424,53 @@ static void ASTScope_emit(ASTScope* scope, int level) {
         else
             puts("");
         // convert this into a flag which is set in the resolution pass
+
+        // here you see if any vars are to be dropped at this point (because
+        // they were last used in this expr. A var can only be dropped in its
+        // own scope, not an inner or outer scope, so just scan our own vars.
+        // In a sense the stmt->line is a local ID for the statement within the
+        // scope.
+        ASTScope* sco = scope;
+        do {
+            foreach (ASTVar*, var, sco->locals)
+                if (var->used) {
+                    if (var->lastUsage)
+                        printf("%.*s//-- %s %d %d\n", level, spaces, var->name,
+                            var->lastUsage, stmt->line);
+                    if (var->lastUsage == stmt->line) {
+                        printf("%.*sdrop(%s);\n", level, spaces, var->name);
+                        // TODO^ distinguish between stack, heap, mixed,
+                        // refcounted drops
+                        var->lastUsage = 0; // this means var has been dropped.
+                    }
+                }
+        } while (!sco->isLoop // if loop scope, don't walk up
+            && (sco = sco->parent) // walk up to the last loop scope
+            && sco->parent && !sco->parent->isLoop);
+        // all scopes have the global scope as the final parent.
+        // what if some scope tries to drop something from there?
+
+        // TODO:
+        // Maybe scope should have a lineno. If a loop scope has the lastUsage
+        // of a parent var, it cannot drop it inside the loop, but it should be
+        // done just after the loop ends. Now it will be dropped anyway at
+        // owning scope end which may be suboptimal. If you have the scope line,
+        // which is the line of the cond expr of if / while etc., you change the
+        // lastUsage to that line and it gets dropped just after the scope.
+
         if (ASTExpr_throws(stmt))
             printf("%.*sTRACE_IF_ERROR;\n", level, spaces);
     }
+    // It's possible some vars were not detected in inner scopes and dropped. So
+    // let's drop them here. No need to walk up the parent chain here.
+    foreach (ASTVar*, var, scope->locals)
+        if (var->used && var->lastUsage)
+            printf("%.*sdrop(%s); // anyway\n", level, spaces, var->name);
+    // ^ these are all the vars whose lastUsage could not be matched. This may
+    // be because they are in an inner scope. In this case they should be
+    // dropped at the end of the scope. Optimize this later so that if there are
+    // multiple subscopes and the last usage is in one of them, the drop happens
+    // after that subscope and doesn't wait until the very end.
 }
 
 ///////////////////////////////////////////////////////////////////////////

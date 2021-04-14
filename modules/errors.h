@@ -21,9 +21,23 @@ static void Parser__errHeader(Parser* parser) {
     Parser__errHeaderWithLoc(parser, parser->token.line, parser->token.col,
         parser->token.col + parser->token.matchlen);
 }
-
+static void Parser__warnHeaderWithLoc(
+    Parser* parser, int line, int col, int len) {
+    // "%s%s:%d:%d: error: "
+    eprintf("%s%s:%d:%d-%d: warning: #%d;;",
+        RELF(parser->filename), //
+        line, //
+        col, //
+        col + len, //
+        ++parser->issues.warnCount);
+}
+// static void Parser__errHeader(Parser* parser) {
+//     Parser__errHeaderWithLoc(parser, parser->token.line, parser->token.col,
+//         parser->token.col + parser->token.matchlen);
+// }
 static void Parser__errHeaderWithExpr(Parser* parser, ASTExpr* expr) {
     int len;
+    int col = expr->col;
     switch (expr->kind) {
     // case tkKeyword_cheater:
     case tkKeyword_for:
@@ -56,7 +70,7 @@ static void Parser__errHeaderWithExpr(Parser* parser, ASTExpr* expr) {
     case tkKeyword_extends:
     case tkKeyword_var:
     case tkKeyword_let:
-    case tkKeyword_import:
+    case tkKeyword_import: len = strlen(TokenKinds_repr[expr->kind]); break;
     case tkIdentifier:
     case tkArgumentLabel:
     case tkFunctionCall:
@@ -67,10 +81,14 @@ static void Parser__errHeaderWithExpr(Parser* parser, ASTExpr* expr) {
     case tkIdentifierResolved:
     case tkSubscriptResolved: len = strlen(expr->var->name); break;
     case tkFunctionCallResolved: len = strlen(expr->func->name); break;
+    case tkVarAssign:
+        len = 4 + strlen(expr->var->name);
+        col -= 3;
+        break;
     default: len = 1;
     }
     Parser__errHeaderWithLoc(
-        parser, expr->line ? expr->line : parser->token.line, expr->col, len);
+        parser, expr->line ? expr->line : parser->token.line, col, len);
 }
 static void Parser_errorIncrement(Parser* parser) {
     if (++parser->issues.errCount < parser->issues.errLimit) return;
@@ -280,51 +298,40 @@ static void Parser_errorUnrecognizedMember(
 
 static void Parser_warnUnusedArg(Parser* parser, ASTVar* var) {
     if (!parser->issues.warnUnusedArg) return;
-    Parser__errHeader(parser);
-    eprintf("\n(%d) warning: unused argument "
-            "%s at %s%s:%d:%d\n",
-        ++parser->issues.warnCount, //
-        var->name, //
-        RELF(parser->filename), //
-        var->line, //
-        var->col);
+    Parser__warnHeaderWithLoc(parser, var->line, //
+        var->col, strlen(var->name));
+    eprintf("unused or unnecessary argument '%s'\n", var->name);
 }
 
 static void Parser_warnUnusedVar(Parser* parser, ASTVar* var) {
     if (!parser->issues.warnUnusedVar) return;
-    Parser__errHeader(parser);
-    eprintf("\n(%d) warning: unused variable "
-            "%s at %s%s:%d:%d\n",
-        ++parser->issues.warnCount, //
-        var->name, //
-        RELF(parser->filename), //
-        var->line, //
-        var->col);
+    Parser__warnHeaderWithLoc(parser, var->line, //
+        var->col - 4, 4 + strlen(var->name));
+    eprintf("unused or unnecessary variable '%s'\n", var->name);
 }
 
 static void Parser_warnUnusedFunc(Parser* parser, ASTFunc* func) {
     if (!parser->issues.warnUnusedFunc) return;
-    Parser__errHeader(parser);
-    eprintf("\n(%d) warning: unused function "
-            "%s at %s%s:%d\n"
-            "            selector is %s\n",
-        ++parser->issues.warnCount, //
-        func->name, //
-        RELF(parser->filename),
-        func->line, //
+    Parser__warnHeaderWithLoc(parser, func->line, 1, 5 + strlen(func->name));
+    eprintf("unused or unnecessary function '%s';;selector: '%s'\n", func->name,
         func->selector);
 }
 
 static void Parser_warnUnusedType(Parser* parser, ASTType* type) {
     if (!parser->issues.warnUnusedType) return;
-    Parser__errHeader(parser);
-    eprintf("\n(%d) warning: unused type "
-            "%s at %s%s:%d:%d\n",
-        ++parser->issues.warnCount, //
-        type->name, //
-        RELF(parser->filename),
-        type->line, //
-        type->col);
+    Parser__warnHeaderWithLoc(
+        parser, type->line, type->col, strlen(type->name));
+    eprintf("unused type '%s'\n", type->name);
+}
+
+static void Parser_warnSameExpr(Parser* parser, ASTExpr* e1, ASTExpr* e2) {
+    Parser__warnHeaderWithLoc(parser, e1->line, e1->col, 1);
+    eprintf("CSE candidate '%s' for %d:%d\n", TokenKinds_repr[e1->kind],
+        e2->line, e2->col);
+
+    Parser__warnHeaderWithLoc(parser, e2->line, e2->col, 1);
+    eprintf("CSE candidate '%s' for %d:%d\n", TokenKinds_repr[e2->kind],
+        e1->line, e2->col);
 }
 
 static void Parser_errorDuplicateVar(

@@ -2,7 +2,7 @@
 #include "jet/core/Dict.h"
 
 static void ASTExpr_hash(
-    /* Compiler* com, */ ASTExpr* expr, Dict(UInt32, Ptr) * cseDict) {
+    Parser* parser, ASTExpr* expr, Dict(UInt32, Ptr) * cseDict) {
     if (!expr) unreachable("%s", "expr is NULL");
     switch (expr->kind) {
     case tkString:
@@ -16,7 +16,7 @@ static void ASTExpr_hash(
         }
     } break;
     case tkVarAssign:
-        ASTExpr_hash(/* parser, */ expr->var->init, cseDict);
+        ASTExpr_hash(parser, expr->var->init, cseDict);
         //        expr->hash = expr->var->init->hash;
         break;
     case tkFunctionCallResolved:
@@ -32,7 +32,7 @@ static void ASTExpr_hash(
         // here we exploit the fact that name is at the same offset within
         // ASTFunc and ASTVar, so the deref will get the right thing
         if (expr->left) {
-            ASTExpr_hash(/* parser,  */ expr->left, cseDict);
+            ASTExpr_hash(parser, expr->left, cseDict);
             str.hash[1] = expr->left->hash;
         }
         expr->hash = UInt64_hash(str.h64); // CString_hash(str.buf);
@@ -49,13 +49,13 @@ static void ASTExpr_hash(
             str.hash[0] = UInt32_hash(expr->kind);
             str.hash[1] = 0;
             if (expr->right) {
-                ASTExpr_hash(/* parser, */ expr->right, cseDict);
+                ASTExpr_hash(parser, expr->right, cseDict);
                 str.hash[1] = expr->right->hash;
             }
             UInt32 tmphash = UInt64_hash(str.h64);
 
-            if (!expr->unary) {
-                ASTExpr_hash(/* parser, */ expr->left, cseDict);
+            if (!expr->unary && expr->left) {
+                ASTExpr_hash(parser, expr->left, cseDict);
                 str.hash[0] = expr->left->hash;
                 str.hash[1] = tmphash;
                 tmphash = UInt64_hash(str.h64);
@@ -87,7 +87,7 @@ static void ASTExpr_hash(
 // hashes have been generated in ASTExpr_hash (which is bottom-up, so checking
 // cannot happen inline).
 static void ASTExpr_checkHashes(
-    /* Compiler* com, */ ASTExpr* expr, Dict(UInt32, Ptr) * cseDict) {
+    Parser* parser, ASTExpr* expr, Dict(UInt32, Ptr) * cseDict) {
 
     UInt32 idx = Dict_get(UInt32, Ptr)(cseDict, expr->hash);
 
@@ -95,14 +95,15 @@ static void ASTExpr_checkHashes(
         ASTExpr* orig = Dict_val(cseDict, idx);
         if (orig != expr && orig->kind == expr->kind) {
             // unfortunately there ARE collisions, so check again
-            eprintf("\n-- found same exprs at\n%02d:%02d hash %d and\n",
-                /* com->filename, */ expr->line, expr->col, expr->hash);
-            // TODO: make gen print to stderr
-            // ASTExpr_gen(expr, 4, true, false);
-            eprintf("\n:%02d:%02d hash %d\n",
-                /* com->filename, */ orig->line, orig->col, orig->hash);
-            // ASTExpr_gen(orig, 4, true, false);
-            eputs("");
+            Parser_warnSameExpr(parser, expr, orig);
+            // eprintf("\n-- found same exprs at\n%02d:%02d hash %d and\n",
+            //     /* com->filename, */ expr->line, expr->col, expr->hash);
+            // // TODO: make gen print to stderr
+            // // ASTExpr_gen(expr, 4, true, false);
+            // eprintf("\n:%02d:%02d hash %d\n",
+            //     /* com->filename, */ orig->line, orig->col, orig->hash);
+            // // ASTExpr_gen(orig, 4, true, false);
+            // eputs("");
             return;
         }
     }
@@ -110,31 +111,30 @@ static void ASTExpr_checkHashes(
     switch (expr->kind) {
         //        case tkKeyword_if: ...
     case tkVarAssign:
-        ASTExpr_checkHashes(/* parser, */ expr->var->init, cseDict);
+        ASTExpr_checkHashes(parser, expr->var->init, cseDict);
         break;
 
     case tkFunctionCallResolved:
     case tkSubscriptResolved:
-        if (expr->left) ASTExpr_checkHashes(/* parser, */ expr->left, cseDict);
+        if (expr->left) ASTExpr_checkHashes(parser, expr->left, cseDict);
         break;
     default:
         if (expr->prec) {
-            if (!expr->unary)
-                ASTExpr_checkHashes(/* parser, */ expr->left, cseDict);
-            if (expr->right)
-                ASTExpr_checkHashes(/* parser, */ expr->right, cseDict);
+            if (!expr->unary && expr->left)
+                ASTExpr_checkHashes(parser, expr->left, cseDict);
+            if (expr->right) ASTExpr_checkHashes(parser, expr->right, cseDict);
         }
     }
 }
 
-static void ASTFunc_hashExprs(/* Compiler* com,  */ ASTFunc* func) {
+static void ASTFunc_hashExprs(Parser* parser, ASTFunc* func) {
     static Dict(UInt32, Ptr)* cseDict = NULL; // FIXME: will leak
     if (!cseDict) cseDict = Dict_init(UInt32, Ptr)();
     Dict_clear(UInt32, Ptr)(cseDict);
 
     foreach (ASTExpr*, stmt, func->body->stmts) {
-        ASTExpr_hash(/* parser, */ stmt, cseDict);
-        ASTExpr_checkHashes(/* parser, */ stmt, cseDict);
+        ASTExpr_hash(parser, stmt, cseDict);
+        ASTExpr_checkHashes(parser, stmt, cseDict);
 
         //        int status = 0;
         //        UInt32 idx = Dict_put(UInt32, Ptr)(cseDict, stmt->hash,

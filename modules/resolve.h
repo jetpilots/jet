@@ -110,7 +110,7 @@ static void resolveMember(Parser* parser, ASTExpr* expr, ASTType* type) {
     if (found) {
         expr->kind = ret;
         expr->var = found;
-        expr->var->used = true;
+        expr->var->used++;
     } else {
         Parser_errorUnrecognizedMember(parser, type, expr);
     }
@@ -133,7 +133,22 @@ static void resolveVars(Parser* parser, ASTExpr* expr, ASTScope* scope,
 
     if (!expr) return;
     switch (expr->kind) {
-    case tkIdentifierResolved: break;
+    case tkIdentifierResolved:
+    case tkSubscriptResolved:
+        expr->var->lastUsage = expr->line;
+        // ^ TODO: actually the line to set is not expr->line, but the line
+        // number of the toplevel expr. In the new code you pass parent expr
+        // into analyse & resolve, use that to walk up to the toplevel and find
+        // its line number. This matters for statements like:
+        // var g =
+        //    1 + call(2,
+        //             4,
+        //             h)
+        // when you later want to insert drop calls, you have to find the expr
+        // with the corresponding line (==, not >= since order can be changed)
+        // The stmt list will have the line number corresponding to the varDecl
+        // line and not the actual line on which h appears.
+        break;
 
     case tkIdentifier:
     case tkSubscript: {
@@ -143,8 +158,8 @@ static void resolveVars(Parser* parser, ASTExpr* expr, ASTScope* scope,
         if (found) {
             expr->kind = ret;
             expr->var = found;
-            expr->var->used = true;
-            // expr->var->lastUsed = topExpr;
+            expr->var->used++;
+            expr->var->lastUsage = expr->line; // see above for a TODO and info
         } else {
             // ASTImport* import = ASTModule_getImportByAlias(mod,
             // expr->string); if (import) {
@@ -269,7 +284,7 @@ static void resolveVars(Parser* parser, ASTExpr* expr, ASTScope* scope,
                     // for a.x = ... it marks all of a as used. Instead should
                     // traverse the . sequence left to right and check which the
                     // first read-only variable in that sequence
-                    var->changed = true;
+                    var->changed++;
                     if (expr->kind == tkOpAssign) var->reassigned = true;
                     if (!var->isVar) Parser_errorReadOnlyVar(parser, varExpr);
                 }

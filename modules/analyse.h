@@ -235,6 +235,32 @@ static void ASTExpr_setEnumBase(
     }
 }
 
+static void reduceVarUsage(ASTExpr* expr) {
+    // vars and subscripts, but also function calls have their usage counts
+    // reduced when being involved in an expr that inits a known unused
+    // variable.
+    switch (expr->kind) {
+    case tkString: break; // TODO: vars within string intrp
+    case tkSubscriptResolved:
+        if (expr->left) reduceVarUsage(expr->left); // fallthru
+    case tkIdentifierResolved:
+        // reduce this var's usage, and if it drops to zero reduce the usage of
+        // all vars in this var's init. Sort of like a compile time ref count.
+        if (!--expr->var->used) reduceVarUsage(expr->var->init);
+        break;
+    case tkFunctionCallResolved:
+        if (expr->left) reduceVarUsage(expr->left);
+        expr->func->used--;
+        break;
+    case tkPeriod: reduceVarUsage(expr->left); break;
+    default:
+        if (expr->prec) {
+            if (!expr->unary && expr->left) reduceVarUsage(expr->left);
+            if (expr->right) reduceVarUsage(expr->right);
+        };
+    }
+}
+
 ///////////////////////////////////////////////////////////////////////////
 static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
     ASTModule* mod, ASTFunc* ownerFunc, bool inFuncArgs) {
@@ -329,6 +355,7 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
         if (found) {
             expr->kind = tkFunctionCallResolved;
             expr->func = found;
+            expr->func->used++;
             ASTFunc_analyse(parser, found, mod);
             analyseExpr(parser, expr, scope, mod, ownerFunc, inFuncArgs);
             return;
@@ -402,6 +429,14 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
                 ASTExpr_setEnumBase(parser, init, typeSpec, mod);
 
             analyseExpr(parser, init, scope, mod, ownerFunc, false);
+
+            if (!expr->var->used) {
+                // assigning to an unused var on the left of =. Decrement the
+                // usage counts of all vars referenced on the RHS because well
+                // being used for an unused var is not actually being used.
+                // TODO: this should also be done for += -= *= etc.
+                reduceVarUsage(init);
+            }
 
             if (init->typeType != TYNilType) {
                 // if not nil, get type info from init expr.
@@ -576,6 +611,7 @@ static void analyseExpr(Parser* parser, ASTExpr* expr, ASTScope* scope,
 
     case tkIdentifier:
         // by the time analysis is called, all vars must have been resolved
+        Parser_errorUnrecognizedVar(parser, expr);
         expr->typeType = TYErrorType;
         break;
 
@@ -956,7 +992,7 @@ static void analyseType(Parser* parser, ASTType* type, ASTModule* mod) {
         foreach (ASTExpr*, stmt, type->body->stmts)
             analyseExpr(parser, stmt, type->body, mod, NULL, false);
 }
-static void ASTFunc_hashExprs(/* Parser* parser,  */ ASTFunc* func);
+static void ASTFunc_hashExprs(Parser* parser, ASTFunc* func);
 
 ///////////////////////////////////////////////////////////////////////////
 static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod) {
@@ -1012,9 +1048,6 @@ static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod) {
             Parser_errorDuplicateFunc(parser, func, func2);
     }
 
-    // Check unused variables in the function and report warnings.
-    ASTFunc_checkUnusedVars(parser, func);
-
     // Mark the semantic pass as done for this function, so that recursive
     // calls found in the statements will not cause the compiler to recur.
     func->analysed = true;
@@ -1023,17 +1056,20 @@ static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod) {
     foreach (ASTExpr*, stmt, func->body->stmts)
         analyseExpr(parser, stmt, func->body, mod, NULL, false);
 
+    // Check unused variables in the function and report warnings.
+    ASTFunc_checkUnusedVars(parser, func);
     // Statement functions are written without an explicit return type.
     // Figure out the type (now that the body has been analyzed).
     if (func->isStmt) setStmtFuncTypeInfo(parser, func);
     // TODO: for normal funcs, analyseExpr should check return statements to
     // have the same type as the declared return type.
 
+    // this is done here so that linter can give hints on what is picked up for
+    // CSE. This func should not modify the AST except marking CSE candidates!
+    ASTFunc_hashExprs(parser, func);
+
     // Do optimisations or ANY lowering only if there are no errors
     if (!parser->issues.errCount && parser->mode != PMLint) {
-
-        // do (try) CSE
-        ASTFunc_hashExprs(/* parser, */ func);
 
         // Handle elemental operations like arr[4:50] = mx[14:60] + 3
         ASTScope_lowerElementalOps(func->body);

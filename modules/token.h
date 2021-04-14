@@ -369,13 +369,10 @@ static void Token_detect(Token* token) {
         break;
 
     case tkOpColEq:
-        token->pos++; // 2-char token
-        // fallthrough, since tkColEq is also a line continuation token
-        // like , and ;
+        token->pos++; // 2-char token. fallthrough for line continuation
     case tkOpComma:
     case tkOpSemiColon:
-    case tkOpAssign:
-        //        line continuation tokens
+    case tkOpAssign: // line continuation tokens
         tt_ret = tt;
 
         while (tt != tkNullChar) {

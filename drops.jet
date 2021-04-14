@@ -1,0 +1,30 @@
+
+func start()
+    var v = 31
+    var f = "my name is gonsa"
+    var h = v +6
+    if h==78
+        var b = 45 + v
+        print(b)
+    end
+    while h == 7 ~["hj","op"]
+        var c = 7 + v
+        if yes
+            var ds = 3
+            if yes
+                var mm = 5 + c + ds
+            end
+        end
+    end
+    print(f)
+    ~ print(v)
+    print(f)
+    var g = 7 / v + 4 + v^2
+    print(g)
+end
+
+
+~ who can drop what?
+~ any scope can drop its own vars
+~ a nonloop scope can drop its parents var until the first loop scope is encountered up the chain (whose vars can also be dropped in the child scope).
+~ a loop scope cannot drop any parent vars

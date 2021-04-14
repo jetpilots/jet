@@ -32,6 +32,7 @@ test:  #jetc-cov
 clean:
 	@rm -r jetc jetc-fast jetc-dbg jetc-cov \
 	*.gcda *.gcno *.gcov \
+	*.jetr .*.jet.[dfrocx] \
 	tests/*.gcda tests/*.gcno tests/*.gcov \
 	programs/*.gcda programs/*.gcno programs/*.gcov \
 	*.dSYM \
