@@ -1,0 +1,29 @@
+func analyse(module, stringExpr, parent, scope)
+end
+
+func (module).analyse(funcCallExpr, parent, scope)
+end
+
+func analyse(expr) :=
+    analyse(funcCallExpr=expr) or
+    prepare(stringInterp=expr)
+
+
+analyse(mod) :=
+    analyse(scope=mod.scope)
+analyse(scope) :=
+    analyse(vars=scope.vars)
+    analyse(stmts=scope.stmts)
+analyse(vars) := ^ v := vars -> analyse(var=v)
+analyse(funcs) := ^ f := funcs -> analyse(fun=f)
+analyse(stmts) := ^ s := stmts -> analyse(expr=s)
+analyse(fun) :=
+    analyse(vars=fun.args)
+    analyse(var=fun.ret)
+    analyse(scope=fun.body)
+
+analyse(expr) := expr.kind ??
+    .string, .rawString -> prepare(string=expr)
+    .call -> resolve(call=expr, scope=scope)
+    .ident -> resolve(ident=expr, scope=scope)
+    .identResolved -> expr.var.used || reduceVarUsage(inExpr=expr.var.init)

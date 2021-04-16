@@ -16,37 +16,50 @@ enum TypeType : char {
     TYUnresolved,
     TYObject,
     TYRange,
-    TYNone,
-    TYError,
+    TYNoType,
+    TYNilType,
+    TYErrorType,
     TYString,
     TYCString,
     TYFixedString,
-    TYBoolean,
-    TYInt8,
-    TYUint8,
-    TYInt16,
-    TYUint16,
-    TYInt32,
-    TYUint32,
-    TYInt64,
-    TYUint64,
-    TYReal32,
-    TYReal64
+    TYBool,
+    TYNumber
+};
+enum TypeSubTypeNumber : char {
+    TYNumInt8,
+    TYNumUint8,
+    TYNumInt16,
+    TYNumUint16,
+    TYNumInt32,
+    TYNumUint32,
+    TYNumInt64,
+    TYNumUint64,
+    TYNumReal32,
+    TYNumReal64,
+    TYNumComplex64,
+    TYNumComplex128,
+    TYNumDual64,
+    TYNumDual128
 };
 struct Type;
 typedef unsigned long long u64;
 struct TypeInfo {
+    // union {
+    //     const char* _name;
+    //     Type* _type;
+    //     struct {
+    //         char _ptr[6];
+    TypeType typeType;
+    // bool elemental : 1;
     union {
-        const char* _name;
-        Type* _type;
-        struct {
-            char _ptr[6];
-            TypeType typeType : 5;
-            bool elemental : 1;
-            CollectionType collectionType : 4;
-            unsigned char dims : 4;
-        };
-    };
+        TypeSubTypeString str;
+        TypeSubTypeNumber num;
+        // TypeSubTypeString str;
+    } typeSubType;
+    CollectionType collectionType;
+    unsigned char dims;
+    // };
+    // };
     const char* name() { return (char*)((u64)_name | 0xffffffffffffUL); }
     Type* type() { return (Type*)((u64)_type | 0xffffffffffffUL); }
     bool is(TypeType ty) { return ty == typeType; }
@@ -60,11 +73,12 @@ struct TypeInfo {
             or collectionType != t2.collectionType;
     }
 };
-static_assert(sizeof(TypeInfo) == 8, "");
+static_assert(sizeof(TypeInfo) == 4, "");
 
 struct Var {
-    SmallString name;
+    const char* name;
     TypeInfo typeInfo;
-    unsigned char changes;
-    bool used, isMutable, isArgument; // flags
+    Expr* init;
+    unsigned char changed;
+    bool used, isMutable, isArgument, reassigned, escapes; // flags
 };

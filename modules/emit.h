@@ -407,15 +407,18 @@ static void ASTScope_emit(ASTScope* scope, int level) {
         // This is true in general unless it is an unused var init.
         if (stmt->kind != tkVarAssign || stmt->var->used) {
 
-            if (genCoverage || genLineProfile) //
-                printf("    /************/ ");
-            if (genCoverage) printf("JET_COVERAGE_UP(%d); ", stmt->line);
+            // if (genCoverage || genLineProfile) //
+            //     printf("    /************/ ");
+            if (genCoverage)
+                printf(
+                    "%.*sJET_COVERAGE_UP(%d); \n", level, spaces, stmt->line);
             if (genLineProfile) {
                 // printf("    _lprof_tmp_ = getticks();\n");
-                printf("JET_PROFILE_LINE(%d);", stmt->line);
+                printf(
+                    "%.*sJET_PROFILE_LINE(%d);\n", level, spaces, stmt->line);
                 // printf("    _lprof_last_ = _lprof_tmp_;\n");
             }
-            if (genCoverage || genLineProfile) puts(" /************/");
+            if (genCoverage || genLineProfile) puts(""); // ************/");
         }
 
         ASTExpr_emit(stmt, level);
@@ -434,11 +437,16 @@ static void ASTScope_emit(ASTScope* scope, int level) {
         do {
             foreach (ASTVar*, var, sco->locals)
                 if (var->used) {
-                    if (var->lastUsage)
-                        printf("%.*s//-- %s %d %d\n", level, spaces, var->name,
-                            var->lastUsage, stmt->line);
+                    // if (var->lastUsage)
+                    //     printf("%.*s//-- %s %d %d\n", level, spaces,
+                    //     var->name,
+                    //         var->lastUsage, stmt->line);
                     if (var->lastUsage == stmt->line) {
-                        printf("%.*sdrop(%s);\n", level, spaces, var->name);
+                        printf("%.*sDROP(%s,%s,%s,%s);\n", level, spaces,
+                            ASTTypeSpec_name(var->typeSpec), var->name,
+                            CollectionType_nativeName(
+                                var->typeSpec->collectionType),
+                            StorageClassNames[var->storage]);
                         // TODO^ distinguish between stack, heap, mixed,
                         // refcounted drops
                         var->lastUsage = 0; // this means var has been dropped.

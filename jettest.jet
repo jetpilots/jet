@@ -1,0 +1,159 @@
+type Expr
+    var loc = SourceLoc()
+    var kind TokenKind = .unknown
+    var prec = 0
+    var rassoc = no
+    var unary = no
+
+    var value Value
+    var hash = 0
+    union value, hash
+
+    var repr = func () := value(kind)
+
+    ~ event repr() := value(kind)
+    ~ union left Expr, vars[] Var, string String
+    ~ union right Expr, var Var, fun Func, body Scope
+end
+
+~ extend Expr
+~     func name() := "$kind"
+~ end
+
+~ func a(a1 Expr, a2 Expr) := ...
+~ func a(a1 Expr, a2 ExprBinaryOp) := ...
+~ func a(a1 ExprKeyword, a2 ExprBinaryOp) := ...
+~ a(a1=ExprUnaryOp, a2=ExprString) -> a(a1 Expr, a2 Expr)
+~ a(a1=ExprUnaryOp, a2=ExprBinaryOp) -> a(a1 Expr, a2 ExprBinaryOp)
+~ a(a2=ExprBinaryOp, a1=ExprNumber) -> a(a1 Expr, a2 ExprBinaryOp)
+
+sin(x=7)
+
+~ 30 � (a*x+b)%
+
+~ arc�, arc�, arc� = hui() / 6
+~ x ? [8, 9, 5, 4]
+~ x in [8, 9, 5, 4]
+~ type Template?String, Array?Other??
+~ type Template�String, Array�Other��
+~ type Template?String, Array?Other??
+~ type Template?String, Array?Other??
+~ type Template�String, Array�Other��
+~                 ???????????????�? arc? ���??????? ??????????
+func syntax(arg Type1) result ret[:,:]|kg/s
+    ret.line = arg.line + 5
+end
+
+~ arc?, arc?,
+~ arc? = fun()
+
+enum TokenKind
+    unknown
+    null
+    newline
+end
+
+type SourceLoc
+    var line = 0
+    var col = 0
+    var len = 0
+end
+
+type Expr.FuncCall
+    var args Expr
+    var event Func
+    event repr() := "$event.name()"
+    var repr = func () := "$event.name()"
+    var func repr() := "$event.name()"
+
+    var func repr() String
+        return "$event.name"
+    end
+end
+
+with T in ExprBinary, ExprLambda, ExprNumString
+func sort(array T[], compare func (a T, b T) Boolean)
+
+with T in Expr
+type Holder
+    var sump T
+    var flags Boolean[]
+end
+
+with T
+func sizeof2x(a T) := sizeof(a) * 2
+
+type Thermo.JANAF
+type Thermo.Constant
+type SpalartAlmaras
+    impl TurbulenceModel, BoundaryModel
+end
+type Inviscid
+    impl TurbulenceModel, BoundaryModel
+end
+type Laminar impl TurbulenceModel, BoundaryModel
+    var visc Number
+end
+type KEpsilon.Realizable
+    impl TurbulenceModel, BoundaryModel
+end
+type KEpsilon.LowRe
+    impl TurbulenceModel, BoundaryModel
+end
+type KEpsilon.RNG
+    impl TurbulenceModel, BoundaryModel
+end
+
+~ derive data from base class, functionality from interface
+~ warning on deriving from empty base
+proto TurbulenceModel
+    func nut()
+    func correct()
+    func update()
+end
+
+type Expr.Lambda
+    var fun Func
+end
+
+type Expr.NumString
+    var string = ""
+    var number = 0
+end
+
+type Expr.Number
+    var real = 0
+    var imag = 0
+end
+
+type ExprVarAssign
+    var var Var
+    var init Expr
+    event repr() := "$var.name()"
+end
+
+type ExprBinaryOp
+    var left Expr
+    var right Expr
+end
+
+type ExprUnaryOp
+    var operand Expr
+end
+
+type ExprString
+    var string String
+    var interpVars[] Var
+    event repr() := string
+end
+
+type ExprKeyword
+end
+
+type ExprAny
+    var base Expr
+    union funcCall ExprFuncCall, string ExprString, number ExprNumber
+end
+
+~ have subclassing but no method defs in type. all funcs defined outside, no virtual funcs. func ptrs can be kept & overridden from base class if you want dynamic stuff. all indirect fn cals are @fn(...) rather than fn(...).
+

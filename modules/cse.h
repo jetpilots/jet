@@ -20,6 +20,7 @@ static void ASTExpr_hash(
         //        expr->hash = expr->var->init->hash;
         break;
     case tkFunctionCallResolved:
+    case tkFunctionCall:
     case tkIdentifierResolved:
     case tkSubscriptResolved: {
         union {
@@ -115,6 +116,7 @@ static void ASTExpr_checkHashes(
         break;
 
     case tkFunctionCallResolved:
+    case tkFunctionCall:
     case tkSubscriptResolved:
         if (expr->left) ASTExpr_checkHashes(parser, expr->left, cseDict);
         break;

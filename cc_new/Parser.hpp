@@ -18,12 +18,12 @@ struct Parser {
 
     Expr* expr() {
         Expr* expr = fromToken();
-        advance();
+        token.advance();
         return expr;
     }
 
     Expr* next_token_node(TokenKind expected, const bool ignore_error) {
-        if (is(expected)) {
+        if (token.is(expected)) {
             return expr();
         } else {
             if (not ignore_error) errs.expectedToken(expected);
@@ -38,7 +38,7 @@ struct Parser {
 
     bool ignore(TokenKind expected) {
         bool ret;
-        if ((ret = is(expected))) advance();
+        if ((ret = token.is(expected))) token.advance();
         return ret;
     }
 
@@ -46,7 +46,9 @@ struct Parser {
     void discard(TokenKind expected) {
         if (not ignore(expected)) errs.expectedToken(expected);
     }
-
+    Type* parseEnum() {
+        // put it in mod.types, not mod.enums
+    }
     // void format() {
     //     for (CString line : lines) {
     //         int cols = line.len();
@@ -75,10 +77,10 @@ struct Parser {
         if (contains(var.name, '_') or isCapitalized(var.name))
             errs.invalidName(var);
         if (ignore(tkOneSpace) and token.is(tkIdentifier)) {
-            var.typeSpec = parseTypeSpec();
+            var.typeInfo = parseTypeSpec();
         } else {
-            var.typeSpec.loc = token.loc();
-            var.typeSpec.name = "";
+            var.typeInfo.loc = token.loc();
+            var.typeInfo.name = "";
         }
         ignore(tkOneSpace);
         if (ignore(tkOpAssign)) var.init = parseExpr(scope);
@@ -146,7 +148,7 @@ struct Parser {
             case tkKeyword_for:
             case tkKeyword_while:
                 if (isTypeBody) errorInvalidTypeMember(parser);
-                tt = token.kind;
+                tt = token._kind;
                 expr = match(tt);
                 expr->left = tt != tkKeyword_else ? parseExpr(*scope) : nullptr;
 
@@ -172,14 +174,13 @@ struct Parser {
 
                         fvar = new Var;
                         fvar->name = expr->left->left->string;
-                        fvar->line = expr->left->line;
-                        fvar->col = expr->left->left->col;
+                        fvar->loc = expr->loc;
                         fvar->isMutable = true;
                         fvar->init = expr->left->right;
                         fvar->typeInfo.typeType = TYReal64;
 
                         if ((orig = scope->getVar(fvar->name)))
-                            errs.duplicateVar(fvar, orig->line, orig->col);
+                            errs.duplicateVar(fvar, orig -);
                     }
                     forScope = new Scope;
                     if (fvar) forScope->vars.shift(*fvar);
@@ -221,7 +222,7 @@ struct Parser {
                 break;
 
             default:
-                expr = parseExpr(scope);
+                expr = parseExpr(*scope);
                 if (expr and isTypeBody) {
                     errs.invalidMember(expr);
                     expr = nullptr;
@@ -239,10 +240,10 @@ struct Parser {
 
     Type* parseType() { }
     Import* parseImport() { }
-    TypeSpec parseTypeSpec() {
+    TypeInfo parseTypeSpec() {
         token.mergeArrayDims = true;
-        TypeSpec typeSpec;
-        typeSpec.loc = { token.line, token.col, token.len };
+        TypeInfo typeSpec;
+        // typeSpec.loc = { token.line, token.col, token.len };
         typeSpec.name = parseIdent(parser);
 
         if (matches(tkArrayDims)) {
@@ -269,7 +270,7 @@ struct Parser {
         if (ignore(tkParenClose)) return args;
         do {
             Var* arg = parseVar();
-            arg->argument = true;
+            arg->isArgument = true;
             args.push(arg);
         } while (ignore(tkOpComma));
         discard(tkParenClose);
@@ -314,10 +315,7 @@ struct Parser {
             case tkOneSpace: token.advance(); break;
 
             case tkLineComment:
-                if (com->generateCommentExprs) {
-                    expr = fromToken(lex);
-                    PtrList_append(&scope->stmts, expr);
-                }
+                if (com->generateCommentExprs) scope->stmts.push(token.expr());
                 token.advance();
                 break;
 
@@ -342,8 +340,7 @@ struct Parser {
                 scope->stmts.push(*expr);
 
                 var = new Var;
-                var->line = expr->line;
-                var->col = (expr->is(tkOpAssign)) ? expr->left->col : expr->col;
+                var->loc = expr->loc;
                 var->name = (expr->is(tkOpAssign)) ? expr->left->string
                                                    : expr->string;
                 var->init = expr->right;
@@ -515,7 +512,7 @@ struct Parser {
                             or (not rpn.top() and !ops.empty()
                                 and not ops.top()->is(tkOpColon))
                             or (rpn.top()->is(tkOpColon) and !ops.empty()
-                                and (ops.top()->is(tkOpComma, tkArrayOpen))))
+                                and (ops.top()->in(tkOpComma, tkArrayOpen))))
                             // TODO: better way to parse :, 1:, :-1, etc.
                             // while passing tokens to RPN, if you see a :
                             // with nothing on the RPN or comma or [, push a
@@ -570,14 +567,14 @@ struct Parser {
 
             if (not p->in(tkOpComma, tkFunctionCall, tkSubscript, tkArrayOpen)
                 and rpn.top() and rpn.top()->is(tkOpComma)) {
-                errs.unexpectedExpr(rpn.top());
+                errs.unexpectedExpr(*rpn.top());
                 goto error;
             }
 
             if (not(p->prec or p->unary)
                 and not(p->in(tkFunctionCall, tkSubscript))
                 and rpn.count() < 2) {
-                errs.syntaxError(p, "invalid use of comma");
+                errs.syntaxError(*p, "invalid use of comma");
                 goto error;
                 // TODO: even if you have more than two, neither of the top
                 // two should be a comma
@@ -621,12 +618,12 @@ struct Parser {
             default:
                 // everything else is a nonterminal, needs left/right
                 if (not p->prec) {
-                    errs.syntaxError(p, "unexpected token with no precedence");
+                    errs.syntaxError(*p, "unexpected token with no precedence");
                     goto error;
                 }
 
                 if (result.empty()) {
-                    errs.syntaxError(p, "no operands");
+                    errs.syntaxError(*p, "no operands");
                     goto error;
                 }
 
@@ -634,7 +631,7 @@ struct Parser {
 
                 if (not p->unary) {
                     if (result.empty()) {
-                        errs.syntaxError(p, "need 2 operands to binary op");
+                        errs.syntaxError(*p, "need 2 operands to binary op");
                         goto error;
                     }
                     p->left = result.pop();
@@ -648,7 +645,7 @@ struct Parser {
             errs.unexpectedToken("nothing parsed");
         } else if (result.count() != 1) {
             if (not result.top()->is(tkLineComment)) {
-                errs.syntaxError(p, "more than 1 result");
+                errs.syntaxError(*p, "more than 1 result");
             }
         } else {
             Expr* ret = result[0];
@@ -664,23 +661,11 @@ struct Parser {
     error:
 
         token.skipLine();
-
-        if (ops.count()) {
-            eputs("ops: ");
-            ops.print(stderr);
-            // for (Expr* e : ops) {            eprintf("%s ",
-            // TokenKind_repr(e->kind, false);
-            // }
-            eputs(";;");
-        }
-
+        if (ops.count()) eputs("ops: "), ops.print(stderr), eputs(";;");
         if (rpn.count()) eputs("rpn: "), rpn.print(stderr), eputs(";;");
-
         if (result.count())
             eputs("result: "), result.print(stderr), eputs(";;");
-
         if (p) eputs("p: "), print(p, stderr);
-
         eputs("\n");
 
         ops.reset(); // "reset" stacks

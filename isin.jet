@@ -24,8 +24,17 @@ func starst()
     var parser = Parser()
   var glob = Glob()
   glob.val = .two
+  rest("kop",x=8,y=9)
   prinst(parser.token.mergeArrayDims)
 end
+
+func rest(s String, xs String, y Number)
+    print("$s $xs $y")
+end
+func rest(s String, x Number, y Number)
+    print("$s $x $y")
+end
+
 
 type Glob
     var val EnG = .one

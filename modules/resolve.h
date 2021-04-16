@@ -60,6 +60,7 @@ static void resolveTypeSpec(
         if (type) {
             typeSpec->typeType = TYObject;
             typeSpec->type = type;
+            type->used++;
             return;
         }
         Parser_errorUnrecognizedType(parser, typeSpec);
@@ -268,7 +269,7 @@ static void resolveVars(Parser* parser, ASTExpr* expr, ASTScope* scope,
             if (isSelfMutOp(expr)) {
                 ASTVar* var = NULL;
                 ASTExpr* varExpr = expr->left;
-                if (varExpr->kind == tkIdentifierResolved || //
+               if (varExpr){ if (varExpr->kind == tkIdentifierResolved || //
                     varExpr->kind == tkSubscriptResolved) {
                     var = varExpr->var;
                 } else if (varExpr->kind == tkPeriod && //
@@ -276,7 +277,7 @@ static void resolveVars(Parser* parser, ASTExpr* expr, ASTScope* scope,
                     && varExpr->left->kind == tkIdentifierResolved) {
                     varExpr = varExpr->left;
                     var = varExpr->var;
-                }
+                }}
                 if (var) {
                     // TODO: If you will allow changing the first arg of a
                     // function, using an & op or whatever, check for those

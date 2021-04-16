@@ -189,6 +189,14 @@ static void ASTEnum_lint(ASTType* type, int level) {
 
 static void ASTFunc_lint(ASTFunc* func, int level) {
     if (func->isDefCtor || func->intrinsic) return;
+
+    printf("~ [ ");
+    if (func->recursivity > 1) printf("recurs:%d ", func->recursivity);
+    if (func->throws) printf("throws ");
+    if (func->isCalledFromWithinLoop) printf("looped ");
+    if (func->isCalledAsync) printf("asyncable ");
+    printf("]\n");
+
     if (func->isDeclare) printf("declare ");
 
     printf("%s%s(", func->isStmt ? "\n" : "function ", func->name);
@@ -258,13 +266,28 @@ static void ASTExpr_lint(
         break;
 
     case tkFunctionCall:
-    case tkFunctionCallResolved: {
-        char* tmp = (expr->kind == tkFunctionCallResolved) ? expr->func->name
-                                                           : expr->string;
-        printf("%s(", tmp);
+        printf("%s(", expr->string);
         if (expr->left) ASTExpr_lint(expr->left, 0, false, escapeStrings);
         printf(")");
-    } break;
+        break;
+    case tkFunctionCallResolved:
+        // char* tmp = (expr->kind == tkFunctionCallResolved) ?
+        //                                                    : expr->string;
+        printf("%s(", expr->func->name);
+        if (expr->left) {
+            ASTExpr* carg = expr->left;
+            foreachn(ASTVar*, var, listp, expr->func->args) {
+                if (!carg) break;
+                ASTExpr* arg = (carg->kind == tkOpComma) ? carg->left : carg;
+                if (arg->kind != tkOpAssign && listp != expr->func->args)
+                    printf("%s=", var->name);
+                ASTExpr_lint(arg, 0, false, escapeStrings);
+                if (listp->next) printf(", ");
+                carg = (carg->kind == tkOpComma) ? carg->right : NULL;
+            }
+        }
+        printf(")");
+        break;
 
     case tkSubscript:
     case tkSubscriptResolved: {

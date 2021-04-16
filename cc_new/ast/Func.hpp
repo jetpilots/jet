@@ -2,7 +2,7 @@ struct Func {
     SmallString name;
     Scope body;
     List<Var&> args;
-    Var retVal;
+    Var* ret;
     List<Func&> callers, callees;
     char* selector;
     SourceLoc loc;

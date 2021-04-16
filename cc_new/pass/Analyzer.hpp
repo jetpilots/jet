@@ -34,19 +34,21 @@ private:
             if (ownerFunc) { // TODO: ownerFunc should not be NULL, even
                              // top-level and type implicit ctors should have a
                              // func created
-                shift(&ownerFunc->callees, expr.func);
-                shift(&expr.func->callers, ownerFunc);
+                ownerFunc->callees.shift(*expr.func);
+                expr.func->callers.shift(*ownerFunc);
             }
-            if (countCommaList(expr.left) != expr.func->argCount)
+            if (expr.left->countCommaList() != expr.func->argCount)
                 errs.argsCountMismatch(expr);
-            expr.typeType = expr.func->returnSpec
-                ? expr.func->returnSpec->typeType
-                : TYNoType; // should actually be TYVoid
-            expr.collectionType = expr.func->returnSpec
-                ? expr.func->returnSpec->collectionType
-                : CTYNone; // should actually be TYVoid
+            if (expr.func->ret) expr.typeInfo = expr.func->ret->typeInfo;
+            // expr.typeInfo.typeType = expr.func->ret->typeInfo
+            //     ? expr.func->ret->typeInfo.typeType
+            //     : TYNoType; // should actually be TYVoid
+            // expr.typeInfo.collectionType = expr.func->ret
+            //     ? expr.func->ret->typeInfo.collectionType
+            //     : CTYNone; // should actually be TYVoid
             expr.elemental = expr.func->elemental;
-            if (expr.func->returnSpec) expr.dims = expr.func->returnSpec->dims;
+            // if (expr.func->ret->typeInfo)
+            // expr.typeInfo.dims = expr.func->ret->typeInfo->dims;
             // isElementalFunc means the func is only defined for (all)
             // Number arguments and another definition for vector args
             // doesn't exist. Basically during typecheck this should see
@@ -58,7 +60,7 @@ private:
             for (Var& arg : expr.func->args) {
                 Expr* cArg = (currArg->is(tkOpComma)) ? currArg->left : currArg;
                 if (cArg->is(tkOpAssign)) cArg = cArg->right;
-                if (cArg->typeType != arg->typeInfo->typeType)
+                if (cArg->typeInfo.typeType != arg.typeInfo.typeType)
                     errs.argTypeMismatch(cArg, arg);
                 // TODO: check dims mismatch
                 // TODO: check units mismatch
@@ -105,7 +107,7 @@ private:
             // TODO: need a function to make and return selector
             Expr* arg1 = expr.left;
             if (arg1 and arg1->is(tkOpComma)) arg1 = arg1->left;
-            const char* typeName = typeName(arg1);
+            const char* typeName = arg1->typeName();
             //        const char* collName = "";
             //        if (arg1)
             //        collName=CollectionType_nativeName(arg1->collectionType);
@@ -160,21 +162,21 @@ private:
 
             // -------------------------------------------------- //
         case tkVarAssign: {
-            TypeInfo* const typeSpec = expr.var->typeInfo;
+            TypeInfo& typeSpec = expr.var->typeInfo;
 
-            if (typeSpec->is(TYUnresolved)) resolve(typeSpec, mod);
+            if (typeSpec.is(TYUnresolved)) resolve(typeSpec, mod);
 
             if (!expr.var->init) {
                 // if the typespec is given, generate the init expr yourself
                 // this is only for basic types like primitives.
                 // and arrays of anything can be left without an init.
-                if (!typeSpec->dims) // goto errorMissingInit;
-                    switch (typeSpec->typeType) {
-                    case TYReal64: expr.var->init = expr_const_0; break;
+                if (!typeSpec.dims) // goto errorMissingInit;
+                    switch (typeSpec.typeType) {
+                    case TYNumber: expr.var->init = expr_const_0; break;
                     case TYString: expr.var->init = expr_const_empty; break;
                     case TYBool: expr.var->init = expr_const_no; break;
                     case TYObject:
-                        if (!typeSpec->type->isEnum) {
+                        if (!typeSpec.isEnum()) {
                             expr.var->init = expr_const_nil;
                             break;
                         }
@@ -184,100 +186,101 @@ private:
                         errs.missingInit(expr);
                     }
             } else {
-                // if (typeSpec->is(TYUnresolved))
+                // if (typeSpec.is(TYUnresolved))
                 //     resolveTypeSpec(typeSpec, mod);
                 // first try to set enum base if applicable.
                 Expr& init = *expr.var->init;
 
-                if (typeSpec->is(TYObject) and typeSpec->type->isEnum)
+                if (typeSpec.is(TYObject) and typeSpec.isEnum())
                     setEnumBase(init, typeSpec, mod);
 
                 analyse(mod, init, &expr, scope, ownerFunc);
 
                 if (!init.typeInfo.is(TYNilType)) {
                     // if not nil, get type info from init expr.
-                    // expr.typeType = init.typeType;
-                    // expr.collectionType = init.collectionType;
+                    // expr.typeInfo.typeType = init.typeType;
+                    // expr.typeInfo.collectionType = init.collectionType;
                     // expr.nullable = init.nullable;
                     // expr.elemental = init.elemental;
                     // expr.throws = init.throws;
                     // expr.impure = init.impure;
-                    // expr.dims = init.dims;
+                    // expr.typeInfo.dims = init.dims;
                     expr.typeInfo = init.typeInfo;
-                } else if (typeSpec->is(TYObject)) {
+                } else if (typeSpec.is(TYObject)) {
                     // if nil, and typespec given and resolved, set type info
                     // from typespec.
-                    expr.typeInfo = *typeSpec; //->typeType;
+                    expr.typeInfo = *typeSpec; //->typeInfo.typeType;
 
-                } else if (typeSpec->is(TYUnresolved)) {
+                } else if (typeSpec.is(TYUnresolved)) {
                     // this will already have caused an error while resolution.
                     // since specified type is unresolved and init is nil, there
                     // is nothing to do except to mark it an error type.
-                    typeSpec->typeType = expr.typeType = TYErrorType;
+                    typeSpec.typeType = expr.typeInfo.typeType = TYErrorType;
 
                 } else {
                     // this would be something like init'ing primitives with
                     // nil.
                     errs.initMismatch(expr);
-                    typeSpec->typeType = expr.typeType = TYErrorType;
+                    typeSpec.typeType = expr.typeInfo.typeType = TYErrorType;
                 }
 
-                if (typeSpec->is(TYUnresolved)) {
-                    typeSpec->typeType = init.typeType;
+                if (typeSpec.is(TYUnresolved)) {
+                    typeSpec.typeType = init.typeInfo.typeType;
                     if (init.typeInfo.is(TYObject)) {
                         if (init.is(tkFunctionCallResolved)) {
-                            expr.var->typeInfo = init.func->returnSpec;
+                            expr.var->typeInfo = init.func->ret->typeInfo;
                             // ^ TODO: DROP old expr.var->typeInfo!!
-                            typeSpec->type = init.func->returnSpec->type;
-                            typeSpec->dims = init.func->returnSpec->dims;
+                            typeSpec.type = init.func->ret->typeInfo->type;
+                            typeSpec.dims = init.func->ret->typeInfo->dims;
                         } else if (init.is(tkIdentifierResolved)) {
                             expr.var->typeInfo = init.var->typeInfo;
-                            typeSpec->type = init.var->typeInfo->type;
-                            typeSpec->dims = init.var->typeInfo->dims;
+                            typeSpec.type = init.var->typeInfo.type;
+                            typeSpec.dims = init.var->typeInfo.dims;
                         } else if (init.is(tkArrayOpen))
-                            typeSpec->type = init.elementType;
+                            typeSpec.type = init.elementType;
                         else if (init.is(tkBraceOpen))
-                            typeSpec->type = init.elementType;
+                            typeSpec.type = init.elementType;
                         else if (init.is(tkPeriod)) {
-                            Expr* e = init;
-                            if (init.left->var->typeInfo->type->isEnum) {
-                                typeSpec->type = init.left->var->typeInfo->type;
+                            Expr* e = &init;
+                            if (init.left->var->typeInfo.isEnum()) {
+                                typeSpec.setType(
+                                    init.left->var->typeInfo.type());
                             } else {
                                 while (e->is(tkPeriod)) e = e->right;
                                 // at this point, it must be a resolved ident or
                                 // subscript
-                                typeSpec->type = e->var->typeInfo->type;
-                                typeSpec->dims = e->var->typeInfo->dims;
+                                typeSpec.setType(e->var->typeInfo.type());
+                                typeSpec.dims = e->var->typeInfo.dims;
                             }
 
                         } else {
                             unreachable("%s", "var type inference failed");
                         }
-                        analyse(mod, typeSpec->type);
+                        analyse(mod, typeSpec.type());
                     }
-                } else if (typeSpec->typeType != init.typeType
+                } else if (typeSpec.typeType != init.typeInfo.typeType
                     // and init.typeType != TYNilType
                 ) {
                     // init can be nil, which is a TYNilType
                     errs.initMismatch(expr);
-                    expr.typeType = TYErrorType;
+                    expr.typeInfo.typeType = TYErrorType;
                 }
 
-                if (typeSpec->dims == 0) {
-                    typeSpec->collectionType = init.collectionType;
-                    typeSpec->dims = init.is(CTYTensor) ? init.dims
-                        : init.is(CTYArray)             ? 1
-                                                        : 0;
-                } else if (typeSpec->dims != 1 and init.is(CTYArray)) {
+                if (typeSpec.dims == 0) {
+                    typeSpec.collectionType = init.typeInfo.collectionType;
+                    typeSpec.dims = init.is(CTYTensor) ? init.typeInfo.dims
+                        : init.is(CTYArray)            ? 1
+                                                       : 0;
+                } else if (typeSpec.dims != 1 and init.is(CTYArray)) {
                     errs.initDimsMismatch(expr, 1);
-                    expr.typeType = TYErrorType;
-                } else if (typeSpec->dims != 2 and init.is(CTYTensor)) {
+                    expr.typeInfo.typeType = TYErrorType;
+                } else if (typeSpec.dims != 2 and init.is(CTYTensor)) {
                     errs.initDimsMismatch(expr, 2);
-                    expr.typeType = TYErrorType;
+                    expr.typeInfo.typeType = TYErrorType;
 
-                } else if (typeSpec->dims != 0 and init.is(CTYNone)) {
+                } else if (typeSpec.dims != 0 and init.is(CTYNone)) {
                     errs.initDimsMismatch(expr, 0);
-                    expr.typeType = TYErrorType;
+                    expr.typeInfo.typeType = TYErrorType;
                 }
             }
         } break;
@@ -322,8 +325,9 @@ private:
         case tkSubscript:
             if (expr.left) analyse(mod, *expr.left, &expr, scope, ownerFunc);
             if (expr.is(tkSubscriptResolved)) {
-                expr.typeInfo = expr.var->typeInfo; //->typeType;
-                // expr.collectionType = expr.var->typeInfo->collectionType;
+                expr.typeInfo = expr.var->typeInfo; //->typeInfo.typeType;
+                // expr.typeInfo.collectionType =
+                // expr.var->typeInfo.collectionType;
                 // TODO: since it is a subscript, if it has no left (i.e. arr[])
                 // i'm guessing it is a full array, and therefore can be an
                 // elemental op
@@ -345,73 +349,72 @@ private:
 
         case tkString:
         case tkRawString:
-            expr.typeType = TYString;
+            expr.typeInfo.typeType = TYString;
             prepareInterp(expr, scope);
             break;
 
-        case tkNumber: expr.typeType = TYReal64; break;
+        case tkNumber: expr.typeInfo.typeType = TYReal64; break;
 
         case tkKeyword_yes:
-        case tkKeyword_no: expr.typeType = TYBool; break;
+        case tkKeyword_no: expr.typeInfo.typeType = TYBool; break;
 
-        case tkKeyword_nil: expr.typeType = TYNilType; break;
+        case tkKeyword_nil: expr.typeInfo.typeType = TYNilType; break;
 
-        case tkIdentifier:
-            // by the time analysis is called, all vars must have been resolved
-            expr.typeType = TYErrorType;
+        case tkIdentifier: // all vars must have been resolved
+            expr.typeInfo.typeType = TYErrorType;
             break;
 
         case tkIdentifierResolved:
-            expr.typeType = expr.var->typeInfo->typeType;
-            expr.collectionType = expr.var->typeInfo->collectionType;
-            expr.elemental = expr.collectionType != CTYNone;
-            expr.dims = expr.var->typeInfo->dims;
+            expr.typeInfo.typeType = expr.var->typeInfo.typeType;
+            expr.typeInfo.collectionType = expr.var->typeInfo.collectionType;
+            expr.elemental = expr.typeInfo.collectionType != CTYNone;
+            expr.typeInfo.dims = expr.var->typeInfo.dims;
 
             // this was done just to ensure enums are caught and analysed in
             // non-lint mode. In lint mode they are done anyway.
             // TODO: remove this, you shouldnt be doing it on each var use it
             // will be too intensive. let it just be done on each var decl and
             // you figure out a way to set the enum type on var decls.
-            if (expr.typeType == TYObject)
-                analyseType(expr.var->typeInfo->type, mod);
+            if (expr.typeInfo.typeType == TYObject)
+                analyse(mod, expr.var->typeInfo.type());
             break;
 
         case tkArrayOpen:
-            expr.collectionType = CTYArray;
+            expr.typeInfo.collectionType = CTYArray;
             if (expr.right) {
-                analyse(expr.right, scope, mod, ownerFunc);
-                expr.typeType = expr.right->typeType;
-                expr.collectionType
+                analyse(mod, *expr.right, &expr, scope, ownerFunc);
+                expr.typeInfo.typeType = expr.right->typeInfo.typeType;
+                expr.typeInfo.collectionType
                     = expr.right->is(tkOpSemiColon) ? CTYTensor : CTYArray;
-                expr.dims = expr.right->is(tkOpSemiColon) ? 2 : 1;
+                expr.typeInfo.dims = expr.right->is(tkOpSemiColon) ? 2 : 1;
                 // using array literals you can only init 1D or 2D
-                if (expr.typeType == TYObject) {
+                if (expr.typeInfo.typeType == TYObject) {
                     // you need to save the exact type of the elements, it's not
                     // a primitive type. You'll find it in the first element.
                     Expr* first = expr.right;
-                    while (first->is(tkOpComma, tkOpSemiColon))
+                    while (first->in(tkOpComma, tkOpSemiColon))
                         first = first->left;
                     switch (first->kind) {
                     case tkIdentifierResolved:
-                        expr.elementType = first->var->typeInfo->type;
-                        if (first->var->typeInfo->dims
-                            or first->var->typeInfo->collectionType != CTYNone)
-                            unreachable(
-                                "trying to make array of arrays %d", expr.line);
+                        expr.elementType = first->var->typeInfo.type();
+                        if (first->var->typeInfo.dims
+                            or first->var->typeInfo.collectionType != CTYNone)
+                            unreachable("trying to make array of arrays %d",
+                                expr.loc.line);
                         break;
                     case tkFunctionCallResolved:
-                        expr.elementType = first->func->returnSpec->type;
-                        if (first->func->returnSpec->dims
-                            or first->var->typeInfo->collectionType != CTYNone)
+                        expr.elementType = first->func->ret->typeInfo.type;
+                        if (first->func->ret->typeInfo.dims
+                            or first->var->typeInfo.collectionType != CTYNone)
                             unreachable(
                                 "trying to make array of arrays line %d",
-                                expr.line);
+                                expr.loc.line);
                         break;
                     default:
                         break;
                         // TODO: object init literals
                         // case tkObjectInitResolved:
-                        // expr.elementType = first->var->typeInfo->type;break;
+                        // expr.elementType = first->var->typeInfo.type;break;
                     }
                     // expr.elementType =
                 }
@@ -420,14 +423,14 @@ private:
 
         case tkBraceOpen:
             if (expr.right) {
-                analyse(expr.right, scope, mod, ownerFunc, true);
+                analyse(mod, *expr.right, &expr, scope, ownerFunc);
                 // TODO: you told analyse to not care about what's on the
                 // LHS of tkOpAssign exprs. Now you handle it yourself. Ensure
                 // that they're all of the same type and set that type to the
                 // expr somehow.
                 analyseDictLiteral(expr.right, mod);
-                expr.typeType = expr.right->typeType;
-                if (expr.typeType == TYObject) {
+                expr.typeInfo.typeType = expr.right->typeInfo.typeType;
+                if (expr.typeInfo.typeType == TYObject) {
                     // you need to save the exact type of the elements, it's not
                     // a primitive type. You'll find it in the first element.
                     Expr* first = expr.right;
@@ -437,19 +440,19 @@ private:
                     // figure out the key type later or not, whatever.
                     switch (first->kind) {
                     case tkIdentifierResolved:
-                        expr.elementType = first->var->typeInfo->type;
+                        expr.elementType = first->var->typeInfo.type();
                         break;
                     case tkFunctionCallResolved:
-                        expr.elementType = first->func->returnSpec->type;
+                        expr.elementType = first->func->ret->typeInfo.type();
                         break;
                     default:
                         break;
                         // TODO: object init literals
                         // case tkObjectInitResolved:
-                        // expr.elementType = first->var->typeInfo->type;break;
+                        // expr.elementType = first->var->typeInfo.type;break;
                     }
                 }
-                expr.collectionType = CTYDictS;
+                expr.typeInfo.collectionType = CTYDictS;
                 // these are only Dicts! Sets are normal [] when you detect they
                 // are only used for querying membership.
                 // TODO: what were the gazillion Dict subtypes for?
@@ -457,16 +460,16 @@ private:
             break;
         case tkPeriod: {
 
-            if (!expr.left) {
+            if (not expr.left) {
                 errs.noEnumInferred(expr.right);
                 break;
             }
 
-            assert(expr.left->is(tkIdentifierResolved, tkIdentifier));
-            analyse(expr.left, scope, mod, ownerFunc);
+            assert(expr.left->in(tkIdentifierResolved, tkIdentifier));
+            analyse(mod, *expr.left, &expr, scope, ownerFunc);
 
             // The name/type resolution of expr.left may have failed.
-            if (!expr.left->typeType) break;
+            if (not expr.left->typeInfo.typeType) break;
 
             Expr* member = expr.right;
             if (member->is(tkPeriod)) {
@@ -477,45 +480,46 @@ private:
                 }
             }
 
-            if (not member->is(tkIdentifier, tkSubscript, tkFunctionCall)) {
+            if (not member->in(tkIdentifier, tkSubscript, tkFunctionCall)) {
                 errs.unexpectedExpr(member);
                 break;
             }
             //  or member->is(tkFunctionCall));
             if (not member->is(tkIdentifier) and member->left)
-                analyse(member->left, scope, mod, ownerFunc);
+                analyse(mod, *member->left, &member, scope, ownerFunc);
 
             // the left must be a resolved ident
             if (not expr.left->is(tkIdentifierResolved)) break;
 
-            if (expr.left->var->typeInfo->is(TYErrorType)) {
-                expr.typeType = TYErrorType;
+            if (expr.left->var->typeInfo.is(TYErrorType)) {
+                expr.typeInfo.typeType = TYErrorType;
                 break;
             }
-            assert(not expr.left->var->typeInfo->is(TYNilType));
+            assert(not expr.left->var->typeInfo.is(TYNilType));
 
-            Type* type = expr.left->var->typeInfo->type;
+            Type* type = expr.left->var->typeInfo.type();
             if (!type) {
-                expr.typeType = TYErrorType;
+                expr.typeInfo.typeType = TYErrorType;
                 break;
             }
 
             // Resolve the member in the scope of the type definition.
-            resolveMember(member, type);
+            resolve(member, type);
             // Name resolution may fail...
             if (not member->is(tkIdentifierResolved)) {
-                expr.typeType = TYErrorType;
+                expr.typeInfo.typeType = TYErrorType;
                 break;
             }
-            analyse(member, scope, mod, ownerFunc);
+            analyse(mod, member, memberParent, scope, ownerFunc);
 
             if (expr.right->is(tkPeriod))
-                analyse(expr.right, scope, mod, ownerFunc);
+                analyse(mod, *expr.right, &expr, scope, ownerFunc);
 
-            expr.typeType = type->isEnum ? TYObject : expr.right->typeType;
-            expr.collectionType = expr.right->collectionType;
+            expr.typeInfo.typeType
+                = type->isEnum ? TYObject : expr.right->typeInfo.typeType;
+            expr.typeInfo.collectionType = expr.right->typeInfo.collectionType;
             expr.elemental = expr.right->elemental;
-            expr.dims = expr.right->dims;
+            expr.typeInfo.dims = expr.right->typeInfo.dims;
         } break;
 
         case tkLineComment: break;
@@ -538,45 +542,48 @@ private:
         default:
             if (expr.prec) {
                 if (!expr.unary and expr.left)
-                    analyse(expr.left, scope, mod, ownerFunc);
+                    analyse(mod, *expr.left, &expr, scope, ownerFunc);
                 // some exprs like return can be used without any args
 
-                if (ISIN(5, expr.kind, tkKeyword_in, tkKeyword_notin,
-                        tkOpAssign, tkOpEQ, tkOpNE)) {
-                    TypeInfo* spec = getObjectTypeSpec(expr.left);
-                    if (spec and spec->typeType == TYObject
-                        and spec->type->isEnum) {
+                if (expr.in(tkKeyword_in, tkKeyword_notin, tkOpAssign, tkOpEQ,
+                        tkOpNE)) {
+                    TypeInfo spec = expr.left->getObjectTypeSpec();
+                    if (spec.isEnum()) {
                         setEnumBase(expr.right, spec, mod);
                     } else {
                         spec = getObjectTypeSpec(expr.left);
-                        if (spec and spec->typeType == TYObject
+                        if (spec and spec->typeInfo.typeType == TYObject
                             and spec->type->isEnum) {
                             setEnumBase(expr.right, spec, mod);
                         }
                     }
                 }
 
-                if (expr.right) analyse(expr.right, scope, mod, ownerFunc);
+                if (expr.right)
+                    analyse(mod, *expr.right, &expr, scope, ownerFunc);
 
-                if (expr.is(tkKeyword_or) and expr.left->typeType != TYBool) {
+                if (expr.is(tkKeyword_or)
+                    and expr.left->typeInfo.typeType != TYBool) {
                     // Handle the 'or' keyword used to provide alternatives for
                     // a nullable expression.
                     ;
                 } else if (expr.isCmpOp() or expr.isBoolOp()) {
                     // Handle comparison and logical operators (always return a
                     // bool)
-                    expr.typeType
-                        = (expr.right->typeType == TYErrorType
+                    expr.typeInfo.typeType
+                        = (expr.right->typeInfo.typeType == TYErrorType
                               or (!expr.unary
-                                  and expr.left->typeType == TYErrorType))
+                                  and expr.left->typeInfo.typeType
+                                      == TYErrorType))
                         ? TYErrorType
                         : TYBool;
                 } else {
                     // Set the type from the ->right expr for now. if an error
                     // type is on the right, this is accounted for.
                     if (expr.right) {
-                        expr.typeType = expr.right->typeType;
-                        expr.collectionType = expr.right->collectionType;
+                        expr.typeInfo.typeType = expr.right->typeInfo.typeType;
+                        expr.typeInfo.collectionType
+                            = expr.right->typeInfo.collectionType;
                     }
                 }
                 if (expr.right)
@@ -587,51 +594,54 @@ private:
 
                 if (!expr.unary and expr.left) {
                     expr.elemental = expr.elemental or expr.left->elemental;
-                    expr.dims = expr.right->dims;
+                    expr.typeInfo.dims = expr.right->typeInfo.dims;
                     // if (expr.is(tkOpColon) and expr.right->kind ==
                     // tkOpColon)
                     //     expr.right->dims = 0; // temporarily set it to 0 to
                     //     allow
                     // parsing stepped ranges 1:s:n
 
-                    if (expr.dims != expr.left->dims
+                    if (expr.typeInfo.dims != expr.left->typeInfo.dims
                         and !(
-                            inFuncArgs and (expr.is(tkOpComma, tkOpAssign)))) {
+                            inFuncArgs and (expr.in(tkOpComma, tkOpAssign)))) {
                         // if either one has 0 dims (scalar) it is an elemental
                         // op with a scalar.
-                        if (expr.left->dims != 0 and expr.right->dims != 0) {
+                        if (expr.left->typeInfo.dims != 0
+                            and expr.right->typeInfo.dims != 0) {
                             errs.binOpDimsMismatch(expr);
-                            expr.right->typeType = TYErrorType;
-                        } else if (expr.is(tkPlus) //
-                            or expr.is(tkMinus) //
-                            or expr.is(tkTimes) //
-                            or expr.is(tkSlash) //
-                            or expr.is(tkPower) //
+                            expr.right->typeInfo.typeType = TYErrorType;
+                        } else if (expr.is(tkOpPlus) //
+                            or expr.is(tkOpMinus) //
+                            or expr.is(tkOpTimes) //
+                            or expr.is(tkOpSlash) //
+                            or expr.is(tkOpPower) //
                             or expr.is(tkOpMod)) {
-                            expr.dims = expr.left->dims + expr.right->dims;
-                            expr.collectionType = max(expr.left->collectionType,
-                                expr.right->collectionType);
+                            expr.typeInfo.dims = expr.left->typeInfo.dims
+                                + expr.right->typeInfo.dims;
+                            expr.typeInfo.collectionType
+                                = max(expr.left->typeInfo.collectionType,
+                                    expr.right->typeInfo.collectionType);
                             // todo: stop distinguishing array and tensor!!!
                             // then you dont need this. this strongly depends on
                             // the op & is too much repeated work eprintf("ok
                             // `[+-*/^%]` dims@ %d %d %d %d\n", expr.line,
                             //     expr.col, expr.left->dims,
                             //     expr.right->dims);
-                        } else if ((expr.is(tkKeyword_in, tkKeyword_notin))
-                            and expr.left->dims == 0
-                            and expr.right->dims == 1) {
+                        } else if ((expr.in(tkKeyword_in, tkKeyword_notin))
+                            and expr.left->typeInfo.dims == 0
+                            and expr.right->typeInfo.dims == 1) {
                             // eprintf("ok `in` dims@ %d %d %d %d\n",
                             // expr.line,
                             //     expr.col, expr.left->dims,
                             //     expr.right->dims);
                         } else if (expr.is(tkOpColon) //
-                            and expr.left->dims == 1
+                            and expr.left->typeInfo.dims == 1
                             and expr.left->is(tkOpColon)
-                            and expr.right->dims == 0) {
+                            and expr.right->typeInfo.dims == 0) {
                             // eprintf("ok `:` dims@ %d %d %d %d\n", expr.line,
                             //     expr.col, expr.left->dims,
                             //     expr.right->dims);
-                            // expr.dims = 1;
+                            // expr.typeInfo.dims = 1;
                         } else {
                             errs.binOpDimsMismatch(expr);
                         }
@@ -644,18 +654,18 @@ private:
                     }
                     // ranges always create a 1D entity (not always array, but
                     // 1D)
-                    if (expr.is(tkOpColon)) expr.dims = 1;
+                    if (expr.is(tkOpColon)) expr.typeInfo.dims = 1;
                 }
                 if (!expr.unary and expr.left
-                    and !(inFuncArgs and (expr.is(tkOpComma, tkOpAssign)))) {
+                    and !(inFuncArgs and (expr.in(tkOpComma, tkOpAssign)))) {
                     // ignore , and = inside function call arguments. thing is
                     // array or dict literals passed as args will have , and =
                     // which should be checked. so when you descend into their
                     // args, unset inFuncArgs.
-                    TypeTypes leftType = expr.left->typeType;
-                    TypeTypes rightType = expr.right->typeType;
+                    TypeType leftType = expr.left->typeInfo.typeType;
+                    TypeType rightType = expr.right->typeInfo.typeType;
 
-                    if (leftType == TYBool and (expr.is(tkOpLE, tkOpLT))) {
+                    if (leftType == TYBool and (expr.in(tkOpLE, tkOpLT))) {
                         // Special case: chained LE/LT operators: e.g. 0 <= yCH4
                         // <= 1.
                         ;
@@ -663,17 +673,17 @@ private:
                         // Type mismatch for left and right operands is always
                         // an error.
                         errs.typeMismatchBinOp(expr);
-                        expr.typeType = TYErrorType;
+                        expr.typeInfo.typeType = TYErrorType;
                     } else if (leftType == TYString
-                        and (expr.is(tkOpAssign, tkOpEQ, tkOpNE))) {
+                        and (expr.in(tkOpAssign, tkOpEQ, tkOpNE))) {
                         // Allow assignment, equality test and != for strings.
                         // TODO: might even allow comparison operators, and
                         // perhaps allow +=, or better .= or something. Or
                         // perhaps append(x!) is clearer
                         ;
                     } else if (leftType == TYBool
-                        and (expr.is(tkOpAssign, tkOpEQ) //
-                            or expr.is(
+                        and (expr.in(tkOpAssign, tkOpEQ) //
+                            or expr.in(
                                 tkKeyword_and, tkKeyword_or, tkKeyword_not)
                             or expr.is(tkKeyword_notin)))
                         ;
@@ -687,14 +697,16 @@ private:
                     }
                     // check if an error type is on the left, if yes, set the
                     // expr type
-                    if (leftType == TYErrorType) expr.typeType = leftType;
+                    if (leftType == TYErrorType)
+                        expr.typeInfo.typeType = leftType;
                 }
                 // TODO: here statements like return etc. that are not binary
                 // but need to have their types checked w.r.t. an expected type
                 // TODO: some ops have a predefined type e.g. : is of type Range
                 // etc,
             } else {
-                unreachable("unknown expr kind: %s", TokenKind_str[expr.kind]);
+                unreachable(
+                    "unknown expr kind: %s", TokenKinds_names[expr.kind]);
             }
         }
     }
@@ -712,7 +724,6 @@ private:
     void unused(Type& type) {
         for (Var& memb : type.vars)
             memb.used ? (void)0 : errs.unusedMemb(memb, type);
-        // unused(type.body);
     }
     void unused(Module& mod) {
         unused(mod.scope);

@@ -6,13 +6,15 @@ struct Expr {
     SourceLoc loc;
     TokenKind kind : 8;
     uint8_t prec : 6, rassoc : 1, unary : 1;
+    bool elemental, throws, extract;
     union {
         Expr* left;
         List<Var&>* vars;
+        Type* elementType;
     };
     union {
         Expr* right;
-        SmallString string;
+        char* string;
         Var* var;
         Func* func;
         Import* import;

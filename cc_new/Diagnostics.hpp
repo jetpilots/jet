@@ -146,7 +146,7 @@ struct Diagnostics {
         warning(ErrKind::unused, ErrItem::import, import.loc, &import);
     }
     void syntaxError(Expr& expr) { }
-    void unexpectedToken(Token& token) { }
+    void unexpectedToken(Token& token, const char* msg) { }
     void initDimsMismatch(Expr& expr, int haveDims) { }
     void initMismatch(Expr& expr) { }
     void indexDimsMismatch(Expr& expr, int haveDims) { }

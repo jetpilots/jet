@@ -312,7 +312,8 @@ static void Parser_warnUnusedVar(Parser* parser, ASTVar* var) {
 
 static void Parser_warnUnusedFunc(Parser* parser, ASTFunc* func) {
     if (!parser->issues.warnUnusedFunc) return;
-    Parser__warnHeaderWithLoc(parser, func->line, 1, 5 + strlen(func->name));
+    Parser__warnHeaderWithLoc(
+        parser, func->line, func->col - 5, 5 + strlen(func->name));
     eprintf("unused or unnecessary function '%s';;selector: '%s'\n", func->name,
         func->selector);
 }

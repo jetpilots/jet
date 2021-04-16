@@ -1,3 +1,7 @@
+#define eputs(s) fputs(s, stderr)
+#define eprintf(s, ...) fprintf(stderr, __VA_ARGS__)
+#define unreachable(...) fprintf(stderr, __VA_ARGS__)
+
 #include "List.hpp"
 
 #include "ast/Var.hpp"
