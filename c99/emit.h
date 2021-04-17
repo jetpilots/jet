@@ -914,7 +914,7 @@ static void ASTExpr_emit_tkSubscriptResolved(ASTExpr* expr, int level) {
         printf(")");
         break;
 
-    default: unreachable("bad kind: %s", TokenKinds_names[expr->kind]); break;
+    default: unreachable("bad kind: %s", TokenKind_names[expr->kind]); break;
     }
 }
 
@@ -1182,7 +1182,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
                 // Tensor2D_Scalar or Dict_String_Scalar etc.
                 printf("%s_set(%s, %s,%s, ", ASTExpr_typeName(expr->left),
                     expr->left->var->name, expr->left->left->string,
-                    TokenKind_repr(expr->kind, true));
+                    TokenKind_srepr[expr->kind]);
                 ASTExpr_emit(expr->right, 0);
                 printf(")");
                 break;
@@ -1191,7 +1191,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
                 printf("%s_setSlice(%s, ", ASTExpr_typeName(expr->left),
                     expr->left->var->name);
                 ASTExpr_emit(expr->left->left, 0);
-                printf(",%s, ", TokenKind_repr(expr->kind, true));
+                printf(",%s, ", TokenKind_srepr[expr->kind]);
                 ASTExpr_emit(expr->right, 0);
                 printf(")");
                 break;
@@ -1208,7 +1208,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
                 printf("%s_setFiltered(%s, ", ASTExpr_typeName(expr->left),
                     expr->left->var->name);
                 ASTExpr_emit(expr->left->left, 0);
-                printf(",%s, ", TokenKind_repr(expr->kind, true));
+                printf(",%s, ", TokenKind_srepr[expr->kind]);
                 ASTExpr_emit(expr->right, 0);
                 printf(")");
                 break;
@@ -1230,14 +1230,14 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
                 // arr[func(x)]
                 break;
             default:
-                unreachable("%s\n", TokenKinds_names[expr->left->kind]);
+                unreachable("%s\n", TokenKind_names[expr->left->kind]);
                 assert(0);
             }
             break;
         case tkIdentifierResolved:
         case tkPeriod:
             ASTExpr_emit(expr->left, 0);
-            printf("%s", TokenKind_repr(expr->kind, true));
+            printf("%s", TokenKind_srepr[expr->kind]);
             ASTExpr_emit(expr->right, 0);
             break;
         case tkIdentifier:
@@ -1255,7 +1255,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
             // check for assignments to invalid lvalues and raise an
             // error
             unreachable(
-                "found token kind %s\n", TokenKinds_names[expr->left->kind]);
+                "found token kind %s\n", TokenKind_names[expr->left->kind]);
         }
         // if (! inFuncArgs) {
         //     ASTExpr_emit(self->left, 0,
@@ -1464,7 +1464,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
         if (expr->kind == tkKeyword_for)
             printf("FOR(");
         else
-            printf("%s (", TokenKind_repr(expr->kind, true));
+            printf("%s (", TokenKind_srepr[expr->kind]);
         if (expr->kind == tkKeyword_for) expr->left->kind = tkOpComma;
         if (expr->left) ASTExpr_emit(expr->left, 0);
         if (expr->kind == tkKeyword_for) expr->left->kind = tkOpAssign;
@@ -1534,7 +1534,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
             break;
         default:
             unreachable("inside in operator: rhs is %s",
-                TokenKind_repr(expr->right->kind, false));
+                TokenKind_repr[expr->right->kind]);
             // for anything else, figure it out.
         }
         break;
@@ -1558,7 +1558,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
             printf(")");
             break;
         } else if (expr->right->typeType == TYString) {
-            printf("CString_cmp(%s, ", TokenKinds_srepr[expr->kind]);
+            printf("CString_cmp(%s, ", TokenKind_srepr[expr->kind]);
             ASTExpr_emit(expr->left, 0);
             printf(", ");
             ASTExpr_emit(expr->right, 0);
@@ -1585,7 +1585,7 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
         if (expr->kind == tkArrayOpen)
             putc('{', stdout);
         else
-            printf("%s", TokenKind_repr(expr->kind, true));
+            printf("%s", TokenKind_srepr[expr->kind]);
 
         char rpo = '(';
         char rpc = ')';

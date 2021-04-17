@@ -371,7 +371,7 @@ error:
     if (ops.used) {
         eputs("ops: [ ");
         for (int i = 0; i < ops.used; i++)
-            eprintf("%s ", TokenKinds_repr[((ASTExpr*)ops.ref[i])->kind]);
+            eprintf("%s ", TokenKind_repr[((ASTExpr*)ops.ref[i])->kind]);
         eputs("];;");
     }
 
@@ -382,8 +382,8 @@ error:
                 eputs("NUL ");
             else {
                 ASTExpr* e = rpn.ref[i];
-                eprintf("%.*s ", 32,
-                    e->prec ? TokenKind_repr(e->kind, false) : e->string);
+                eprintf(
+                    "%.*s ", 32, e->prec ? TokenKind_repr[e->kind] : e->string);
             }
         eputs("];;");
     }
@@ -395,15 +395,14 @@ error:
                 eputs("NUL ");
             else {
                 ASTExpr* e = result.ref[i];
-                eprintf("%.*s ", 32,
-                    e->prec ? TokenKind_repr(e->kind, false) : e->string);
+                eprintf(
+                    "%.*s ", 32, e->prec ? TokenKind_repr[e->kind] : e->string);
             }
         eputs("];;");
     }
 
     if (p) {
-        eprintf("p: %.*s ", 32,
-            p->prec ? TokenKind_repr(p->kind, false) : p->string);
+        eprintf("p: %.*s ", 32, p->prec ? TokenKind_repr[p->kind] : p->string);
         // eprintf("");
     }
     eputs("\n");
@@ -721,7 +720,7 @@ static ASTScope* parseScope(Parser* parser, ASTScope* parent, bool isTypeBody) {
                 else {
                     if (expr->left->kind != tkKeyword_in)
                         unreachable("Invalid for-loop condition: %s\n",
-                            TokenKind_repr(expr->left->kind, false));
+                            TokenKind_repr[expr->left->kind]);
 
                     resolveVars(parser, expr->left->right, scope, false);
 
@@ -861,7 +860,7 @@ static ASTScope* parseEnumBody(Parser* parser, ASTScope* globScope) {
             if (!expr) break;
             if (expr->kind != tkIdentifier && expr->kind != tkOpAssign) {
                 Parser_errorInvalidTypeMember(parser);
-                unreachable("%s\n", TokenKinds_names[expr->kind]);
+                unreachable("%s\n", TokenKind_names[expr->kind]);
                 expr = NULL;
             }
             stmts = PtrList_append(stmts, expr);
@@ -1274,7 +1273,7 @@ static ASTModule* parseModule(
         if (parser->mode == PMTokenize) {
             printf("%s %2d %3d %3d %-20s\t%.*s\n", parser->moduleName,
                 parser->token.line, parser->token.col, parser->token.matchlen,
-                TokenKinds_names[parser->token.kind],
+                TokenKind_names[parser->token.kind],
                 parser->token.kind == tkNewline ? 0 : parser->token.matchlen,
                 parser->token.pos);
             Token_advance(&parser->token);

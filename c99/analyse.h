@@ -1018,7 +1018,7 @@ static void ASTExpr_analyse(Parser* parser, ASTExpr* expr, ASTScope* scope,
             // TODO: some ops have a predefined type e.g. : is of type Range
             // etc,
         } else {
-            unreachable("unknown expr kind: %s", TokenKinds_names[expr->kind]);
+            unreachable("unknown expr kind: %s", TokenKind_names[expr->kind]);
         }
     }
 }
@@ -1348,7 +1348,7 @@ static int ASTExpr_markTypesVisited(Parser* parser, ASTExpr* expr) {
             if (ret) return ret;
         } else
             unreachable("unknown expr kind: %s at %d:%d\n",
-                TokenKinds_names[expr->kind], expr->line, expr->col);
+                TokenKind_names[expr->kind], expr->line, expr->col);
     }
     if (!type) return 0;
     if (type->visited) {

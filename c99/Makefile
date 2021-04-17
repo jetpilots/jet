@@ -1,5 +1,5 @@
 
-CCFLAGS=-std=c99 -I../engine
+CCFLAGS=-std=c99 -I../engine -ferror-limit=999
 CCLIBS=-lc -lm
 CC=gcc
 
@@ -7,23 +7,23 @@ CC=gcc
 install: cjet
 	cp cjet /usr/local/bin
 
-cjet: *.[ch]
-	$(CC)  $(CCFLAGS) $< $(CCLIBS) -o $@
+cjet: *.[ch] TokenKind.h
+	$(CC)  $(CCFLAGS) main.c $(CCLIBS) -o $@
 
 TokenKind.h: makeTokens.sh
-	cd c99 && ./makeTokens.sh
+	./makeTokens.sh
 
 all: cjet cjet-fast cjet-dbg cjet-cov
 
 # Each build mode (except the default) should define a specific macro.
 
-cjet-fast: *.[ch]
+cjet-fast: *.[ch] TokenKind.h
 	$(CC) -Os -DFAST $(CCFLAGS) main.c $(CCLIBS) -o $@
 
-cjet-dbg: *.[ch]
+cjet-dbg: *.[ch] TokenKind.h
 	$(CC) -g -O0 -DDEBUG $(CCFLAGS) main.c $(CCLIBS) -o $@
 
-cjet-cov: *.[ch]
+cjet-cov: *.[ch] TokenKind.h
 	$(CC) -g -DCOVERAGE -fprofile-arcs -ftest-coverage -O3 $(CCFLAGS) main.c $(CCLIBS) -o $@
 
 # test:  #cjet-cov

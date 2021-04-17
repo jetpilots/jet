@@ -19,16 +19,6 @@ static void ASTTypeSpec_lint(ASTTypeSpec* spec, int level) {
         if (spec->dims) {
             static const char* dimsstr
                 = ":,:,:,:,:,:,:,:,:,:,:,:,:,:,:,:,:,:,:";
-            //        char str[32];
-            //        str[31]=0;
-            //        int sz= 2 + dims + (dims ? (dims-1) : 0) + 1;
-            //        str[0] = '[';
-            //        str[sz-2] = ']';
-            //        str[sz-1] = 0;
-            //        for (i=0; i<sz; i++) {
-            //            str[i*2+1]=':';
-            //            str[i*2+2]=',';
-            //        }
             printf("[%.*s]", 2 * spec->dims - 1, dimsstr);
         } else {
             printf("[?]");
@@ -111,7 +101,7 @@ static void ASTScope_lint(ASTScope* scope, int level) {
         case tkKeyword_case:
         case tkKeyword_match:
             printf("%.*s", level, spaces);
-            printf("%s ", TokenKind_repr(expr->kind, false));
+            printf("%s ", TokenKind_repr[expr->kind]);
             if (expr->left) ASTExpr_lint(expr->left, 0, true, false);
             puts("");
             //, true, escapeStrings);
@@ -129,13 +119,13 @@ static void ASTScope_lint(ASTScope* scope, int level) {
         case tkKeyword_else:
         case tkKeyword_while: {
             printf("%.*s", level, spaces);
-            printf("%s ", TokenKind_repr(expr->kind, false));
+            printf("%s ", TokenKind_repr[expr->kind]);
             if (expr->left) ASTExpr_lint(expr->left, 0, true, false);
             puts("");
             if (expr->body)
                 ASTScope_lint(
                     expr->body, level + STEP); //, true, escapeStrings);
-            //            const char* tok = TokenKind_repr(expr->kind, false);
+            //            const char* tok = TokenKind_repr[expr->kind];
             //            if (expr->kind == tkKeyword_else || expr->kind ==
             //            tkKeyword_elif)
             //                tok = "if";
@@ -261,8 +251,7 @@ static void ASTExpr_lint(
     case tkKeyword_nil: printf("nil"); break;
 
     case tkLineComment:
-        printf("%s%s", TokenKind_repr(tkLineComment, *expr->string != ' '),
-            expr->string);
+        printf("%s%s", TokenKind_repr[tkLineComment], expr->string);
         break;
 
     case tkFunctionCall:
@@ -318,11 +307,11 @@ static void ASTExpr_lint(
 
     case tkArrayOpen:
     case tkBraceOpen:
-        printf("%s", TokenKinds_repr[expr->kind]);
+        printf("%s", TokenKind_repr[expr->kind]);
         if (expr->right)
             ASTExpr_lint(
                 expr->right, level, expr->kind != tkArrayOpen, escapeStrings);
-        printf("%s", TokenKinds_repr[TokenKind_reverseBracket(expr->kind)]);
+        printf("%s", TokenKind_repr[TokenKind_reverseBracket(expr->kind)]);
         break;
 
     case tkKeyword_in:
@@ -330,7 +319,7 @@ static void ASTExpr_lint(
         // these seem to add precedence parens aruns expr->right if done as
         // normal binops. so ill do them separately here.
         ASTExpr_lint(expr->left, 0, spacing, escapeStrings);
-        printf("%s", TokenKinds_repr[expr->kind]);
+        printf("%s", TokenKind_repr[expr->kind]);
         ASTExpr_lint(expr->right, 0, spacing, escapeStrings);
         break;
 
@@ -367,23 +356,6 @@ static void ASTExpr_lint(
                 }
         }
 
-        //        if (false and self->kind == tkKeyword_return and
-        //        self->right) {
-        //            switch (self->right->kind) {
-        //            case tkString:
-        //            case tkNumber:
-        //            case tkIdentifier:
-        //            case tkFunctionCall:
-        //            case tkSubscript:
-        //            case tkRawString:
-        //            case tkMultiDotNumber:
-        //                break;
-        //            default:
-        //                rightBr = true;
-        //                break;
-        //            }
-        //        }
-
         if (expr->kind == tkOpPower && !spacing) putc('(', stdout);
 
         char lpo = leftBr && expr->left->kind == tkOpColon ? '[' : '(';
@@ -394,7 +366,8 @@ static void ASTExpr_lint(
                 spacing && !leftBr && expr->kind != tkOpColon, escapeStrings);
         if (leftBr) putc(lpc, stdout);
 
-        printf("%s", TokenKind_repr(expr->kind, spacing));
+        printf("%s",
+            spacing ? TokenKind_srepr[expr->kind] : TokenKind_repr[expr->kind]);
 
         char rpo = rightBr && expr->right->kind == tkOpColon ? '[' : '(';
         char rpc = rightBr && expr->right->kind == tkOpColon ? ']' : ')';
@@ -405,8 +378,6 @@ static void ASTExpr_lint(
         if (rightBr) putc(rpc, stdout);
 
         if (expr->kind == tkOpPower && !spacing) putc(')', stdout);
-        // if (expr->kind == tkArrayOpen) putc(']', stdout);
-        // if (expr->kind == tkBraceOpen) putc('}', stdout);
     }
 }
 
@@ -418,12 +389,9 @@ static void ASTModule_lint(ASTModule* module) {
 
     puts("");
 
-    foreach (ASTVar*, var, module->scope->locals) {
-        ASTVar_lint(var, 0);
-        puts("");
-    } // foreach (ASTVar*, var, mod->scope->locals)
-    //     if (var->init)
-    //         analyseExpr(parser, var->init, mod->scope, mod, false);
+    foreach (ASTVar*, var, module->scope->locals)
+        ASTVar_lint(var, 0), puts("");
+
     puts("");
 
     foreach (ASTType*, type, module->types)

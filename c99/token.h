@@ -1,4 +1,7 @@
 
+#include "TokenKind.h"
+#include "TokenKindFuncs.h"
+
 static const uint8_t TokenKindTable[256] = {
     /* 0 */ tkNullChar, /* 1 */ tkUnknown, /* 2 */ tkUnknown,
     /* 3 */ tkUnknown, /* 4 */ tkUnknown, /* 5 */ tkUnknown,

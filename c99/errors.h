@@ -70,7 +70,7 @@ static void Parser__errHeaderWithExpr(Parser* parser, ASTExpr* expr) {
     case tkKeyword_extends:
     case tkKeyword_var:
     case tkKeyword_let:
-    case tkKeyword_import: len = strlen(TokenKinds_repr[expr->kind]); break;
+    case tkKeyword_import: len = strlen(TokenKind_repr[expr->kind]); break;
     case tkIdentifier:
     case tkArgumentLabel:
     case tkFunctionCall:
@@ -137,9 +137,9 @@ static void Parser_errorExpectedToken(Parser* parser, TokenKind expected) {
 
     eprintf("expected '%s' (%s) but found '%s'\n",
         // parser->issues.errCount + 1, //
-        TokenKind_repr(expected, false), //
-        TokenKinds_names[expected] + 2, //
-        TokenKind_repr(parser->token.kind, false) //
+        TokenKind_repr[expected], //
+        TokenKind_names[expected] + 2, //
+        TokenKind_repr[parser->token.kind] //
         // RELF(parser->filename), //
         // parser->token.line, //
         // parser->token.col //
@@ -147,7 +147,7 @@ static void Parser_errorExpectedToken(Parser* parser, TokenKind expected) {
 
     char msg[128];
     msg[127] = 0;
-    snprintf(msg, 127, "expected '%s' here", TokenKind_repr(expected, false));
+    snprintf(msg, 127, "expected '%s' here", TokenKind_repr[expected]);
 
     Parser__printSourceLines(parser, parser->token.line, parser->token.col,
         parser->token.matchlen, msg);
@@ -327,11 +327,11 @@ static void Parser_warnUnusedType(Parser* parser, ASTType* type) {
 
 static void Parser_warnSameExpr(Parser* parser, ASTExpr* e1, ASTExpr* e2) {
     Parser__warnHeaderWithLoc(parser, e1->line, e1->col, 1);
-    eprintf("CSE candidate '%s' for %d:%d\n", TokenKinds_repr[e1->kind],
+    eprintf("CSE candidate '%s' for %d:%d\n", TokenKind_repr[e1->kind],
         e2->line, e2->col);
 
     Parser__warnHeaderWithLoc(parser, e2->line, e2->col, 1);
-    eprintf("CSE candidate '%s' for %d:%d\n", TokenKinds_repr[e2->kind],
+    eprintf("CSE candidate '%s' for %d:%d\n", TokenKind_repr[e2->kind],
         e1->line, e2->col);
 }
 
@@ -645,7 +645,7 @@ static void Parser_errorTypeMismatchBinOp(Parser* parser, ASTExpr* expr) {
     eprintf("type mismatch; can't apply '%s' to '%s' and '%s'\n",
         // parser->issues.errCount + 1,
         // RELF(parser->filename), expr->line, expr->col,
-        TokenKind_repr(expr->kind, false), leftTypeName, rightTypeName);
+        TokenKind_repr[expr->kind], leftTypeName, rightTypeName);
     Parser_errorIncrement(parser);
 }
 
@@ -723,7 +723,7 @@ static void Parser_errorBinOpDimsMismatch(Parser* parser, ASTExpr* expr) {
         // RELF(parser->filename), //
         // expr->line,
         // expr->col, //
-        TokenKinds_repr[expr->kind], //
+        TokenKind_repr[expr->kind], //
         expr->left->dims, //
         expr->right->dims);
     Parser_errorIncrement(parser);
@@ -763,7 +763,7 @@ static void Parser_errorInvalidTypeForOp(Parser* parser, ASTExpr* expr) {
 
     eprintf("invalid types for '%s'\n",
         // parser->issues.errCount + 1, //
-        TokenKind_repr(expr->kind, false)
+        TokenKind_repr[expr->kind]
         // , //
         // RELF(parser->filename), //
         // expr->line, expr->col
@@ -826,8 +826,8 @@ static void Parser_errorUnexpectedExpr(Parser* parser, ASTExpr* expr) {
         // expr->line, //
         // expr->col,
         expr->prec //
-            ? TokenKind_repr(expr->kind, false) //
+            ? TokenKind_repr[expr->kind] //
             : expr->string,
-        TokenKinds_names[expr->kind] + 2);
+        TokenKind_names[expr->kind] + 2);
     Parser_errorIncrement(parser);
 }

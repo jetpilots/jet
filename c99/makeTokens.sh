@@ -14,11 +14,8 @@ finish() {
     echo "};\n" >> TokenKind_names.h
 
     echo "} TokenKind;\n" >> TokenKind.h
-    echo '#include "TokenKind_repr.h"' >> TokenKind.h
-    echo '#include "TokenKind_srepr.h"' >> TokenKind.h
-    echo '#include "TokenKind_names.h"' >> TokenKind.h
-    # cat TokenKind.h TokenKind_names.h TokenKind_repr.h TokenKind_srepr.h > TokenKindDefs.h
-    # rm TokenKind.h TokenKind_names.h TokenKind_repr.h TokenKind_srepr.h
+    cat TokenKind_names.h TokenKind_repr.h TokenKind_srepr.h >> TokenKind.h
+    rm TokenKind_names.h TokenKind_repr.h TokenKind_srepr.h
 }
 
 add() {
