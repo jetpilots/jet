@@ -1,5 +1,0 @@
-#!/bin/sh
-# [ -f "$1" ] || exit 6
-# TGT=${1%%.ch}-d.bin
-# make -s -f Makerunner $TGT && [ -f $TGT ] && ./$TGT
-EXTN=-d ./run $*

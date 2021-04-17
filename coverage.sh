@@ -1,30 +1,19 @@
 #!/bin/sh
 rm -f *.gcno *.gcda
-make -B jetc-cov # because it generates .gcno
-# ./jetc-cov.bin simptest0.jet
-# mkdir .covtest 2>/dev/null
-# cd .covtest
-# for f in ../../programs/*.c
-# do ln -sf $f .
-# done
-# for f in ../../modules/*.h
-# do ln -sf $f .
-# done
-#  ln -sf ../../main.gcno .
-#  ln -sf ../../main.gcda .
+make -C c99 -B cjet-cov # because it generates .gcno
 
 NTOT=0
 NERR=0
 for f in `find tests -name '*.jet'`
 do
     RET=0
-    ./jetc-cov "$f" d > /dev/null  2>&1
+    ./c99/cjet-cov "$f" d > /dev/null  2>&1
     RET=$((RET+$?))
-    ./jetc-cov "$f" > /dev/null  2>&1
+    ./c99/cjet-cov "$f" > /dev/null  2>&1
     RET=$((RET+$?))
-    ./jetc-cov "$f" l > /dev/null  2>&1
+    ./c99/cjet-cov "$f" l > /dev/null  2>&1
     RET=$((RET+$?))
-    ./jetc-cov "$f" t > /dev/null  2>&1
+    ./c99/cjet-cov "$f" t > /dev/null  2>&1
     RET=$((RET+$?))
     [ $RET == 0 ] && ST="\e[33mOK\e[0m" || ST="\e[31mERR\e[0m:$RET"
     [ $RET == 0 ] || NERR=$((NERR+1))
@@ -32,7 +21,7 @@ do
     NTOT=$((NTOT+1))
 done
 echo "*** $NERR of $NTOT failed"
-cd programs
+cd c99
 ln -sf ../main.gcno .
 ln -sf ../main.gcda .
 cd - > /dev/null 2>&1
@@ -42,7 +31,7 @@ echo >  coverage.txt
 echo "Unit                                        Unexec      Lines   Branches    Taken1+" >> coverage.txt
 echo "----                                        ------      -----   --------    -------" >> coverage.txt
 
-gcov -f -b -a programs/main.c | awk '
+gcov -f -b -a c99/main.c | awk '
 
 $1=="File" || $1=="Function" {
     printf "\n%s %-36s ",tolower(substr($1,1,4)), substr($2,2,length($2)-2)

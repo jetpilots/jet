@@ -28,7 +28,8 @@
 
 
 declare type Strings
-declare function print(t Number)
+end
+declare func print(t Number)
 
 func main(a Strings) as Number
     var x Number = fx(34 + 4 * 3)

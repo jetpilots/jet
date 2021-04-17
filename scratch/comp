@@ -1,3 +1,0 @@
-#!/bin/sh
-# printf "  ...\r" 1>&2
-make -j -s -r checkc.bin && ./checkc.bin $*
