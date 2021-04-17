@@ -1,57 +1,57 @@
 #include <complex.h>
-typedef double complex Complex;
-Complex Complex_new(double re, double im) { return CMPLX(re, im); }
-Complex Complex_acos(Complex c) { return cacos(c); };
-Complex Complex_asin(Complex c) { return casin(c); };
-Complex Complex_atan(Complex c) { return catan(c); };
-Complex Complex_cos(Complex c) { return ccos(c); };
-Complex Complex_sin(Complex c) { return csin(c); };
-Complex Complex_tan(Complex c) { return ctan(c); };
-Complex Complex_acosh(Complex c) { return cacosh(c); };
-Complex Complex_asinh(Complex c) { return casinh(c); };
-Complex Complex_atanh(Complex c) { return catanh(c); };
-Complex Complex_cosh(Complex c) { return ccosh(c); };
-Complex Complex_sinh(Complex c) { return csinh(c); };
-Complex Complex_tanh(Complex c) { return ctanh(c); };
-Complex Complex_exp(Complex c) { return cexp(c); };
-Complex Complex_log(Complex c) { return clog(c); };
-Complex Complex_pow(Complex c, Complex p) { return cpow(c, p); };
-Complex Complex_sqrt(Complex c) { return csqrt(c); };
-Complex Complex_conj(Complex c) { return conj(c); };
-Complex Complex_proj(Complex c) { return cproj(c); };
-Real Complex_abs(Complex c) { return cabs(c); };
-Real Complex_arg(Complex c) { return carg(c); };
-Real Complex_imag(Complex c) { return cimag(c); };
-Real Complex_real(Complex c) { return creal(c); };
+typedef double complex complex_t;
+complex_t complex_new(double re, double im) { return CMPLX(re, im); }
+complex_t complex_acos(complex_t c) { return cacos(c); };
+complex_t complex_asin(complex_t c) { return casin(c); };
+complex_t complex_atan(complex_t c) { return catan(c); };
+complex_t complex_cos(complex_t c) { return ccos(c); };
+complex_t complex_sin(complex_t c) { return csin(c); };
+complex_t complex_tan(complex_t c) { return ctan(c); };
+complex_t complex_acosh(complex_t c) { return cacosh(c); };
+complex_t complex_asinh(complex_t c) { return casinh(c); };
+complex_t complex_atanh(complex_t c) { return catanh(c); };
+complex_t complex_cosh(complex_t c) { return ccosh(c); };
+complex_t complex_sinh(complex_t c) { return csinh(c); };
+complex_t complex_tanh(complex_t c) { return ctanh(c); };
+complex_t complex_exp(complex_t c) { return cexp(c); };
+complex_t complex_log(complex_t c) { return clog(c); };
+complex_t complex_pow(complex_t c, complex_t p) { return cpow(c, p); };
+complex_t complex_sqrt(complex_t c) { return csqrt(c); };
+complex_t complex_conj(complex_t c) { return conj(c); };
+complex_t complex_proj(complex_t c) { return cproj(c); };
+double complex_abs(complex_t c) { return cabs(c); };
+double complex_arg(complex_t c) { return carg(c); };
+double complex_imag(complex_t c) { return cimag(c); };
+double complex_real(complex_t c) { return creal(c); };
 
-typedef float complex Complex4;
-static inline Complex4 Complex4_new(double re, double im) {
+typedef float complex complex4_t;
+static inline complex4_t complex4_new(double re, double im) {
     return CMPLX(re, im);
 }
-static inline Complex4 Complex4_acos(Complex4 c) { return cacosf(c); };
-static inline Complex4 Complex4_asin(Complex4 c) { return casinf(c); };
-static inline Complex4 Complex4_atan(Complex4 c) { return catanf(c); };
-static inline Complex4 Complex4_cos(Complex4 c) { return ccosf(c); };
-static inline Complex4 Complex4_sin(Complex4 c) { return csinf(c); };
-static inline Complex4 Complex4_tan(Complex4 c) { return ctanf(c); };
-static inline Complex4 Complex4_acosh(Complex4 c) { return cacoshf(c); };
-static inline Complex4 Complex4_asinh(Complex4 c) { return casinhf(c); };
-static inline Complex4 Complex4_atanh(Complex4 c) { return catanhf(c); };
-static inline Complex4 Complex4_cosh(Complex4 c) { return ccoshf(c); };
-static inline Complex4 Complex4_sinh(Complex4 c) { return csinhf(c); };
-static inline Complex4 Complex4_tanh(Complex4 c) { return ctanhf(c); };
-static inline Complex4 Complex4_exp(Complex4 c) { return cexpf(c); };
-static inline Complex4 Complex4_log(Complex4 c) { return clogf(c); };
-static inline Complex4 Complex4_pow(Complex4 c, Complex4 p) {
+static inline complex4_t complex4_acos(complex4_t c) { return cacosf(c); };
+static inline complex4_t complex4_asin(complex4_t c) { return casinf(c); };
+static inline complex4_t complex4_atan(complex4_t c) { return catanf(c); };
+static inline complex4_t complex4_cos(complex4_t c) { return ccosf(c); };
+static inline complex4_t complex4_sin(complex4_t c) { return csinf(c); };
+static inline complex4_t complex4_tan(complex4_t c) { return ctanf(c); };
+static inline complex4_t complex4_acosh(complex4_t c) { return cacoshf(c); };
+static inline complex4_t complex4_asinh(complex4_t c) { return casinhf(c); };
+static inline complex4_t complex4_atanh(complex4_t c) { return catanhf(c); };
+static inline complex4_t complex4_cosh(complex4_t c) { return ccoshf(c); };
+static inline complex4_t complex4_sinh(complex4_t c) { return csinhf(c); };
+static inline complex4_t complex4_tanh(complex4_t c) { return ctanhf(c); };
+static inline complex4_t complex4_exp(complex4_t c) { return cexpf(c); };
+static inline complex4_t complex4_log(complex4_t c) { return clogf(c); };
+static inline complex4_t complex4_pow(complex4_t c, complex4_t p) {
     return cpowf(c, p);
 };
-static inline Complex4 Complex4_sqrt(Complex4 c) { return csqrtf(c); };
-static inline Complex4 Complex4_conj(Complex4 c) { return conjf(c); };
-static inline Complex4 Complex4_proj(Complex4 c) { return cprojf(c); };
-static inline Real32 Complex4_abs(Complex4 c) { return cabsf(c); };
-static inline Real32 Complex4_arg(Complex4 c) { return cargf(c); };
-static inline Real32 Complex4_imag(Complex4 c) { return cimagf(c); };
-static inline Real32 Complex4_real(Complex4 c) { return crealf(c); };
+static inline complex4_t complex4_sqrt(complex4_t c) { return csqrtf(c); };
+static inline complex4_t complex4_conj(complex4_t c) { return conjf(c); };
+static inline complex4_t complex4_proj(complex4_t c) { return cprojf(c); };
+static inline float complex4_abs(complex4_t c) { return cabsf(c); };
+static inline float complex4_arg(complex4_t c) { return cargf(c); };
+static inline float complex4_imag(complex4_t c) { return cimagf(c); };
+static inline float complex4_real(complex4_t c) { return crealf(c); };
 
 int psz() {
     printf("int: %zu\n", sizeof(int));

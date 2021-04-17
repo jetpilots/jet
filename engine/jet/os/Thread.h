@@ -32,23 +32,23 @@ void pthreadBench(int NTH) {
 static pthread_attr_t pthread_attr_detached_default[1];
 static pthread_attr_t pthread_attr_joinable_default[1];
 
-pthread_t Thread_run(void* (*f)(void*), void* arg) {
+pthread_t thread_run(void* (*f)(void*), void* arg) {
     pthread_t ret = NULL;
     int err = pthread_create(&ret, pthread_attr_joinable_default, f, arg);
-    if (err) printf("Thread_run failed\n");
+    if (err) printf("thread_run failed\n");
     return ret;
 }
 
-void* Thread_join(pthread_t thr) {
+void* thread_join(pthread_t thr) {
     void* ret = NULL;
     pthread_join(thr, &ret);
     return ret;
 }
 
-pthread_t Thread_runDetached(void* (*f)(void*), void* arg) {
+pthread_t thread_runDetached(void* (*f)(void*), void* arg) {
     pthread_t ret = NULL;
     int err = pthread_create(&ret, pthread_attr_detached_default, f, arg);
-    if (err) printf("Thread_run failed\n");
+    if (err) printf("thread_run failed\n");
     return ret;
 }
 

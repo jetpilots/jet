@@ -34,7 +34,7 @@ typedef unsigned long long
 #if defined(_WIN32) /* Windows */
 
 #include <windows.h> /* LARGE_INTEGER */
-typedef LARGE_INTEGER clock_Time;
+typedef LARGE_INTEGER clock_time_t;
 #define JET_CLOCK_TIME_INITIALIZER                                             \
     {                                                                          \
         { 0, 0 }                                                               \
@@ -43,7 +43,7 @@ typedef LARGE_INTEGER clock_Time;
 #elif defined(__APPLE__) && defined(__MACH__)
 
 #include <mach/mach_time.h>
-typedef PreciseTime clock_Time;
+typedef PreciseTime clock_time_t;
 #define JET_CLOCK_TIME_INITIALIZER 0
 
 /* C11 requires timespec_get, but FreeBSD 11 lacks it, while still claiming C11
@@ -51,25 +51,27 @@ typedef PreciseTime clock_Time;
 #elif (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L) /* C11 */)   \
     && defined(TIME_UTC) && !defined(__ANDROID__)
 
-typedef struct timespec clock_Time;
+typedef struct timespec clock_time_t;
 #define JET_CLOCK_TIME_INITIALIZER                                             \
     { 0, 0 }
 
 #else /* relies on standard C90 (note : clock_t measurements can be wrong when \
          using multi-threading) */
 
-typedef clock_t clock_Time;
+typedef clock_t clock_time_t;
 #define JET_CLOCK_TIME_INITIALIZER 0
 
 #endif
 
-clock_Time clock_getTime(void);
-PreciseTime clock_getSpanTimeMicro(clock_Time clockStart, clock_Time clockEnd);
-PreciseTime clock_getSpanTimeNano(clock_Time clockStart, clock_Time clockEnd);
+clock_time_t clock_getTime(void);
+PreciseTime clock_getSpanTimeMicro(
+    clock_time_t clockStart, clock_time_t clockEnd);
+PreciseTime clock_getSpanTimeNano(
+    clock_time_t clockStart, clock_time_t clockEnd);
 
 #define SEC_TO_MICRO ((PreciseTime)1000000)
-PreciseTime clock_clockSpanMicro(clock_Time clockStart);
-PreciseTime clock_clockSpanNano(clock_Time clockStart);
+PreciseTime clock_clockSpanMicro(clock_time_t clockStart);
+PreciseTime clock_clockSpanNano(clock_time_t clockStart);
 
 void clock_waitForNextTick(void);
 
@@ -82,13 +84,14 @@ void clock_waitForNextTick(void);
 #include <stdlib.h> /* abort */
 #include <stdio.h> /* perror */
 
-clock_Time clock_getTime(void) {
-    clock_Time x;
+clock_time_t clock_getTime(void) {
+    clock_time_t x;
     QueryPerformanceCounter(&x);
     return x;
 }
 
-PreciseTime clock_getSpanTimeMicro(clock_Time clockStart, clock_Time clockEnd) {
+PreciseTime clock_getSpanTimeMicro(
+    clock_time_t clockStart, clock_time_t clockEnd) {
     static LARGE_INTEGER ticksPerSecond;
     static int init = 0;
     if (!init) {
@@ -102,7 +105,8 @@ PreciseTime clock_getSpanTimeMicro(clock_Time clockStart, clock_Time clockEnd) {
         / ticksPerSecond.QuadPart;
 }
 
-PreciseTime clock_getSpanTimeNano(clock_Time clockStart, clock_Time clockEnd) {
+PreciseTime clock_getSpanTimeNano(
+    clock_time_t clockStart, clock_time_t clockEnd) {
     static LARGE_INTEGER ticksPerSecond;
     static int init = 0;
     if (!init) {
@@ -118,9 +122,10 @@ PreciseTime clock_getSpanTimeNano(clock_Time clockStart, clock_Time clockEnd) {
 
 #elif defined(__APPLE__) && defined(__MACH__)
 
-clock_Time clock_getTime(void) { return mach_absolute_time(); }
+clock_time_t clock_getTime(void) { return mach_absolute_time(); }
 
-PreciseTime clock_getSpanTimeMicro(clock_Time clockStart, clock_Time clockEnd) {
+PreciseTime clock_getSpanTimeMicro(
+    clock_time_t clockStart, clock_time_t clockEnd) {
     static mach_timebase_info_data_t rate;
     static int init = 0;
     if (!init) {
@@ -132,7 +137,8 @@ PreciseTime clock_getSpanTimeMicro(clock_Time clockStart, clock_Time clockEnd) {
         / 1000ULL;
 }
 
-PreciseTime clock_getSpanTimeNano(clock_Time clockStart, clock_Time clockEnd) {
+PreciseTime clock_getSpanTimeNano(
+    clock_time_t clockStart, clock_time_t clockEnd) {
     static mach_timebase_info_data_t rate;
     static int init = 0;
     if (!init) {
@@ -151,10 +157,10 @@ PreciseTime clock_getSpanTimeNano(clock_Time clockStart, clock_Time clockEnd) {
 #include <stdlib.h> /* abort */
 #include <stdio.h> /* perror */
 
-clock_Time clock_getTime(void) {
+clock_time_t clock_getTime(void) {
     /* time must be initialized, othersize it may fail msan test.
      * No good reason, likely a limitation of timespec_get() for some target */
-    clock_Time time = JET_CLOCK_TIME_INITIALIZER;
+    clock_time_t time = JET_CLOCK_TIME_INITIALIZER;
     if (timespec_get(&time, TIME_UTC) != TIME_UTC) {
         perror("timefn::timespec_get");
         abort();
@@ -162,8 +168,8 @@ clock_Time clock_getTime(void) {
     return time;
 }
 
-static clock_Time clock_getSpanTime(clock_Time begin, clock_Time end) {
-    clock_Time diff;
+static clock_time_t clock_getSpanTime(clock_time_t begin, clock_time_t end) {
+    clock_time_t diff;
     if (end.tv_nsec < begin.tv_nsec) {
         diff.tv_sec = (end.tv_sec - 1) - begin.tv_sec;
         diff.tv_nsec = (end.tv_nsec + 1000000000ULL) - begin.tv_nsec;
@@ -174,16 +180,16 @@ static clock_Time clock_getSpanTime(clock_Time begin, clock_Time end) {
     return diff;
 }
 
-PreciseTime clock_getSpanTimeMicro(clock_Time begin, clock_Time end) {
-    clock_Time const diff = clock_getSpanTime(begin, end);
+PreciseTime clock_getSpanTimeMicro(clock_time_t begin, clock_time_t end) {
+    clock_time_t const diff = clock_getSpanTime(begin, end);
     PreciseTime micro = 0;
     micro += 1000000ULL * diff.tv_sec;
     micro += diff.tv_nsec / 1000ULL;
     return micro;
 }
 
-PreciseTime clock_getSpanTimeNano(clock_Time begin, clock_Time end) {
-    clock_Time const diff = clock_getSpanTime(begin, end);
+PreciseTime clock_getSpanTimeNano(clock_time_t begin, clock_time_t end) {
+    clock_time_t const diff = clock_getSpanTime(begin, end);
     PreciseTime nano = 0;
     nano += 1000000000ULL * diff.tv_sec;
     nano += diff.tv_nsec;
@@ -193,37 +199,39 @@ PreciseTime clock_getSpanTimeNano(clock_Time begin, clock_Time end) {
 #else /* relies on standard C90 (note : clock_t measurements can be wrong when \
          using multi-threading) */
 
-clock_Time clock_getTime(void) { return clock(); }
-PreciseTime clock_getSpanTimeMicro(clock_Time clockStart, clock_Time clockEnd) {
+clock_time_t clock_getTime(void) { return clock(); }
+PreciseTime clock_getSpanTimeMicro(
+    clock_time_t clockStart, clock_time_t clockEnd) {
     return 1000000ULL * (clockEnd - clockStart) / CLOCKS_PER_SEC;
 }
-PreciseTime clock_getSpanTimeNano(clock_Time clockStart, clock_Time clockEnd) {
+PreciseTime clock_getSpanTimeNano(
+    clock_time_t clockStart, clock_time_t clockEnd) {
     return 1000000000ULL * (clockEnd - clockStart) / CLOCKS_PER_SEC;
 }
 
 #endif
 
 /* returns time span in microseconds */
-PreciseTime clock_clockSpanMicro(clock_Time clockStart) {
-    clock_Time const clockEnd = clock_getTime();
+PreciseTime clock_clockSpanMicro(clock_time_t clockStart) {
+    clock_time_t const clockEnd = clock_getTime();
     return clock_getSpanTimeMicro(clockStart, clockEnd);
 }
 
 /* returns time span in microseconds */
-PreciseTime clock_clockSpanNano(clock_Time clockStart) {
-    clock_Time const clockEnd = clock_getTime();
+PreciseTime clock_clockSpanNano(clock_time_t clockStart) {
+    clock_time_t const clockEnd = clock_getTime();
     return clock_getSpanTimeNano(clockStart, clockEnd);
 }
 
 void clock_waitForNextTick(void) {
-    clock_Time const clockStart = clock_getTime();
-    clock_Time clockEnd;
+    clock_time_t const clockStart = clock_getTime();
+    clock_time_t clockEnd;
     do {
         clockEnd = clock_getTime();
     } while (clock_getSpanTimeNano(clockStart, clockEnd) == 0);
 }
 
-thread_local clock_Time __last_tic;
+thread_local clock_time_t __last_tic;
 
 // tic() sets the saved timepoint to the current time. Use with a matching
 // toc().
@@ -231,7 +239,7 @@ void tic() { __last_tic = clock_getTime(); }
 
 // toc() prints the elapsed time from the previous tic().
 void toc() {
-    clock_Time now = clock_getTime();
+    clock_time_t now = clock_getTime();
     PreciseTime diffms = clock_getSpanTimeMicro(__last_tic, now);
     fprintf(stderr, "Elapsed time: %f ms\n", diffms / 1.0e3);
     // __last_tic = now;

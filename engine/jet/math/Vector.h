@@ -1,81 +1,82 @@
-// typedef double Real64;
-typedef Array(Real64) Vector;
-#define Vector_resize Array_resize(Real64)
+// typedef double double;
+typedef array_t(double) vector_t;
+#define vector_resize array_resize(double)
 
-#define Vector_foreachptr(p, vec)                                              \
-    for (Real64* p = (vec)->ref, *_e = p + (vec)->used; p < _e; p++)
+#define vector_foreachptr(p, vec)                                              \
+    for (double *p = (vec)->ref, *_e = p + (vec)->used; p < _e; p++)
 
-// NEeds some improvements: Vector doesnt require calloc or memset to 0, and
+// NEeds some improvements: vector_t doesnt require calloc or memset to 0, and
 // needs a func growToExactly where it does not check roundUp32. Vectors may be
 // used for push pop but often they will be init'd and used with a known size.
-// Also need a Vector_clone func -> no call concatArray on an empty new Vector.
+// Also need a vector_clone func -> no call concatArray on an empty new
+// vector_t.
 
-// void Vector_growToSizeOf(Vector* self, Vector* other)
+// void vector_growToSizeOf(vector_t* self, vector_t* other)
 // {
-//     Vector_resize(self, other->cap)
+//     vector_resize(self, other->cap)
 // }
-// Vector* vec, op: [+-*/%]=, Real64 num
+// vector_t* vec, op: [+-*/%]=, double num
 /// Perform a binop `op` (+=, -=, *=, /=) on scalar `num` and vector `vec`
 /// in-place (in `vec`). Same thing as calling the _out version with aliased
 /// `vec` and `out`, but this may be faster.
-#define Vector__mutop1(vec, op, num)                                           \
-    for (Real64* _v = (vec)->ref, *_ve = _v + (vec)->used; _v < _ve; _v++)     \
+#define vector__mutop1(vec, op, num)                                           \
+    for (double *_v = (vec)->ref, *_ve = _v + (vec)->used; _v < _ve; _v++)     \
         *_v op(num);
 
 /// Perform a binop `op` (+=, -=, *=, /=) on vector `vec2` and vector `vec`
 /// in-place (in `vec`). Same thing as calling the _out version with aliased
 /// `vec` and `out`, but this may be faster.
-#define Vector__mutopv(vec, op, vec2)                                          \
-    for (Real64* _v = (vec)->ref, *_ve = _v + (vec)->used, *_v2 = (vec2)->ref; \
+#define vector__mutopv(vec, op, vec2)                                          \
+    for (double *_v = (vec)->ref, *_ve = _v + (vec)->used, *_v2 = (vec2)->ref; \
          _v < _ve; _v++, _v2++)                                                \
         *_v op* _v2;
 
-// Vector* vec, op: +-*/%, Real64 num, Vector* out
+// vector_t* vec, op: +-*/%, double num, vector_t* out
 
 /// Perform a binop `op` (+, -, *, /) on scalar `num` and vector `vec` and store
 /// result in vector `out`. `out` must be preallocated by the caller and of the
 /// same size as `vec`. Inplaceable (`out` can alias `vec`).
-#define Vector__mutop1_out(vec, op, num, out)                                  \
-    for (Real64* _v = (vec)->ref, *_ve = _v + (vec)->used, *_o = (out)->ref;   \
+#define vector__mutop1_out(vec, op, num, out)                                  \
+    for (double *_v = (vec)->ref, *_ve = _v + (vec)->used, *_o = (out)->ref;   \
          _v < _ve; _v++, _o++)                                                 \
         *_o = *_v op(num);
 
 /// Perform a binop `op` (+, -, *, /) on vector `vec2` and vector `vec` and
 /// store result in vector `out`. `out` must be preallocated by the caller and
 /// of the same size as `vec`. Inplaceable (`out` can alias `vec`).
-#define Vector__mutopv_out(vec, op, vec2, out)                                 \
-    for (Real64* _v = (vec)->ref, *_ve = _v + (vec)->used, *_o = (out)->ref,   \
-                 *_v2 = (vec2)->ref;                                           \
+#define vector__mutopv_out(vec, op, vec2, out)                                 \
+    for (double *_v = (vec)->ref, *_ve = _v + (vec)->used, *_o = (out)->ref,   \
+                *_v2 = (vec2)->ref;                                            \
          _v < _ve; _v++, _o++, _v2++)                                          \
         *_o = *_v op * _v2;
 
-void Vector_add1(Vector* vec, Real64 num) { Vector__mutop1(vec, +=, num); }
-void Vector_sub1(Vector* vec, Real64 num) { Vector__mutop1(vec, -=, num); }
-void Vector_mul1(Vector* vec, Real64 num) { Vector__mutop1(vec, *=, num); }
-void Vector_div1(Vector* vec, Real64 num) { Vector__mutop1(vec, /=, num); }
-// void Vector_mod1(Vector* vec, Real64 num) { Vector__mutop1(vec, %=,
+void vector_add1(vector_t* vec, double num) { vector__mutop1(vec, +=, num); }
+void vector_sub1(vector_t* vec, double num) { vector__mutop1(vec, -=, num); }
+void vector_mul1(vector_t* vec, double num) { vector__mutop1(vec, *=, num); }
+void vector_div1(vector_t* vec, double num) { vector__mutop1(vec, /=, num); }
+// void vector_mod1(vector_t* vec, double num) { vector__mutop1(vec, %=,
 // (int)num);
 // }
 
-void Vector_add1_out(Vector* vec, Real64 num, Vector* out) {
-    Vector__mutop1_out(vec, +=, num, out);
+void vector_add1_out(vector_t* vec, double num, vector_t* out) {
+    vector__mutop1_out(vec, +=, num, out);
 }
-void Vector_sub1_out(Vector* vec, Real64 num, Vector* out) {
-    Vector__mutop1_out(vec, -=, num, out);
+void vector_sub1_out(vector_t* vec, double num, vector_t* out) {
+    vector__mutop1_out(vec, -=, num, out);
 }
-void Vector_mul1_out(Vector* vec, Real64 num, Vector* out) {
-    Vector__mutop1_out(vec, *=, num, out);
+void vector_mul1_out(vector_t* vec, double num, vector_t* out) {
+    vector__mutop1_out(vec, *=, num, out);
 }
-void Vector_div1_out(Vector* vec, Real64 num, Vector* out) {
-    Vector__mutop1_out(vec, /=, num, out);
+void vector_div1_out(vector_t* vec, double num, vector_t* out) {
+    vector__mutop1_out(vec, /=, num, out);
 }
-// void Vector_mod_out(Vector* vec, Real64 num, Vector* out)
+// void vector_mod_out(vector_t* vec, double num, vector_t* out)
 // {
-//     Vector__mutop1_out(vec, %=, num, out);
+//     vector__mutop1_out(vec, %=, num, out);
 // }
 
-void Vector_bwddiff(Vector* vec, Vector* out) {
-    Vector_resize(out, vec->used);
+void vector_bwddiff(vector_t* vec, vector_t* out) {
+    vector_resize(out, vec->used);
     // this is a read-after-write dep when out aliases vec. i.e.
     // you are using something that is not in the direction of traversal
     // relative to the var being written to.
@@ -96,15 +97,15 @@ void Vector_bwddiff(Vector* vec, Vector* out) {
 // /// You have to send the diff of the denominator i.e. to get dy by dx
 // you have to send y and dx, not y and x. If you're calculating diffs of
 // multiple vars you can reuse the dx without recomputing it in each diff
-// call. void fwddiff_by(Vector* vec, Vector* by, Vector* out)
+// call. void fwddiff_by(vector_t* vec, vector_t* by, vector_t* out)
 // {
 //     for (int i = 1; i < vec->used; i++) out[i] = (vec[i] - vec[i - 1]) /
 //     by[i]; out[0] = out[1];
 // }
 
 //
-void Vector_fwddiff(Vector* vec, Vector* out) {
-    Vector_resize(out, vec->used);
+void vector_fwddiff(vector_t* vec, vector_t* out) {
+    vector_resize(out, vec->used);
     for (int i = 0; i < vec->used - 1; i++)
         out->ref[i] = vec->ref[i + 1] - vec->ref[i];
     out->ref[vec->used] = out->ref[vec->used - 1];
@@ -116,15 +117,15 @@ void Vector_fwddiff(Vector* vec, Vector* out) {
 // NEED NOT be cloned! it is only reading from vec.of course if there are parts
 // it doesnt read then they should be carried over yes, thats when cloning is
 // needed. maybe func should mark whether that is the case.
-void Vector_ctrdiff(Vector* vec, Vector* out) {
-    Vector_resize(out, vec->used);
-    Real64 prev = vec->ref[0];
+void vector_ctrdiff(vector_t* vec, vector_t* out) {
+    vector_resize(out, vec->used);
+    double prev = vec->ref[0];
     for (int i = 1; i < vec->used - 1; i++) {
         // you need to remove the read-after-write dep. It doesnt go away
         // just by creating temps if you are still reading after write.
         // here since vec is out, you read i-1 after having set i, so the
         // problem is still the same.
-        // Real64 oldf = vec[i + 1], oldb = vec[i - 1];
+        // double oldf = vec[i + 1], oldb = vec[i - 1];
         // out[i] = next - prev;
 
         // solve it by making write-after-read. Take the var which is being
@@ -138,15 +139,15 @@ void Vector_ctrdiff(Vector* vec, Vector* out) {
 
 // second-order central difference
 // this gives d2y, to get d2y/dx2 you should do d2y/(dx^2)
-void Vector_ctr2diff(Vector* vec, Vector* out) {
-    Vector_resize(out, vec->used);
-    Real64 prev = vec->ref[0];
+void vector_ctr2diff(vector_t* vec, vector_t* out) {
+    vector_resize(out, vec->used);
+    double prev = vec->ref[0];
     for (int i = 1; i < vec->used - 1; i++) {
         // you need to remove the read-after-write dep. It doesnt go away
         // just by creating temps if you are still reading after write.
         // here since vec is out, you read i-1 after having set i, so the
         // problem is still the same.
-        // Real64 oldf = vec[i + 1], oldb = vec[i - 1];
+        // double oldf = vec[i + 1], oldb = vec[i - 1];
         // out[i] = next - prev;
 
         // solve it by making write-after-read. Take the var which is being
@@ -158,15 +159,15 @@ void Vector_ctr2diff(Vector* vec, Vector* out) {
     out->ref[0] = out->ref[1];
 }
 
-void Vector_fwd2diff(Vector* vec, Vector* out) {
-    Vector_resize(out, vec->used);
+void vector_fwd2diff(vector_t* vec, vector_t* out) {
+    vector_resize(out, vec->used);
     for (int i = 0; i < vec->used - 2; i++)
         out->ref[i] = vec->ref[i + 2] - 2 * vec->ref[i + 1] + vec->ref[i];
     out->ref[vec->used] = out->ref[vec->used - 1] = out->ref[vec->used - 2];
 }
 
-void Vector_bwd2diff(Vector* vec, Vector* out) {
-    Vector_resize(out, vec->used);
+void vector_bwd2diff(vector_t* vec, vector_t* out) {
+    vector_resize(out, vec->used);
     for (int i = vec->used - 1; i > 1; i--)
         out->ref[i] = vec->ref[i] - 2 * vec->ref[i - 1] + vec->ref[i - 2];
     out->ref[0] = out->ref[1] = out->ref[2];
@@ -175,140 +176,140 @@ void Vector_bwd2diff(Vector* vec, Vector* out) {
 /// Use trapezoidal rule to integrate dy. If you want to integrate over a grid
 /// dx, first do dy*dx (elemwise multiply) and then send that into
 /// integrate(...).
-Real64 Vector_integrate(Vector* vec) {
-    Real64 ret = 0;
+double vector_integrate(vector_t* vec) {
+    double ret = 0;
     for_to(i, vec->used - 1) ret += (vec->ref[i] + vec->ref[i + 1]) / 2.0;
     return ret;
 }
-Real64 Vector_sum(Vector* vec) {
-    Real64 ret = 0;
-    Vector_foreachptr(v, vec) ret += *v;
+double vector_sum(vector_t* vec) {
+    double ret = 0;
+    vector_foreachptr(v, vec) ret += *v;
     return ret;
 }
-Real64 Vector_product(Vector* vec) {
-    Real64 ret = 1;
-    Vector_foreachptr(v, vec) ret *= *v;
+double vector_product(vector_t* vec) {
+    double ret = 1;
+    vector_foreachptr(v, vec) ret *= *v;
     return ret;
 }
-Real64 Vector_mean(Vector* vec) {
-    // Real64 ret = 0;
-    return vec->used ? Vector_sum(vec) / vec->used : 0;
+double vector_mean(vector_t* vec) {
+    // double ret = 0;
+    return vec->used ? vector_sum(vec) / vec->used : 0;
 }
-Real64 Vector_min(Vector* vec) {
-    Real64 ret = __DBL_MAX__;
-    Vector_foreachptr(v, vec) if (*v < ret) ret = *v;
+double vector_min(vector_t* vec) {
+    double ret = __DBL_MAX__;
+    vector_foreachptr(v, vec) if (*v < ret) ret = *v;
     return vec->used ? ret : 0;
 }
-Real64 Vector_max(Vector* vec) {
-    Real64 ret = -__DBL_MAX__;
-    Vector_foreachptr(v, vec) if (*v > ret) ret = *v;
+double vector_max(vector_t* vec) {
+    double ret = -__DBL_MAX__;
+    vector_foreachptr(v, vec) if (*v > ret) ret = *v;
     return vec->used ? ret : 0;
 }
 int Real64_compare(const void* a_, const void* b_) {
-    Real64 a = *(Real64*)a_;
-    Real64 b = *(Real64*)b_;
+    double a = *(double*)a_;
+    double b = *(double*)b_;
     return a < b ? -1 : a > b ? 1 : 0;
 }
-void Vector_print_prec(Vector* vec, int prec) {
+void vector_print_prec(vector_t* vec, int prec) {
     printf("[");
     for_to(i, vec->used - 1) printf("%.*g, ", prec + 1, vec->ref[i]);
     if (vec->used) printf("%.*g", prec + 1, vec->ref[vec->used - 1]);
     printf("]\n");
 }
-void Vector_print(Vector* vec) { Vector_print_prec(vec, 15); }
-void Vector_qsort(Vector* vec) {
-    qsort(vec->ref, vec->used, sizeof(Real64), Real64_compare);
+void vector_print(vector_t* vec) { vector_print_prec(vec, 15); }
+void vector_qsort(vector_t* vec) {
+    qsort(vec->ref, vec->used, sizeof(double), Real64_compare);
 }
 /// Branch-free max and min, if you have really unpredictable data. Test this at
 /// some point... yeah it has really horrible performance at -O0, and at -O3 it
 /// has the same performance as branching
-Real64 Vector_minbf(Vector* vec) {
-    Real64 ret = __DBL_MAX__;
-    Vector_foreachptr(v, vec) ret = fmin(ret, *v);
+double vector_minbf(vector_t* vec) {
+    double ret = __DBL_MAX__;
+    vector_foreachptr(v, vec) ret = fmin(ret, *v);
     return vec->used ? ret : 0;
 }
-Real64 Vector_maxbf(Vector* vec) {
-    Real64 ret = -__DBL_MAX__;
-    Vector_foreachptr(v, vec) ret = fmax(ret, *v);
+double vector_maxbf(vector_t* vec) {
+    double ret = -__DBL_MAX__;
+    vector_foreachptr(v, vec) ret = fmax(ret, *v);
     return vec->used ? ret : 0;
 }
 #define isnonzero(v) ((v) != 0.0)
 #define isnonzero_tol(v, tol) (fabs(v) < tol)
 
-Real64 Vector_meannz(Vector* vec) {
-    Real64 sum = 0;
+double vector_meannz(vector_t* vec) {
+    double sum = 0;
     UInt32 cnt = 0;
-    Vector_foreachptr(v, vec) if (isnonzero(*v)) {
+    vector_foreachptr(v, vec) if (isnonzero(*v)) {
         sum += *v;
         cnt++;
     }
     return cnt ? sum / cnt : 0;
 }
-Real64 Vector_countnz(Vector* vec) {
+double vector_countnz(vector_t* vec) {
     UInt32 cnt = 0;
-    Vector_foreachptr(v, vec) if (isnonzero(*v)) cnt++;
+    vector_foreachptr(v, vec) if (isnonzero(*v)) cnt++;
     return cnt;
 }
-Real64 Vector_minnz(Vector* vec) {
-    Real64 ret = __DBL_MAX__;
-    Vector_foreachptr(v, vec) if (*v < ret && isnonzero(*v)) ret = *v;
+double vector_minnz(vector_t* vec) {
+    double ret = __DBL_MAX__;
+    vector_foreachptr(v, vec) if (*v < ret && isnonzero(*v)) ret = *v;
     return vec->used ? ret : 0;
 }
-Real64 Vector_maxnz(Vector* vec) {
-    Real64 ret = -__DBL_MAX__;
-    Vector_foreachptr(v, vec) if (*v > ret && isnonzero(*v)) ret = *v;
+double vector_maxnz(vector_t* vec) {
+    double ret = -__DBL_MAX__;
+    vector_foreachptr(v, vec) if (*v > ret && isnonzero(*v)) ret = *v;
     return vec->used ? ret : 0;
 }
 
-Real64 Vector_meannz_tol(Vector* vec, Real64 tol) {
-    Real64 sum = 0;
+double vector_meannz_tol(vector_t* vec, double tol) {
+    double sum = 0;
     UInt32 cnt = 0;
-    Vector_foreachptr(v, vec) if (isnonzero_tol(*v, tol)) {
+    vector_foreachptr(v, vec) if (isnonzero_tol(*v, tol)) {
         sum += *v;
         cnt++;
     }
     return cnt ? sum / cnt : 0;
 }
-Real64 Vector_countnz_tol(Vector* vec, Real64 tol) {
+double vector_countnz_tol(vector_t* vec, double tol) {
     UInt32 cnt = 0;
-    Vector_foreachptr(v, vec) if (isnonzero_tol(*v, tol)) cnt++;
+    vector_foreachptr(v, vec) if (isnonzero_tol(*v, tol)) cnt++;
     return cnt;
 }
-Real64 Vector_minnz_tol(Vector* vec, Real64 tol) {
-    Real64 ret = __DBL_MAX__;
-    Vector_foreachptr(v, vec) if (*v < ret && isnonzero_tol(*v, tol)) ret = *v;
+double vector_minnz_tol(vector_t* vec, double tol) {
+    double ret = __DBL_MAX__;
+    vector_foreachptr(v, vec) if (*v < ret && isnonzero_tol(*v, tol)) ret = *v;
     return vec->used ? ret : 0;
 }
-Real64 Vector_maxnz_tol(Vector* vec, Real64 tol) {
-    Real64 ret = -__DBL_MAX__;
-    Vector_foreachptr(v, vec) if (*v > ret && isnonzero_tol(*v, tol)) ret = *v;
+double vector_maxnz_tol(vector_t* vec, double tol) {
+    double ret = -__DBL_MAX__;
+    vector_foreachptr(v, vec) if (*v > ret && isnonzero_tol(*v, tol)) ret = *v;
     return vec->used ? ret : 0;
 }
 
 /// this is the rms with the mean, right?
-Real64 Vector_stddev(Vector* vec) {
-    Real64 ret = 0;
+double vector_stddev(vector_t* vec) {
+    double ret = 0;
     return ret;
 }
 /// RMS with a given vector
-Real64 sq(Real64 num) { return num * num; }
-Real64 Vector_rms(Vector* vec, Vector* vec2) {
-    Real64 ret = 0;
+double sq(double num) { return num * num; }
+double vector_rms(vector_t* vec, vector_t* vec2) {
+    double ret = 0;
     for_to(i, vec->used) ret += sq(vec->ref[i] - vec2->ref[i]);
     return sqrt(ret);
 }
-Real64 Vector_rms1(Vector* vec, Real64 num) {
-    Real64 ret = 0;
+double vector_rms1(vector_t* vec, double num) {
+    double ret = 0;
     for_to(i, vec->used) ret += sq(vec->ref[i] - num);
     return sqrt(ret);
 }
-bool Vector_inbounds(Vector* vec, UInt32 idx) { return idx < vec->used; }
-void Vector_fillval(Vector* vec, Real64 val) {
-    Vector_foreachptr(v, vec)* v = val;
+bool vector_inbounds(vector_t* vec, UInt32 idx) { return idx < vec->used; }
+void vector_fillval(vector_t* vec, double val) {
+    vector_foreachptr(v, vec)* v = val;
 }
-void Vector_fillzero(Vector* vec) { Vector_fillval(vec, 0); }
+void vector_fillzero(vector_t* vec) { vector_fillval(vec, 0); }
 
-#define Vector_applyfn(vec, out, func)                                         \
+#define vector_applyfn(vec, out, func)                                         \
     for_to(_i, (vec)->used)(out)->ref[_i] = func((vec)->ref[_i]);
 
 double exp10(double x) {
@@ -324,41 +325,53 @@ double exp10(double x) {
     return pow(10.0, x);
 }
 
-void Vector_cbrt(Vector* vec, Vector* out) { Vector_applyfn(vec, out, cbrt); }
-void Vector_sqrt(Vector* vec, Vector* out) { Vector_applyfn(vec, out, sqrt); }
-void Vector_log2(Vector* vec, Vector* out) { Vector_applyfn(vec, out, log2); }
-void Vector_log(Vector* vec, Vector* out) { Vector_applyfn(vec, out, log); }
-void Vector_log10(Vector* vec, Vector* out) { Vector_applyfn(vec, out, log10); }
-void Vector_exp10(Vector* vec, Vector* out) { Vector_applyfn(vec, out, exp10); }
-void Vector_exp2(Vector* vec, Vector* out) { Vector_applyfn(vec, out, exp2); }
-void Vector_exp(Vector* vec, Vector* out) { Vector_applyfn(vec, out, exp); }
-// void log_base(Vector* vec, Vector* out) { Vector_applyfn(vec,out,logb); }
+void vector_cbrt(vector_t* vec, vector_t* out) {
+    vector_applyfn(vec, out, cbrt);
+}
+void vector_sqrt(vector_t* vec, vector_t* out) {
+    vector_applyfn(vec, out, sqrt);
+}
+void vector_log2(vector_t* vec, vector_t* out) {
+    vector_applyfn(vec, out, log2);
+}
+void vector_log(vector_t* vec, vector_t* out) { vector_applyfn(vec, out, log); }
+void vector_log10(vector_t* vec, vector_t* out) {
+    vector_applyfn(vec, out, log10);
+}
+void vector_exp10(vector_t* vec, vector_t* out) {
+    vector_applyfn(vec, out, exp10);
+}
+void vector_exp2(vector_t* vec, vector_t* out) {
+    vector_applyfn(vec, out, exp2);
+}
+void vector_exp(vector_t* vec, vector_t* out) { vector_applyfn(vec, out, exp); }
+// void log_base(vector_t* vec, vector_t* out) { vector_applyfn(vec,out,logb); }
 /// Should just call it `dot` it is the dot product
-Real64 Vector_sumproduct(Vector* vec, Vector* vec2) {
-    Real64 ret = 0;
+double vector_sumproduct(vector_t* vec, vector_t* vec2) {
+    double ret = 0;
     for_to(i, vec->used) ret += vec->ref[i] * vec2->ref[i];
     return ret;
 }
 /// This might be slightly more efficient than calling sumproduct(vec,vec).
-Real64 Vector_mag2(Vector* vec) {
-    Real64 ret = 0;
+double vector_mag2(vector_t* vec) {
+    double ret = 0;
     for_to(i, vec->used) ret += vec->ref[i] * vec->ref[i];
     return ret;
 }
 /// magnitude: same as RMS with itself but maybe more efficient
-Real64 Vector_mag(Vector* vec) { return sqrt(Vector_mag2(vec)); }
-void Vector_cumsumproduct(Vector* vec, Vector* out) { }
-void Vector_cumsum(Vector* vec, Vector* out) { }
+double vector_mag(vector_t* vec) { return sqrt(vector_mag2(vec)); }
+void vector_cumsumproduct(vector_t* vec, vector_t* out) { }
+void vector_cumsum(vector_t* vec, vector_t* out) { }
 
 // typedef struct {
-//     Real64 start, end, step; // count is computed
+//     double start, end, step; // count is computed
 // } Real64LinRange;
 
-// void Vector_linspace(Real64 start, Real64 end, Vector* out)
+// void vector_linspace(double start, double end, vector_t* out)
 // {
 //     UInt32 count = 1 + floor(end - start);
-//     Vector_resize(out, count);
-//     Real64 cumsum1 = start;
+//     vector_resize(out, count);
+//     double cumsum1 = start;
 //     for_to(i, count)
 //     {
 //         out->ref[i] = cumsum1;
@@ -366,52 +379,55 @@ void Vector_cumsum(Vector* vec, Vector* out) { }
 //     };
 // }
 
-void Vector__linspace_step_count(
-    Real64 start, Real64 end, Real64 step, UInt32 count, Vector* out) {
-    Vector_resize(out, count);
-    Real64 cumsum1 = start;
+void vector__linspace_step_count(
+    double start, double end, double step, UInt32 count, vector_t* out) {
+    vector_resize(out, count);
+    double cumsum1 = start;
     for_to(i, count - 1) {
         out->ref[i] = cumsum1;
         cumsum1 += step;
     };
     out->ref[count - 1] = end;
 }
-void Vector_linspace_count(
-    Real64 start, Real64 end, UInt32 count, Vector* out) {
-    Real64 step = (end - start) / (count - 1);
-    Vector__linspace_step_count(start, end, step, count, out);
+void vector_linspace_count(
+    double start, double end, UInt32 count, vector_t* out) {
+    double step = (end - start) / (count - 1);
+    vector__linspace_step_count(start, end, step, count, out);
 }
-void Vector_linspace_step(Real64 start, Real64 end, Real64 step, Vector* out) {
+void vector_linspace_step(
+    double start, double end, double step, vector_t* out) {
     UInt32 count = 1 + floor((end - start) / step);
-    Vector__linspace_step_count(start, end, step, count, out);
+    vector__linspace_step_count(start, end, step, count, out);
 }
-void Vector_linspace(Real64 start, Real64 end, Vector* out) {
-    Vector_linspace_step(start, end, 1, out);
-}
-
-void Vector_log10space(Real64 start, Real64 end, UInt32 count, Vector* out) {
-    Vector_linspace_count(log10(start), log10(end), count, out);
-    Vector_exp10(out, out);
+void vector_linspace(double start, double end, vector_t* out) {
+    vector_linspace_step(start, end, 1, out);
 }
 
-void Vector_log2space(Real64 start, Real64 end, UInt32 count, Vector* out) {
-    Vector_linspace_count(log2(start), log2(end), count, out);
-    Vector_exp2(out, out);
+void vector_log10space(double start, double end, UInt32 count, vector_t* out) {
+    vector_linspace_count(log10(start), log10(end), count, out);
+    vector_exp10(out, out);
 }
-void Vector_logspace(Real64 start, Real64 end, UInt32 count, Vector* out) {
-    Vector_linspace_count(log(start), log(end), count, out);
-    Vector_exp(out, out);
+
+void vector_log2space(double start, double end, UInt32 count, vector_t* out) {
+    vector_linspace_count(log2(start), log2(end), count, out);
+    vector_exp2(out, out);
 }
-void Vector_fillrandoms(Vector* vec) { Vector_foreachptr(v, vec)* v = randf(); }
+void vector_logspace(double start, double end, UInt32 count, vector_t* out) {
+    vector_linspace_count(log(start), log(end), count, out);
+    vector_exp(out, out);
+}
+void vector_fillrandoms(vector_t* vec) {
+    vector_foreachptr(v, vec)* v = randf();
+}
 
 /// Uses binary search to locate the given number in the vector.
-bool Vector_binsearch(Vector* vec, Real64 num) { return 0; }
-bool Vector_binsearch_tol(Vector* vec, Real64 num) { return 0; }
+bool vector_binsearch(vector_t* vec, double num) { return 0; }
+bool vector_binsearch_tol(vector_t* vec, double num) { return 0; }
 
-Vector* Vector_smake() { return NULL; }
-Vector* Vector_hmake() { return NULL; }
-Vector* Vector_smake_fromCArray() { return NULL; }
-Vector* Vector_hmake_fromCArray() { return NULL; }
-Vector* Vector_hmake_clone() { return NULL; }
+vector_t* vector_smake() { return NULL; }
+vector_t* vector_hmake() { return NULL; }
+vector_t* vector_smake_fromCArray() { return NULL; }
+vector_t* vector_hmake_fromCArray() { return NULL; }
+vector_t* vector_hmake_clone() { return NULL; }
 
 // TODO: upwind, linearUpwind, QUICK, whatnot

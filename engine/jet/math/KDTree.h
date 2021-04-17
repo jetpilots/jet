@@ -24,37 +24,37 @@ static size_t __totCallocB, __totMallocB;
 static int __totCalloc, __totMalloc;
 const int POINTS_PER_LEAF = 24; // MIN(POW2(DIMS), 8);
 
-typedef struct KDTreeNode {
+typedef struct kdtree_node_t {
     int isleaf; // GET THIS OUT HOWEVER
     double threshold[DIMS]; // [D] // leaves dont hav thresholds!
     // union {
-    struct KDTreeNode* child[POW2(DIMS)]; // [2^D]
-    // struct KDTreePoint* points[POINTS_PER_LEAF];
+    struct kdtree_node_t* child[POW2(DIMS)]; // [2^D]
+    // struct kdtree_point_t* points[POINTS_PER_LEAF];
     // };
-} KDTreeNode;
+} kdtree_node_t;
 
-typedef struct KDTreePointsHolder {
+typedef struct kdtree_points_holder_t {
     int isleaf, npoints; // GET THIS OUT HOWEVER
-    struct KDTreePoint* points[POINTS_PER_LEAF];
-} KDTreePointsHolder;
+    struct kdtree_point_t* points[POINTS_PER_LEAF];
+} kdtree_points_holder_t;
 
-typedef struct KDTreePoint {
+typedef struct kdtree_point_t {
     double x[DIMS]; // [D]
-} KDTreePoint;
+} kdtree_point_t;
 
-MKSTAT(KDTreeNode);
-MKSTAT(KDTreePoint);
-MKSTAT(KDTreePointsHolder);
+MKSTAT(kdtree_node_t);
+MKSTAT(kdtree_point_t);
+MKSTAT(kdtree_points_holder_t);
 
 static double squared(double x) { return x * x; }
-static double distanceFunction(KDTreePoint* p, KDTreePoint* p2) {
+static double distanceFunction(kdtree_point_t* p, kdtree_point_t* p2) {
     double sum = 0;
     for_to(i, DIMS) sum += squared(p->x[i] - p2->x[i]);
     return sum;
 }
 
 // #define HAS_DIR(dir, which) dir << which
-static void addPoint(KDTreeNode* node, KDTreePoint* point) {
+static void addPoint(kdtree_node_t* node, kdtree_point_t* point) {
     int directionInDim[DIMS], direction = 0;
     for_to(i, DIMS) directionInDim[i] = //
         (point->x[i] >= node->threshold[i]) << i;
@@ -73,14 +73,14 @@ static void addPoint(KDTreeNode* node, KDTreePoint* point) {
     // and so on for higher dimensions, where l's are either 0 or 1. so it can
     // be reduced to bitwise ops: the *s can be done with << and adding them
     // together is a |.
-    for_to(i, DIMS) direction
-        |= directionInDim[i]; // JUST PUT THIS IN THE ABOVE LOOP
+    for_to(i, DIMS) direction |= directionInDim[i];
+    // JUST PUT THIS IN THE ABOVE LOOP
     // direction is now the overall index of the "correct" child to follow.
 
     // now 3 things can happen: (1) the child doesn't exist, (2) it does
-    // and is a KDTreeNode, (3) it does and is a leaf (it has KDTreePoint[]).
-    // Descend until just before you hit a leaf or NULL.
-    KDTreeNode* parent = NULL;
+    // and is a kdtree_node_t, (3) it does and is a leaf (it has
+    // kdtree_point_t[]). Descend until just before you hit a leaf or NULL.
+    kdtree_node_t* parent = NULL;
     while (node->child[direction] && !node->child[direction]->isleaf) {
         parent = node;
         node = node->child[direction];
@@ -93,29 +93,31 @@ static void addPoint(KDTreeNode* node, KDTreePoint* point) {
 
     // now the child is either NULL or a leaf (i.e. has points)
     if (!node->child[direction]) {
-        node->child[direction] = NEW(KDTreePointsHolder);
-        // calloc(1, sizeof(KDTreePointsHolder));
+        node->child[direction] = NEW(kdtree_points_holder_t);
+        // calloc(1, sizeof(kdtree_points_holder_t));
         node->child[direction]->isleaf = 1;
     }
 
     // now the child must be a leaf
-    KDTreePointsHolder* child = node->child[direction];
+    kdtree_points_holder_t* child = node->child[direction];
 
     if (child->npoints == POINTS_PER_LEAF) {
         // the array of points in this leaf is full. the leaf should now be
         // converted into a node and the POINTS_PER_LEAF points of this ex-leaf
         // should be re-added into this node so so they can go one level deeper
         // in the tree at the right spots.
-        // KDTreePointsHolder* tmpPoints = child;
-        KDTreePoint* points[POINTS_PER_LEAF];
-        memcpy(points, child->points, sizeof(KDTreePoint*) * POINTS_PER_LEAF);
+        // kdtree_points_holder_t* tmpPoints = child;
+        kdtree_point_t* points[POINTS_PER_LEAF];
+        memcpy(
+            points, child->points, sizeof(kdtree_point_t*) * POINTS_PER_LEAF);
 
         //        child->isleaf = 0; // no longer a leaf.
         //        child->npoints = 0; // don't need it here, its not a leaf
-        //        bzero(child->points, sizeof(KDTreePoint*) * POINTS_PER_LEAF);
-        // *child = (KDTreeNode) {};
-        KDTreeNode* newChild
-            = NEW(KDTreeNode); // calloc(1, sizeof(KDTreeNode));
+        //        bzero(child->points, sizeof(kdtree_point_t*) *
+        //        POINTS_PER_LEAF);
+        // *child = (kdtree_node_t) {};
+        kdtree_node_t* newChild
+            = NEW(kdtree_node_t); // calloc(1, sizeof(kdtree_node_t));
         node->child[direction] = newChild;
         // NOT A LEAF! A NEW NODE
         // wipe the points, the space will be used
@@ -132,9 +134,9 @@ static void addPoint(KDTreeNode* node, KDTreePoint* point) {
         // for (int i = 0; i < POW2(DIMS); i++) {
         // THIS BUSINESS IS TO AVOID FREEING THE OLD POINTSHOLDER SO IT CAN
         // BE REUSED
-        *child = (KDTreePointsHolder) {};
+        *child = (kdtree_points_holder_t) {};
         newChild->child[direction] = child;
-        // calloc(1, sizeof(KDTreeNode));
+        // calloc(1, sizeof(kdtree_node_t));
         newChild->child[direction]->isleaf = 1; // already set
         // }
 
@@ -213,17 +215,18 @@ static void addPoint(KDTreeNode* node, KDTreePoint* point) {
     }
 }
 
-static void removePoint(KDTreeNode* node, KDTreePoint* point) { }
+static void removePoint(kdtree_node_t* node, kdtree_point_t* point) { }
 
 // always init  with this func with a known number of levels and a bounding box
 // this way you have a node hierarchy ready and your add calls will not thrash
 // adding subnodes and moving points down over and over.
-// KDTreeNode* init(int levels, KDTreePoint* boundBox[2]) { }
+// kdtree_node_t* init(int levels, kdtree_point_t* boundBox[2]) { }
 
 // BTW for jet do you want to allow function xyz(arr[2]) etc. and then check
 // at callsites if passed array has exactly 2 (or 2 or more) provably?
 
-static KDTreePoint* getNearestPoint(KDTreeNode* node, KDTreePoint* point) {
+static kdtree_point_t* getNearestPoint(
+    kdtree_node_t* node, kdtree_point_t* point) {
     // TODO: PROBLEM!!! HERE you descend into the finest octant/quadrnt and
     // check only those points. The actual nearest point may be in an adjacent
     // quadrant! So you should go up 1 level than the finest, or 2?
@@ -240,7 +243,7 @@ static KDTreePoint* getNearestPoint(KDTreeNode* node, KDTreePoint* point) {
     int minIndex = 0;
     double mindist = 1e300;
     if (!node) return NULL;
-    KDTreePointsHolder* holder = node;
+    kdtree_points_holder_t* holder = node;
     for (int i = 0; i < holder->npoints; i++) {
         double dist = distanceFunction(holder->points[i], point);
         if (dist < mindist) {
@@ -255,21 +258,21 @@ static KDTreePoint* getNearestPoint(KDTreeNode* node, KDTreePoint* point) {
     // distanceFunction call.
     return holder->points[minIndex];
 }
-// static KDTreePoint points[] = { { 1 }, { 3 }, { -5 } };
+// static kdtree_point_t points[] = { { 1 }, { 3 }, { -5 } };
 
 #define countof(x) (sizeof(x) / sizeof(x[0]))
 static const char* const spc = "                                            ";
 static const int levStep = 2;
-static void printPoint(KDTreePoint* p, int lev) {
+static void printPoint(kdtree_point_t* p, int lev) {
     printf("%.*s(", lev, spc);
     for_to(i, DIMS) { printf("%s%g", i ? ", " : "", p->x[i]); }
     puts(")");
 }
 
-static void printNode(KDTreeNode* node, int lev) {
+static void printNode(kdtree_node_t* node, int lev) {
     if (node->isleaf) {
         printf("[\n"); //,node->npoints );
-        KDTreePointsHolder* holder = node;
+        kdtree_points_holder_t* holder = node;
 
         for_to(j, holder->npoints) printPoint(holder->points[j], lev + levStep);
 
@@ -290,21 +293,21 @@ static void printNode(KDTreeNode* node, int lev) {
     }
 }
 
-static void printDotRec(FILE* f, KDTreeNode* node) {
+static void printDotRec(FILE* f, kdtree_node_t* node) {
     for_to(i, POW2(DIMS)) {
         int directionInDim[DIMS];
         for_to(j, DIMS) directionInDim[j] = i & (1 << j);
 
         if (node->child[i]) {
             if (node->child[i]->isleaf) {
-                KDTreePointsHolder* holder = node->child[i];
+                kdtree_points_holder_t* holder = node->child[i];
 
                 fprintf(f,
                     "\"Node\\n<%g, %g, %g>\" -> \"Points[%d]\\n____________\\n",
                     node->threshold[0], node->threshold[1], node->threshold[2],
                     holder->npoints);
                 for_to(j, holder->npoints) {
-                    KDTreePoint* point = holder->points[j];
+                    kdtree_point_t* point = holder->points[j];
                     fprintf(f, "(%g, %g, %g)\\n", point->x[0], point->x[1],
                         point->x[2]);
                 }
@@ -327,7 +330,7 @@ static void printDotRec(FILE* f, KDTreeNode* node) {
     }
 }
 
-static void printDot(KDTreeNode* node) {
+static void printDot(kdtree_node_t* node) {
     FILE* f = fopen("kdt.dot", "w");
     fputs(
         "digraph {\nnode [fontname=\"Miriam Libre\"]; edge [fontname=\"Miriam "
@@ -338,12 +341,12 @@ static void printDot(KDTreeNode* node) {
     fclose(f);
 }
 
-static KDTreePoint g_Points[] = { { -5 }, { -4 }, { -3 }, { -2 }, { 6 },
+static kdtree_point_t g_Points[] = { { -5 }, { -4 }, { -3 }, { -2 }, { 6 },
     { -5.35 }, { -4.35 }, { -3.35 }, { -2.4545 }, { 1.45 }, { -5.3578 },
     { -4.6789 }, { -3.8679 }, { -2.5557 }, { -1.6767 }, { -5.10354225 },
     { -4.035 }, { -3.3335 }, { -2.45 }, { -1.04455 } };
 
-static KDTreePoint gPoints[] = {
+static kdtree_point_t gPoints[] = {
     { -0, -2, 3 }, //
     { -0, 1, 4 }, //
     { -0, 2, -4 }, //
@@ -444,8 +447,8 @@ static KDTreePoint gPoints[] = {
     { 5, 4, -4 } //
 };
 
-static KDTreePoint* linsearch(
-    KDTreePoint points[], int npoints, KDTreePoint* point) {
+static kdtree_point_t* linsearch(
+    kdtree_point_t points[], int npoints, kdtree_point_t* point) {
     int minIndex = 0;
     double mindist = 1e300;
     for_to(i, npoints) {
@@ -461,9 +464,9 @@ static KDTreePoint* linsearch(
 static double rndf() {
     return ((int)(rand() / (0.0012 * RAND_MAX))) / 100.0 - 6;
 }
-static KDTreePoint* newPoint(double x, double y, double z) {
-    KDTreePoint* p = malloc(sizeof(KDTreePoint));
-    *p = (KDTreePoint) { { x, y, z } };
+static kdtree_point_t* newPoint(double x, double y, double z) {
+    kdtree_point_t* p = malloc(sizeof(kdtree_point_t));
+    *p = (kdtree_point_t) { { x, y, z } };
     return p;
 }
 #include "../modules/clock.h"
@@ -471,17 +474,17 @@ static KDTreePoint* newPoint(double x, double y, double z) {
 // addLevels can only be called on a node which has 1 further level below it
 // already. This is because you need 1 node above the current level in order to
 // compute the threshold for the new nodes to be added at a new level.
-static void addLevels(KDTreeNode* parent, int levels) {
+static void addLevels(kdtree_node_t* parent, int levels) {
     for_to(k, POW2(DIMS)) {
-        KDTreeNode* root = parent->child[k];
+        kdtree_node_t* root = parent->child[k];
         for_to(i, POW2(DIMS)) if (!root->child[i]) {
-            root->child[i] = calloc(1, sizeof(KDTreeNode));
-            KDTreeNode* child = root->child[i];
+            root->child[i] = calloc(1, sizeof(kdtree_node_t));
+            kdtree_node_t* child = root->child[i];
 
             int directionInDim[DIMS];
             for_to(j, DIMS) directionInDim[j] = i & (1 << j);
             for_to(j, DIMS) {
-                // KDTreeNode* parent = parentL;
+                // kdtree_node_t* parent = parentL;
                 double th_mid = root->threshold[j];
                 double th_lo, th_hi;
                 if (root->threshold[j] >= parent->threshold[j]) {
@@ -502,19 +505,21 @@ static void addLevels(KDTreeNode* parent, int levels) {
     }
 }
 
-static KDTreeNode* init(KDTreePoint boundBox[2], int sizeGuess) {
+static kdtree_node_t* init(kdtree_point_t boundBox[2], int sizeGuess) {
     // create a fake parent (PARENT OF ROOT, TEMPORARY) with threshold at
     // one of the corners of the bounding box.
-    // KDTreeNode parentL[] = { {} };
+    // kdtree_node_t parentL[] = { {} };
     // for_to(j, DIMS) parentL->threshold[j] = boundBox[0].x[j];
-    // KDTreeNode parentR[] = { {} };
+    // kdtree_node_t parentR[] = { {} };
     // for_to(j, DIMS) parentR->threshold[j] = boundBox[1].x[j];
 
     // The actual root node that will be returned.
-    KDTreeNode* parent = NEW(KDTreeNode); // calloc(1, sizeof(KDTreeNode));
+    kdtree_node_t* parent
+        = NEW(kdtree_node_t); // calloc(1, sizeof(kdtree_node_t));
     for_to(j, DIMS) parent->threshold[j] = boundBox[0].x[j];
 
-    KDTreeNode* root = NEW(KDTreeNode); // calloc(1, sizeof(KDTreeNode));
+    kdtree_node_t* root
+        = NEW(kdtree_node_t); // calloc(1, sizeof(kdtree_node_t));
     // int levels = log2(sizeGuess);
     // if (levels < 1) levels = 1;
     for_to(j, DIMS) root->threshold[j]
@@ -536,13 +541,14 @@ static KDTreeNode* init(KDTreePoint boundBox[2], int sizeGuess) {
     return parent;
 
     for_to(i, POW2(DIMS)) {
-        root->child[i] = NEW(KDTreeNode); // calloc(1, sizeof(KDTreeNode));
-        KDTreeNode* child = root->child[i];
+        root->child[i]
+            = NEW(kdtree_node_t); // calloc(1, sizeof(kdtree_node_t));
+        kdtree_node_t* child = root->child[i];
 
         int directionInDim[DIMS];
         for_to(j, DIMS) directionInDim[j] = i & (1 << j);
         for_to(j, DIMS) {
-            // KDTreeNode* parent = parentL;
+            // kdtree_node_t* parent = parentL;
             double th_mid = root->threshold[j];
             double th_lo, th_hi;
             if (root->threshold[j] >= parent->threshold[j]) {
@@ -559,7 +565,7 @@ static KDTreeNode* init(KDTreePoint boundBox[2], int sizeGuess) {
                 child->threshold[j] = (th_hi + th_mid) / 2;
         }
 
-        // KDTreePoint mid;
+        // kdtree_point_t mid;
         // for_to(j, DIMS) mid[j] = ...;
         // for_to(j, DIMS) root->child[i]->threshold[j] = mid.x[j];
     }
@@ -570,15 +576,15 @@ static KDTreeNode* init(KDTreePoint boundBox[2], int sizeGuess) {
 
 int main(int argc, char* argv[]) {
     srand(time(0));
-    // KDTreeNode root[] = { { .threshold = { 0 } } };
-    // KDTreeNode rc1[] = { { .threshold = { -3, -3, -3 } } };
-    // KDTreeNode rc2[] = { { .threshold = { 3, -3, -3 } } };
-    // KDTreeNode rc3[] = { { .threshold = { -3, 3, -3 } } };
-    // KDTreeNode rc4[] = { { .threshold = { 3, 3, -3 } } };
-    // KDTreeNode rc5[] = { { .threshold = { -3, -3, 3 } } };
-    // KDTreeNode rc6[] = { { .threshold = { 3, -3, 3 } } };
-    // KDTreeNode rc7[] = { { .threshold = { -3, 3, 3 } } };
-    // KDTreeNode rc8[] = { { .threshold = { 3, 3, 3 } } };
+    // kdtree_node_t root[] = { { .threshold = { 0 } } };
+    // kdtree_node_t rc1[] = { { .threshold = { -3, -3, -3 } } };
+    // kdtree_node_t rc2[] = { { .threshold = { 3, -3, -3 } } };
+    // kdtree_node_t rc3[] = { { .threshold = { -3, 3, -3 } } };
+    // kdtree_node_t rc4[] = { { .threshold = { 3, 3, -3 } } };
+    // kdtree_node_t rc5[] = { { .threshold = { -3, -3, 3 } } };
+    // kdtree_node_t rc6[] = { { .threshold = { 3, -3, 3 } } };
+    // kdtree_node_t rc7[] = { { .threshold = { -3, 3, 3 } } };
+    // kdtree_node_t rc8[] = { { .threshold = { 3, 3, 3 } } };
 
     // root->child[0] = rc1;
     // root->child[1] = rc2;
@@ -589,20 +595,20 @@ int main(int argc, char* argv[]) {
     // root->child[6] = rc7;
     // root->child[7] = rc8;
 
-    KDTreePoint boundBox[2] = { { { -6, -6, -6 } }, { { 6, 6, 6 } } };
+    kdtree_point_t boundBox[2] = { { { -6, -6, -6 } }, { { 6, 6, 6 } } };
     // for (int i = 0; i < countof(gPoints); i++) { addPoint(root, gPoints +
     // i);
     // }
     const int NPTS = argc > 1 ? atoi(argv[1]) : 10000000;
     clock_Time t0 = clock_getTime();
-    KDTreeNode* root = init(boundBox, NPTS);
+    kdtree_node_t* root = init(boundBox, NPTS);
     // printDot(root);
     // return 0;
     printf("init: %g ms\n", clock_clockSpanMicro(t0) / 1e3);
 
-    KDTreePoint* pt = malloc(sizeof(KDTreePoint) * NPTS);
+    kdtree_point_t* pt = malloc(sizeof(kdtree_point_t) * NPTS);
     t0 = clock_getTime();
-    for_to(i, NPTS) pt[i] = (KDTreePoint) { { rndf(), rndf(), rndf() } };
+    for_to(i, NPTS) pt[i] = (kdtree_point_t) { { rndf(), rndf(), rndf() } };
     printf(
         "%d rndgen+mallocs etc: %g ms\n", NPTS, clock_clockSpanMicro(t0) / 1e3);
     t0 = clock_getTime();
@@ -614,9 +620,9 @@ int main(int argc, char* argv[]) {
 
     // printNode(root, 0);
     if (NPTS < 1000) printDot(root);
-    KDTreePoint ptest[] = { { -3.14159 } };
+    kdtree_point_t ptest[] = { { -3.14159 } };
     t0 = clock_getTime();
-    KDTreePoint* nea = getNearestPoint(root, ptest);
+    kdtree_point_t* nea = getNearestPoint(root, ptest);
     printf("lookup: %g us\n", clock_clockSpanNano(t0) / 1e3);
 
     if (nea)

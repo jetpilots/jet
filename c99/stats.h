@@ -4,15 +4,15 @@ static void expralloc_stat() {
     for (int i = 0; i < 128; i++) sum += exprsAllocHistogram[i];
     thres = sum / 20;
 
-    eputs("ASTExpr allocation by kind (those above 5% of total)\n"
+    eputs("ast_expr_t allocation by kind (those above 5% of total)\n"
           "  Kind        #      %%\n");
     for_to_where(i, 128, (iexpr = exprsAllocHistogram[i]) > thres) //
-        eprintf("  %-8s %4d %7.2f\n", TokenKind_repr[i], iexpr,
+        eprintf("  %-8s %4d %7.2f\n", tokenkind_e_repr[i], iexpr,
             iexpr * 100.0 / sum);
     eputs("-------------------------------------------------------\n");
 }
 
-static void printstats(Parser* const parser, double tms) {
+static void printstats(parser_t* const parser, double tms) {
     eputs("\n======================================================="
           "\n");
     eputs("PARSER STATISTICS\n");
@@ -20,23 +20,23 @@ static void printstats(Parser* const parser, double tms) {
           "\n");
 
     eputs("Node allocations:\n");
-    allocstat(ASTImport);
-    allocstat(ASTExpr);
-    allocstat(ASTVar);
-    allocstat(ASTType);
-    allocstat(ASTScope);
-    allocstat(ASTTypeSpec);
-    allocstat(ASTFunc);
-    allocstat(ASTModule);
+    allocstat(ast_import_t);
+    allocstat(ast_expr_t);
+    allocstat(ast_var_t);
+    allocstat(ast_type_t);
+    allocstat(ast_scope_t);
+    allocstat(ast_typespec_t);
+    allocstat(ast_func_t);
+    allocstat(ast_module_t);
     allocstat(PtrList);
-    // allocstat(List_ASTExpr);
-    // allocstat(List_ASTVar);
-    // allocstat(List_ASTModule);
-    // allocstat(List_ASTFunc);
-    // allocstat(List_ASTType);
-    // allocstat(List_ASTImport);
-    // allocstat(List_ASTScope);
-    allocstat(Parser);
+    // allocstat(List_ast_expr);
+    // allocstat(List_ast_var);
+    // allocstat(List_ast_module);
+    // allocstat(List_ast_func);
+    // allocstat(List_ast_type);
+    // allocstat(List_ast_import);
+    // allocstat(List_ast_scope);
+    allocstat(parser_t);
     eputs("-------------------------------------------------------"
           "\n");
     eprintf("*** Total size of nodes                     = %7d B\n",

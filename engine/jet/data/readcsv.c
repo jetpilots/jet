@@ -2,30 +2,30 @@
 #include "numstr.c"
 
 typedef struct {
-    PtrArray dat;
-    // numstr* ref;
+    ptrarray_t dat;
+    // numstr_t* ref;
     long rows, cols;
-} DataFrame;
+} dataframe_t;
 
-numstr* DataFrame__getp(DataFrame df, int row, int col) {
+numstr_t* dataframe__getp(dataframe_t df, int row, int col) {
     return df.dat.ref + row * df.rows + col;
 }
-double DataFrame_get(DataFrame df, int row, int col) {
-    numstr* tgt = DataFrame__getp(df, row, col);
+double dataframe_get(dataframe_t df, int row, int col) {
+    numstr_t* tgt = dataframe__getp(df, row, col);
     return numstr_get(tgt);
 }
 
-void DataFrame__convall(DataFrame df) {
-    for (numstr* ai = df.dat.ref; ai < df.dat.ref + df.rows * df.cols; ai++)
+void dataframe__convall(dataframe_t df) {
+    for (numstr_t* ai = df.dat.ref; ai < df.dat.ref + df.rows * df.cols; ai++)
         numstr_get(ai);
 }
 
-void DataFrame_dumpbin(DataFrame df, const char* outfile) {
-    DataFrame__convall(df);
+void dataframe_dumpbin(dataframe_t df, const char* outfile) {
+    dataframe__convall(df);
     // dump...
 }
 
-void DataFrame_dumpcsv(DataFrame df, const char* outfile) {
+void dataframe_dumpcsv(dataframe_t df, const char* outfile) {
     // you DON'T need to to do _convall here!
     // strings will be written out as strings
     // a nice test case: read a csv, modify a few values & write csv back.
@@ -33,19 +33,19 @@ void DataFrame_dumpcsv(DataFrame df, const char* outfile) {
     // don't have numstrs
 }
 
-void DataFrame__pushstrn(DataFrame df, size_t sz, char* arr[]) {
-    // numstr* item = arr;
+void dataframe__pushstrn(dataframe_t df, size_t sz, char* arr[]) {
+    // numstr_t* item = arr;
     for (int i = 0; i < sz; i++) PtrArray_push(&df.dat, arr[i]);
 }
 
 // BTW dataframe should support both strings and nums!!!
-void DataFrame_pushstrrow(DataFrame df, PtrArray row) {
+void dataframe_pushstrrow(dataframe_t df, ptrarray_t row) {
     assert(row.used == df.cols);
-    DataFrame__pushn(df, df.cols, row.ref);
+    dataframe__pushn(df, df.cols, row.ref);
 }
 
-DataFrame readcsv(const char* filename, char sep) {
-    DataFrame ret = {};
+dataframe_t readcsv(const char* filename, char sep) {
+    dataframe_t ret = {};
     String str = slurp(filename);
     // ^ if you do strdup for each line it may be better for GC
     // since individual lines can be released after done
@@ -56,7 +56,7 @@ DataFrame readcsv(const char* filename, char sep) {
     // a csv (unless the CSV is really newer).
 
     char* pos = str.ref;
-    static PtrArray row;
+    static ptrarray_t row;
     int refcols = 1, cols;
     while (*pos && *pos != '\n')
         if (*pos == sep) refcols++;
@@ -68,8 +68,6 @@ DataFrame readcsv(const char* filename, char sep) {
 
             while (*pos && *pos != '\n' && *pos != sep) pos++; // each column
 
-            // assert(*pos == sep || *pos == '\n');
-            // int islast = *pos == '\n';
             if (*pos == sep) *pos++ = 0; // trample separator (comma/semicolon)
             cols--;
         }
@@ -77,7 +75,7 @@ DataFrame readcsv(const char* filename, char sep) {
         if (*pos == '\n') *pos++ = 0; // trample newline
         if (cols)
             ; // error raise
-        DataFrame_pushstrrow(ret, row);
+        dataframe_pushstrrow(ret, row);
         PtrArray_reset(&row);
     }
 }

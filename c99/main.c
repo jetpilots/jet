@@ -24,105 +24,104 @@
 static const char* const spaces = //
     "                                                                     ";
 
-#pragma mark - AST TYPE DEFINITIONS
+#pragma mark - AST ty_pE DEFINITIONS
 
-typedef struct ASTLocation {
+typedef struct ast_location_t {
     uint32_t line : 24, col : 8;
-} ASTLocation;
+} ast_location_t;
 
-struct ASTModule;
-typedef struct ASTImport {
+struct ast_module_t;
+typedef struct ast_import_t {
     char* name; //, *alias;
-    struct ASTModule* module;
+    struct ast_module_t* module;
     uint32_t aliasOffset, line : 16, col : 8, used : 1;
     // bool isPackage, hasAlias;
-} ASTImport;
+} ast_import_t;
 
-typedef struct ASTUnits {
+typedef struct ast_units_t {
     uint8_t powers[7], something;
     double factor, factors[7];
     char* label;
-} ASTUnits;
+} ast_units_t;
 
 typedef struct {
     double start, end;
 } Interval;
 // TODO: replace this with the generic RealRange
 
-// TODO: somewhere in the typespec or in the ASTVar need a flag refCounted
-typedef struct ASTTypeSpec {
+// TODO: somewhere in the typespec or in the ast_var_t need a flag refCounted
+typedef struct ast_typespec_t {
     union {
-        struct ASTType* type;
+        struct ast_type_t* type;
         char* name;
         Interval* intv;
         // ^ e.g. var x in [1:250]
         // this does not make x integer. it only provides a constraint, you need
         // other clues to decide if x should really be integer.
         // e.g. var x in [1:1:256] -> now its an integer
-        ASTUnits* units;
+        ast_units_t* units;
         // not keeping units on vars; move them to exprs instead. that way | is
-        // simply a check/multiply op. in tthe AST | is a tkDimensionedExpr, or
-        // simply every expr has a ASTUnits* member.
+        // simply a check/multiply op. in tthe AST | is a tk_dimensionedExpr, or
+        // simply every expr has a ast_units_t* member.
     };
-    struct { // todo: this must be named TypeInfo & reused in ASTExpr not copy
-             // pasted
+    struct { // todo: this must be named TypeInfo & reused in ast_expr_t not
+             // copy past_ed
         uint16_t dims; // more than 65535 dims will not be handled at compile
                        // time (size check, shape check etc) but at runtime. if
                        // collectionType is tensor but dims is 0, it means too
                        // many dims or ct-unknown dims, in any case it is then
                        // the generic ArrayND.
-        CollectionTypes collectionType : 6;
+        collectiontype_e collectionType : 6;
         bool hasRange : 1, //
             hasUnits : 1;
-        TypeTypes typeType : 7;
+        typetype_e typeType : 7;
         bool nullable : 1;
     };
-    ASTLocation loc[0];
+    ast_location_t loc[0];
     uint32_t line : 24, col, : 8;
-} ASTTypeSpec;
+} ast_typespec_t;
 
-typedef struct ASTVar {
+typedef struct ast_var_t {
     char* name;
-    ASTTypeSpec* typeSpec;
+    ast_typespec_t* typespec;
     union {
-        struct ASTExpr* init;
+        struct ast_expr_t* init;
         // when you move to having return var, there wont be a returnSpec on
-        // funcs anymore, only on vars. then you can get rid of asttypespec and
-        // move its stuff here. When there is an init, you take typeinfo from
-        // the expr, else directly here. check lower dword of the init ptr to be
-        // null to know that init is null. playing with fire, but its safe play
-        // imho. well its all for later.
+        // funcs anymore, only on vars. then you can get rid of ast_typespec_t
+        // and move its stuff here. When there is an init, you take typeinfo
+        // from the expr, else directly here. check lower dword of the init ptr
+        // to be null to know that init is null. playing with fire, but its safe
+        // play imho. well its all for later.
         /* struct {
             unsigned _init_lower32;
             struct {
                 uint16_t dims;
-                CollectionTypes collectionType : 6;
+                collectiontype_e collectionType : 6;
                 bool hasRange : 1, hasUnits : 1;
-                TypeTypes typeType : 7;
+                typetype_e typeType : 7;
                 bool nullable : 1;
             };
         }; */
     };
-    // List(ASTVar*) deps; // TODO: keep deps of each var so you can tell when a
-    // dependency of an async var is changed before the async is awaited. First
-    // you will have to figure out how to analyze array members and type members
-    // (e.g. init an instance for each compound type and array for each array
-    // and then set the member of that as dep...)
-    // struct ASTExpr* lastUsed; //
-    // last expr in owning scope that refers to this var. Note that you should
-    // dive to search for the last expr, it may be within an inner scope. The
-    // drop call should go at the end of such subscope, NOT within the subscope
-    // itself after the actual expr. (so set the if/for/while as the lastref,
-    // not the actual lastref) WHY NOT JUST SAVE THE LINE NUMBER OF THE LAST
-    // USE?
-    ASTLocation loc[0];
+    // List(ast_var_t*) deps; // TODO: keep deps of each var so you can tell
+    // when a dependency of an async var is changed before the async is awaited.
+    // First you will have to figure out how to analyze array members and type
+    // members (e.g. init an instance for each compound type and array for each
+    // array and then set the member of that as dep...) struct ast_expr_t*
+    // last_used; // last expr in owning scope that refers to this var. Note
+    // that you should dive to search for the last expr, it may be within an
+    // inner scope. The drop call should go at the end of such subscope, NOT
+    // within the subscope itself after the actual expr. (so set the
+    // if/for/while as the last_ref, not the actual last_ref) WHY NOT JUST SAVE
+    // THE LINE NUMBER OF THE LAST USE?
+    ast_location_t loc[0];
     uint32_t line : 24, col : 8; //
-    uint16_t lastUsage, used, changed;
+    uint16_t last_usage, used, changed;
     // ^ YOu canot use the last used line no to decide drops etc. because code
     // motion can rearrange statements and leave the line numbers stale.
     // --- YES YOU CAN if you use == to compare when dropping and not >=. Also
     // for multiline exprs you should save the toplevel expr line and not the
-    // line of the actual tkIdentifierResolved.
+    // line of the actual tk_identifierResolved.
 
     // char storage;
     // 's': stack, 'h': heap, 'm': mixed, 'r': refcounted
@@ -183,7 +182,7 @@ typedef struct ASTVar {
         // all args (in/out) are in the same list in func -> args.
     };
     // uint8_t col;
-} ASTVar;
+} ast_var_t;
 
 static const char* const StorageClassNames[]
     = { "refcounted", "heap", "stack", "mixed" };
@@ -194,7 +193,7 @@ static const char* const StorageClassNames[]
 // -- if it is passed to a func as an arg and the arg `escapes`
 //    analyseExpr sets `escapes` on each arg as it traverses the func
 
-typedef struct ASTExpr {
+typedef struct ast_expr_t {
     struct {
         union {
             struct {
@@ -227,7 +226,7 @@ typedef struct ASTExpr {
         // blow this bool to bits to store more flags
         uint8_t dims : 5, // hack for now so you can set upto 32 dims. figure it
                           // out later how to have a common typeinfo struct
-                          // between astexpr & astvar
+                          // between ast_expr_t & ast_var_t
             promote : 1, // should this expr be promoted, e.g.
                          // count(arr[arr<34]) or sum{arr[3:9]}. does not
                          // propagate.
@@ -240,15 +239,16 @@ typedef struct ASTExpr {
             rassoc : 1; // is this a right-associative operator e.g.
                         // exponentiation
         uint8_t col;
-        TokenKind kind : 8;
+        tokenkind_e kind : 8;
     };
     union {
-        struct ASTExpr* left;
-        List(ASTVar*) * vars; // for tkString
-        struct ASTType* elementType; // for tkListLiteral, tkDictLiteral only!!
+        struct ast_expr_t* left;
+        List(ast_var_t*) * vars; // for tk_string
+        struct ast_type_t*
+            elementType; // for tk_listLiteral, tk_dictLiteral only!!
     };
     union {
-        // ASTEvalInfo eval;
+        // ast_evalInfo eval;
         struct {
             uint32_t hash, slen;
         }; // str len for strings, idents, unresolved funcs/vars etc.
@@ -261,61 +261,61 @@ typedef struct ASTExpr {
         int64_t integer;
         uint64_t uinteger;
         // char* name; // for idents or unresolved call or subscript
-        struct ASTFunc* func; // for functioncall
-        struct ASTVar* var; // for array subscript, or a tkVarAssign
-        struct ASTScope* body; // for if/for/while
-        struct ASTExpr* right;
-        struct ASTImport* import; // for imports tkKeyword_import
+        struct ast_func_t* func; // for functioncall
+        struct ast_var_t* var; // for array subscript, or a tk_varAssign
+        struct ast_scope_t* body; // for if/for/while
+        struct ast_expr_t* right;
+        struct ast_import_t* import; // for imports tk_keyword_import
     };
     // TODO: the code motion routine should skip over exprs with
     // promote=false this is set for exprs with func calls or array
     // filtering etc...
-} ASTExpr;
+} ast_expr_t;
 
-typedef struct ASTScope {
-    List(ASTExpr) * stmts;
-    List(ASTVar) * locals;
-    struct ASTScope* parent;
+typedef struct ast_scope_t {
+    list_t(ast_expr_t) * stmts;
+    list_t(ast_var_t) * locals;
+    struct ast_scope_t* parent;
     bool isLoop; // this affects drops: loop scopes cannot drop parent vars.
     // still space left
-} ASTScope;
+} ast_scope_t;
 
-typedef struct ASTType {
+typedef struct ast_type_t {
     char* name;
     /// [unused] supertype. Jet does not have inheritance, perhaps for good.
-    ASTTypeSpec* super;
+    ast_typespec_t* super;
     /// The other types that are used in this type (i.e. types of member
     /// variables)
-    List(ASTType) * usedTypes;
+    list_t(ast_type_t) * usedTypes;
     /// The other types that use this type.
-    List(ASTType) * usedByTypes;
+    list_t(ast_type_t) * usedByTypes;
     /// The body of the type, as a scope. In effect it can have any expressions,
     /// but most kinds are disallowed by the parsing routine. Variable
     /// declarations and invariant checks are what you should mostly expect to
     /// see inside type bodies, not much else.
-    ASTScope* body;
+    ast_scope_t* body;
     uint16_t line, used;
     uint8_t col;
     bool analysed : 1, needJSON : 1, needXML : 1, needYAML : 1, visited : 1,
         isValueType : 1, isEnum : 1,
         isDeclare : 1; // all vars of this type will be stack
                        // allocated and passed around by value.
-} ASTType;
+} ast_type_t;
 
-// typedef struct ASTEnum {
+// typedef struct ast_enum_t {
 //     char* name;
-//     ASTScope* body;
+//     ast_scope_t* body;
 //     uint16_t line;
 //     uint8_t col;
 //     bool analysed : 1, visited : 1;
-// } ASTEnum;
+// } ast_enum_t;
 
-typedef struct ASTFunc {
+typedef struct ast_func_t {
     char* name;
-    ASTScope* body;
-    List(ASTVar) * args;
-    List(ASTFunc) * callers, *callees;
-    ASTTypeSpec* returnSpec;
+    ast_scope_t* body;
+    list_t(ast_var_t) * args;
+    list_t(ast_func_t) * callers, *callees;
+    ast_typespec_t* returnSpec;
     char *selector, *prettySelector;
     struct {
         uint16_t line, used, col;
@@ -335,7 +335,7 @@ typedef struct ASTFunc {
                 elemental : 1, //
                 isDefCtor : 1, //
                 intrinsic : 1, // intrinsic: print, describe, json, etc. not to
-                               // be output by linter
+                               // be output by formater
                 analysed : 1, // semantic pass has been done, don't repeat
                 isCalledAsync : 1, // is this func called async at least once?
                 returnsNewObjectSometimes : 1,
@@ -354,11 +354,11 @@ typedef struct ASTFunc {
         };
         uint8_t argCount, nameLen;
     };
-} ASTFunc;
+} ast_func_t;
 
-typedef struct ASTTest {
+typedef struct ast_test_t {
     char* name;
-    ASTScope* body;
+    ast_scope_t* body;
     char* selector;
     struct {
         uint16_t line;
@@ -366,20 +366,20 @@ typedef struct ASTTest {
             uint16_t analysed : 1;
         } flags;
     };
-} ASTTest;
+} ast_test_t;
 
-typedef struct ASTModule {
+typedef struct ast_module_t {
 
-    ASTScope scope[1]; // global scope contains vars + exprs
-    List(ASTFunc) * funcs;
-    List(ASTTest) * tests;
-    // List(ASTExpr) * exprs; // global exprs
-    List(ASTType) * types, *enums;
-    // List(ASTVar) * vars; // global vars
-    List(ASTImport) * imports;
-    // List(ASTType) * enums;
-    List(ASTModule) * importedBy; // for dependency graph. also use
-                                  // imports[i]->module over i
+    ast_scope_t scope[1]; // global scope contains vars + exprs
+    list_t(ast_func_t) * funcs;
+    list_t(ast_test_t) * tests;
+    // list_t(ast_expr_t) * exprs; // global exprs
+    list_t(ast_type_t) * types, *enums;
+    // list_t(ast_var_t) * vars; // global vars
+    list_t(ast_import_t) * imports;
+    // list_t(ast_type_t) * enums;
+    list_t(ast_module_t) * importedBy; // for dependency graph. also use
+                                       // imports[i]->module over i
     char *name, *fqname, *filename;
 
     // DiagnosticReporter reporter;
@@ -390,7 +390,7 @@ typedef struct ASTModule {
             rational : 1, polynomial : 1, regex : 1, datetime : 1, colour : 1,
             range : 1, table : 1, gui : 1;
     } requires;
-} ASTModule;
+} ast_module_t;
 
 // better keep a set or map instead and add as you encounter in code
 // or best do nothing and let user write 'import formats' etc
@@ -411,149 +411,149 @@ typedef struct ASTModule {
 
 #pragma mark - AST UNITS IMPL.
 
-struct ASTTypeSpec;
-struct ASTType;
-struct ASTFunc;
-struct ASTScope;
-struct ASTExpr;
-struct ASTVar;
+struct ast_typespec_t;
+struct ast_type_t;
+struct ast_func_t;
+struct ast_scope_t;
+struct ast_expr_t;
+struct ast_var_t;
 
-#define List_ASTExpr PtrList
-#define List_ASTVar PtrList
-#define List_ASTModule PtrList
-#define List_ASTFunc PtrList
-#define List_ASTEnum PtrList
-#define List_ASTTest PtrList
-#define List_ASTType PtrList
-#define List_ASTImport PtrList
-#define List_ASTScope PtrList
+#define List_ast_expr PtrList
+#define List_ast_var PtrList
+#define List_ast_module PtrList
+#define List_ast_func PtrList
+#define List_ast_enum PtrList
+#define List_ast_test PtrList
+#define List_ast_type PtrList
+#define List_ast_import PtrList
+#define List_ast_scope PtrList
 
-MKSTAT(ASTExpr)
-MKSTAT(ASTFunc)
-MKSTAT(ASTTest)
-MKSTAT(ASTEnum)
-MKSTAT(ASTTypeSpec)
-MKSTAT(ASTType)
-MKSTAT(ASTModule)
-MKSTAT(ASTScope)
-MKSTAT(ASTImport)
-MKSTAT(ASTVar)
-MKSTAT(Parser)
-MKSTAT(List_ASTExpr)
-MKSTAT(List_ASTFunc)
-MKSTAT(List_ASTEnum)
-MKSTAT(List_ASTTest)
-MKSTAT(List_ASTType)
-MKSTAT(List_ASTModule)
-MKSTAT(List_ASTScope)
-MKSTAT(List_ASTImport)
-MKSTAT(List_ASTVar)
+MKSTAT(ast_expr_t)
+MKSTAT(ast_func_t)
+MKSTAT(ast_test_t)
+MKSTAT(ast_enum_t)
+MKSTAT(ast_typespec_t)
+MKSTAT(ast_type_t)
+MKSTAT(ast_module_t)
+MKSTAT(ast_scope_t)
+MKSTAT(ast_import_t)
+MKSTAT(ast_var_t)
+MKSTAT(parser_t)
+MKSTAT(List_ast_expr)
+MKSTAT(List_ast_func)
+MKSTAT(List_ast_enum)
+MKSTAT(List_ast_test)
+MKSTAT(List_ast_type)
+MKSTAT(List_ast_module)
+MKSTAT(List_ast_scope)
+MKSTAT(List_ast_import)
+MKSTAT(List_ast_var)
 static uint32_t exprsAllocHistogram[128];
 
-static ASTTypeSpec* ASTTypeSpec_new(TypeTypes tt, CollectionTypes ct) {
-    ASTTypeSpec* ret = NEW(ASTTypeSpec);
+static ast_typespec_t* new_typespec(typetype_e tt, collectiontype_e ct) {
+    ast_typespec_t* ret = NEW(ast_typespec_t);
     ret->typeType = tt;
     ret->collectionType = ct;
     return ret;
 }
 
-static const char* ASTTypeSpec_name(ASTTypeSpec* self) {
+static const char* name_typespec(ast_typespec_t* self) {
     switch (self->typeType) {
-    case TYUnresolved: return self->name;
-    case TYObject: return self->type->name;
-    default: return TypeType_name(self->typeType);
+    case ty_unresolved: return self->name;
+    case ty_object: return self->type->name;
+    default: return typetype_e_name(self->typeType);
     }
     // what about collectiontype???
 }
 
 // The name of this type spec as it will appear in the generated C code.
-static const char* ASTTypeSpec_cname(ASTTypeSpec* self) {
+static const char* ast_typespec_cname(ast_typespec_t* self) {
     switch (self->typeType) {
-    case TYUnresolved: return self->name;
-    case TYObject: return self->type->name;
-    default: return TypeType_name(self->typeType);
+    case ty_unresolved: return self->name;
+    case ty_object: return self->type->name;
+    default: return typetype_e_name(self->typeType);
     }
     // what about collectiontype???
 }
 
-static const char* getDefaultValueForType(ASTTypeSpec* type) {
+static const char* getDefaultValueForType(ast_typespec_t* type) {
     if (!type) return "";
     switch (type->typeType) {
-    case TYUnresolved:
+    case ty_unresolved:
         unreachable(
             "unresolved: '%s' at %d:%d", type->name, type->line, type->col);
         return "ERROR_ERROR_ERROR";
-    case TYString: return "\"\"";
+    case ty_string: return "\"\"";
     default: return "0";
     }
 }
 
-static ASTExpr* ASTExpr_fromToken(const Token* self) {
-    ASTExpr* ret = NEW(ASTExpr);
+static ast_expr_t* fromToken_expr(const Token* self) {
+    ast_expr_t* ret = NEW(ast_expr_t);
     ret->kind = self->kind;
     ret->line = self->line;
     ret->col = self->col;
 
-    ret->prec = TokenKind_getPrecedence(ret->kind);
+    ret->prec = tokenkind_e_getPrecedence(ret->kind);
     if (ret->prec) {
-        ret->rassoc = TokenKind_isRightAssociative(ret->kind);
-        ret->unary = TokenKind_isUnary(ret->kind);
+        ret->rassoc = tokenkind_e_isRightAssociative(ret->kind);
+        ret->unary = tokenkind_e_isUnary(ret->kind);
     }
 
     exprsAllocHistogram[ret->kind]++;
 
     switch (ret->kind) {
-    // case tkKeyword_cheater:
-    case tkKeyword_for:
-    case tkKeyword_while:
-    case tkKeyword_if:
-    case tkKeyword_end:
-    case tkKeyword_enum:
-    case tkKeyword_match:
-    case tkKeyword_case:
-    case tkKeyword_function:
-    case tkKeyword_declare:
-    case tkKeyword_test:
-    case tkKeyword_check:
-    case tkKeyword_not:
-    case tkKeyword_notin:
-    case tkKeyword_and:
-    case tkKeyword_yes:
-    case tkKeyword_no:
-    case tkKeyword_nil:
-    case tkKeyword_or:
-    case tkKeyword_in:
-    case tkKeyword_do:
-    case tkKeyword_then:
-    case tkKeyword_as:
-    case tkKeyword_else:
-    case tkKeyword_elif:
-    case tkKeyword_type:
-    case tkKeyword_return:
-    case tkKeyword_result:
-    case tkKeyword_extends:
-    case tkKeyword_var:
-    case tkKeyword_let:
-    case tkKeyword_import:
-    case tkIdentifier:
-    case tkArgumentLabel:
-    case tkFunctionCall:
-    case tkSubscript:
-    case tkObjectInit:
-    case tkNumber:
-    case tkString:
-    case tkRawString:
-    case tkRegexp:
-    case tkMultiDotNumber:
-    case tkLineComment: // Comments go in the AST like regular stmts
+    // case tk_keyword_cheater:
+    case tk_keyword_for:
+    case tk_keyword_while:
+    case tk_keyword_if:
+    case tk_keyword_end:
+    case tk_keyword_enum:
+    case tk_keyword_match:
+    case tk_keyword_case:
+    case tk_keyword_function:
+    case tk_keyword_declare:
+    case tk_keyword_test:
+    case tk_keyword_check:
+    case tk_keyword_not:
+    case tk_keyword_notin:
+    case tk_keyword_and:
+    case tk_keyword_yes:
+    case tk_keyword_no:
+    case tk_keyword_nil:
+    case tk_keyword_or:
+    case tk_keyword_in:
+    case tk_keyword_do:
+    case tk_keyword_then:
+    case tk_keyword_as:
+    case tk_keyword_else:
+    case tk_keyword_elif:
+    case tk_keyword_type:
+    case tk_keyword_return:
+    case tk_keyword_result:
+    case tk_keyword_extends:
+    case tk_keyword_var:
+    case tk_keyword_let:
+    case tk_keyword_import:
+    case tk_identifier:
+    case tk_argumentLabel:
+    case tk_functionCall:
+    case tk_subscript:
+    case tk_objectInit:
+    case tk_number:
+    case tk_string:
+    case tk_rawString:
+    case tk_regexp:
+    case tk_multiDotNumber:
+    case tk_lineComment: // Comments go in the AST like regular stmts
         ret->string = self->pos;
         break;
     default:;
     }
     // the '!' will be trampled
-    if (ret->kind == tkLineComment) ret->string++;
+    if (ret->kind == tk_lineComment) ret->string++;
     // turn all 1.0234[DdE]+01 into 1.0234e+01.
-    if (ret->kind == tkNumber) {
+    if (ret->kind == tk_number) {
         CString_tr_ip(ret->string, 'd', 'e', self->matchlen);
         CString_tr_ip(ret->string, 'D', 'e', self->matchlen);
         CString_tr_ip(ret->string, 'E', 'e', self->matchlen);
@@ -561,53 +561,53 @@ static ASTExpr* ASTExpr_fromToken(const Token* self) {
     return ret;
 }
 
-static bool ASTExpr_throws(ASTExpr* self) { // NOOO REMOVE This func and set the
-                                            // throws flag recursively like the
+static bool throws_expr(ast_expr_t* self) { // NOOO REMOVE This func and set the
+    // throws flag recursively like the
     // other flags (during e.g. the type resolution dive)
     if (!self) return false;
     switch (self->kind) {
-    case tkNumber:
-    case tkMultiDotNumber:
-    case tkRawString:
-    case tkRegexp:
-    case tkIdentifier:
-    case tkIdentifierResolved:
-    case tkString:
-    case tkLineComment: return false;
-    case tkFunctionCall:
-    case tkFunctionCallResolved:
+    case tk_number:
+    case tk_multiDotNumber:
+    case tk_rawString:
+    case tk_regexp:
+    case tk_identifier:
+    case tk_identifierResolved:
+    case tk_string:
+    case tk_lineComment: return false;
+    case tk_functionCall:
+    case tk_functionCallResolved:
         return true; // self->func->throws;
         // actually  only if the func really throws
-    case tkSubscript:
-    case tkSubscriptResolved: return ASTExpr_throws(self->left);
-    case tkVarAssign: return self->var->used && ASTExpr_throws(self->var->init);
-    case tkKeyword_for:
-    case tkKeyword_if:
-    case tkKeyword_while: return false; // actually the condition could throw.
+    case tk_subscript:
+    case tk_subscriptResolved: return throws_expr(self->left);
+    case tk_varAssign: return self->var->used && throws_expr(self->var->init);
+    case tk_keyword_for:
+    case tk_keyword_if:
+    case tk_keyword_while: return false; // actually the condition could throw.
     default:
         if (!self->prec) return false;
-        return ASTExpr_throws(self->left) || ASTExpr_throws(self->right);
+        return throws_expr(self->left) || throws_expr(self->right);
     }
 }
 
-static size_t ASTScope_calcSizeUsage(ASTScope* self) {
+static size_t calcSizeUsage_scope(ast_scope_t* self) {
     size_t size = 0, sum = 0, subsize = 0, maxsubsize = 0;
     // all variables must be resolved before calling this
-    foreach (ASTExpr*, stmt, self->stmts) {
+    foreach (ast_expr_t*, stmt, self->stmts) {
         switch (stmt->kind) {
-        case tkKeyword_if:
-        case tkKeyword_else:
-        case tkKeyword_for:
-        case tkKeyword_while:
-            subsize = ASTScope_calcSizeUsage(stmt->body);
+        case tk_keyword_if:
+        case tk_keyword_else:
+        case tk_keyword_for:
+        case tk_keyword_while:
+            subsize = calcSizeUsage_scope(stmt->body);
             if (subsize > maxsubsize) maxsubsize = subsize;
             break;
         default:;
         }
     }
     // some vars are not assigned, esp. temporaries _1 _2 etc.
-    foreach (ASTVar*, var, self->locals) {
-        size = TypeType_size(var->typeSpec->typeType);
+    foreach (ast_var_t*, var, self->locals) {
+        size = typetype_e_size(var->typespec->typeType);
         if (!size)
             eprintf("warning: cannot find size for '%s' at %d:%d\n", var->name,
                 var->line, var->col);
@@ -618,87 +618,87 @@ static size_t ASTScope_calcSizeUsage(ASTScope* self) {
     return sum;
 }
 
-static ASTVar* ASTScope_getVar(ASTScope* self, const char* name) {
+static ast_var_t* getVar_scope(ast_scope_t* self, const char* name) {
     // stupid linear search, no dictionary yet
-    foreach (ASTVar*, local, self->locals) //
+    foreach (ast_var_t*, local, self->locals) //
         if (!strcasecmp(name, local->name)) return local;
-    if (self->parent) return ASTScope_getVar(self->parent, name);
+    if (self->parent) return getVar_scope(self->parent, name);
     return NULL;
 }
 
-static ASTVar* ASTType_getVar(ASTType* self, const char* name) {
+static ast_var_t* getVar_type(ast_type_t* self, const char* name) {
     // stupid linear search, no dictionary yet
-    foreach (ASTVar*, var, self->body->locals) //
+    foreach (ast_var_t*, var, self->body->locals) //
         if (!strcasecmp(name, var->name)) return var;
 
-    if (self->super && self->super->typeType == TYObject)
-        return ASTType_getVar(self->super->type, name);
+    if (self->super && self->super->typeType == ty_object)
+        return getVar_type(self->super->type, name);
     return NULL;
 }
 
 #pragma mark - AST FUNC IMPL.
 
-/// This creates a new ASTFunc marked as declare and having one
+/// This creates a new ast_func_t marked as declare and having one
 /// argument. The name of the function and the type of the argument can be
 /// specified. This way you can create declared functions such as `print`,
 /// `json`, etc. of each new type defined in source code.
-static ASTFunc* ASTFunc_createDeclWithArg(
+static ast_func_t* createDeclWithArg_func(
     char* name, char* retType, char* arg1Type) {
-    ASTFunc* func = NEW(ASTFunc);
+    ast_func_t* func = NEW(ast_func_t);
     func->name = name;
     func->isDeclare = true;
     if (retType) {
-        func->returnSpec = NEW(ASTTypeSpec);
+        func->returnSpec = NEW(ast_typespec_t);
         func->returnSpec->name = retType;
     }
     if (arg1Type) {
-        ASTVar* arg = NEW(ASTVar);
+        ast_var_t* arg = NEW(ast_var_t);
         arg->name = "arg1";
-        arg->typeSpec = NEW(ASTTypeSpec);
-        arg->typeSpec->name = arg1Type;
-        PtrList_append(&func->args, arg);
+        arg->typespec = NEW(ast_typespec_t);
+        arg->typespec->name = arg1Type;
+        list_append(&func->args, arg);
         func->argCount = 1;
     }
     return func;
 }
 
-static size_t ASTFunc_calcSizeUsage(ASTFunc* self) {
+static size_t calcSizeUsage_func(ast_func_t* self) {
     size_t size = 0, sum = 0;
-    foreach (ASTVar*, arg, self->args) {
+    foreach (ast_var_t*, arg, self->args) {
         // all variables must be resolved before calling this
-        size = TypeType_size(arg->typeSpec->typeType);
+        size = typetype_e_size(arg->typespec->typeType);
         assert(size);
         // if (arg->used)
         sum += size;
     }
-    if (self->body) sum += ASTScope_calcSizeUsage(self->body);
+    if (self->body) sum += calcSizeUsage_scope(self->body);
     return sum;
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static bool isCmpOp(ASTExpr* expr) {
-    return expr->kind == tkOpLE //
-        || expr->kind == tkOpLT //
-        || expr->kind == tkOpGT //
-        || expr->kind == tkOpGE //
-        || expr->kind == tkOpEQ //
-        || expr->kind == tkOpNE;
+static bool isCmpOp(ast_expr_t* expr) {
+    return expr->kind == tk_opLE //
+        || expr->kind == tk_opLT //
+        || expr->kind == tk_opGT //
+        || expr->kind == tk_opGE //
+        || expr->kind == tk_opEQ //
+        || expr->kind == tk_opNE;
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static bool isBoolOp(ASTExpr* expr) {
-    return expr->kind == tkKeyword_and //
-        || expr->kind == tkKeyword_or //
-        || expr->kind == tkKeyword_in //
-        || expr->kind == tkKeyword_notin //
-        || expr->kind == tkKeyword_not;
+static bool isBoolOp(ast_expr_t* expr) {
+    return expr->kind == tk_keyword_and //
+        || expr->kind == tk_keyword_or //
+        || expr->kind == tk_keyword_in //
+        || expr->kind == tk_keyword_notin //
+        || expr->kind == tk_keyword_not;
 }
 
-static size_t ASTType_calcSizeUsage(ASTType* self) {
+static size_t calcSizeUsage_type(ast_type_t* self) {
     size_t size = 0, sum = 0;
-    foreach (ASTVar*, var, self->body->locals) {
+    foreach (ast_var_t*, var, self->body->locals) {
         // all variables must be resolved before calling this
-        size = TypeType_size(var->typeSpec->typeType);
+        size = typetype_e_size(var->typespec->typeType);
         assert(size);
         sum += size;
     }
@@ -706,161 +706,161 @@ static size_t ASTType_calcSizeUsage(ASTType* self) {
 }
 
 #pragma mark - AST EXPR IMPL.
-static ASTTypeSpec* ASTExpr_getObjectTypeSpec(const ASTExpr* const self) {
+static ast_typespec_t* getObjectTypeSpec_expr(const ast_expr_t* const self) {
     if (!self) return NULL;
 
     // all that is left is object
     switch (self->kind) {
-    case tkFunctionCallResolved:
-        // case tkFunctionCall:
+    case tk_functionCallResolved:
+        // case tk_functionCall:
         return self->func->returnSpec;
-    case tkIdentifierResolved:
-    case tkSubscriptResolved:
-        // case tkIdentifier:
-        // case tkSubscript:
-        return self->var->typeSpec;
+    case tk_identifierResolved:
+    case tk_subscriptResolved:
+        // case tk_identifier:
+        // case tk_subscript:
+        return self->var->typespec;
         //        }
-        // TODO: tkOpColon should be handled separately in the semantic
-        // pass, and should be assigned either TYObject or make a dedicated
-        // TYRange
-        //     case tkOpColon:
+        // TODO: tk_opColon should be handled separately in the semantic
+        // pass, and should be assigned either ty_object or make a dedicated
+        // ty_range
+        //     case tk_opColon:
         //        return "Range";
         // TODO: what else???
-    case tkPeriod:
-    case tkOpComma: return ASTExpr_getObjectTypeSpec(self->right);
+    case tk_period:
+    case tk_opComma: return getObjectTypeSpec_expr(self->right);
     default: break;
     }
     return NULL;
 }
 
-static ASTType* ASTExpr_getEnumType(const ASTExpr* const self) {
-    ASTType* ret = NULL;
-    if (!self || self->typeType != TYObject) return ret;
+static ast_type_t* getEnumType_expr(const ast_expr_t* const self) {
+    ast_type_t* ret = NULL;
+    if (!self || self->typeType != ty_object) return ret;
     // all that is left is object
     switch (self->kind) {
-    case tkFunctionCallResolved: ret = self->func->returnSpec->type; break;
-    case tkIdentifierResolved:
-    case tkSubscriptResolved:
-        ret = self->var->typeSpec->type;
+    case tk_functionCallResolved: ret = self->func->returnSpec->type; break;
+    case tk_identifierResolved:
+    case tk_subscriptResolved:
+        ret = self->var->typespec->type;
         break; //        }
-               // TODO: tkOpColon should be handled separately in the semantic
-               // pass, and should be assigned either TYObject or make a
-               // dedicated TYRange
-               //     case tkOpColon:
+               // TODO: tk_opColon should be handled separately in the semantic
+               // pass, and should be assigned either ty_object or make a
+               // dedicated ty_range
+               //     case tk_opColon:
                //        return "Range";
                // TODO: what else???
-    case tkPeriod:
-    case tkOpComma: ret = ASTExpr_getEnumType(self->left);
+    case tk_period:
+    case tk_opComma: ret = getEnumType_expr(self->left);
     default: break;
     }
     if (ret && !ret->isEnum) ret = NULL;
     return ret;
 }
 
-static ASTType* ASTExpr_getObjectType(const ASTExpr* const self) {
-    if (!self || self->typeType != TYObject) return NULL;
+static ast_type_t* getObjectType_expr(const ast_expr_t* const self) {
+    if (!self || self->typeType != ty_object) return NULL;
 
     // all that is left is object
     switch (self->kind) {
-    case tkFunctionCallResolved: return self->func->returnSpec->type;
-    case tkIdentifierResolved:
-    case tkSubscriptResolved:
-        return self->var->typeSpec->type;
+    case tk_functionCallResolved: return self->func->returnSpec->type;
+    case tk_identifierResolved:
+    case tk_subscriptResolved:
+        return self->var->typespec->type;
         //        }
-        // TODO: tkOpColon should be handled separately in the semantic
-        // pass, and should be assigned either TYObject or make a dedicated
-        // TYRange
-        //     case tkOpColon:
+        // TODO: tk_opColon should be handled separately in the semantic
+        // pass, and should be assigned either ty_object or make a dedicated
+        // ty_range
+        //     case tk_opColon:
         //        return "Range";
         // TODO: what else???
-    case tkPeriod:
-    case tkOpComma: return ASTExpr_getObjectType(self->right);
+    case tk_period:
+    case tk_opComma: return getObjectType_expr(self->right);
     default: break;
     }
     return NULL;
 }
 
-static ASTType* ASTExpr_getTypeOrEnum(const ASTExpr* const self) {
-    if (!self || self->typeType != TYObject) return NULL;
+static ast_type_t* getTypeOrEnum_expr(const ast_expr_t* const self) {
+    if (!self || self->typeType != ty_object) return NULL;
 
     // all that is left is object
     switch (self->kind) {
-    case tkFunctionCallResolved: return self->func->returnSpec->type;
-    case tkIdentifierResolved:
-    case tkSubscriptResolved:
-        return self->var->typeSpec->type;
+    case tk_functionCallResolved: return self->func->returnSpec->type;
+    case tk_identifierResolved:
+    case tk_subscriptResolved:
+        return self->var->typespec->type;
         //        }
-        // TODO: tkOpColon should be handled separately in the semantic
-        // pass, and should be assigned either TYObject or make a dedicated
-        // TYRange
-        //     case tkOpColon:
+        // TODO: tk_opColon should be handled separately in the semantic
+        // pass, and should be assigned either ty_object or make a dedicated
+        // ty_range
+        //     case tk_opColon:
         //        return "Range";
         // TODO: what else???
-    case tkPeriod: {
-        ASTType* type = ASTExpr_getObjectType(self->left);
-        if (!type->isEnum) type = ASTExpr_getObjectType(self->right);
+    case tk_period: {
+        ast_type_t* type = getObjectType_expr(self->left);
+        if (!type->isEnum) type = getObjectType_expr(self->right);
         return type;
     }
-    case tkOpComma: return ASTExpr_getTypeOrEnum(self->left);
+    case tk_opComma: return getTypeOrEnum_expr(self->left);
     default: break;
     }
     return NULL;
 }
-// static CString* ASTExpr_getTypeOrEnumName(const ASTExpr* const self) {
-//     ASTType* type = ASTExpr_getTypeOrEnum(self);
+// static CString* getTypeOrEnumName_expr(const ast_expr_t* const self) {
+//     ast_type_t* type = getTypeOrEnum_expr(self);
 //     return type ? type->name : "";
 // }
 
-static const char* ASTExpr_typeName(const ASTExpr* const self) {
+static const char* typeName_expr(const ast_expr_t* const self) {
     if (!self) return "";
-    const char* ret = TypeType_name(self->typeType);
+    const char* ret = typetype_e_name(self->typeType);
     if (!ret) return "<unknown>"; // unresolved
     if (*ret) return ret; // primitive type
 
     // all that is left is object
     switch (self->kind) {
-    case tkFunctionCallResolved: return self->func->returnSpec->type->name;
-    case tkIdentifierResolved:
-    case tkSubscriptResolved:
-        return self->var->typeSpec->type->name;
+    case tk_functionCallResolved: return self->func->returnSpec->type->name;
+    case tk_identifierResolved:
+    case tk_subscriptResolved:
+        return self->var->typespec->type->name;
         //        }
-        // TODO: tkOpColon should be handled separately in the semantic
-        // pass, and should be assigned either TYObject or make a dedicated
-        // TYRange
-        //     case tkOpColon:
+        // TODO: tk_opColon should be handled separately in the semantic
+        // pass, and should be assigned either ty_object or make a dedicated
+        // ty_range
+        //     case tk_opColon:
         //        return "Range";
         // TODO: what else???
-    // case tkPeriod:
-    //     return ASTExpr_typeName(self->right);
-    case tkPeriod: {
-        ASTType* type = ASTExpr_getObjectType(self->left);
-        return (type->isEnum) ? type->name : ASTExpr_typeName(self->right);
+    // case tk_period:
+    //     return typeName_expr(self->right);
+    case tk_period: {
+        ast_type_t* type = getObjectType_expr(self->left);
+        return (type->isEnum) ? type->name : typeName_expr(self->right);
     }
-    case tkOpComma: return ASTExpr_typeName(self->left);
+    case tk_opComma: return typeName_expr(self->left);
     default: break;
     }
     return "<invalid>";
 }
 
-static void ASTExpr_catarglabels(ASTExpr* self) {
+static void catarglabels_expr(ast_expr_t* self) {
     switch (self->kind) {
-    case tkOpComma:
-        ASTExpr_catarglabels(self->left);
-        ASTExpr_catarglabels(self->right);
+    case tk_opComma:
+        catarglabels_expr(self->left);
+        catarglabels_expr(self->right);
         break;
-    case tkOpAssign: printf("_%s", self->left->string); break;
+    case tk_opAssign: printf("_%s", self->left->string); break;
     default: break;
     }
 }
 
-static int ASTExpr_strarglabels(ASTExpr* self, char* buf, int bufsize) {
+static int strarglabels_expr(ast_expr_t* self, char* buf, int bufsize) {
     int ret = 0;
     switch (self->kind) {
-    case tkOpComma:
-        ret += ASTExpr_strarglabels(self->left, buf, bufsize);
-        ret += ASTExpr_strarglabels(self->right, buf + ret, bufsize - ret);
+    case tk_opComma:
+        ret += strarglabels_expr(self->left, buf, bufsize);
+        ret += strarglabels_expr(self->right, buf + ret, bufsize - ret);
         break;
-    case tkOpAssign:
+    case tk_opAssign:
         ret += snprintf(buf, bufsize, "_%s", self->left->string);
         break;
     default: break;
@@ -869,37 +869,37 @@ static int ASTExpr_strarglabels(ASTExpr* self, char* buf, int bufsize) {
 }
 
 // TODO: see if this is still correct
-static int ASTExpr_countCommaList(ASTExpr* expr) {
+static int countCommaList_expr(ast_expr_t* expr) {
     int i = 0;
     if (expr)
-        for (i = 1; expr->right && expr->kind == tkOpComma; i++)
+        for (i = 1; expr->right && expr->kind == tk_opComma; i++)
             expr = expr->right;
     return i;
 }
 
 #pragma mark - AST MODULE IMPL.
 
-static ASTType* ASTModule_getType(ASTModule* module, const char* name) {
+static ast_type_t* getType_module(ast_module_t* module, const char* name) {
     // the type may be "mm.XYZType" in which case you should look in
     // module mm instead. actually the caller should have bothered about
     // that.
-    foreach (ASTType*, type, module->types) //
+    foreach (ast_type_t*, type, module->types) //
         if (!strcasecmp(type->name, name)) return type;
     // type specs must be fully qualified, so there's no need to look in
     // other modules.
-    foreach (ASTType*, enu, module->enums) //
+    foreach (ast_type_t*, enu, module->enums) //
         if (!strcasecmp(enu->name, name)) return enu;
     return NULL;
 }
 
 // i like this pattern, getType, getFunc, getVar, etc.
 // even the module should have getVar.
-// you don't need the actual ASTImport object, so this one is just a
+// you don't need the actual ast_import_t object, so this one is just a
 // bool. imports just turn into a #define for the alias and an #include
 // for the actual file.
-monostatic ASTImport* ASTModule_getImportByAlias(
-    ASTModule* module, const char* alias) {
-    foreach (ASTImport*, imp, module->imports) //
+monostatic ast_import_t* getImportByAlias_module(
+    ast_module_t* module, const char* alias) {
+    foreach (ast_import_t*, imp, module->imports) //
     {
         eprintf("import: %s %s\n", imp->name + imp->aliasOffset, alias);
         if (!strcmp(imp->name + imp->aliasOffset, alias)) return imp;
@@ -907,17 +907,18 @@ monostatic ASTImport* ASTModule_getImportByAlias(
     return NULL;
 }
 
-monostatic ASTFunc* ASTModule_getFuncByName(
-    ASTModule* module, const char* name) {
-    foreach (ASTFunc*, func, module->funcs) //
+monostatic ast_func_t* getFuncByName_module(
+    ast_module_t* module, const char* name) {
+    foreach (ast_func_t*, func, module->funcs) //
         if (!strcasecmp(func->name, name)) return func;
     // This returns the first matching func only
     //  no looking anywhere else. If the name is of the form
     // "mm.func" you should have bothered to look in mm instead.
     return NULL;
 }
-monostatic ASTFunc* ASTModule_getFunc(ASTModule* module, const char* selector) {
-    foreach (ASTFunc*, func, module->funcs) //
+monostatic ast_func_t* getFunc_module(
+    ast_module_t* module, const char* selector) {
+    foreach (ast_func_t*, func, module->funcs) //
         if (!strcasecmp(func->selector, selector)) return func;
     //  no looking anywhere else. If the name is of the form
     // "mm.func" you should have bothered to look in mm instead.
@@ -925,29 +926,30 @@ monostatic ASTFunc* ASTModule_getFunc(ASTModule* module, const char* selector) {
 }
 
 // only call this func if you have failed to resolve a func by getFunc(...).
-monostatic ASTFunc* ASTModule_getFuncByTypeMatch(
-    ASTModule* module, ASTExpr* funcCallExpr) {
-    foreach (ASTFunc*, func, module->funcs) {
+monostatic ast_func_t* getFuncByTypeMatch_module(
+    ast_module_t* module, ast_expr_t* funcCallExpr) {
+    foreach (ast_func_t*, func, module->funcs) {
         if (!strcasecmp(funcCallExpr->string, func->name)
-            && ASTExpr_countCommaList(funcCallExpr->left) == func->argCount) {
+            && countCommaList_expr(funcCallExpr->left) == func->argCount) {
             // check all argument types to see if they match.
-            ASTExpr* carg = funcCallExpr->left;
-            foreach (ASTVar*, farg, func->args) {
+            ast_expr_t* carg = funcCallExpr->left;
+            foreach (ast_var_t*, farg, func->args) {
                 if (!carg) break;
-                ASTExpr* arg = (carg->kind == tkOpComma) ? carg->left : carg;
+                ast_expr_t* arg
+                    = (carg->kind == tk_opComma) ? carg->left : carg;
                 // __ this is why you need typeType and typeSubType so that
                 // compatible types can be checked by equality ignoring subType.
                 // The way it is now, CString and String wont match because they
                 // arent strictly equal, although they are perfectly compatible
                 // for argument passing.
-                if (arg->typeType == farg->typeSpec->typeType
-                    && arg->collectionType == farg->typeSpec->collectionType) {
-                    if (arg->typeType == TYObject
-                        && ASTExpr_getTypeOrEnum(arg) != farg->typeSpec->type)
+                if (arg->typeType == farg->typespec->typeType
+                    && arg->collectionType == farg->typespec->collectionType) {
+                    if (arg->typeType == ty_object
+                        && getTypeOrEnum_expr(arg) != farg->typespec->type)
                         goto nextfunc;
                 }
 
-                carg = (carg->kind == tkOpComma) ? carg->right : NULL;
+                carg = (carg->kind == tk_opComma) ? carg->right : NULL;
             }
 
             return func;
@@ -956,15 +958,15 @@ monostatic ASTFunc* ASTModule_getFuncByTypeMatch(
     }
     return NULL;
 }
-monostatic ASTVar* ASTModule_getVar(ASTModule* module, const char* name) {
-    foreach (ASTVar*, var, module->scope->locals) //
+monostatic ast_var_t* getVar_module(ast_module_t* module, const char* name) {
+    foreach (ast_var_t*, var, module->scope->locals) //
         if (!strcasecmp(var->name, name)) return var;
     //  no looking anywhere else. If the name is of the form
     // "mm.func" you should have bothered to look in mm instead.
     return NULL;
 }
 
-#include "lint.h"
+#include "format.h"
 #include "emit.h"
 
 #pragma mark - PARSER
@@ -1001,21 +1003,21 @@ static const char* CompilerMode__str[] = { //
 //     // DiagnosticKind kind : 8;
 //     // DiagnosticEntity entity : 8;
 //     union {
-//         ASTType* type;
-//         ASTFunc* func;
-//         ASTVar* var;
-//         ASTExpr* expr;
+//         ast_type_t* type;
+//         ast_func_t* func;
+//         ast_var_t* var;
+//         ast_expr_t* expr;
 //     };
 // } Diagnostic;
 
 typedef struct IssueMgr {
     char* filename;
     uint16_t errCount, warnCount, errLimit;
-    uint8_t lastError /*enum type*/, warnUnusedVar : 1, warnUnusedFunc : 1,
+    uint8_t last_error /*enum type*/, warnUnusedVar : 1, warnUnusedFunc : 1,
         warnUnusedType : 1, warnUnusedArg : 1, hasParseErrors : 1;
 } IssueMgr;
 
-typedef struct Parser {
+typedef struct parser_t {
     char* filename; // mod/submod/xyz/mycode.ch
     char* moduleName; // mod.submod.xyz.mycode
     char* mangledName; // mod_submod_xyz_mycode
@@ -1026,13 +1028,13 @@ typedef struct Parser {
 
     Token token; // current
     IssueMgr issues;
-    List(ASTModule) * modules;
+    list_t(ast_module_t) * modules;
 
     CompilerMode mode;
     // JetOpts opts;
 
     bool generateCommentExprs; // set to false when compiling, set to
-                               // true when linting
+                               // true when formating
 
     // set these whenever use is detected (e.g. during resolveTypes or parsing
     // literals)
@@ -1042,7 +1044,7 @@ typedef struct Parser {
             rational : 1, polynomial : 1, regex : 1, datetime : 1, colour : 1,
             range : 1, table : 1, ui : 1;
     } requires;
-} Parser;
+} parser_t;
 
 // static const int sgr = sizeof(Compiler);
 
@@ -1057,7 +1059,7 @@ typedef struct Parser {
 //     "___  /  \\___/\\__/ ___|  https://github.com/jetpilots/jet\n"
 //     "/___/ ______________________________________________________\n\n";
 
-static void Parser_fini(Parser* parser) {
+static void Parser_fini(parser_t* parser) {
     // free(parser->data);
     // free(parser->orig.ref[0]);
     // free(parser->noext);
@@ -1067,7 +1069,7 @@ static void Parser_fini(Parser* parser) {
 }
 #define FILE_SIZE_MAX 1 << 24
 
-long recordNewlines(Parser* parser) {
+long recordNewlines(parser_t* parser) {
     // push a new entry to get hold of the current source line later
     // this is the pointer in the original (unmodified) buffer
     char* cptr = parser->orig.ref[0];
@@ -1087,7 +1089,7 @@ long recordNewlines(Parser* parser) {
             //         parser->token.line, parser->orig.used);
 
             // add it anyway
-            PtrArray_push(&parser->orig, c + 1);
+            array_push(&parser->orig, c + 1);
         }
     }
     // for_to(i, parser->orig.used)
@@ -1096,7 +1098,8 @@ long recordNewlines(Parser* parser) {
     return lines;
 }
 
-static Parser* Parser_fromFile(char* filename, bool skipws, CompilerMode mode) {
+static parser_t* Parser_fromFile(
+    char* filename, bool skipws, CompilerMode mode) {
     size_t flen = CString_length(filename);
 
     // Error: the file might not end in .ch
@@ -1123,7 +1126,7 @@ static Parser* Parser_fromFile(char* filename, bool skipws, CompilerMode mode) {
     FILE* file = fopen(filename, "r");
     assert(file);
 
-    Parser* ret = NEW(Parser);
+    parser_t* ret = NEW(parser_t);
 
     ret->filename = filename;
     ret->noext = CString_noext(CString_clone(filename));
@@ -1145,7 +1148,7 @@ static Parser* Parser_fromFile(char* filename, bool skipws, CompilerMode mode) {
         }
         fclose(file);
 
-        ret = NEW(Parser);
+        ret = NEW(parser_t);
 
         ret->filename = filename;
         // ret->noext = CString_noext(CString_clone(filename));
@@ -1156,13 +1159,13 @@ static Parser* Parser_fromFile(char* filename, bool skipws, CompilerMode mode) {
         // CString_upper(CString_clone(ret->mangledName));
         ret->end = ret->data + size - 2;
         ret->orig = (PtrArray) {};
-        PtrArray_push(&ret->orig, strndup(data, size));
+        array_push(&ret->orig, strndup(data, size));
         // memcpy(ret->orig.ref[0], ret->data, size);
         ret->token = (Token) { //
             .pos = ret->data,
             .skipWhiteSpace = skipws,
-            .mergeArrayDims = false,
-            .kind = tkUnknown,
+            .mergedims = false,
+            .kind = tk_unknown,
             .line = 1,
             .col = 1
         };
@@ -1170,8 +1173,8 @@ static Parser* Parser_fromFile(char* filename, bool skipws, CompilerMode mode) {
         ret->mode = mode;
         ret->generateCommentExprs = (ret->mode == PMLint);
 
-        // If you ar not linting, even a single error is enough to stop and tell
-        // the user to LINT THE DAMN FILE FIRST.
+        // If you ar not formating, even a single error is enough to stop and
+        // tell the user to LINT THE DAMN FILE FIRST.
         if (ret->mode != PMLint) ret->issues.errLimit = 1;
         // ret->nlines =
         recordNewlines(ret);
@@ -1192,21 +1195,21 @@ static Parser* Parser_fromFile(char* filename, bool skipws, CompilerMode mode) {
     // fclose(file);
     return ret;
 }
-static bool Parser_matches(Parser* parser, TokenKind expected);
+static bool Parser_matches(parser_t* parser, tokenkind_e expected);
 
 #include "errors.h"
 #include "stats.h"
 
 #pragma mark - PARSING BASICS
 
-static ASTExpr* exprFromCurrentToken(Parser* parser) {
-    ASTExpr* expr = ASTExpr_fromToken(&parser->token);
+static ast_expr_t* exprFromCurrentToken(parser_t* parser) {
+    ast_expr_t* expr = fromToken_expr(&parser->token);
     Token_advance(&parser->token);
     return expr;
 }
 
-static ASTExpr* next_token_node(
-    Parser* parser, TokenKind expected, const bool ignore_error) {
+static ast_expr_t* next_token_node(
+    parser_t* parser, tokenkind_e expected, const bool ignore_error) {
     if (parser->token.kind == expected) {
         return exprFromCurrentToken(parser);
     } else {
@@ -1216,41 +1219,41 @@ static ASTExpr* next_token_node(
 }
 // these should all be part of Token_ when converted back to C
 // in the match case, self->token should be advanced on error
-static ASTExpr* Parser_match(Parser* parser, TokenKind expected) {
+static ast_expr_t* Parser_match(parser_t* parser, tokenkind_e expected) {
     return next_token_node(parser, expected, false);
 }
 
 // this returns the match node or null
-static ASTExpr* Parser_trymatch(Parser* parser, TokenKind expected) {
+static ast_expr_t* Parser_trymatch(parser_t* parser, tokenkind_e expected) {
     return next_token_node(parser, expected, true);
 }
 
 // just yes or no, simple
-static bool Parser_matches(Parser* parser, TokenKind expected) {
+static bool Parser_matches(parser_t* parser, tokenkind_e expected) {
     return (parser->token.kind == expected);
 }
 
-static bool Parser_ignore(Parser* parser, TokenKind expected) {
+static bool Parser_ignore(parser_t* parser, tokenkind_e expected) {
     bool ret;
     if ((ret = Parser_matches(parser, expected))) Token_advance(&parser->token);
     return ret;
 }
 
 // this is same as match without return
-static void Parser_consume(Parser* parser, TokenKind expected) {
+static void Parser_consume(parser_t* parser, tokenkind_e expected) {
     if (!Parser_ignore(parser, expected))
         Parser_errorExpectedToken(parser, expected);
 }
 
-static char* parseIdent(Parser* parser) {
-    if (parser->token.kind != tkIdentifier)
-        Parser_errorExpectedToken(parser, tkIdentifier);
+static char* parse_ident(parser_t* parser) {
+    if (parser->token.kind != tk_identifier)
+        Parser_errorExpectedToken(parser, tk_identifier);
     char* p = parser->token.pos;
     Token_advance(&parser->token);
     return p;
 }
 
-static void getSelector(ASTFunc* func) {
+static void getSelector(ast_func_t* func) {
     if (func->argCount) {
         size_t selLen = 0;
         int remain = 128, wrote = 0;
@@ -1258,8 +1261,8 @@ static void getSelector(ASTFunc* func) {
         buf[127] = 0;
         char* bufp = buf;
 
-        ASTVar* arg1 = (ASTVar*)func->args->item;
-        wrote = snprintf(bufp, remain, "%s_", ASTTypeSpec_name(arg1->typeSpec));
+        ast_var_t* arg1 = (ast_var_t*)func->args->item;
+        wrote = snprintf(bufp, remain, "%s_", name_typespec(arg1->typespec));
         selLen += wrote;
         bufp += wrote;
         remain -= wrote;
@@ -1269,7 +1272,7 @@ static void getSelector(ASTFunc* func) {
         bufp += wrote;
         remain -= wrote;
 
-        foreach (ASTVar*, arg, func->args->next) {
+        foreach (ast_var_t*, arg, func->args->next) {
             wrote = snprintf(bufp, remain, "_%s", arg->name);
             selLen += wrote;
             bufp += wrote;
@@ -1287,13 +1290,13 @@ static void getSelector(ASTFunc* func) {
         bufp += wrote;
         remain -= wrote;
 
-        //  arg1 = (ASTVar*)func->args->item;
-        wrote = snprintf(bufp, remain, "%s", ASTTypeSpec_name(arg1->typeSpec));
+        //  arg1 = (ast_var_t*)func->args->item;
+        wrote = snprintf(bufp, remain, "%s", name_typespec(arg1->typespec));
         selLen += wrote;
         bufp += wrote;
         remain -= wrote;
 
-        foreach (ASTVar*, arg, func->args->next) {
+        foreach (ast_var_t*, arg, func->args->next) {
             wrote = snprintf(bufp, remain, ", %s", arg->name);
             selLen += wrote;
             bufp += wrote;
@@ -1314,21 +1317,21 @@ static void getSelector(ASTFunc* func) {
 
 #include "resolve.h"
 
-// this is a global astexpr representing 0. it will be used when parsing e.g.
+// this is a global ast_expr_t representing 0. it will be used when parsing e.g.
 // the colon op with nothing on either side. : -> 0:0 means the same as 1:end
-static ASTExpr lparen[] = { { .kind = tkParenOpen } };
-static ASTExpr rparen[] = { { .kind = tkParenClose } };
-static ASTExpr expr_const_0[] = { { .kind = tkNumber, .string = "0" } };
-static ASTExpr expr_const_yes[] = { { .kind = tkKeyword_yes } };
-static ASTExpr expr_const_no[] = { { .kind = tkKeyword_no } };
-static ASTExpr expr_const_nil[] = { { .kind = tkKeyword_nil } };
-static ASTExpr expr_const_empty[] = { { .kind = tkString, .string = "" } };
+static ast_expr_t lparen[] = { { .kind = tk_parenOpen } };
+static ast_expr_t rparen[] = { { .kind = tk_parenClose } };
+static ast_expr_t expr_const_0[] = { { .kind = tk_number, .string = "0" } };
+static ast_expr_t expr_const_yes[] = { { .kind = tk_keyword_yes } };
+static ast_expr_t expr_const_no[] = { { .kind = tk_keyword_no } };
+static ast_expr_t expr_const_nil[] = { { .kind = tk_keyword_nil } };
+static ast_expr_t expr_const_empty[] = { { .kind = tk_string, .string = "" } };
 
 #include "analyse.h"
 #include "parse.h"
 
-// TODO: this should be in ASTModule open/close
-static void Parser_emit_open(Parser* parser) {
+// TODO: this should be in ast_module_t open/close
+static void Parser_emit_open(parser_t* parser) {
     printf("#ifndef HAVE_%s\n#define HAVE_%s\n\n", parser->capsMangledName,
         parser->capsMangledName);
     printf("#define THISMODULE %s\n", parser->mangledName);
@@ -1336,7 +1339,7 @@ static void Parser_emit_open(Parser* parser) {
     printf("#define NUMLINES %d\n", parser->token.line);
 }
 
-static void Parser_emit_close(Parser* parser) {
+static void Parser_emit_close(parser_t* parser) {
     printf("#undef THISMODULE\n");
     printf("#undef THISFILE\n");
     printf("#endif // HAVE_%s\n", parser->capsMangledName);
@@ -1364,7 +1367,7 @@ int main(int argc, char* argv[]) {
     // todo: mode 'x' must be replaced with 'd', 'r', 'z' for build modes
     // TODO: these short circuits should not be here but in the mode switch
     // below. When you are in compile or build mode check these to save some
-    // repeated generation. When linting this has no effect, unless of course
+    // repeated generation. When formating this has no effect, unless of course
     // you have dumped the AST into a binary format and want to check for that.
     // if (!(needsBuild(opts->srcfile, 'x') || opts->forceBuild)) return 0;
     // if (!(needsBuild(opts->srcfile, 'o') || opts->forceBuild)) return 0;
@@ -1387,7 +1390,7 @@ int main(int argc, char* argv[]) {
     // if (argc > 3 && *argv[3] == 't') mode = PMTest;
     // if (argc > 2 && *argv[2] == 't') mode = PMTest;
 
-    Parser* parser = Parser_fromFile(filename, true, mode);
+    parser_t* parser = Parser_fromFile(filename, true, mode);
     if (!parser) return 2;
 
     parser->issues.warnUnusedArg = //
@@ -1395,17 +1398,17 @@ int main(int argc, char* argv[]) {
         parser->issues.warnUnusedType = //
         parser->issues.warnUnusedVar = 1;
 
-    List(ASTModule) * modules;
+    list_t(ast_module_t) * modules;
 
     // com lives for the duration of main. it appears in parseModule
-    ASTModule* root = parseModule(parser, &modules, NULL);
+    ast_module_t* root = parse_module(parser, &modules, NULL);
 
     if (parser->mode == PMLint) {
         if (parser->issues.hasParseErrors) {
-            /* TODO: fallback to token-based linter (formatter)*/
+            /* TODO: fallback to token-based formater (formatter)*/
         } else {
-            foreach (ASTModule*, mod, modules)
-                ASTModule_lint(mod);
+            foreach (ast_module_t*, mod, modules)
+                format_module(mod);
         }
     } else if (!(parser->issues.errCount)) {
         switch (parser->mode) {
@@ -1416,8 +1419,8 @@ int main(int argc, char* argv[]) {
             // ^ This is called before including the runtime, so that the
             // runtime can know THISFILE NUMLINES etc.
             printf("#include \"jet/runtime.h\"\n");
-            foreach (ASTModule*, mod, modules)
-                ASTModule_emit(mod);
+            foreach (ast_module_t*, mod, modules)
+                emit_module(mod);
             Parser_emit_close(parser);
 
         } break;
@@ -1429,8 +1432,8 @@ int main(int argc, char* argv[]) {
             // Besides, THISFILE should be the actual module's file not the
             // test file
 
-            foreach (ASTModule*, mod, modules)
-                ASTModule_genTests(mod);
+            foreach (ast_module_t*, mod, modules)
+                genTests_module(mod);
         } break;
 
         default: break;

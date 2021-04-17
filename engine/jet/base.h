@@ -56,8 +56,8 @@
 // #define or ||
 // #define not !
 
-#ifndef monostatic
-#define monostatic
+#ifndef jet_static
+#define jet_static
 #endif
 
 #define KB *1024UL
@@ -83,11 +83,11 @@
 
 #ifndef RELEASE
 
-monostatic size_t _called_calloc = 0;
-monostatic size_t _called_malloc = 0;
-monostatic size_t _called_realloc = 0;
-monostatic size_t _called_strdup = 0;
-monostatic size_t _called_strlen = 0;
+jet_static size_t _called_calloc = 0;
+jet_static size_t _called_malloc = 0;
+jet_static size_t _called_realloc = 0;
+jet_static size_t _called_strdup = 0;
+jet_static size_t _called_strlen = 0;
 
 #define malloc(s) (++_called_malloc, malloc(s))
 #define calloc(n, s) (++_called_calloc, calloc(n, s))
@@ -127,7 +127,7 @@ typedef char** CStrings;
 #define min3(a, b, c)                                                          \
     ((a) < (b) ? ((a) < (c) ? (a) : (c)) : ((b) < (c) ? (b) : (c)))
 
-monostatic ulong min3ul(ulong a, ulong b, ulong c) {
+jet_static ulong min3ul(ulong a, ulong b, ulong c) {
     return a < b ? (a < c ? a : c) : (b < c ? b : c);
 }
 

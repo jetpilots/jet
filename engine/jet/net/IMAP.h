@@ -12,7 +12,7 @@
 typedef struct {
     bool imap4, imap4rev1, authPlain, authXOAuth2, saslIR, uidPlus, id,
         unselect, children, idle, namespace, literalPlus;
-} IMAPServerCapabilities;
+} imap_capabilities_t;
 
 typedef struct {
     int count;
@@ -21,7 +21,7 @@ typedef struct {
 
 typedef struct {
     char *name, *email;
-} MIMEUser;
+} mime_user_t;
 
 typedef struct {
     // make all these char* instead of stringstring
@@ -33,8 +33,8 @@ typedef struct {
     int id, uid;
     struct tm date, internalDate;
     int size, rfc822Size;
-    MIMEUser *from, *to;
-} MIMEHeader;
+    mime_user_t *from, *to;
+} mime_header_t;
 typedef struct {
     char* name;
     char *flags, *permanentFlags;
@@ -43,11 +43,11 @@ typedef struct {
     int messageCount; // total on the server
     int headersCount; // num of headers downloaded
     int recentCount;
-    List(MIMEHeader) * headers;
-    void (*on_newHeaderReceived)(MIMEHeader*);
-} IMAPFolderInfo;
+    list_t(mime_header_t) * headers;
+    void (*on_newHeaderReceived)(mime_header_t*);
+} imap_folderinfo_t;
 
-MIMEHeader* IMAP_parseMIMEHeader(char* pos, int len);
+mime_header_t* IMAP_parseMIMEHeader(char* pos, int len);
 char* trampleTheNext(char* charset, char* start) {
     char* eo = strpbrk(start + 1, charset);
     if (eo) {
@@ -56,8 +56,8 @@ char* trampleTheNext(char* charset, char* start) {
     }
 }
 
-MIMEUser* newMIMEUser(char* line) {
-    MIMEUser* user = NEW(MIMEUser);
+mime_user_t* newMIMEUser(char* line) {
+    mime_user_t* user = NEW(mime_user_t);
     user->name = line;
     user->email = strpbrk(line, "<");
     if (user->email) {
@@ -68,11 +68,11 @@ MIMEUser* newMIMEUser(char* line) {
     return user;
 }
 
-void parseImapFetchHeadersLB(char* pos, int len, IMAPFolderInfo* fi) {
-    static MIMEHeader* currMsg = NULL;
-    // IMAPFolderInfo* fi = NEW(IMAPFolderInfo);
+void parseImapFetchHeadersLB(char* pos, int len, imap_folderinfo_t* fi) {
+    static mime_header_t* currMsg = NULL;
+    // imap_folderinfo_t* fi = NEW(imap_folderinfo_t);
     // fi->on_newHeaderReceived = on_newHeaderReceived;
-    List(MIMEHeader)** hdrsTop = &(fi->headers);
+    list_t(mime_header_t)** hdrsTop = &(fi->headers);
 
     char* end = pos + len;
     // printf("#### %.*s\n", len, pos);
@@ -106,7 +106,7 @@ void parseImapFetchHeadersLB(char* pos, int len, IMAPFolderInfo* fi) {
             if (currMsg && fi->on_newHeaderReceived)
                 fi->on_newHeaderReceived(currMsg);
             fi->headersCount++;
-            currMsg = NEW(MIMEHeader);
+            currMsg = NEW(mime_header_t);
             hdrsTop = PtrList_append(hdrsTop, currMsg);
 
             currMsg->id = atoi(w1);
@@ -201,7 +201,7 @@ void parseImapFetchHeadersLB(char* pos, int len, IMAPFolderInfo* fi) {
             // printf("  subj --> %.*s", len - 9, pos + 9);
             currMsg->subject = pstrndup(pos + 9, len - 9);
             ewdecode(currMsg->subject, len - 9);
-        } else if (!strncmp(pos, "List-Unsubscribe: ", 18)) {
+        } else if (!strncmp(pos, "list_t-Unsubscribe: ", 18)) {
             // printf("  unsub --> %.*s", len - 18, pos + 18);
             currMsg->unsubscribe = pstrndup(pos + 18, len - 18);
         } else {
@@ -223,8 +223,7 @@ void parseImapFetch(char* pos, int len) {
         switch (*pos) {
         case ' ':
         case '\r':
-        case '\n':
-            break;
+        case '\n': break;
         case '*': {
             // this with w1 and eo seems to be a candidate for macro or func
             char* w1 = pos + 2;
@@ -310,7 +309,7 @@ void parseImapFetch(char* pos, int len) {
             int sz = atoi(num);
             if (!sz) return;
             printf("parse %d B --- \n", sz);
-            MIMEHeader* header = IMAP_parseMIMEHeader(pos, sz);
+            mime_header_t* header = IMAP_parseMIMEHeader(pos, sz);
             pos += sz;
         }
         case '(':
@@ -363,7 +362,7 @@ const char imaptst[]
       "* OK [UIDNEXT 24868] The next unique identifier value\r\n"
       "A003 OK [READ-WRITE] SELECT completed.\r\n"
       "* 119 FETCH (UID 7508 RFC822.SIZE 102161 FLAGS (\\Seen) "
-      "BODY[HEADER.FIELDS (From Date Subject List-Unsubscribe)] {451}\r\n"
+      "BODY[HEADER.FIELDS (From Date Subject list_t-Unsubscribe)] {451}\r\n"
       "Subject: "
       "=?utf-8?Q?Fantastic=20Weekend=20Deals=20at=20Domino=27s=20Pizza=C2="
       "A0="
@@ -371,7 +370,7 @@ const char imaptst[]
       "From: =?utf-8?Q?Domino=27s=20Pizza?= <no-reply@dominos.ch>,\r\n"
       " =?utf-8?Q?Domino=27s=20Pizza?= <no-reply@dominos.co.uk>\r\n"
       "Date: Sat, 3 Jun 2017 09:16:01 +0000\r\n"
-      "List-Unsubscribe: "
+      "list_t-Unsubscribe: "
       "<http://dominos.us12.list-manage1.com/"
       "unsubscribe?u=0a3531a6a054617a5478d1324&id=8dcc978ca9&e=895bfd4899&"
       "c="
@@ -381,14 +380,14 @@ const char imaptst[]
       "\r\n"
       ")\r\n"
       "* 120 FETCH (UID 7513 RFC822.SIZE 48069 FLAGS (\\Seen) "
-      "BODY[HEADER.FIELDS (From Date Subject List-Unsubscribe)] {127}\r\n"
+      "BODY[HEADER.FIELDS (From Date Subject list_t-Unsubscribe)] {127}\r\n"
       "From: <Notification@Jio.com>\r\n"
       "Subject: Data quota exhausted for Jio Number 8169236325\r\n"
       "Date: Sat, 3 Jun 2017 09:05:52 -0700\r\n"
       "\r\n"
       ")\r\n"
       "* 121 FETCH (UID 7535 RFC822.SIZE 64661 FLAGS (\\Seen) "
-      "BODY[HEADER.FIELDS (From Date Subject List-Unsubscribe)] {184}\r\n"
+      "BODY[HEADER.FIELDS (From Date Subject list_t-Unsubscribe)] {184}\r\n"
       "From: LC <mail@executive-learning.co.in>\r\n"
       "Subject: Letter of Credit Transactions International Trade UCP 600, "
       "ISBP 745 INCOTERMS  2010 & URBPO\r\n"
@@ -396,23 +395,23 @@ const char imaptst[]
       "\r\n"
       ")\r\n"
       "* 122 FETCH (UID 7536 RFC822.SIZE 84459 FLAGS (\\Seen) "
-      "BODY[HEADER.FIELDS (From Date Subject List-Unsubscribe)] {143}\r\n"
+      "BODY[HEADER.FIELDS (From Date Subject list_t-Unsubscribe)] {143}\r\n"
       "From: Princeton Academy <mail@executive-learning.co.in>\r\n"
       "Subject: Workshop on Key Account Management\r\n"
       "Date: Mon, 05 Jun 2017 06:12:57 +0530\r\n"
       "\r\n"
       ")\r\n"
       "* 123 FETCH (UID 7547 RFC822.SIZE 50492 FLAGS (\\Seen) "
-      "BODY[HEADER.FIELDS (From Date Subject List-Unsubscribe)] {144}\r\n"
+      "BODY[HEADER.FIELDS (From Date Subject list_t-Unsubscribe)] {144}\r\n"
       "From: Jio Notifications <Notification@Jio.com>\r\n"
       "Subject: Recharge successful for Jio Number 8169236325\r\n"
       "Date: Tue, 6 Jun 2017 01:56:30 -0700\r\n"
       "\r\n"
       ")";
 
-MIMEHeader* IMAP_parseMIMEHeader(char* pos, int len) {
+mime_header_t* IMAP_parseMIMEHeader(char* pos, int len) {
     char* end = pos + len;
-    MIMEHeader* head = calloc(1, sizeof(MIMEHeader));
+    mime_header_t* head = calloc(1, sizeof(mime_header_t));
     while (pos < end) {
         while (*pos == ' ' || *pos == '\r' || *pos == '\n') pos++;
         char* col = strpbrk(pos, ":\r\n");
@@ -438,7 +437,7 @@ MIMEHeader* IMAP_parseMIMEHeader(char* pos, int len) {
                 printf("  date --> %s\n", redate);
             } else if (!strcmp(fld, "From")) {
             } else if (!strcmp(fld, "Subject")) {
-            } else if (!strcmp(fld, "List-Unsubscribe")) {
+            } else if (!strcmp(fld, "list_t-Unsubscribe")) {
             }
 
             // TODO: now val may be multiline (softwrap) in which case
@@ -459,10 +458,10 @@ MIMEHeader* IMAP_parseMIMEHeader(char* pos, int len) {
 
 // String*
 void imaplist(char* url, char* user, char* pass, char* cmd,
-    IMAPFolderInfo* fi) { //}, String* ret) {
+    imap_folderinfo_t* fi) { //}, String* ret) {
     CURL* curl_handle = curl_easy_init(); // find a way to reuse the handle
 
-    // IMAPFolderInfo* fi = NEW(IMAPFolderInfo);
+    // imap_folderinfo_t* fi = NEW(imap_folderinfo_t);
     curl_easy_setopt(curl_handle, CURLOPT_URL, url);
     // curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl_handle, CURLOPT_VERBOSE, 1L);

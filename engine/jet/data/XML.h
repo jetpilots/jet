@@ -6,12 +6,12 @@
 #include "../../../jet/modules/sys_time.h"
 #endif
 
-typedef struct XMLAttr XMLAttr;
-typedef struct XMLNode XMLNode;
-typedef struct XMLParser XMLParser;
+typedef struct xml_attr_t xml_attr_t;
+typedef struct xml_node_t xml_node_t;
+typedef struct xml_parser_t xml_parser_t;
 static const int istep = 2;
 
-monostatic const char* const spaces
+jet_static const char* const spaces
     = "                                                 ";
 #define xmlassert(par, expr)                                                   \
     if (!(expr))                                                               \
@@ -36,22 +36,22 @@ monostatic const char* const spaces
 // FMLDocument -> HTML
 // FMLStyles -> CSS
 // FMLScript -> JS
-struct XMLAttr {
+struct xml_attr_t {
     const char* key;
     const char* val;
 };
 
-struct XMLNode {
+struct xml_node_t {
     const char* tag;
-    List(XMLAttr) * attributes;
+    list_t(xml_attr_t) * attributes;
     union {
         const char* text;
-        List(XMLNode) * children;
+        list_t(xml_node_t) * children;
     };
 }; // not keeping line/col here, keep them on the parent stack along with ptr.
 // for HTML you need them in the node, since validation could print err msgs.
 
-struct XMLParser {
+struct xml_parser_t {
     const char* filename;
     int line, col;
     char *data, *end;
@@ -59,32 +59,32 @@ struct XMLParser {
 };
 
 // this MKSTAT should not go here, but in runtime
-MKSTAT(XMLNode)
-MKSTAT(XMLAttr)
-MKSTAT(XMLParser)
+MKSTAT(xml_node_t)
+MKSTAT(xml_attr_t)
+MKSTAT(xml_parser_t)
 
-monostatic XMLNode* XMLNode_new(const char* tag) {
-    XMLNode* ret = NEW(XMLNode);
+jet_static xml_node_t* xml_node_new(const char* tag) {
+    xml_node_t* ret = NEW(xml_node_t);
     ret->tag = tag;
     return ret;
 }
 
-monostatic XMLNode* XMLNode_newText(const char* text) {
-    XMLNode* ret = NEW(XMLNode);
+jet_static xml_node_t* xml_node_newText(const char* text) {
+    xml_node_t* ret = NEW(xml_node_t);
     ret->tag = NULL;
     ret->text = text;
     return ret;
 }
 
-monostatic XMLAttr* XMLAttr_new(const char* key, const char* value) {
-    XMLAttr* ret = NEW(XMLAttr);
+jet_static xml_attr_t* xml_attr_new(const char* key, const char* value) {
+    xml_attr_t* ret = NEW(xml_attr_t);
     ret->key = key;
     ret->val = value;
     return ret;
 }
 
-monostatic XMLParser* XMLParser_fromStringClone(const char* str) {
-    XMLParser* par = NEW(XMLParser);
+jet_static xml_parser_t* xml_parser_fromStringClone(const char* str) {
+    xml_parser_t* par = NEW(xml_parser_t);
     size_t len = CString_length(str);
     par->data = pstrndup(str, len);
     par->pos = par->data;
@@ -93,7 +93,7 @@ monostatic XMLParser* XMLParser_fromStringClone(const char* str) {
     return par;
 }
 
-monostatic XMLParser* XMLParser_fromFile(char* filename) {
+jet_static xml_parser_t* xml_parser_fromFile(char* filename) {
     size_t flen = CString_length(filename);
 
     struct stat sb;
@@ -112,14 +112,12 @@ monostatic XMLParser* XMLParser_fromFile(char* filename) {
     FILE* file = fopen(filename, "r");
     assert(file);
 
-    XMLParser* ret = NEW(XMLParser);
+    xml_parser_t* ret = NEW(xml_parser_t);
 
     ret->filename = filename;
-    // ret->noext = CString_noext(filename);
     fseek(file, 0, SEEK_END);
     const size_t size = ftell(file);
 
-    // if (size < FILE_SIZE_MAX) {
     ret->data = (char*)malloc(size);
     fseek(file, 0, SEEK_SET);
     if (fread(ret->data, size, 1, file) != 1) {
@@ -137,15 +135,14 @@ monostatic XMLParser* XMLParser_fromFile(char* filename) {
     return ret;
 }
 
-monostatic bool isAnyOf(char ch, char* chars) {
+jet_static bool isAnyOf(char ch, char* chars) {
     while (*chars)
         if (*chars++ == ch) return true;
     return false;
 }
 
-monostatic const char* findchars_fast(const char* buf, const char* buf_end,
+jet_static const char* findchars_fast(const char* buf, const char* buf_end,
     const char* chars, size_t chars_size) {
-    // *found = 0;
 #if __SSE4_2__
     if (likely(buf_end - buf >= 16)) {
         __m128i chars16 = _mm_loadu_si128((const __m128i*)chars);
@@ -158,7 +155,6 @@ monostatic const char* findchars_fast(const char* buf, const char* buf_end,
                     | _SIDD_UBYTE_OPS);
             if (unlikely(r != 16)) {
                 buf += r;
-                // *found = 1;
                 break;
             }
             buf += 16;
@@ -167,13 +163,13 @@ monostatic const char* findchars_fast(const char* buf, const char* buf_end,
     }
     return buf;
 #else
-    return buf + strcspn(buf, chars); // strpbrk(buf, chars);
+    return buf + strcspn(buf, chars);
 #endif
 }
 
-monostatic List(XMLAttr) * XMLParser_parseAttrs(XMLParser* parser) {
-    List(XMLAttr)* list = NULL;
-    List(XMLAttr)** listp = &list;
+jet_static list_t(xml_attr_t) * xml_parser_parseAttrs(xml_parser_t* parser) {
+    list_t(xml_attr_t)* list = NULL;
+    list_t(xml_attr_t)** listp = &list;
 
     while (*parser->pos //
         && *parser->pos != '>' //
@@ -213,8 +209,8 @@ monostatic List(XMLAttr) * XMLParser_parseAttrs(XMLParser* parser) {
                            // later
             *parser->pos++ = 0; // skip and trample whitespace
         }
-        XMLAttr* attr = XMLAttr_new(name, value);
-        listp = PtrList_append(listp, attr);
+        xml_attr_t* attr = xml_attr_new(name, value);
+        listp = list_push(listp, attr);
     }
     //    if (*parser->pos == '/') *parser->pos++ = 0;
     //    assert(*parser->pos == '>');
@@ -223,9 +219,9 @@ monostatic List(XMLAttr) * XMLParser_parseAttrs(XMLParser* parser) {
     return list;
 }
 
-monostatic List(XMLNode) * XMLParser_parseTags(XMLParser* parser) {
-    List(XMLNode)* list = NULL;
-    List(XMLNode)** listp = &list;
+jet_static list_t(xml_node_t) * xml_parser_parseTags(xml_parser_t* parser) {
+    list_t(xml_node_t)* list = NULL;
+    list_t(xml_node_t)** listp = &list;
 
     while (parser->pos < parser->end) {
         switch (*parser->pos) {
@@ -249,7 +245,7 @@ monostatic List(XMLNode) * XMLParser_parseTags(XMLParser* parser) {
                 return list; // null if no elements were found at this level
             } else if (!strncasecmp(parser->pos, "[CDATA[", 6)) { // cdata
             } else { // opening tag
-                XMLNode* node = XMLNode_new(parser->pos);
+                xml_node_t* node = xml_node_new(parser->pos);
                 while (!isAnyOf(*parser->pos, " />\n\t")) parser->pos++; // SSE?
 
                 if (isAnyOf(*parser->pos, " \t\n")) {
@@ -268,7 +264,7 @@ monostatic List(XMLNode) * XMLParser_parseTags(XMLParser* parser) {
                         parser->col++;
                         parser->pos++;
                     }
-                    node->attributes = XMLParser_parseAttrs(parser);
+                    node->attributes = xml_parser_parseAttrs(parser);
                 }
                 while (*parser->pos == ' ') parser->pos++;
 
@@ -283,7 +279,7 @@ monostatic List(XMLNode) * XMLParser_parseTags(XMLParser* parser) {
                     // tag has ended. parse children
                     *parser->pos++ = 0;
                     if (!noChild) {
-                        node->children = XMLParser_parseTags(parser);
+                        node->children = xml_parser_parseTags(parser);
 
                         char* closingTag = parser->pos;
                         while (*parser->pos != '>') // SSE?
@@ -313,7 +309,7 @@ monostatic List(XMLNode) * XMLParser_parseTags(XMLParser* parser) {
                     break;
                 }
 
-                listp = PtrList_append(listp, node);
+                listp = list_push(listp, node);
             }
         } break;
 
@@ -321,18 +317,15 @@ monostatic List(XMLNode) * XMLParser_parseTags(XMLParser* parser) {
 
         {
             char* text = parser->pos;
-            // printf("oops2: unexpected '%c' (\"%.16s...\")\n",
-            // *parser->pos, parser->pos);
             while (*parser->pos != '<' and parser->pos < parser->end) {
                 if (*parser->pos == '\n') {
                     parser->line++;
                     parser->col = 0;
                 }
                 parser->pos++;
-            } // parser->pos = findchars_fast(parser->pos, parser->end, "<",
-            // 1); relying on the </ detector state to trample the <
-            XMLNode* textNode = XMLNode_newText(text);
-            listp = PtrList_append(listp, textNode);
+            }
+            xml_node_t* textNode = xml_node_newText(text);
+            listp = list_push(listp, textNode);
         }
         }
     }
@@ -340,7 +333,7 @@ monostatic List(XMLNode) * XMLParser_parseTags(XMLParser* parser) {
     return list;
 }
 
-monostatic void FMLAttr_print(XMLAttr* attr, int indent) {
+jet_static void fml_attr_print(xml_attr_t* attr, int indent) {
     // const char* quo = strpbrk(attr->val, " =&") || 1 ? "'" : "";
     if (strcmp(attr->key, "id") && strcmp(attr->key, "class"))
         if (strcmp(attr->val, "no") && strcmp(attr->val, "yes")
@@ -352,42 +345,39 @@ monostatic void FMLAttr_print(XMLAttr* attr, int indent) {
             printf(" %s=%s", attr->key, attr->val);
 }
 
-monostatic void XMLAttr_print(XMLAttr* attr, int indent) {
+jet_static void xml_attr_print(xml_attr_t* attr, int indent) {
     printf(" %s=\"%s\"", attr->key, attr->val);
 }
-monostatic void XMLNode_print(XMLNode* node, int indent);
-monostatic void XMLNodeList_print(List(XMLNode) * nodeList, int indent) {
-    foreach (XMLNode*, childNode, nodeList)
-        XMLNode_print(childNode, indent);
+jet_static void xml_node_print(xml_node_t* node, int indent);
+jet_static void xml_node_list_print(list_t(xml_node_t) * nodeList, int indent) {
+    foreach (xml_node_t*, childNode, nodeList)
+        xml_node_print(childNode, indent);
 }
-monostatic void FMLNode_print(XMLNode* node, int indent, bool skipws);
-monostatic void FMLNodeList_print(
-    List(XMLNode) * nodeList, int indent, bool skipws) {
-    foreachn(XMLNode*, childNode, li, nodeList) {
-        FMLNode_print(childNode, indent, skipws);
+jet_static void fml_node_print(xml_node_t* node, int indent, bool skipws);
+jet_static void fml_node_list_print(
+    list_t(xml_node_t) * nodeList, int indent, bool skipws) {
+    foreachn(xml_node_t*, childNode, li, nodeList) {
+        fml_node_print(childNode, indent, skipws);
         if (li->next) printf("\n%.*s", indent, spaces);
     }
 }
-monostatic void XMLNode_print(XMLNode* node, int indent) {
+jet_static void xml_node_print(xml_node_t* node, int indent) {
     if (node->tag) {
         printf("%.*s<%s%s", indent, spaces, node->tag,
             node->attributes     ? ""
                 : node->children ? ">\n"
                                  : "/>\n");
-        foreach (XMLAttr*, attr, node->attributes)
-            XMLAttr_print(attr, indent);
+        foreach (xml_attr_t*, attr, node->attributes)
+            xml_attr_print(attr, indent);
         if (node->attributes) printf("%s\n", node->children ? ">" : " />");
-        XMLNodeList_print(node->children, indent + 2);
+        xml_node_list_print(node->children, indent + 2);
         if (node->children) printf("%.*s</%s>\n", indent, spaces, node->tag);
     } else {
         printf("%.*s%s\n", indent, spaces, node->text);
     }
 }
 
-monostatic void FMLStr_print(const char* str, int indent, bool skipws) {
-    // if (! skipws)
-    //     printf("`\n%.*s", indent, spaces);
-    // else
+jet_static void fml_str_print(const char* str, int indent, bool skipws) {
     printf("`");
     const char* c = str;
     while (*c) {
@@ -404,30 +394,23 @@ monostatic void FMLStr_print(const char* str, int indent, bool skipws) {
                 continue;
             }
             break;
-        case '`':
-            printf("\\`");
-            break;
-        // case '\0':
-        //     return;
+        case '`': printf("\\`"); break;
         case '&':
-        default:
-            putc(*c, stdout);
+        default: putc(*c, stdout);
         }
         c++;
     }
     printf("`");
-
-    // printf("%.*s`\n", indent, spaces);
-    // puts('`');
 }
-monostatic void FMLAttrList_print(List(XMLAttr) * attributes, int indent) {
-    foreach (XMLAttr*, attr, attributes) //
+jet_static void fml_attr_list_print(
+    list_t(xml_attr_t) * attributes, int indent) {
+    foreach (xml_attr_t*, attr, attributes) //
         if (!strcmp(attr->key, "id")) {
             printf(" #%s", attr->val);
             break;
         }
 
-    foreach (XMLAttr*, attr, attributes) //
+    foreach (xml_attr_t*, attr, attributes) //
         if (!strcmp(attr->key, "class")) {
             char* now = attr->val;
             char* nxt = strchr(attr->val, ' ');
@@ -441,15 +424,15 @@ monostatic void FMLAttrList_print(List(XMLAttr) * attributes, int indent) {
             break;
         }
 
-    foreach (XMLAttr*, attr, attributes)
-        FMLAttr_print(attr, indent);
+    foreach (xml_attr_t*, attr, attributes)
+        fml_attr_print(attr, indent);
 }
 
-monostatic void FMLNode_print(XMLNode* node, int indent, bool skipws) {
+jet_static void fml_node_print(xml_node_t* node, int indent, bool skipws) {
     if (node->tag) {
         printf("%s", node->tag);
 
-        FMLAttrList_print(node->attributes, indent);
+        fml_attr_list_print(node->attributes, indent);
         // if (node->attributes)
         // PARENT MUST PRINT INDENTATION if you want to collapse single-child
         // tags with no attributes like div > div > div and so on.
@@ -457,13 +440,12 @@ monostatic void FMLNode_print(XMLNode* node, int indent, bool skipws) {
         if (node->attributes or (node->children && node->children->next)) {
             if (node->children) {
                 printf("\n%.*s", indent + istep, spaces);
-                FMLNodeList_print(node->children, indent + istep, skipw);
+                fml_node_list_print(node->children, indent + istep, skipw);
             }
         } else {
             if (node->children) {
                 printf(" > ");
-                // printf(" > ", indent, spaces);
-                FMLNodeList_print(node->children, indent + istep, skipw);
+                fml_node_list_print(node->children, indent + istep, skipw);
             }
         } // if (node->children) printf("%.*s</%s>\n", indent, spaces,
           // node->tag);
@@ -471,96 +453,35 @@ monostatic void FMLNode_print(XMLNode* node, int indent, bool skipws) {
         // TODO: split the node->text by newlines and indent each line
         // this always needs to be quoted!!!!
 
-        FMLStr_print(node->text, indent, skipws);
+        fml_str_print(node->text, indent, skipws);
         // printf("%.*s`%s`\n", indent, spaces, node->text);
     }
 }
-//   -- import yy-y/io/file.fml as head // disallow such names
-//   -- macro og locale=en_US &name='' type=website url='' image='' imgw=0
-//      meta property='og:locale' content=$locale
-//      meta property='og:type' content=$type
-//   -- end
 
 #include "XML.h"
 
 int main(int argc, char* argv[]) {
-    //     char* xmlstr = "" //
-    //                    "<xml>" //
-    //                    "  <head>" //
-    //                    "    <title attr=value attr2=\"value2 what>\">" //
-    //                    "    </title>" //
-    //                    "    <meta name=content-type content=utf-8/>" //
-    //                    "  </head>" //
-    //                    "</xml>"; //
-    //     "<foot>" //
-    //     "</foot>";
-    //     xmlstr = "<meta name=content-type content=utf-8/><meta name=keywords
-    //     content='rail,train,goods'/>"; xmlstr = "<a>"; xmlstr = "<a></a>";
-
-    // xmlstr = "<?xml version='1.0'?>"
-    //          "<Tests xmlns='http://www.adatum.com'>"
-    //          "<Test TestId='0001' TestType='CMD'>"
-    //          "<Name>Convert number to string</Name>"
-    //          "<CommandLine>Examp1.EXE</CommandLine>"
-    //          "<Input>1</Input>"
-    //          "<Output>One</Output>"
-    //          "</Test>"
-    //          "<Test TestId='0002' TestType='CMD'>"
-    //          "<Name>Find succeeding characters</Name>"
-    //          "<CommandLine>Examp2.EXE</CommandLine>"
-    //          "<Input>abc</Input>"
-    //          "<Output>def</Output>"
-    //          "</Test>"
-    //          "<Test TestId='0003' TestType='GUI'>"
-    //          "<Name>Convert multiple numbers to strings</Name>"
-    //          "<CommandLine>Examp2.EXE /Verbose</CommandLine>"
-    //          "<Input>123</Input>"
-    //          "<Output>One Two Three</Output>"
-    //          "</Test>"
-    //          "<Test TestId='0004' TestType='GUI'>"
-    //          "<Name>Find correlated key</Name>"
-    //          "<CommandLine>Examp3.EXE</CommandLine>"
-    //          "<Input>a1</Input>"
-    //          "<Output>b1</Output>"
-    //          "</Test>"
-    //          "<Test TestId='0005' TestType='GUI'>"
-    //          "<Name>Count characters</Name>"
-    //          "<CommandLine>FinalExamp.EXE</CommandLine>"
-    //          "<Input>This is a test</Input>"
-    //          "<Output>14</Output>"
-    //          "</Test>"
-    //          "<Test TestId='0006' TestType='GUI'>"
-    //          "<Name>Another Test</Name>"
-    //          "<CommandLine>Examp2.EXE</CommandLine>"
-    //          "<Input>Test Input</Input>"
-    //          "<Output>10</Output>"
-    //          "</Test>"
-    //          "</Tests>";
-
-    // XMLParser *par = XMLParser_fromStringClone(xmlstr);
     if (argc < 2) {
         printf("usage: %s <filename>\n", argv[0]);
         exit(1);
     }
 
-    sys_time_Time t0; // = sys_time_getTime();
-    XMLParser* par = XMLParser_fromFile(argv[1]);
-    double tms; // = sys_time_clockSpanMicro(t0) / 1.0e3;
-    // eprintf("\e[1mread time:\e[0m %.1f ms (%.2f GB/s)\n", tms,
-    //     1 / ((tms / 1e3) * 1e9 / (par->end - par->data))); // sw.print();
+    sys_time_Time t0;
+    xml_parser_t* par = xml_parser_fromFile(argv[1]);
+    double tms;
 
     t0 = sys_time_getTime();
-    List(XMLNode)* parsed = XMLParser_parseTags(par);
-    if (argc > 2 && *argv[2] == 'x') XMLNodeList_print(parsed, 0);
-    if (argc > 2 && *argv[2] == 'f') FMLNodeList_print(parsed, 0, 0);
+    list_t(xml_node_t)* parsed = xml_parser_parseTags(par);
+    if (argc > 2 && *argv[2] == 'x') xml_node_list_print(parsed, 0);
+    if (argc > 2 && *argv[2] == 'f') fml_node_list_print(parsed, 0, 0);
 
     tms = sys_time_clockSpanMicro(t0) / 1.0e3;
 
     eputs("-------------------------------------------------------"
           "\n");
-    allocstat(XMLAttr);
-    allocstat(XMLParser);
-    allocstat(XMLNode);
+    allocstat(xml_attr_t);
+    allocstat(xml_parser_t);
+    allocstat(xml_node_t);
     allocstat(PtrList);
     eputs("-------------------------------------------------------"
           "\n");

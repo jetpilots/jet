@@ -56,14 +56,14 @@ typedef struct {
     // https://unix.stackexchange.com/questions/16883/what-is-the-maximum-value-of-the-process-id
     int pid : 23, exited : 1, code : 8;
     // would love to have a flag for signaled/stopped, but we are at 32 bits
-} Process;
+} process_t;
 
 typedef struct {
-    Process proc;
+    process_t proc;
     // short int fd[2]; // OR you can have 3 ints and make it 16B total
     int p_read, p_write, p_err; //, p_out, p_err;
     // int a, b, c;
-} PipedProcess;
+} pipedprocess_t;
 
 // should also have a pipe
 // https://stackoverflow.com/questions/7292642/grabbing-output-from-exec
@@ -71,12 +71,12 @@ typedef struct {
 // ping example shows pipe.
 // speaking of ping, you should have a function ping
 
-Process launch(char* args[]) {
+process_t launch(char* args[]) {
     pid_t pid;
     // spawnp won't allow for creating a pipe.
     int ret = posix_spawnp(&pid, args[0], NULL, NULL, args, environ);
     if (ret) printf("error spawning '%s': %s\n", args[0], strerror(ret));
-    return (Process) { .pid = ret ? 0 : pid };
+    return (process_t) { .pid = ret ? 0 : pid };
 }
 
 // I guess the only need for a pipe is to actually read the output as a string.
@@ -88,9 +88,9 @@ typedef enum {
     JET_PIPE_READ = 1,
     JET_PIPE_WRITE = 2,
     JET_PIPE_READERR = 4
-} PipedProcessCapture;
+} pipedprocess_capture_e;
 
-PipedProcess pipe(char* args[], int capture) {
+pipedprocess_t newpipe(char* args[], int capture) {
     int p_from[2] = { -1, -1 };
     int p_to[2] = { -1, -1 };
     int p_errfrom[2] = { -1, -1 }; // from parent to child
@@ -133,8 +133,8 @@ PipedProcess pipe(char* args[], int capture) {
     close(p_errfrom[1]);
     close(p_to[0]);
 
-    PipedProcess pproc = { //
-        .proc = (Process) { .pid = pid },
+    pipedprocess_t pproc = { //
+        .proc = (process_t) { .pid = pid },
         .p_read = p_from[0],
         .p_err = p_errfrom[0],
         .p_write = p_to[1]
@@ -148,7 +148,7 @@ PipedProcess pipe(char* args[], int capture) {
 char wrote(int fd, void* data, unsigned int size) {
     return write(fd, data, size) == size;
 }
-void pwrite(PipedProcess proc, void* data, ssize_t size) {
+void pwrite(pipedprocess_t proc, void* data, ssize_t size) {
     static const unsigned int maxsz = 1 << 30;
     do {
         ssize_t sz = size > maxsz ? maxsz : size;
@@ -160,20 +160,20 @@ void pwrite(PipedProcess proc, void* data, ssize_t size) {
     } while (size > 0);
 }
 
-void close(PipedProcess* proc) {
+void close(pipedprocess_t* proc) {
     close(proc->p_read), close(proc->p_write), close(proc->p_err);
     proc->p_read = proc->p_write = proc->p_err = -1;
 }
 
-PipedProcess shpipe(char* cmd, int capture) {
-    return pipe((char*[]) { "/bin/sh", "-c", cmd }, capture);
+pipedprocess_t shpipe(char* cmd, int capture) {
+    return newpipe((char*[]) { "/bin/sh", "-c", cmd }, capture);
 }
 
-Process shlaunch(char* cmd) {
+process_t shlaunch(char* cmd) {
     return launch((char*[]) { "/bin/sh", "-c", cmd });
 }
 
-void await(Process* proc) {
+void await(process_t* proc) {
     // all you need is here: https://linux.die.net/man/2/waitpid
     int status = 0;
     if (waitpid(proc->pid, &status, 0) == -1) {
@@ -184,12 +184,12 @@ void await(Process* proc) {
     proc->code = WEXITSTATUS(status);
 }
 
-Process awaitAny() {
+process_t awaitAny() {
     int status = 0;
     pid_t pid = wait(&status);
     if (!pid) fprintf(stderr, "waitpiderr\n"); // TODO: raise an error here
 
-    return (Process) { //
+    return (process_t) { //
         .pid = pid, //
         .exited = WIFEXITED(status), //
         .code = WEXITSTATUS(status)
@@ -201,7 +201,7 @@ void awaitAll() {
     while (wait(&status) > 0) continue;
 }
 
-void update(Process* proc) {
+void update(process_t* proc) {
     int status = 0;
     waitpid(proc->pid, &status, WNOHANG);
     proc->code = WEXITSTATUS(status);
@@ -219,7 +219,7 @@ void test_posix_spawn(void) {
     // true returns instantly, so overhead is visible.
     // for launching a typical gcc session it shouldn't matter...
 
-    Process proc[4];
+    process_t proc[4];
     char* cmd[] = { "true", "nantag.c",
         // "/Users/sushant/Downloads/sqlite-amalgamation-3330000/shell.c "
         // "/Users/sushant/Downloads/sqlite-amalgamation-3330000/sqlite3.c",
@@ -232,7 +232,7 @@ void test_posix_spawn(void) {
         // here count the actual number of valid pids
         for (int i = 0; i < PROCS; i++) {
             // this will be while (proclist has more)
-            Process proc = awaitAny();
+            process_t proc = awaitAny();
             if (proc.exited && proc.code)
                 printf("Child exited with status %i\n", proc.code);
             // here launch 1 more
@@ -245,8 +245,8 @@ int main(void) {
     // test_posix_spawn();
 
     char* cmds[] = { "cat", NULL };
-    // Process p = launch(cmds);
-    PipedProcess p = pipe(cmds, JET_PIPE_WRITE);
+    // process_t p = launch(cmds);
+    pipedprocess_t p = newpipe(cmds, JET_PIPE_WRITE);
     pwrite(p, "jimbalego", 9);
     close(&p);
     awaitAll();

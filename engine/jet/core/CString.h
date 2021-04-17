@@ -1,149 +1,138 @@
-typedef char* CString;
+typedef char* cstr_t;
 
-monostatic CString CString_palloc(size_t len) {
+jet_static cstr_t cstr_palloc(size_t len) {
     return Pool_alloc(sPool, roundm8(len + 1));
 }
 
-monostatic CString CString_malloc(size_t len) {
-    return malloc(roundm8(len + 1));
-}
+jet_static cstr_t cstr_malloc(size_t len) { return malloc(roundm8(len + 1)); }
 
-monostatic CString CString_pndup(const CString str, size_t len) {
-    CString ret = CString_palloc(len);
+jet_static cstr_t cstr_pndup(const cstr_t str, size_t len) {
+    cstr_t ret = cstr_palloc(len);
     memcpy(ret, str, len); // sPool uses calloc, so no need to zero last
     return ret;
 }
 
-monostatic CString CString_pclone(const CString str) {
-    return CString_pndup(str, strlen(str));
+jet_static cstr_t cstr_pclone(const cstr_t str) {
+    return cstr_pndup(str, strlen(str));
 }
 
-monostatic CString CString_ndup(const char* str, size_t len) {
-    CString ret = CString_malloc(len);
+jet_static cstr_t cstr_ndup(const char* str, size_t len) {
+    cstr_t ret = cstr_malloc(len);
     memcpy(ret, str, len); // sPool uses calloc, so no need to zero last
     ret[len] = 0;
     return ret;
 }
 
-monostatic CString CString_clone(const char* str) {
-    return CString_ndup(str, strlen(str));
+jet_static cstr_t cstr_clone(const char* str) {
+    return cstr_ndup(str, strlen(str));
 }
 
-monostatic size_t CString_length(const char* str) { return strlen(str); }
-// monostatic CString CString_clone(CString str) { return pstrdup(str); }
-// monostatic CString CString_sysClone(CString str) { return strdup(str); }
-monostatic CString CString_indexOf(CString str, char c) {
-    return strchr(str, c);
-}
-monostatic size_t CString_indexOfAny(CString str, CString chars) {
+jet_static size_t cstr_length(const char* str) { return strlen(str); }
+// jet_static cstr_t cstr_clone(cstr_t str) { return pstrdup(str); }
+// jet_static cstr_t cstr_sysClone(cstr_t str) { return strdup(str); }
+jet_static cstr_t cstr_indexOf(cstr_t str, char c) { return strchr(str, c); }
+jet_static size_t cstr_indexOfAny(cstr_t str, cstr_t chars) {
     return strcspn(str, chars);
 }
-monostatic size_t CString_matchAny(CString str, CString chars) {
+jet_static size_t cstr_matchAny(cstr_t str, cstr_t chars) {
     return strspn(str, chars);
 }
-monostatic CString CString_findString(CString str, CString substr) {
+jet_static cstr_t cstr_findString(cstr_t str, cstr_t substr) {
     return strstr(str, substr);
 }
-monostatic CString CString_findChars(CString str, CString chars) {
+jet_static cstr_t cstr_findChars(cstr_t str, cstr_t chars) {
     return strpbrk(str, chars);
 }
 
-monostatic double CString_toDouble(CString str) { return strtod(str, NULL); }
-monostatic long CString_toLong(CString str) { return strtol(str, NULL, 0); }
-monostatic long double CString_toLongDouble(CString str) {
+jet_static double cstr_toDouble(cstr_t str) { return strtod(str, NULL); }
+jet_static long cstr_toLong(cstr_t str) { return strtol(str, NULL, 0); }
+jet_static long double cstr_toLongDouble(cstr_t str) {
     return strtold(str, NULL);
 }
-monostatic long long CString_toLongLong(CString str) {
+jet_static long long cstr_toLongLong(cstr_t str) {
     return strtoll(str, NULL, 0);
 }
-monostatic unsigned long long CString_toULongLong(CString str) {
+jet_static unsigned long long cstr_toULongLong(cstr_t str) {
     return strtoull(str, NULL, 0);
 }
 
-monostatic CString CString_noext(CString str) {
+jet_static cstr_t cstr_noext(cstr_t str) {
     const size_t len = strlen(str);
-    CString s = str; // pstrndup(str, len);
-    CString sc = s + len;
+    cstr_t s = str; // pstrndup(str, len);
+    cstr_t sc = s + len;
     while (sc > s && *sc != '.') sc--;
     if (sc >= s) *sc = '\0';
     return s;
 }
 
-monostatic CString CString_base(CString str, char sep, size_t slen) {
-    if (!slen)
-        return str; // you should pass in the len. len 0 is actually
-                    // valid since basename for 'mod' is 'mod' itself,
-                    // and self would have caused a call to strlen
-                    // below. so len 0 now means really just return what
-                    // came in.
-    CString s = str;
-    CString sc = s + slen;
+jet_static cstr_t cstr_base(cstr_t str, char sep, size_t slen) {
+    if (!slen) return str;
+    cstr_t s = str;
+    cstr_t sc = s + slen;
     while (sc > s && sc[-1] != sep) sc--;
     if (sc >= s) s = sc;
     return s;
 }
 
-monostatic CString CString_dir(CString str) {
-    const size_t len = strlen(str);
-    CString s = str; // pstrndup(str, len);
-    CString sc = s + len;
+jet_static cstr_t cstr_dir_ip(cstr_t str, size_t len) {
+    cstr_t s = str;
+    cstr_t sc = s + len;
     while (sc > s && *sc != '/') sc--;
-    if (sc >= s) *sc = '\0';
+    if (sc >= s) *sc = 0;
     return s;
 }
 
-monostatic CString CString_upper(CString str) {
-    CString s = str; // pstrdup(str);
-    CString sc = s - 1;
+jet_static cstr_t cstr_toupper_ip(cstr_t str) {
+    cstr_t s = str; // pstrdup(str);
+    cstr_t sc = s - 1;
     while (*++sc)
         if (*sc >= 'a' && *sc <= 'z') *sc -= 32;
     return s;
 }
 
 // in place
-monostatic void CString_tr_ip(
-    CString str, const char oldc, const char newc, const size_t length) {
-    CString sc = str - 1;
-    CString end = length ? str + length : (CString)0xFFFFFFFFFFFFFFFF;
+jet_static void cstr_tr_ip(
+    cstr_t str, const char oldc, const char newc, const size_t length) {
+    cstr_t sc = str - 1;
+    cstr_t end = length ? str + length : (cstr_t)0xFFFFFFFFFFFFFFFF;
     while (*++sc && sc < end)
         if (*sc == oldc) *sc = newc;
 }
 
-monostatic CString CString_tr(CString str, const char oldc, const char newc) {
+jet_static cstr_t cstr_tr(cstr_t str, const char oldc, const char newc) {
     size_t len = strlen(str);
-    CString s = str; // pstrndup(str, len);
-    CString_tr_ip(s, oldc, newc, len);
+    cstr_t s = str; // pstrndup(str, len);
+    cstr_tr_ip(s, oldc, newc, len);
     return s;
 }
 
-monostatic CString CString_nthField(CString str, int len, char sep, int nth) {
+jet_static cstr_t cstr_nthField(cstr_t str, int len, char sep, int nth) {
     return NULL;
 }
 
-monostatic int CString_countFields(CString str, int len, char sep) { return 0; }
+jet_static int cstr_countFields(cstr_t str, int len, char sep) { return 0; }
 
 // caller sends target as stack array or NULL
-monostatic CString* CString_getAllOccurences(
-    CString str, int len, char sep, int* count) {
+jet_static cstr_t* cstr_getAllOccurences(
+    cstr_t str, int len, char sep, int* count) {
     // result will be malloced & realloced
     return 0;
 }
 
-monostatic int CString_getSomeOccurences(
-    CString str, int len, char sep, CString* result, int limit) {
+jet_static int cstr_getSomeOccurences(
+    cstr_t str, int len, char sep, cstr_t* result, int limit) {
     // result buf is expected from caller
     return 0;
 }
 
 #include "jet/_ext/strcasecmp.h"
 
-#define CString_endsWith(str, lenstr, suffix, lensuffix)                       \
+#define cstr_endsWith(str, lenstr, suffix, lensuffix)                          \
     !strncmp(str + lenstr - lensuffix, suffix, lensuffix)
 
-#define CString_startsWith(str, prefix, lenprefix)                             \
-    !strncmp(str, prefix, lenprefix)
+#define cstr_startsWith(str, prefix, lenprefix) !strncmp(str, prefix, lenprefix)
 
-monostatic ulong leven(char* s1, char* s2, ulong s1len, ulong s2len) {
+jet_static ulong cstr_levenstein(char* s1, char* s2, ulong s1len, ulong s2len) {
 #define NCBUF 64
     ulong x, y, lastdiag, olddiag;
     ulong _c[NCBUF], *column = _c;
@@ -172,9 +161,9 @@ monostatic ulong leven(char* s1, char* s2, ulong s1len, ulong s2len) {
 
 // assuming the compiler has generated a format string and list of args
 // if you want a new heap string, call
-// strinterp_h(int size, const CString fmt, ...)
+// strinterp_h(int size, const cstr_t fmt, ...)
 // if you want a stack string, call
-// strinterp_s(int size, CStringbuf, const CStringfmt,...)
+// strinterp_s(int size, cstringbuf, const cstringfmt,...)
 // for buf, supply an array literal (C99): (char[n]){}
 // where n is the known size (also passed in size).
 // constructing the buf this way fills it with zeros, which is a useless cost,
@@ -188,26 +177,14 @@ monostatic ulong leven(char* s1, char* s2, ulong s1len, ulong s2len) {
 /// Follows the usual printf format. Size can be provided if known, if you guess
 /// too low, the buffer will incur a resize. It's better to set size=0 if you
 /// don't have a better guess at all.
-monostatic CString strinterp_h(int size, const CString fmt, ...) {
+jet_static cstr_t cstr_heap_interp(int size, const cstr_t fmt, ...) {
     va_list args;
 
-    // TODO: mark branch unlikely
-    // Seems like this is superflous, since the lowball case will be handled
-    // later anyway.
-    // if (!size) {
-    //     va_start(args, fmt);
-    //     char tmp[8];
-    //     size = vsnprintf(tmp, 8, fmt, args);
-    //     va_end(args);
-    //     printf("no size, calculated %d\n", size);
-    // }
-
-    CString buf = malloc(size); // TODO: use jet allocator
+    cstr_t buf = malloc(size);
     va_start(args, fmt);
     int l = vsnprintf(buf, size, fmt, args);
     va_end(args);
 
-    // TODO: mark branch unlikely
     if (l > size) {
         l++;
         buf = realloc(buf, l);
@@ -225,11 +202,11 @@ monostatic CString strinterp_h(int size, const CString fmt, ...) {
 /// contrast to `strinterp_h`, the buffer cannot be resized, so your guess is
 /// crucial. If you guess too low, the string will be truncated. If size is not
 /// a constant expression, you may end up with a compilation error (or C99 VLA).
-#define strinterp_s(size, fmt, ...)                                            \
-    __strinterp__s(size, (char[size]) {}, fmt, __VA_ARGS__)
+#define cstr_stack_interp(size, fmt, ...)                                      \
+    cstr__stack_interp(size, (char[size]) {}, fmt, __VA_ARGS__)
 
-monostatic CString __strinterp__s(
-    int size, CString buf, const CString fmt, ...) {
+jet_static cstr_t cstr__stack_interp(
+    int size, cstr_t buf, const cstr_t fmt, ...) {
     va_list args;
     va_start(args, fmt);
     int l = vsnprintf(buf, size, fmt, args);
@@ -238,10 +215,10 @@ monostatic CString __strinterp__s(
     return buf;
 }
 
-monostatic int CString__test() {
-    CString fmt = "%s is the name of this city with %d people\n";
-    CString val = strinterp_h(41, fmt, "zurche", 300500);
-    // CString v = gets("buf:");
+jet_static int cstr__test() {
+    cstr_t fmt = "%s is the name of this city with %d people\n";
+    cstr_t val = strinterp_h(41, fmt, "zurche", 300500);
+    // cstr_t v = gets("buf:");
     puts(val);
     puts(strinterp_s(48, fmt, "rew", 4323));
     return 0;

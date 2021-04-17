@@ -1220,7 +1220,7 @@ static const char* fdp_parse_number(const char* p, double* outDouble) {
 
 // this is the only entrypoint into this module. dont call other funcs!
 // doesn't need to be static as long as you generate a num.o from this file.
-// if you want to put this in a bigger .o then make it monostatic.
+// if you want to put this in a bigger .o then make it jet_static.
 double num(char* str) {
     double d;
     char* end = fdp_parse_number(str, &d);

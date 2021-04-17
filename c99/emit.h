@@ -3,7 +3,7 @@
 #define genLineProfile 1
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTImport_emit(ASTImport* import, int level) {
+static void emit_import(ast_import_t* import, int level) {
     char* alias = import->aliasOffset + import->name;
     CString_tr_ip(import->name, '.', '_', 0);
     printf("\n#include \"%s.h\"\n", import->name);
@@ -14,59 +14,61 @@ static void ASTImport_emit(ASTImport* import, int level) {
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTImport_undefc(ASTImport* import) {
+static void undefc_import(ast_import_t* import) {
     // if (import->alias) printf("#undef %s\n", import->alias);
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTTypeSpec_emit(ASTTypeSpec* typeSpec, int level, bool isconst) {
+static void ast_typespec_emit(
+    ast_typespec_t* typespec, int level, bool isconst) {
     if (isconst) printf("const ");
     // TODO: actually this depends on the collectionType. In general
     // Array is the default, but in other cases it may be SArray, Array64,
     // whatever
-    if (typeSpec->dims) {
-        if (typeSpec->dims > 1)
+    if (typespec->dims) {
+        if (typespec->dims > 1)
             // TODO: this should be TensorND, without type params?
             // well actually there isn't a TensorND, since its not always
             // double thats in a tensor but can be Complex, Range,
             // Reciprocal, Rational, whatever
             // -- sure, but double (and float) should be enough since
             // the other types are rarely needed in a tensor form
-            printf("SArray%dD(", typeSpec->dims);
+            printf("SArray%dD(", typespec->dims);
         else
             printf("SArray(");
     }
 
-    switch (typeSpec->typeType) {
-    case TYObject:
+    switch (typespec->typeType) {
+    case ty_object:
         // objects are always T* const, if meant to be r/o they are
         // const T* const. Later we may have a byval flag to embed structs
         // or pass around by value.
         // leaving it as is for now
-        printf("%s", typeSpec->type->name);
+        printf("%s", typespec->type->name);
         break;
-    case TYUnresolved:
-        unreachable("unresolved: '%s' at %d:%d", typeSpec->name, typeSpec->line,
-            typeSpec->col);
-        printf("%s", *typeSpec->name ? typeSpec->name : "Error_Type");
+    case ty_unresolved:
+        unreachable("unresolved: '%s' at %d:%d", typespec->name, typespec->line,
+            typespec->col);
+        printf("%s", *typespec->name ? typespec->name : "Error_Type");
         break;
-    default: printf("%s", TypeType_name(typeSpec->typeType)); break;
+    default: printf("%s", typetype_e_name(typespec->typeType)); break;
     }
 
     //     if (isconst ) printf(" const"); // only if a ptr type
-    if (typeSpec->dims /*or typeSpec->typeType == TYObject*/) printf("%s", ")");
+    if (typespec->dims /*or typespec->typeType == ty_object*/)
+        printf("%s", ")");
     //        if (status == TSDimensionedNumber) {
     //            genc(units, level);
     //        }
 }
 
-static void ASTExpr_emit(ASTExpr* expr, int level);
+static void emit_expr(ast_expr_t* expr, int level);
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTVar_emit(ASTVar* var, int level, bool isconst) {
+static void emit_var(ast_var_t* var, int level, bool isconst) {
     // for C the variables go at the top of the block, without init
     printf("%.*s", level, spaces);
-    if (var->typeSpec) ASTTypeSpec_emit(var->typeSpec, level + STEP, isconst);
+    if (var->typespec) ast_typespec_emit(var->typespec, level + STEP, isconst);
     printf(" %s", var->name);
 }
 
@@ -89,22 +91,22 @@ static bool mustPromote(const char* name) {
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTExpr_unmarkVisited(ASTExpr* expr) {
+static void unmarkVisited_expr(ast_expr_t* expr) {
     switch (expr->kind) {
-    case tkIdentifierResolved:
-    case tkVarAssign: expr->var->visited = false; break;
-    case tkFunctionCallResolved:
-    case tkFunctionCall: // shouldnt happen
-    case tkSubscriptResolved:
-    case tkSubscript:
-    case tkKeyword_if:
-    case tkKeyword_for:
-    case tkKeyword_else:
-    case tkKeyword_while: ASTExpr_unmarkVisited(expr->left); break;
+    case tk_identifierResolved:
+    case tk_varAssign: expr->var->visited = false; break;
+    case tk_functionCallResolved:
+    case tk_functionCall: // shouldnt happen
+    case tk_subscriptResolved:
+    case tk_subscript:
+    case tk_keyword_if:
+    case tk_keyword_for:
+    case tk_keyword_else:
+    case tk_keyword_while: unmarkVisited_expr(expr->left); break;
     default:
         if (expr->prec) {
-            if (!expr->unary) ASTExpr_unmarkVisited(expr->left);
-            ASTExpr_unmarkVisited(expr->right);
+            if (!expr->unary) unmarkVisited_expr(expr->left);
+            unmarkVisited_expr(expr->right);
         }
     }
 }
@@ -117,96 +119,94 @@ static void ASTExpr_unmarkVisited(ASTExpr* expr) {
 // printf("m = %?\n", m);
 // checks will print the vars involved in the check expr, if the check
 // fails. This routine will be used there.
-static void ASTExpr_genPrintVars(ASTExpr* expr, int level) {
+static void genPrintVars_expr(ast_expr_t* expr, int level) {
     assert(expr);
     // what about func args?
     switch (expr->kind) {
-    case tkIdentifierResolved:
-    case tkVarAssign:
+    case tk_identifierResolved:
+    case tk_varAssign:
         if (expr->var->visited) break;
         printf("%.*sprintf(\"    %s = %s\\n\", %s);\n", level, spaces,
-            expr->var->name, TypeType_format(expr->typeType, true),
+            expr->var->name, typetype_e_format(expr->typeType, true),
             expr->var->name);
         expr->var->visited = true;
         break;
 
-    case tkPeriod:
+    case tk_period:
         //        {
-        //            ASTExpr* e = expr->right;
-        //            while (e->kind==tkPeriod) e=e->right;
+        //            ast_expr_t* e = expr->right;
+        //            while (e->kind==tk_period) e=e->right;
         ////            if (e->var->visited) break;
         //            printf("%.*sprintf(\"    %s = %s\\n\", %s);\n", level,
         //            spaces,
-        //                   expr->var->name, TypeType_format(e->typeType,
+        //                   expr->var->name, typetype_e_format(e->typeType,
         //                   true), expr->var->name);
         //        }
         break;
 
-    case tkFunctionCallResolved:
-    case tkFunctionCall: // shouldnt happen
-    case tkSubscriptResolved:
-    case tkSubscript:
-    case tkKeyword_if:
-    case tkKeyword_else:
-    case tkKeyword_for:
-    case tkKeyword_while: ASTExpr_genPrintVars(expr->left, level); break;
+    case tk_functionCallResolved:
+    case tk_functionCall: // shouldnt happen
+    case tk_subscriptResolved:
+    case tk_subscript:
+    case tk_keyword_if:
+    case tk_keyword_else:
+    case tk_keyword_for:
+    case tk_keyword_while: genPrintVars_expr(expr->left, level); break;
 
     default:
         if (expr->prec) {
-            if (!expr->unary) ASTExpr_genPrintVars(expr->left, level);
-            ASTExpr_genPrintVars(expr->right, level);
+            if (!expr->unary) genPrintVars_expr(expr->left, level);
+            genPrintVars_expr(expr->right, level);
         }
     }
 }
 
 ///////////////////////////////////////////////////////////////////////////
 // Promotion scan & promotion happens AFTER resolving functions!
-static ASTExpr* ASTExpr_findPromotionCandidate(ASTExpr* expr) {
+static ast_expr_t* findPromotionCandidate_expr(ast_expr_t* expr) {
     assert(expr);
-    ASTExpr* ret;
+    ast_expr_t* ret;
 
     // what about func args?
     switch (expr->kind) {
-    case tkFunctionCallResolved:
+    case tk_functionCallResolved:
         // promote innermost first, so check args
-        if (expr->left && (ret = ASTExpr_findPromotionCandidate(expr->left)))
+        if (expr->left && (ret = findPromotionCandidate_expr(expr->left)))
             return ret;
         else if (mustPromote(expr->func->selector))
             return expr;
         break;
 
-    case tkSubscriptResolved:
+    case tk_subscriptResolved:
         // TODO: here see if the subscript itself needs to be promoted up
-        return ASTExpr_findPromotionCandidate(expr->left);
+        return findPromotionCandidate_expr(expr->left);
 
-    case tkSubscript: return ASTExpr_findPromotionCandidate(expr->left);
+    case tk_subscript: return findPromotionCandidate_expr(expr->left);
 
-    case tkKeyword_if:
-    case tkKeyword_for:
-    case tkKeyword_else:
-    case tkKeyword_elif:
-    case tkKeyword_while:
-        if (expr->left) return ASTExpr_findPromotionCandidate(expr->left);
+    case tk_keyword_if:
+    case tk_keyword_for:
+    case tk_keyword_else:
+    case tk_keyword_elif:
+    case tk_keyword_while:
+        if (expr->left) return findPromotionCandidate_expr(expr->left);
         // body will be handled by parent scope
 
-    case tkVarAssign:
-        if ((ret = ASTExpr_findPromotionCandidate(expr->var->init))) return ret;
+    case tk_varAssign:
+        if ((ret = findPromotionCandidate_expr(expr->var->init))) return ret;
         break;
 
-    case tkFunctionCall: // unresolved
+    case tk_functionCall: // unresolved
         // assert(0);
         unreachable("unresolved call %s\n", expr->string);
-        if ((ret = ASTExpr_findPromotionCandidate(expr->left))) return ret;
+        if ((ret = findPromotionCandidate_expr(expr->left))) return ret;
         break;
 
     default:
         if (expr->prec) {
-            if (expr->right
-                && (ret = ASTExpr_findPromotionCandidate(expr->right)))
+            if (expr->right && (ret = findPromotionCandidate_expr(expr->right)))
                 return ret;
             if (!expr->unary)
-                if ((ret = ASTExpr_findPromotionCandidate(expr->left)))
-                    return ret;
+                if ((ret = findPromotionCandidate_expr(expr->left))) return ret;
         }
     }
     return NULL;
@@ -219,30 +219,29 @@ static char* newTmpVarName(int num, char c) {
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static bool isCtrlExpr(ASTExpr* expr) {
-    return expr->kind == tkKeyword_if //
-        || expr->kind == tkKeyword_for //
-        || expr->kind == tkKeyword_while //
-        || expr->kind == tkKeyword_else;
+static bool isCtrlExpr(ast_expr_t* expr) {
+    return expr->kind == tk_keyword_if //
+        || expr->kind == tk_keyword_for //
+        || expr->kind == tk_keyword_while //
+        || expr->kind == tk_keyword_else;
 }
 
-static bool isLiteralExpr(ASTExpr* expr) { return false; }
-static bool isComparatorExpr(ASTExpr* expr) { return false; }
+static bool isLiteralExpr(ast_expr_t* expr) { return false; }
+static bool isComparatorExpr(ast_expr_t* expr) { return false; }
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTScope_lowerElementalOps(ASTScope* scope) {
-    foreach (ASTExpr*, stmt, scope->stmts) {
+static void lowerElementalOps_scope(ast_scope_t* scope) {
+    foreach (ast_expr_t*, stmt, scope->stmts) {
 
-        if (isCtrlExpr(stmt) && stmt->body)
-            ASTScope_lowerElementalOps(stmt->body);
+        if (isCtrlExpr(stmt) && stmt->body) lowerElementalOps_scope(stmt->body);
 
         if (!stmt->elemental) continue;
 
         // wrap it in an empty block (or use if true)
-        ASTExpr* ifblk = NEW(ASTExpr);
-        ifblk->kind = tkKeyword_if;
-        ifblk->left = NEW(ASTExpr);
-        ifblk->left->kind = tkNumber;
+        ast_expr_t* ifblk = NEW(ast_expr_t);
+        ifblk->kind = tk_keyword_if;
+        ifblk->left = NEW(ast_expr_t);
+        ifblk->left->kind = tk_number;
         ifblk->string = "1";
 
         // look top-down for subscripts. if you encounter a node with
@@ -260,7 +259,7 @@ static void ASTScope_lowerElementalOps(ASTScope* scope) {
         // so then you might have for the above example :
         // T* vec_p1 = vec->start + 7;
         // // ^ this func could be membptr(a,i) -> i<0 ? a->end-i :
-        // a->start+i #define vec_1 *vec_p1 // these could be ASTVars with
+        // a->start+i #define vec_1 *vec_p1 // these could be ast_vars_t with
         // an isCMacro flag T2* arr2_p1 = membptr(arr2, 6); #define arr2_1
         // *arr2_p1 T3* arr2_p2 = membptr(arr2, -6); #define arr2_2 *arr2_p2
         // ...
@@ -296,20 +295,19 @@ static void ASTScope_lowerElementalOps(ASTScope* scope) {
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTScope_promoteCandidates(ASTScope* scope) {
+static void promoteCandidates_scope(ast_scope_t* scope) {
     int tmpCount = 0;
-    ASTExpr* pc = NULL;
-    List(ASTExpr)* prev = NULL;
-    foreachn(ASTExpr*, stmt, stmts, scope->stmts) {
+    ast_expr_t* pc = NULL;
+    list_t(ast_expr)* prev = NULL;
+    foreachn(ast_expr_t*, stmt, stmts, scope->stmts) {
         // TODO:
         // if (! stmt->promote) {prev=stmts;continue;}
 
-        if (isCtrlExpr(stmt) && stmt->body)
-            ASTScope_promoteCandidates(stmt->body);
+        if (isCtrlExpr(stmt) && stmt->body) promoteCandidates_scope(stmt->body);
 
     startloop:
 
-        if (!(pc = ASTExpr_findPromotionCandidate(stmt))) { // most likely
+        if (!(pc = findPromotionCandidate_expr(stmt))) { // most likely
             prev = stmts;
             continue;
         }
@@ -320,19 +318,19 @@ static void ASTScope_promoteCandidates(ASTScope* scope) {
             continue;
         }
 
-        ASTExpr* pcClone = NEW(ASTExpr);
+        ast_expr_t* pcClone = NEW(ast_expr_t);
         *pcClone = *pc;
 
         // 1. add a temp var to the scope
-        ASTVar* tmpvar = NEW(ASTVar);
+        ast_var_t* tmpvar = NEW(ast_var_t);
         tmpvar->name = newTmpVarName(++tmpCount, 'p');
-        tmpvar->typeSpec = NEW(ASTTypeSpec);
-        //        tmpvar->typeSpec->typeType = TYReal64; // FIXME
-        // TODO: setup tmpvar->typeSpec
-        PtrList_append(&scope->locals, tmpvar);
+        tmpvar->typespec = NEW(ast_typespec_t);
+        //        tmpvar->typespec->typeType = ty_real64; // FIXME
+        // TODO: setup tmpvar->typespec
+        list_append(&scope->locals, tmpvar);
 
         // 2. change the original to an ident
-        pc->kind = tkIdentifierResolved;
+        pc->kind = tk_identifierResolved;
         pc->prec = 0;
         pc->var = tmpvar;
 
@@ -340,41 +338,41 @@ static void ASTScope_promoteCandidates(ASTScope* scope) {
 
         if (!pcClone->left)
             pcClone->left = pc;
-        else if (pcClone->left->kind != tkOpComma) {
+        else if (pcClone->left->kind != tk_opComma) {
             // single arg
-            ASTExpr* com = NEW(ASTExpr);
-            // TODO: really should have an astexpr ctor
-            com->prec = TokenKind_getPrecedence(tkOpComma);
-            com->kind = tkOpComma;
+            ast_expr_t* com = NEW(ast_expr_t);
+            // TODO: really should have an ast_expr_t ctor
+            com->prec = tokenkind_e_getPrecedence(tk_opComma);
+            com->kind = tk_opComma;
             com->left = pcClone->left;
             com->right = pc;
             pcClone->left = com;
         } else {
-            ASTExpr* argn = pcClone->left;
-            while (argn->kind == tkOpComma && argn->right->kind == tkOpComma)
+            ast_expr_t* argn = pcClone->left;
+            while (argn->kind == tk_opComma && argn->right->kind == tk_opComma)
                 argn = argn->right;
-            ASTExpr* com = NEW(ASTExpr);
-            // TODO: really should have an astexpr ctor
-            com->prec = TokenKind_getPrecedence(tkOpComma);
-            com->kind = tkOpComma;
+            ast_expr_t* com = NEW(ast_expr_t);
+            // TODO: really should have an ast_expr_t ctor
+            com->prec = tokenkind_e_getPrecedence(tk_opComma);
+            com->kind = tk_opComma;
             com->left = argn->right;
             com->right = pc;
             argn->right = com;
         }
 
         // 4. insert the promoted expr BEFORE the current stmt
-        //        PtrList_append(prev ? &prev : &self->stmts, pcClone);
+        //        list_append(prev ? &prev : &self->stmts, pcClone);
         //        PtrList* tmp = prev->next;
         // THIS SHOULD BE in PtrList as insertAfter method
         if (!prev) {
-            scope->stmts = PtrList_with(pcClone);
+            scope->stmts = list_with(pcClone);
             scope->stmts->next = stmts;
             prev = scope->stmts;
         } else {
-            prev->next = PtrList_with(pcClone);
+            prev->next = list_with(pcClone);
             prev->next->next = stmts;
             prev = prev->next;
-        } // List(ASTExpr)* insertionPos = prev ? prev->next : self->stmts;
+        } // list_t(ast_expr)* insertionPos = prev ? prev->next : self->stmts;
           //  insertionPos
         //  = insertionPos;
         goto startloop; // it will continue there if no more promotions are
@@ -385,27 +383,27 @@ static void ASTScope_promoteCandidates(ASTScope* scope) {
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTScope_emit(ASTScope* scope, int level) {
-    foreach (ASTVar*, local, scope->locals)
+static void emit_scope(ast_scope_t* scope, int level) {
+    foreach (ast_var_t*, local, scope->locals)
         if (local->used) {
-            ASTVar_emit(local, level, false);
+            emit_var(local, level, false);
             puts(";");
         } // these will be declared at top and defined within the expr list
-    foreach (ASTExpr*, stmt, scope->stmts) {
-        if (stmt->kind == tkLineComment) continue;
+    foreach (ast_expr_t*, stmt, scope->stmts) {
+        if (stmt->kind == tk_lineComment) continue;
 
         if (genLineNumbers) printf("#line %d\n", stmt->line);
         // if (genCoverage) printf("    _cov_[%d]++;\n", stmt->line - 1);
         // if (genLineProfile) {
         //     printf("    _lprof_tmp_ = getticks();\n");
-        //     printf("    _lprof_[%d] += (_lprof_tmp_-_lprof_last_)/100;\n",
+        //     printf("    _lprof_[%d] += (_lprof_tmp_-_lprof_last__)/100;\n",
         //         stmt->line - 1);
-        //     printf("    _lprof_last_ = _lprof_tmp_;\n");
+        //     printf("    _lprof_last__ = _lprof_tmp_;\n");
         // }
 
-        // You need to know if the ASTExpr_emit will in fact generate something.
-        // This is true in general unless it is an unused var init.
-        if (stmt->kind != tkVarAssign || stmt->var->used) {
+        // You need to know if the emit_expr will in fact generate
+        // something. This is true in general unless it is an unused var init.
+        if (stmt->kind != tk_varAssign || stmt->var->used) {
 
             // if (genCoverage || genLineProfile) //
             //     printf("    /************/ ");
@@ -416,13 +414,13 @@ static void ASTScope_emit(ASTScope* scope, int level) {
                 // printf("    _lprof_tmp_ = getticks();\n");
                 printf(
                     "%.*sJET_PROFILE_LINE(%d);\n", level, spaces, stmt->line);
-                // printf("    _lprof_last_ = _lprof_tmp_;\n");
+                // printf("    _lprof_last__ = _lprof_tmp_;\n");
             }
             if (genCoverage || genLineProfile) puts(""); // ************/");
         }
 
-        ASTExpr_emit(stmt, level);
-        if (!isCtrlExpr(stmt) && stmt->kind != tkKeyword_return)
+        emit_expr(stmt, level);
+        if (!isCtrlExpr(stmt) && stmt->kind != tk_keyword_return)
             puts(";");
         else
             puts("");
@@ -433,23 +431,23 @@ static void ASTScope_emit(ASTScope* scope, int level) {
         // own scope, not an inner or outer scope, so just scan our own vars.
         // In a sense the stmt->line is a local ID for the statement within the
         // scope.
-        ASTScope* sco = scope;
+        ast_scope_t* sco = scope;
         do {
-            foreach (ASTVar*, var, sco->locals)
+            foreach (ast_var_t*, var, sco->locals)
                 if (var->used) {
-                    // if (var->lastUsage)
+                    // if (var->last_usage)
                     //     printf("%.*s//-- %s %d %d\n", level, spaces,
                     //     var->name,
-                    //         var->lastUsage, stmt->line);
-                    if (var->lastUsage == stmt->line) {
+                    //         var->last_usage, stmt->line);
+                    if (var->last_usage == stmt->line) {
                         printf("%.*sDROP(%s,%s,%s,%s);\n", level, spaces,
-                            ASTTypeSpec_name(var->typeSpec), var->name,
-                            CollectionType_nativeName(
-                                var->typeSpec->collectionType),
+                            name_typespec(var->typespec), var->name,
+                            collectiontype_e_nativeName(
+                                var->typespec->collectionType),
                             StorageClassNames[var->storage]);
                         // TODO^ distinguish between stack, heap, mixed,
                         // refcounted drops
-                        var->lastUsage = 0; // this means var has been dropped.
+                        var->last_usage = 0; // this means var has been dropped.
                     }
                 }
         } while (!sco->isLoop // if loop scope, don't walk up
@@ -459,22 +457,21 @@ static void ASTScope_emit(ASTScope* scope, int level) {
         // what if some scope tries to drop something from there?
 
         // TODO:
-        // Maybe scope should have a lineno. If a loop scope has the lastUsage
+        // Maybe scope should have a lineno. If a loop scope has the last_usage
         // of a parent var, it cannot drop it inside the loop, but it should be
         // done just after the loop ends. Now it will be dropped anyway at
         // owning scope end which may be suboptimal. If you have the scope line,
         // which is the line of the cond expr of if / while etc., you change the
-        // lastUsage to that line and it gets dropped just after the scope.
+        // last_usage to that line and it gets dropped just after the scope.
 
-        if (ASTExpr_throws(stmt))
-            printf("%.*sTRACE_IF_ERROR;\n", level, spaces);
+        if (throws_expr(stmt)) printf("%.*sTRACE_IF_ERROR;\n", level, spaces);
     }
     // It's possible some vars were not detected in inner scopes and dropped. So
     // let's drop them here. No need to walk up the parent chain here.
-    foreach (ASTVar*, var, scope->locals)
-        if (var->used && var->lastUsage)
+    foreach (ast_var_t*, var, scope->locals)
+        if (var->used && var->last_usage)
             printf("%.*sdrop(%s); // anyway\n", level, spaces, var->name);
-    // ^ these are all the vars whose lastUsage could not be matched. This may
+    // ^ these are all the vars whose last_usage could not be matched. This may
     // be because they are in an inner scope. In this case they should be
     // dropped at the end of the scope. Optimize this later so that if there are
     // multiple subscopes and the last usage is in one of them, the drop happens
@@ -482,7 +479,7 @@ static void ASTScope_emit(ASTScope* scope, int level) {
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTType_genJson(ASTType* type) {
+static void genJson_type(ast_type_t* type) {
     printf("static void %s_json_(const %s self, int nspc) {\n", type->name,
         type->name);
 
@@ -492,11 +489,11 @@ static void ASTType_genJson(ASTType* type) {
 
     // TODO: move this part into its own func so that subclasses can ask the
     // superclass to add in their fields inline
-    foreachn(ASTVar*, var, vars, type->body->locals) {
+    foreachn(ast_var_t*, var, vars, type->body->locals) {
         if (!var /*or not var->used*/) continue;
         printf("    printf(\"%%.*s\\\"%s\\\": \", nspc+4, _spaces_);\n",
             var->name);
-        const char* valueType = ASTExpr_typeName(var->init);
+        const char* valueType = typeName_expr(var->init);
         printf("    %s_json_(self->%s, nspc+4);\n    printf(\"", valueType,
             var->name);
         if (vars->next) printf(",");
@@ -511,7 +508,7 @@ static void ASTType_genJson(ASTType* type) {
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTType_genJsonReader(ASTType* type) { }
+static void genJsonReader_type(ast_type_t* type) { }
 
 static const char* functionEntryStuff_UNESCAPED
     = "    STACKDEPTH_UP; DO_STACK_CHECK;\n";
@@ -561,7 +558,7 @@ static const char* functionExitStuff_UNESCAPED
 //   "    return DEFAULT_VALUE;";
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTFunc_printStackUsageDef(size_t stackUsage) {
+static void printStackUsageDef_func(size_t stackUsage) {
     printf("#define MYSTACKUSAGE (%lu + 6*sizeof(void*) + "
            "IFDEBUGELSE(sizeof(char*),0))\n",
         stackUsage);
@@ -574,25 +571,25 @@ static void ASTFunc_printStackUsageDef(size_t stackUsage) {
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTType_emit(ASTType* type, int level) {
+static void emit_type(ast_type_t* type, int level) {
     if (!type->body || !type->analysed || type->isDeclare) return;
     // if (! type->body or not type->analysed) return;
     const char* const name = type->name;
     printf("#define FIELDS_%s \\\n", name);
-    foreach (ASTVar*, var, type->body->locals) {
+    foreach (ast_var_t*, var, type->body->locals) {
         if (!var /*or not var->used*/) continue;
         // It's not so easy to just skip 'unused' type members.
         // what if I just construct an object and print it?
         // I expect to see the default members. But if they
         // haven't been otherwise accessed, they are left out.
-        ASTVar_emit(var, level + STEP, false);
+        emit_var(var, level + STEP, false);
         printf("; \\\n");
     }
     printf("\n\nstruct %s {\n", name);
 
     if (type->super) {
         printf("    FIELDS_");
-        ASTTypeSpec_emit(type->super, level, false);
+        ast_typespec_emit(type->super, level, false);
         printf("\n");
     }
 
@@ -603,25 +600,25 @@ static void ASTType_emit(ASTType* type, int level) {
         name, name, name);
     printf("static %s %s_init_(%s self) {\n", name, name, name);
 
-    foreach (ASTVar*, var, type->body->locals) // if (var->used)
+    foreach (ast_var_t*, var, type->body->locals) // if (var->used)
         printf("#define %s self->%s\n", var->name, var->name);
 
-    foreach (ASTExpr*, stmt, type->body->stmts) {
-        if (!stmt || stmt->kind != tkVarAssign || !stmt->var->init)
+    foreach (ast_expr_t*, stmt, type->body->stmts) {
+        if (!stmt || stmt->kind != tk_varAssign || !stmt->var->init)
             //            or not stmt->var->used)
             continue;
         printf("%.*s%s = ", level + STEP, spaces, stmt->var->name);
-        ASTExpr_emit(stmt->var->init, 0);
+        emit_expr(stmt->var->init, 0);
         puts(";");
-        if (ASTExpr_throws(stmt->var->init))
+        if (throws_expr(stmt->var->init))
             puts("    if (_err_ == ERROR_TRACE) return NULL;");
     }
-    foreach (ASTVar*, var, type->body->locals) // if (var->used)
+    foreach (ast_var_t*, var, type->body->locals) // if (var->used)
         printf("#undef %s \n", var->name);
 
     printf("    return self;\n}\n\n");
 
-    ASTFunc_printStackUsageDef(48);
+    printStackUsageDef_func(48);
     printf("#define DEFAULT_VALUE NULL\n"
            "monostatic %s %s_new_(IFDEBUG(const char* callsite_)) {\n"
            "IFDEBUG(static const char* sig_ = \"%s()\");\n",
@@ -640,12 +637,12 @@ static void ASTType_emit(ASTType* type, int level) {
         name, name, name, name);
     puts("");
 
-    ASTType_genJson(type);
-    ASTType_genJsonReader(type);
+    genJson_type(type);
+    genJsonReader_type(type);
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTType_genh(ASTType* type, int level) {
+static void genh_type(ast_type_t* type, int level) {
     if (!type->body || !type->analysed || type->isDeclare) return;
 
     const char* const name = type->name;
@@ -660,46 +657,46 @@ static void ASTType_genh(ASTType* type, int level) {
     printf("static void %s_json_(const %s self, int nspc);\n", name, name);
 }
 ///////////////////////////////////////////////////////////////////////////
-static void ASTEnum_genh(ASTType* type, int level) {
+static void genh_enum(ast_type_t* type, int level) {
     if (!type->body || !type->analysed) return;
     const char* const name = type->name;
     puts("typedef enum {");
 
-    foreach (ASTVar*, var, type->body->locals)
+    foreach (ast_var_t*, var, type->body->locals)
         printf("    %s_%s,\n", name, var->name);
     printf("} %s;\n", name);
-    ASTExpr* ex1 = type->body->stmts->item;
+    ast_expr_t* ex1 = type->body->stmts->item;
     const char* datType
-        = ex1->kind == tkOpAssign ? ASTExpr_typeName(ex1->right) : NULL;
+        = ex1->kind == tk_opAssign ? typeName_expr(ex1->right) : NULL;
     if (datType)
         printf("monostatic %s %s__data[%d];\n", datType, name,
-            PtrList_count(type->body->locals));
+            list_count(type->body->locals));
     printf("monostatic const char* %s__fullnames[] ={\n", name);
-    foreach (ASTVar*, var, type->body->locals)
+    foreach (ast_var_t*, var, type->body->locals)
         printf("    \"%s.%s\",\n", name, var->name);
     puts("};");
     printf("monostatic const char* %s__names[] ={\n", name);
-    foreach (ASTVar*, var, type->body->locals)
+    foreach (ast_var_t*, var, type->body->locals)
         printf("    \".%s\",\n", var->name);
     puts("};");
     // printf("monostatic const char* %s__names[%d];\n", name,
-    //     PtrList_count(type->body->locals));
+    //     list_count(type->body->locals));
 
     printf("monostatic void %s__init() {\n", name);
-    // foreach (ASTVar*, var, type->body->locals) {
+    // foreach (ast_var_t*, var, type->body->locals) {
     //     printf("    %s__names[%s_%s] =  %s__fullnames[%s_%s] + %zu;\n", name,
     //         name, var->name, name, name, var->name, strlen(name));
     //     // puts("};");
     // }
-    foreach (ASTExpr*, stmt, type->body->stmts) {
-        if (!stmt || stmt->kind != tkOpAssign) //|| !stmt->var->init)
+    foreach (ast_expr_t*, stmt, type->body->stmts) {
+        if (!stmt || stmt->kind != tk_opAssign) //|| !stmt->var->init)
             // //     //            or not stmt->var->used)
             continue;
         printf("%.*s%s__data[%s_%s] = ", level + STEP, spaces, name, name,
             stmt->left->string);
-        ASTExpr_emit(stmt->right, 0);
+        emit_expr(stmt->right, 0);
         puts(";");
-        if (ASTExpr_throws(stmt->right))
+        if (throws_expr(stmt->right))
             puts("    if (_err_ == ERROR_TRACE) return NULL;");
     }
     puts("}");
@@ -713,26 +710,26 @@ static void ASTEnum_genh(ASTType* type, int level) {
     // printf("static void %s_json_(const %s self, int nspc);\n", name, name);
 }
 ///////////////////////////////////////////////////////////////////////////
-static void ASTFunc_emit(ASTFunc* func, int level) {
+static void emit_func(ast_func_t* func, int level) {
     if (!func->body || !func->analysed || func->isDeclare)
         return; // declares, default ctors
 
     // actual stack usage is higher due to stack protection, frame bookkeeping
     // ...
-    size_t stackUsage = ASTFunc_calcSizeUsage(func);
-    ASTFunc_printStackUsageDef(stackUsage);
+    size_t stackUsage = calcSizeUsage_func(func);
+    printStackUsageDef_func(stackUsage);
 
     printf(
         "#define DEFAULT_VALUE %s\n", getDefaultValueForType(func->returnSpec));
     if (!func->isExported) printf("static ");
     if (func->returnSpec) {
-        ASTTypeSpec_emit(func->returnSpec, level, false);
+        ast_typespec_emit(func->returnSpec, level, false);
     } else {
         printf("void");
     }
     printf(" %s(", func->selector);
-    foreachn(ASTVar*, arg, args, func->args) {
-        ASTVar_emit(arg, level, true);
+    foreachn(ast_var_t*, arg, args, func->args) {
+        emit_var(arg, level, true);
         printf(args->next ? ", " : "");
     }
 
@@ -746,20 +743,20 @@ static void ASTFunc_emit(ASTFunc* func, int level) {
     printf("    IFDEBUG(static const char* sig_ = \"");
     printf("%s%s(", func->isStmt ? "" : "function ", func->name);
 
-    foreachn(ASTVar*, arg, args, func->args) {
-        ASTVar_lint(arg, level);
+    foreachn(ast_var_t*, arg, args, func->args) {
+        format_var(arg, level);
         printf(args->next ? ", " : "");
     }
     printf(")");
     if (func->returnSpec) {
         printf(" as ");
-        ASTTypeSpec_lint(func->returnSpec, level);
+        ast_typespec_format(func->returnSpec, level);
     }
     puts("\");");
 
     puts(functionEntryStuff_UNESCAPED);
 
-    ASTScope_emit(func->body, level + STEP);
+    emit_scope(func->body, level + STEP);
 
     puts(functionExitStuff_UNESCAPED);
     puts("}\n#undef DEFAULT_VALUE");
@@ -767,17 +764,17 @@ static void ASTFunc_emit(ASTFunc* func, int level) {
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTFunc_genh(ASTFunc* func, int level) {
+static void genh_func(ast_func_t* func, int level) {
     if (!func->body || !func->analysed || func->isDeclare) return;
     if (!func->isExported) printf("static ");
     if (func->returnSpec) {
-        ASTTypeSpec_emit(func->returnSpec, level, false);
+        ast_typespec_emit(func->returnSpec, level, false);
     } else {
         printf("void");
     }
     printf(" %s(", func->selector);
-    foreachn(ASTVar*, arg, args, func->args) {
-        ASTVar_emit(arg, level, true);
+    foreachn(ast_var_t*, arg, args, func->args) {
+        emit_var(arg, level, true);
         printf(args->next ? ", " : "");
     }
     printf("\n#ifdef DEBUG\n    %c const char* callsite_\n#endif\n",
@@ -786,17 +783,17 @@ static void ASTFunc_genh(ASTFunc* func, int level) {
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static void ASTVar_genh(ASTVar* var, int level) {
+static void genh_var(ast_var_t* var, int level) {
     // if (! func->body or not func->analysed) return;
     // if (!func->isExported) printf("static ");
-    // if (var->typeSpec) {
+    // if (var->typespec) {
     if (!var->init) return;
 
-    ASTTypeSpec_emit(var->typeSpec, level, false);
+    ast_typespec_emit(var->typespec, level, false);
     // }
 
     printf(" %s = ", var->name);
-    ASTExpr_emit(var->init, 0);
+    emit_expr(var->init, 0);
 
     puts("");
 }
@@ -806,56 +803,56 @@ static void ASTVar_genh(ASTVar* var, int level) {
 //         { __VA_ARGS__ }                                                        \
 //     }
 
-// ASTFunc* decld = (ASTFunc[]) { { .name = "Oiunko",
+// ast_func_t* decld = (ast_func_t[]) { { .name = "Oiunko",
 //     .selector = "Oinko_uio_uyt",
 //     .line = 21,
-//     .args = (PtrList[]) { { .item = (ASTVar[1]) { { .name = "arg1" } } } },
-//     .isDeclare = 1,
-//     .isRecursive = 1 } };
+//     .args = (PtrList[]) { { .item = (ast_var_t[1]) { { .name = "arg1" } } }
+//     }, .isDeclare = 1, .isRecursive = 1 } };
 
-// ASTFunc* declc = MKEMB(ASTFunc, .name = "Oiunko", .selector =
+// ast_func_t* declc = MKEMB(ast_func_t, .name = "Oiunko", .selector =
 // "Oinko_uio_uyt",
 //     .line = 21,
-//     .args = MKEMB(PtrList, .item = MKEMB(ASTVar, .name = "arg1", .line =
+//     .args = MKEMB(PtrList, .item = MKEMB(ast_var_t, .name = "arg1", .line =
 //     6)));
 
 ////////////////////////////////////////////////////
-static void ASTTest_emit(ASTTest* test) // TODO: should tests not return BOOL?
+static void emit_test(ast_test_t* test) // TODO: should tests not return BOOL?
 {
     if (!test->body) return;
     printf("\nstatic void test_%s() {\n", test->name);
-    ASTScope_emit(test->body, STEP);
+    emit_scope(test->body, STEP);
     puts("}");
 }
 
 //_____________________________________________________________________________
 /// Emits the equivalent C code for a subscript (that has been resolved to
-/// its corresponding `ASTVariable`). This function does all of the heavy
+/// its corresponding `ast_variable_t`). This function does all of the heavy
 /// lifting to decide what the subscript actually does, based on the kind of the
 /// subscript expression, number of dimensions and the context.
-static void ASTExpr_emit_tkSubscriptResolved(ASTExpr* expr, int level) {
+static void emit_expr_tk_subscriptResolved(ast_expr_t* expr, int level) {
     char* name = expr->var->name;
-    ASTExpr* index = expr->left;
+    ast_expr_t* index = expr->left;
     assert(index);
     // index = index->right;
     switch (index->kind) {
-    case tkNumber: // indexing with a single number, can be a -ve number
-        printf("Array_get_%s(%s, %s)", ASTTypeSpec_cname(expr->var->typeSpec),
+    case tk_number: // indexing with a single number, can be a -ve number
+        printf("Array_get_%s(%s, %s)", ast_typespec_cname(expr->var->typespec),
             name, index->string);
         break;
 
-    case tkString:
-    case tkRawString: // indexing with single string or regex
+    case tk_string:
+    case tk_rawString: // indexing with single string or regex
         printf("Dict_get_CString_%s(%s, %s)",
-            ASTTypeSpec_cname(expr->var->typeSpec), name, index->string);
+            ast_typespec_cname(expr->var->typespec), name, index->string);
         break;
 
-    case tkOpComma: // higher dims. validation etc. has been done by this stage.
+    case tk_opComma: // higher dims. validation etc. has been done by this
+                     // stage.
 
         // this is for cases like arr[2, 3, 4].
-        printf("Tensor%dD_get_%s(%s, {", expr->var->typeSpec->dims,
-            ASTTypeSpec_cname(expr->var->typeSpec), name);
-        ASTExpr_emit(index, 0);
+        printf("Tensor%dD_get_%s(%s, {", expr->var->typespec->dims,
+            ast_typespec_cname(expr->var->typespec), name);
+        emit_expr(index, 0);
         printf("})");
 
         // TODO: cases like arr[2:3, 4:5, 1:end]
@@ -869,26 +866,26 @@ static void ASTExpr_emit_tkSubscriptResolved(ASTExpr* expr, int level) {
 
         break;
 
-    case tkOpColon:
+    case tk_opColon:
         // a single range.
-        printf("Array_getSlice_%s(%s, ", ASTTypeSpec_name(expr->var->typeSpec),
-            name);
-        ASTExpr_emit(index, 0);
+        printf(
+            "Array_getSlice_%s(%s, ", name_typespec(expr->var->typespec), name);
+        emit_expr(index, 0);
         printf(")");
         break;
         // what about mixed cases, e.g. arr[2:3, 5, 3:end]
         // make this portion a recursive function then, or promote
         // all indexes to ranges first and then let opcomma handle it
 
-    case tkOpEQ:
-    case tkOpLE:
-    case tkOpGE:
-    case tkOpGT:
-    case tkOpLT:
-    case tkOpNE:
-    case tkKeyword_and:
-    case tkKeyword_or:
-    case tkKeyword_not:
+    case tk_opEQ:
+    case tk_opLE:
+    case tk_opGE:
+    case tk_opGT:
+    case tk_opLT:
+    case tk_opNE:
+    case tk_keyword_and:
+    case tk_keyword_or:
+    case tk_keyword_not:
         // indexing by a Boolean expression (filter)
         // by default this implies a copy, but certain funcs e.g. print
         // min max sum count etc. can be done in-place without a copy
@@ -896,8 +893,8 @@ static void ASTExpr_emit_tkSubscriptResolved(ASTExpr* expr, int level) {
         // the user to call print(arr, filter = arr < 5) instead of
         // print(arr[arr < 5]), or the compiler to transform the second
         // into the first transparently.
-        // Probably the tkFunctionCall should check if its argument is
-        // a tkSubscript with a Boolean index, and then tip the user
+        // Probably the tk_functionCall should check if its argument is
+        // a tk_subscript with a Boolean index, and then tip the user
         // to call the optimised function instead (or just generate it).
         // For now, and in the absence of more context, this is a copy.
         // Array_copy_filter is implemented as a C macro for loop, as
@@ -908,42 +905,42 @@ static void ASTExpr_emit_tkSubscriptResolved(ASTExpr* expr, int level) {
         //    and then the generation will follow the modified AST.
         //    Don't handle this as a special case at the code generation
         //    stage.
-        printf("Array_copy_filter_%s(%s, ",
-            ASTTypeSpec_name(expr->var->typeSpec), name);
-        ASTExpr_emit(index, 0);
+        printf("Array_copy_filter_%s(%s, ", name_typespec(expr->var->typespec),
+            name);
+        emit_expr(index, 0);
         printf(")");
         break;
 
-    default: unreachable("bad kind: %s", TokenKind_names[expr->kind]); break;
+    default: unreachable("bad kind: %s", tokenkind_e_names[expr->kind]); break;
     }
 }
 
 //_____________________________________________________________________________
 /// Emits the equivalent C code for a function call (that has been resolved to
-/// its corresponding `ASTFunc`). Type constructors call a C function
+/// its corresponding `ast_func_t`). Type constructors call a C function
 /// that has `_new` appended to the type name. This function passes a
 /// constructed string as the extra argument `callsite_` that is used to
 /// generate accurate backtraces.
-static void ASTExpr_emit_tkFunctionCallResolved(ASTExpr* expr, int level) {
+static void emit_expr_tk_functionCallResolved(ast_expr_t* expr, int level) {
     char* tmp = expr->func->selector;
 
-    ASTExpr* arg1 = expr->left;
+    ast_expr_t* arg1 = expr->left;
     const char* tmpc = "";
     if (arg1) {
-        if (arg1->kind == tkOpComma) arg1 = arg1->left;
-        tmpc = CollectionType_nativeName(arg1->collectionType);
+        if (arg1->kind == tk_opComma) arg1 = arg1->left;
+        tmpc = collectiontype_e_nativeName(arg1->collectionType);
     }
     printf("%s%s", tmpc, tmp);
     if (*tmp >= 'A' && *tmp <= 'Z' && !strchr(tmp, '_')) printf("_new_");
     printf("(");
 
-    if (expr->left) ASTExpr_emit(expr->left, 0);
+    if (expr->left) emit_expr(expr->left, 0);
 
     if (!expr->func->isDeclare) {
         printf("\n#ifdef DEBUG\n"
                "      %c \"./\" THISFILE \":%d:%d:\\e[0m ",
             expr->left ? ',' : ' ', expr->line, expr->col);
-        ASTExpr_lint(expr, 0, false, true);
+        format_expr(expr, 0, false, true);
         printf("\"\n"
                "#endif\n        ");
     }
@@ -954,7 +951,7 @@ char* strchrnul(char* str, char ch) {
     while (*str && *str != ch) str++;
     return str;
 }
-static void astexpr_lineupmultilinestring(ASTExpr* expr, int indent) {
+static void lineupmultilinestring_expr(ast_expr_t* expr, int indent) {
     return;
     char* pos = expr->string;
     while (*(pos = strpbrk(pos, "\n"))) {
@@ -972,17 +969,17 @@ static void printmultilstr(char* pos) {
     } while (*pos);
 }
 
-static void ASTExpr_emit_tkString(ASTExpr* expr, int level) {
-    astexpr_lineupmultilinestring(expr, level + STEP);
+static void emit_expr_tk_string(ast_expr_t* expr, int level) {
+    lineupmultilinestring_expr(expr, level + STEP);
     if (!expr->vars) {
         printmultilstr(expr->string + 1);
     } else {
         char* pos = expr->string;
         // putc('"', stdout);
         char* last = pos;
-        ASTVar* v;
+        ast_var_t* v;
         PtrList* p = expr->vars;
-        ASTExpr* e = p->item;
+        ast_expr_t* e = p->item;
         printf("strinterp_h(64, ");
         while (*pos) {
             while (*pos && *pos != '$') pos++;
@@ -996,19 +993,19 @@ static void ASTExpr_emit_tkString(ASTExpr* expr, int level) {
             // l = pos - last;
             // eprintf("%.*s\n", l, last);
             if (e) {
-                while (e->kind == tkPeriod) e = e->right;
-                assert(e->kind == tkIdentifierResolved);
+                while (e->kind == tk_period) e = e->right;
+                assert(e->kind == tk_identifierResolved);
                 assert(e->var);
                 printf(
-                    "%s", TypeType_format(e->var->typeSpec->typeType, false));
+                    "%s", typetype_e_format(e->var->typespec->typeType, false));
                 last = pos;
                 e = ((p = p->next)) ? p->item : NULL;
             }
         }
         printf("\"");
-        foreach (ASTExpr*, e, expr->vars) {
+        foreach (ast_expr_t*, e, expr->vars) {
             printf(", ");
-            ASTExpr_emit(e, 0);
+            emit_expr(e, 0);
         }
         printf(")");
     }
@@ -1018,7 +1015,7 @@ static void ASTExpr_emit_tkString(ASTExpr* expr, int level) {
 /// Emits the equivalent C code for a (literal) numeric expression.
 /// Complex numbers follow C99 literal syntax, e.g. 1i generates
 /// `_Complex_I * 1`.
-static void ASTExpr_emit_tkNumber(ASTExpr* expr, int level) {
+static void emit_expr_tk_number(ast_expr_t* expr, int level) {
     size_t ls = CString_length(expr->string);
     if (expr->string[ls - 1] == 'i') {
         printf("_Complex_I*");
@@ -1027,26 +1024,26 @@ static void ASTExpr_emit_tkNumber(ASTExpr* expr, int level) {
     printf("%s", expr->string);
 }
 
-static void ASTExpr_emit_tkCheck(ASTExpr* expr, int level) {
+static void emit_expr_tk_check(ast_expr_t* expr, int level) {
     // TODO: need llhs and lrhs in case all 3 in 3way are exprs
     // e.g. check a+b < c+d < e+f
-    ASTExpr* checkExpr = expr->right; // now use checkExpr below
-    ASTExpr* lhsExpr = checkExpr->left;
-    ASTExpr* rhsExpr = checkExpr->right;
+    ast_expr_t* checkExpr = expr->right; // now use checkExpr below
+    ast_expr_t* lhsExpr = checkExpr->left;
+    ast_expr_t* rhsExpr = checkExpr->right;
     printf("{\n");
     if (!checkExpr->unary) {
-        printf("%.*s%s _lhs = ", level, spaces, ASTExpr_typeName(lhsExpr));
-        ASTExpr_emit(lhsExpr, 0);
+        printf("%.*s%s _lhs = ", level, spaces, typeName_expr(lhsExpr));
+        emit_expr(lhsExpr, 0);
         printf(";\n");
     }
-    printf("%.*s%s _rhs = ", level, spaces, ASTExpr_typeName(rhsExpr));
-    ASTExpr_emit(rhsExpr, 0);
+    printf("%.*s%s _rhs = ", level, spaces, typeName_expr(rhsExpr));
+    emit_expr(rhsExpr, 0);
     printf(";\n");
     printf("%.*sif (!(", level, spaces);
     // ----- use lhs rhs cached values instead of the expression
-    ASTExpr_emit(checkExpr, 0);
+    emit_expr(checkExpr, 0);
     // how are you doing to deal with x < y < z? Repeat all the logic of
-    // ASTExpr_emit?
+    // emit_expr?
     // ----------------------------------------------------------------
     // if (checkExpr->unary) {
     //     printf("_rhs");
@@ -1060,51 +1057,51 @@ static void ASTExpr_emit_tkCheck(ASTExpr* expr, int level) {
            "       "
            "   THISFILE, \"",
         level + STEP, spaces, expr->line, expr->col + 6);
-    ASTExpr_lint(checkExpr, 0, true, true);
+    format_expr(checkExpr, 0, true, true);
     printf("\");\n");
     printf("#ifdef DEBUG\n%.*sCHECK_HELP_OPEN;\n", level + STEP, spaces);
 
-    ASTExpr_genPrintVars(checkExpr, level + STEP);
+    genPrintVars_expr(checkExpr, level + STEP);
     // the `printed` flag on all vars of the expr will be set
     // (genPrintVars uses this to avoid printing the same var
     // twice). This should be unset after every toplevel call to
     // genPrintVars.
     if (!checkExpr->unary) {
         // dont print literals or arrays
-        if (lhsExpr->collectionType == CTYNone //
-            && lhsExpr->kind != tkString //
-            && lhsExpr->kind != tkNumber //
-            && lhsExpr->kind != tkRawString //
-            && lhsExpr->kind != tkOpLE //
-            && lhsExpr->kind != tkOpLT) {
+        if (lhsExpr->collectionType == cty_none //
+            && lhsExpr->kind != tk_string //
+            && lhsExpr->kind != tk_number //
+            && lhsExpr->kind != tk_rawString //
+            && lhsExpr->kind != tk_opLE //
+            && lhsExpr->kind != tk_opLT) {
 
-            if (lhsExpr->kind != tkIdentifierResolved
+            if (lhsExpr->kind != tk_identifierResolved
                 || !lhsExpr->var->visited) {
                 printf("%.*s%s", level + STEP, spaces, "printf(\"    %s = ");
-                printf("%s", TypeType_format(lhsExpr->typeType, true));
+                printf("%s", typetype_e_format(lhsExpr->typeType, true));
                 printf("%s", "\\n\", \"");
-                ASTExpr_lint(lhsExpr, 0, true, true);
+                format_expr(lhsExpr, 0, true, true);
                 printf("%s", "\", _lhs);\n");
             }
-            // checks can't have tkVarAssign inside them
+            // checks can't have tk_varAssign inside them
             // if ()
             //     lhsExpr->var->visited = true;
         }
     }
-    if (rhsExpr->collectionType == CTYNone //
-        && rhsExpr->kind != tkString //
-        && rhsExpr->kind != tkNumber //
-        && rhsExpr->kind != tkRawString) {
-        if (rhsExpr->kind != tkIdentifierResolved || !rhsExpr->var->visited) {
+    if (rhsExpr->collectionType == cty_none //
+        && rhsExpr->kind != tk_string //
+        && rhsExpr->kind != tk_number //
+        && rhsExpr->kind != tk_rawString) {
+        if (rhsExpr->kind != tk_identifierResolved || !rhsExpr->var->visited) {
             printf("%.*s%s", level + STEP, spaces, "printf(\"    %s = ");
-            printf("%s", TypeType_format(rhsExpr->typeType, true));
+            printf("%s", typetype_e_format(rhsExpr->typeType, true));
             printf("%s", "\\n\", \"");
-            ASTExpr_lint(rhsExpr, 0, true, true);
+            format_expr(rhsExpr, 0, true, true);
             printf("%s", "\", _rhs);\n");
         }
     }
 
-    ASTExpr_unmarkVisited(checkExpr);
+    unmarkVisited_expr(checkExpr);
 
     printf("%.*sCHECK_HELP_CLOSE;\n", level + STEP, spaces);
     printf("#else\n%.*sCHECK_HELP_DISABLED;\n", level + STEP, spaces);
@@ -1114,161 +1111,161 @@ static void ASTExpr_emit_tkCheck(ASTExpr* expr, int level) {
 ///////////////////////////////////////////////////////////////////////////
 /// This should be a standard dispatcher that does nothing except the
 /// actual dispatching (via a function pointer table, not a switch).
-static void ASTExpr_emit(ASTExpr* expr, int level) {
+static void emit_expr(ast_expr_t* expr, int level) {
     // generally an expr is not split over several lines (but maybe in
     // rare cases). so level is not passed on to recursive calls.
 
     printf("%.*s", level, spaces);
     switch (expr->kind) {
-    case tkNumber: ASTExpr_emit_tkNumber(expr, level); break;
+    case tk_number: emit_expr_tk_number(expr, level); break;
 
-    case tkKeyword_no: printf("no"); break;
-    case tkKeyword_yes: printf("yes"); break;
-    case tkKeyword_nil: printf("nil"); break;
+    case tk_keyword_no: printf("no"); break;
+    case tk_keyword_yes: printf("yes"); break;
+    case tk_keyword_nil: printf("nil"); break;
 
-    case tkMultiDotNumber:
-    case tkIdentifier: printf("%s", expr->string); break;
+    case tk_multiDotNumber:
+    case tk_identifier: printf("%s", expr->string); break;
 
-    case tkString: // TODO: parse vars inside, escape stuff, etc.
-        ASTExpr_emit_tkString(expr, level);
+    case tk_string: // TODO: parse vars inside, escape stuff, etc.
+        emit_expr_tk_string(expr, level);
         // printf(escStrings ? "\\%s\\\"" : "%s\"", expr->string);
         break;
 
-    case tkIdentifierResolved: printf("%s", expr->var->name); break;
+    case tk_identifierResolved: printf("%s", expr->var->name); break;
 
-    case tkRawString: // 'raw strings' or 'regexes'
+    case tk_rawString: // 'raw strings' or 'regexes'
         printf("\"%s\"", expr->string + 1);
         break;
 
-    case tkRegexp: // inline C code?
+    case tk_regexp: // inline C code?
         printf("%s", expr->string + 1);
         break;
 
-    case tkLineComment: // TODO: skip  comments in generated code
+    case tk_lineComment: // TODO: skip  comments in generated code
         printf("// %s", expr->string);
         break;
 
-    case tkFunctionCall:
+    case tk_functionCall:
         unreachable("unresolved call to '%s'\n", expr->string);
         break;
 
-    case tkFunctionCallResolved:
-        ASTExpr_emit_tkFunctionCallResolved(expr, level);
+    case tk_functionCallResolved:
+        emit_expr_tk_functionCallResolved(expr, level);
         break;
 
-    case tkSubscript:
+    case tk_subscript:
         unreachable("unresolved subscript on '%s'\n", expr->string);
         break;
 
-    case tkSubscriptResolved:
-        ASTExpr_emit_tkSubscriptResolved(expr, level);
+    case tk_subscriptResolved:
+        emit_expr_tk_subscriptResolved(expr, level);
         break;
 
-    case tkOpAssign:
-    case tkOpPlusEq:
-    case tkOpMinusEq:
-    case tkOpTimesEq:
-    case tkOpSlashEq:
-    case tkOpPowerEq:
-    case tkOpModEq:
+    case tk_opAssign:
+    case tk_opPlusEq:
+    case tk_opMinusEq:
+    case tk_opTimesEq:
+    case tk_opSlashEq:
+    case tk_opPowerEq:
+    case tk_opModEq:
 
         switch (expr->left->kind) {
-        case tkSubscriptResolved:
+        case tk_subscriptResolved:
             switch (expr->left->left->kind) {
-            case tkNumber:
-            case tkString:
-            case tkRawString:
-                // TODO: astexpr_typename should return Array_Scalar or
+            case tk_number:
+            case tk_string:
+            case tk_rawString:
+                // TODO: typename_expr should return Array_Scalar or
                 // Tensor2D_Scalar or Dict_String_Scalar etc.
-                printf("%s_set(%s, %s,%s, ", ASTExpr_typeName(expr->left),
+                printf("%s_set(%s, %s,%s, ", typeName_expr(expr->left),
                     expr->left->var->name, expr->left->left->string,
-                    TokenKind_srepr[expr->kind]);
-                ASTExpr_emit(expr->right, 0);
+                    tokenkind_e_srepr[expr->kind]);
+                emit_expr(expr->right, 0);
                 printf(")");
                 break;
 
-            case tkOpColon:
-                printf("%s_setSlice(%s, ", ASTExpr_typeName(expr->left),
+            case tk_opColon:
+                printf("%s_setSlice(%s, ", typeName_expr(expr->left),
                     expr->left->var->name);
-                ASTExpr_emit(expr->left->left, 0);
-                printf(",%s, ", TokenKind_srepr[expr->kind]);
-                ASTExpr_emit(expr->right, 0);
+                emit_expr(expr->left->left, 0);
+                printf(",%s, ", tokenkind_e_srepr[expr->kind]);
+                emit_expr(expr->right, 0);
                 printf(")");
                 break;
 
-            case tkOpEQ:
-            case tkOpGE:
-            case tkOpNE:
-            case tkOpGT:
-            case tkOpLE:
-            case tkOpLT:
-            case tkKeyword_and:
-            case tkKeyword_or:
-            case tkKeyword_not:
-                printf("%s_setFiltered(%s, ", ASTExpr_typeName(expr->left),
+            case tk_opEQ:
+            case tk_opGE:
+            case tk_opNE:
+            case tk_opGT:
+            case tk_opLE:
+            case tk_opLT:
+            case tk_keyword_and:
+            case tk_keyword_or:
+            case tk_keyword_not:
+                printf("%s_setFiltered(%s, ", typeName_expr(expr->left),
                     expr->left->var->name);
-                ASTExpr_emit(expr->left->left, 0);
-                printf(",%s, ", TokenKind_srepr[expr->kind]);
-                ASTExpr_emit(expr->right, 0);
+                emit_expr(expr->left->left, 0);
+                printf(",%s, ", tokenkind_e_srepr[expr->kind]);
+                emit_expr(expr->right, 0);
                 printf(")");
                 break;
 
-            case tkOpComma:
+            case tk_opComma:
                 // figure out the type of each element
                 // there should be a RangeND just like TensorND and
                 // SliceND then you can just pass that to _setSlice
                 break;
-            case tkIdentifierResolved:
+            case tk_identifierResolved:
                 // lookup the var type. note that it need not be Number,
                 // string, range etc. it could be an arbitrary object in
                 // case you are indexing a Dict with keys of that type.
                 break;
-            case tkSubscriptResolved:
+            case tk_subscriptResolved:
                 // arr[arr2[4]] etc.
                 break;
-            case tkFunctionCallResolved:
+            case tk_functionCallResolved:
                 // arr[func(x)]
                 break;
             default:
-                unreachable("%s\n", TokenKind_names[expr->left->kind]);
+                unreachable("%s\n", tokenkind_e_names[expr->left->kind]);
                 assert(0);
             }
             break;
-        case tkIdentifierResolved:
-        case tkPeriod:
-            ASTExpr_emit(expr->left, 0);
-            printf("%s", TokenKind_srepr[expr->kind]);
-            ASTExpr_emit(expr->right, 0);
+        case tk_identifierResolved:
+        case tk_period:
+            emit_expr(expr->left, 0);
+            printf("%s", tokenkind_e_srepr[expr->kind]);
+            emit_expr(expr->right, 0);
             break;
-        case tkIdentifier:
+        case tk_identifier:
             unreachable("unresolved var %s", expr->left->string);
             break;
-        case tkArgumentLabel:
+        case tk_argumentLabel:
             // assert(inFuncArgs);
-            ASTExpr_emit(expr->right, 0);
+            emit_expr(expr->right, 0);
             // function call arg label, do not generate ->left
             break;
-        case tkString: break;
+        case tk_string: break;
         default:
             // error: not a valid lvalue
             // TODO: you should at some point e,g, during resolution
             // check for assignments to invalid lvalues and raise an
             // error
             unreachable(
-                "found token kind %s\n", TokenKind_names[expr->left->kind]);
+                "found token kind %s\n", tokenkind_e_names[expr->left->kind]);
         }
         // if (! inFuncArgs) {
-        //     ASTExpr_emit(self->left, 0,
-        //     escStrings); printf("%s", TokenKind_repr(tkOpAssign,
+        //     emit_expr(self->left, 0,
+        //     escStrings); printf("%s", tokenkind_e_repr(tk_opAssign,
         //     spacing));
         // }
-        // ASTExpr_emit(self->right, 0,     escStrings);
+        // emit_expr(self->right, 0,     escStrings);
         // check various types of lhs  here, eg arr[9:87] = 0,
         // map["uuyt"]="hello" etc.
         break;
 
-    case tkArrayOpen:
-        // TODO: send parent ASTExpr* as an arg to this function. Then
+    case tk_arrayOpen:
+        // TODO: send parent ast_expr_t* as an arg to this function. Then
         // here do various things based on whether parent is a =,
         // funcCall, etc.
         if (!expr->right) {
@@ -1278,290 +1275,290 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
             // TODO: MKARR should be different based on the
             // CollectionType of the var or arg in question, eg stack
             // cArray, heap allocated Array, etc.
-            ASTExpr_emit(expr->right, 0);
+            emit_expr(expr->right, 0);
             printf("})");
-            printf(", %d)", ASTExpr_countCommaList(expr->right));
+            printf(", %d)", countCommaList_expr(expr->right));
         }
         break;
 
-    case tkBraceOpen: {
+    case tk_braceOpen: {
         const char* Ktype = "CString";
         const char* Vtype = "Real64";
         if (!expr->right)
             printf("Dict_init(%s,%s)()", Ktype, Vtype); // FIXME
         else {
             printf("Dict_make(%s,%s)(%d, (%s[]){", Ktype, Vtype,
-                ASTExpr_countCommaList(expr->right), Ktype); // FIXME
+                countCommaList_expr(expr->right), Ktype); // FIXME
 
-            ASTExpr* p = expr->right;
-            while (p && p->kind == tkOpComma) {
-                ASTExpr_emit(p->left->left, 0);
+            ast_expr_t* p = expr->right;
+            while (p && p->kind == tk_opComma) {
+                emit_expr(p->left->left, 0);
                 printf(", ");
                 p = p->right;
             };
-            ASTExpr_emit(p->left, 0);
+            emit_expr(p->left, 0);
             printf("}, (%s[]){", Vtype);
             p = expr->right;
-            while (p && p->kind == tkOpComma) {
-                ASTExpr_emit(p->left->right, 0);
+            while (p && p->kind == tk_opComma) {
+                emit_expr(p->left->right, 0);
                 printf(", ");
                 p = p->right;
             };
-            ASTExpr_emit(p->right, 0);
+            emit_expr(p->right, 0);
             printf("})");
         }
     } break;
 
-    case tkOpColon: // convert 3:4:5 to range(...)
-                    // must do bounds check first!
+    case tk_opColon: // convert 3:4:5 to range(...)
+                     // must do bounds check first!
         printf(
-            "%s(", expr->left->kind != tkOpColon ? "range_to" : "range_to_by");
-        if (expr->left->kind == tkOpColon) {
-            expr->left->kind = tkOpComma;
-            ASTExpr_emit(expr->left, 0);
-            expr->left->kind = tkOpColon;
+            "%s(", expr->left->kind != tk_opColon ? "range_to" : "range_to_by");
+        if (expr->left->kind == tk_opColon) {
+            expr->left->kind = tk_opComma;
+            emit_expr(expr->left, 0);
+            expr->left->kind = tk_opColon;
         } else
-            ASTExpr_emit(expr->left, 0);
+            emit_expr(expr->left, 0);
         printf(", ");
-        ASTExpr_emit(expr->right, 0);
+        emit_expr(expr->right, 0);
         printf(")");
         break;
 
-    case tkVarAssign: // basically a tkOpAssign corresponding to a local
-                      // var
-        // var x as XYZ = abc... -> becomes an ASTVar and an
-        // ASTExpr (to keep location). Send it to ASTVar::gen.
+    case tk_varAssign: // basically a tk_opAssign corresponding to a local
+                       // var
+        // var x as XYZ = abc... -> becomes an ast_var_t and an
+        // ast_expr_t (to keep location). Send it to ast_var_t::gen.
         if (expr->var->init != NULL && expr->var->used) {
             printf("%s = ", expr->var->name);
-            ASTExpr_emit(expr->var->init, 0);
+            emit_expr(expr->var->init, 0);
         } else {
             printf("/* %s %s at line %d */", expr->var->name,
                 expr->var->used ? "null" : "unused", expr->line);
         }
         break;
 
-    case tkKeyword_else:
+    case tk_keyword_else:
         puts("else {");
-        if (expr->body) ASTScope_emit(expr->body, level + STEP);
+        if (expr->body) emit_scope(expr->body, level + STEP);
         printf("%.*s}", level, spaces);
         break;
 
-    case tkKeyword_elif:
+    case tk_keyword_elif:
         puts("else if (");
-        ASTExpr_emit(expr->left, 0);
+        emit_expr(expr->left, 0);
         puts(") {");
-        if (expr->body) ASTScope_emit(expr->body, level + STEP);
+        if (expr->body) emit_scope(expr->body, level + STEP);
         printf("%.*s}", level, spaces);
         break;
 
-    case tkKeyword_match: {
-        // char* typeName = ASTExpr_typeName(expr->left);
+    case tk_keyword_match: {
+        // char* typeName = typeName_expr(expr->left);
         // if (!typeName)
         //     unreachable(
         //         "unresolved type during emit at %d:%d", expr->line,
         //         expr->col);
-        // if (expr->left->typeType == TYObject)
-        //     typeName = ASTExpr_typeName(expr->left);
-        printf("{%s __match_cond = ", ASTExpr_typeName(expr->left));
-        ASTExpr_emit(expr->left, 0);
-        if (expr->left->typeType > TYInt8
-            || (expr->left->typeType == TYObject
-                && ASTExpr_getObjectType(expr->left)->isEnum))
+        // if (expr->left->typeType == ty_object)
+        //     typeName = typeName_expr(expr->left);
+        printf("{%s __match_cond = ", typeName_expr(expr->left));
+        emit_expr(expr->left, 0);
+        if (expr->left->typeType > ty_int8
+            || (expr->left->typeType == ty_object
+                && getObjectType_expr(expr->left)->isEnum))
             puts("; switch (__match_cond) {");
         else
             puts("; { if (0) {}"); // the case will add 'else if's
         // puts(") {");
-        if (expr->body) ASTScope_emit(expr->body, level);
+        if (expr->body) emit_scope(expr->body, level);
         printf("%.*s}}", level, spaces);
         break;
     }
 
         /*
-        This is how you walk a ASTExpr that is a tkOpComma (left to right):
+        This is how you walk a ast_expr_t that is a tk_opComma (left to right):
             process(cond->left);
-            while (cond->right->kind == tkOpComma)
+            while (cond->right->kind == tk_opComma)
                 cond = cond->right, process(cond->left);
             process(cond->right);
         */
 
-        // void pro(ASTExpr * c) { }
+        // void pro(ast_expr_t * c) { }
         // TODO: generally all comma exprs should be handled like this
         // iteratively. What if you have a large array with lots of items?
         // recursion will blow the stack
-    case tkKeyword_case: {
+    case tk_keyword_case: {
         // TODO: maybe make this a macro
-        ASTExpr* cond = expr->left;
-        if (cond->kind == tkOpComma) {
-            if (cond->typeType > TYInt8
-                || (cond->typeType == TYObject && ASTExpr_getEnumType(cond))) {
+        ast_expr_t* cond = expr->left;
+        if (cond->kind == tk_opComma) {
+            if (cond->typeType > ty_int8
+                || (cond->typeType == ty_object && getEnumType_expr(cond))) {
                 printf("case "); // match has handled the cond with a 'switch'
-                ASTExpr_emit(cond->left, 0);
+                emit_expr(cond->left, 0);
                 printf(": ");
-                while (cond->right->kind == tkOpComma) {
+                while (cond->right->kind == tk_opComma) {
                     cond = cond->right;
                     printf("case ");
-                    ASTExpr_emit(cond->left, 0);
+                    emit_expr(cond->left, 0);
                     printf(": ");
                 }
                 printf("case ");
-                ASTExpr_emit(cond->right, 0);
+                emit_expr(cond->right, 0);
                 puts(": {");
-            } else if (cond->typeType == TYString) {
+            } else if (cond->typeType == ty_string) {
                 printf("else if (!strcmp(__match_cond, ");
-                ASTExpr_emit(cond->left, 0);
+                emit_expr(cond->left, 0);
                 printf(")");
-                while (cond->right->kind == tkOpComma) {
+                while (cond->right->kind == tk_opComma) {
                     cond = cond->right;
                     printf(" || !strcmp(__match_cond, ");
-                    ASTExpr_emit(cond->left, 0);
+                    emit_expr(cond->left, 0);
                     printf(")");
                 }
                 printf(" || !strcmp(__match_cond, ");
-                ASTExpr_emit(cond->right, 0);
+                emit_expr(cond->right, 0);
                 puts(")) do {");
             } else {
                 printf("else if (__match_cond == ");
-                ASTExpr_emit(cond->left, 0);
-                while (cond->right->kind == tkOpComma) {
+                emit_expr(cond->left, 0);
+                while (cond->right->kind == tk_opComma) {
                     cond = cond->right;
                     printf(" || __match_cond == (");
-                    ASTExpr_emit(cond->left, 0);
+                    emit_expr(cond->left, 0);
                 }
-                ASTExpr_emit(cond->right, 0);
+                emit_expr(cond->right, 0);
                 puts(")) do {");
             };
 
         } else {
-            if (cond->typeType > TYInt8
-                || (cond->typeType == TYObject && ASTExpr_getEnumType(cond))) {
+            if (cond->typeType > ty_int8
+                || (cond->typeType == ty_object && getEnumType_expr(cond))) {
                 printf("case "); // match has handled the cond with a 'switch'
-                ASTExpr_emit(cond, 0);
+                emit_expr(cond, 0);
                 puts(": {");
-            } else if (cond->typeType == TYString) {
+            } else if (cond->typeType == ty_string) {
                 printf("else if (!strcmp(__match_cond, ");
-                ASTExpr_emit(cond, 0);
+                emit_expr(cond, 0);
                 puts(")) do {");
             } else {
                 printf("else if (__match_cond == (");
-                ASTExpr_emit(cond, 0);
+                emit_expr(cond, 0);
                 puts(")) do {");
             };
         };
-        if (expr->body) ASTScope_emit(expr->body, level);
+        if (expr->body) emit_scope(expr->body, level);
         printf("%.*s}", level, spaces);
-        if (cond->typeType > TYInt8
-            || (cond->typeType == TYObject && ASTExpr_getEnumType(cond)))
+        if (cond->typeType > ty_int8
+            || (cond->typeType == ty_object && getEnumType_expr(cond)))
             printf(" break");
         else
             printf(" while(0)");
         break;
     }
-    case tkKeyword_for:
-    case tkKeyword_if:
-        //    case tkKeyword_elif:
-        //    case tkKeyword_else:
-    case tkKeyword_while:
-        if (expr->kind == tkKeyword_for)
+    case tk_keyword_for:
+    case tk_keyword_if:
+        //    case tk_keyword_elif:
+        //    case tk_keyword_else:
+    case tk_keyword_while:
+        if (expr->kind == tk_keyword_for)
             printf("FOR(");
         else
-            printf("%s (", TokenKind_srepr[expr->kind]);
-        if (expr->kind == tkKeyword_for) expr->left->kind = tkOpComma;
-        if (expr->left) ASTExpr_emit(expr->left, 0);
-        if (expr->kind == tkKeyword_for) expr->left->kind = tkOpAssign;
+            printf("%s (", tokenkind_e_srepr[expr->kind]);
+        if (expr->kind == tk_keyword_for) expr->left->kind = tk_opComma;
+        if (expr->left) emit_expr(expr->left, 0);
+        if (expr->kind == tk_keyword_for) expr->left->kind = tk_opAssign;
         puts(") {");
-        if (expr->body) ASTScope_emit(expr->body, level + STEP);
+        if (expr->body) emit_scope(expr->body, level + STEP);
         printf("%.*s}", level, spaces);
         break;
 
-    case tkOpPower:
+    case tk_opPower:
         printf("pow(");
-        ASTExpr_emit(expr->left, 0);
+        emit_expr(expr->left, 0);
         printf(",");
-        ASTExpr_emit(expr->right, 0);
+        emit_expr(expr->right, 0);
         printf(")");
         break;
 
-    case tkKeyword_return:
+    case tk_keyword_return:
         printf("{_err_ = NULL; STACKDEPTH_DOWN; return ");
-        if (expr->right) ASTExpr_emit(expr->right, 0);
+        if (expr->right) emit_expr(expr->right, 0);
         printf(";}\n");
         break;
 
-    case tkKeyword_check: ASTExpr_emit_tkCheck(expr, 0); break;
+    case tk_keyword_check: emit_expr_tk_check(expr, 0); break;
 
-    case tkPeriod:
-        ASTExpr_emit(expr->left, 0);
-        if (expr->left->typeType == TYObject
-            && ASTExpr_getObjectType(expr->left)->isEnum)
+    case tk_period:
+        emit_expr(expr->left, 0);
+        if (expr->left->typeType == ty_object
+            && getObjectType_expr(expr->left)->isEnum)
             printf("_");
         else
             printf("->"); // may be . if right is embedded and not a
                           // reference
-        ASTExpr_emit(expr->right, 0);
+        emit_expr(expr->right, 0);
         break;
 
-    case tkKeyword_notin: printf("!"); fallthrough;
-    case tkKeyword_in:
+    case tk_keyword_notin: printf("!"); fallthrough;
+    case tk_keyword_in:
         // the RHS should be dims==1 or another kind of collection, you should
         // have checked it in the analysis phase.
         switch (expr->right->kind) {
-        case tkArrayOpen:
-            if (expr->right->right->kind == tkOpColon)
+        case tk_arrayOpen:
+            if (expr->right->right->kind == tk_opColon)
                 goto inRangeOp; // x in [a:b]
             // now its a literal array. that makes it easy, you can either call
             // isin() or the macro ISIN() if you have relatively few items in
             // the array.
 
             {
-                int c = ASTExpr_countCommaList(expr->right->right);
+                int c = countCommaList_expr(expr->right->right);
                 // if (c <= 64) {
                 // TODO: ISIN/isin must be specialized for types other than
                 // int. in particular strings cannot be used yet
                 printf("%s(%d, ", c <= 64 ? "ISIN" : "isin", c);
-                ASTExpr_emit(expr->left, 0);
+                emit_expr(expr->left, 0);
                 printf(", ");
-                ASTExpr_emit(expr->right->right, 0);
+                emit_expr(expr->right->right, 0);
                 printf(")");
                 // }
             }
 
             break;
-        case tkSubscript:
+        case tk_subscript:
             // maybe slice or something
             break;
-        case tkOpColon: // x in a:b
+        case tk_opColon: // x in a:b
         inRangeOp:
             break;
         default:
             unreachable("inside in operator: rhs is %s",
-                TokenKind_repr[expr->right->kind]);
+                tokenkind_e_repr[expr->right->kind]);
             // for anything else, figure it out.
         }
         break;
 
-    case tkOpEQ:
-    case tkOpNE:
-    case tkOpGE:
-    case tkOpLE:
-    case tkOpGT:
-    case tkOpLT:
-        if ((expr->kind == tkOpLE || expr->kind == tkOpLT)
-            && (expr->left->kind == tkOpLE | expr->left->kind == tkOpLT)) {
-            printf("%s_cmp3way_%s_%s(", ASTExpr_typeName(expr->left->right),
-                TokenKind_ascrepr(expr->kind, false),
-                TokenKind_ascrepr(expr->left->kind, false));
-            ASTExpr_emit(expr->left->left, 0);
+    case tk_opEQ:
+    case tk_opNE:
+    case tk_opGE:
+    case tk_opLE:
+    case tk_opGT:
+    case tk_opLT:
+        if ((expr->kind == tk_opLE || expr->kind == tk_opLT)
+            && (expr->left->kind == tk_opLE | expr->left->kind == tk_opLT)) {
+            printf("%s_cmp3way_%s_%s(", typeName_expr(expr->left->right),
+                tokenkind_e_ascrepr(expr->kind, false),
+                tokenkind_e_ascrepr(expr->left->kind, false));
+            emit_expr(expr->left->left, 0);
             printf(", ");
-            ASTExpr_emit(expr->left->right, 0);
+            emit_expr(expr->left->right, 0);
             printf(", ");
-            ASTExpr_emit(expr->right, 0);
+            emit_expr(expr->right, 0);
             printf(")");
             break;
-        } else if (expr->right->typeType == TYString) {
-            printf("CString_cmp(%s, ", TokenKind_srepr[expr->kind]);
-            ASTExpr_emit(expr->left, 0);
+        } else if (expr->right->typeType == ty_string) {
+            printf("CString_cmp(%s, ", tokenkind_e_srepr[expr->kind]);
+            emit_expr(expr->left, 0);
             printf(", ");
-            ASTExpr_emit(expr->right, 0);
+            emit_expr(expr->right, 0);
             printf(")");
             break;
         }
@@ -1572,28 +1569,28 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
         bool leftBr
             = expr->left && expr->left->prec && expr->left->prec < expr->prec;
         bool rightBr = expr->right && expr->right->prec
-            && expr->right->kind != tkKeyword_return
+            && expr->right->kind != tk_keyword_return
             && expr->right->prec < expr->prec;
         // found in 'or return'
 
         char lpo = '(';
         char lpc = ')';
         if (leftBr) putc(lpo, stdout);
-        if (expr->left) ASTExpr_emit(expr->left, 0);
+        if (expr->left) emit_expr(expr->left, 0);
         if (leftBr) putc(lpc, stdout);
 
-        if (expr->kind == tkArrayOpen)
+        if (expr->kind == tk_arrayOpen)
             putc('{', stdout);
         else
-            printf("%s", TokenKind_srepr[expr->kind]);
+            printf("%s", tokenkind_e_srepr[expr->kind]);
 
         char rpo = '(';
         char rpc = ')';
         if (rightBr) putc(rpo, stdout);
-        if (expr->right) ASTExpr_emit(expr->right, 0);
+        if (expr->right) emit_expr(expr->right, 0);
         if (rightBr) putc(rpc, stdout);
 
-        if (expr->kind == tkArrayOpen) putc('}', stdout);
+        if (expr->kind == tk_arrayOpen) putc('}', stdout);
     }
 }
 
@@ -1629,78 +1626,78 @@ static void ASTExpr_emit(ASTExpr* expr, int level) {
 //     "            fprintf(fd,\"         ~ |\\n\");\n"
 //     "    }\n"
 //     "    fclose(fd);\n"
-//     "    system(\"paste -d ' ' .\" THISFILE \"r \" THISFILE \" > \" "
+//     "    system(\"past_e -d ' ' .\" THISFILE \"r \" THISFILE \" > \" "
 //     "THISFILE "
 //     "\"r\" );"
 //     "}\n"
-//     "static void lineprofile_begin() {_lprof_last_=getticks();}\n"
+//     "static void lineprofile_begin() {_lprof_last__=getticks();}\n"
 // };
 ///////////////////////////////////////////////////////////////////////////
 // TODO: why do you need to pass level here?
 
-void ASTType_genTypeInfoDecls(ASTType* type);
-void ASTType_genTypeInfoDefs(ASTType* type);
-void ASTType_genNameAccessors(ASTType* type);
-static void ASTModule_emit(ASTModule* module) {
+void genTypeInfoDecls_type(ast_type_t* type);
+void genTypeInfoDefs_type(ast_type_t* type);
+void genNameAccessors_type(ast_type_t* type);
+static void emit_module(ast_module_t* module) {
     // puts("");
-    foreach (ASTImport*, import, module->imports)
-        ASTImport_emit(import, 0);
+    foreach (ast_import_t*, import, module->imports)
+        emit_import(import, 0);
 
     puts("");
 
-    foreach (ASTVar*, var, module->scope->locals)
-        if (var->used) ASTVar_genh(var, 0);
+    foreach (ast_var_t*, var, module->scope->locals)
+        if (var->used) genh_var(var, 0);
 
-    foreach (ASTType*, type, module->enums) {
+    foreach (ast_type_t*, type, module->enums) {
         if (type->body && type->analysed) {
-            ASTEnum_genh(type, 0);
-            // ASTType_genTypeInfoDecls(type);
+            genh_enum(type, 0);
+            // genTypeInfoDecls_type(type);
         }
     }
 
-    foreach (ASTType*, type, module->types) {
+    foreach (ast_type_t*, type, module->types) {
         if (type->body && type->analysed) {
-            ASTType_genh(type, 0);
-            ASTType_genTypeInfoDecls(type);
+            genh_type(type, 0);
+            genTypeInfoDecls_type(type);
         }
     }
-    foreach (ASTFunc*, func, module->funcs) {
-        if (func->body && func->analysed) { ASTFunc_genh(func, 0); }
+    foreach (ast_func_t*, func, module->funcs) {
+        if (func->body && func->analysed) { genh_func(func, 0); }
     }
 
-    foreach (ASTType*, type, module->types) {
+    foreach (ast_type_t*, type, module->types) {
         if (type->body && type->analysed) {
-            // foreach (ASTExpr*, expr, type->body->stmts)
-            //     ASTExpr_prepareInterp(expr, type->body);
-            // ^ MOVE THIS INTO ASTType_emit
-            ASTType_emit(type, 0);
-            ASTType_genTypeInfoDefs(type);
-            ASTType_genNameAccessors(type);
+            // foreach (ast_expr_t*, expr, type->body->stmts)
+            //     prepareInterp_expr(expr, type->body);
+            // ^ MOVE THIS INTO emit_type
+            emit_type(type, 0);
+            genTypeInfoDefs_type(type);
+            genNameAccessors_type(type);
         }
     }
-    foreach (ASTFunc*, func, module->funcs) {
+    foreach (ast_func_t*, func, module->funcs) {
         if (func->body && func->analysed) {
-            // foreach (ASTExpr*, expr, func->body->stmts) {
-            //     ASTExpr_prepareInterp(parser,expr, func->body);
+            // foreach (ast_expr_t*, expr, func->body->stmts) {
+            //     prepareInterp_expr(parser,expr, func->body);
             // }
-            // ^ MOVE THIS INTO ASTFunc_emit
-            ASTFunc_emit(func, 0);
+            // ^ MOVE THIS INTO emit_func
+            emit_func(func, 0);
         }
     }
-    foreach (ASTImport*, import, module->imports)
-        ASTImport_undefc(import);
+    foreach (ast_import_t*, import, module->imports)
+        undefc_import(import);
 
     // puts(coverageFunc[genCoverage]);
     // puts(lineProfileFunc[genLineProfile]);
 }
 
-static void ASTModule_genTests(ASTModule* module) {
-    ASTModule_emit(module);
-    foreach (ASTTest*, test, module->tests)
-        ASTTest_emit(test);
+static void genTests_module(ast_module_t* module) {
+    emit_module(module);
+    foreach (ast_test_t*, test, module->tests)
+        emit_test(test);
     // generate a func that main will call
     printf("\nvoid tests_run_%s() {\n", module->name);
-    foreach (ASTTest*, test, module->tests)
+    foreach (ast_test_t*, test, module->tests)
         printf("    test_%s();\n", test->name);
     puts("}");
 }
@@ -1708,18 +1705,18 @@ static void ASTModule_genTests(ASTModule* module) {
 // Generates a couple of functions that allow setting an integral member
 // of a type at runtime by name, or getting a pointer to a member by
 // name.
-void ASTType_genNameAccessors(ASTType* type) {
+void genNameAccessors_type(ast_type_t* type) {
     // TODO: instead of a linear search over all members this should
     // generate a switch for checking using a prefix tree -> see
     // genrec.c
     if (!type->analysed || type->isDeclare) return;
-    // ASTType_genMemberRecognizer( type, "Int64 value",  )
+    // genMemberRecognizer_type( type, "Int64 value",  )
 
     printf("static void* %s__memberNamed(%s self, const char* name) {\n",
         type->name, type->name);
 
     // TODO: skip bitfield members in this loop or it wont compile
-    foreach (ASTVar*, var, type->body->locals) /*if (var->used) */ //
+    foreach (ast_var_t*, var, type->body->locals) /*if (var->used) */ //
         printf("    if (CString_equals(name, \"%s\")) return "
                "&(self->%s);\n",
             var->name, var->name);
@@ -1730,38 +1727,38 @@ void ASTType_genNameAccessors(ASTType* type) {
            "Int64 "
            "value) {\n",
         type->name, type->name);
-    foreach (ASTVar*, var, type->body->locals) // if (var->used) //
-        if (var->typeSpec->typeType >= TYBool
-            && var->typeSpec->typeType <= TYReal64)
+    foreach (ast_var_t*, var, type->body->locals) // if (var->used) //
+        if (var->typespec->typeType >= ty_bool
+            && var->typespec->typeType <= ty_real64)
             printf("    if (CString_equals(name, \"%s\"))  {self->%s = "
                    "*(%s*) "
                    "&value;return;}\n",
-                var->name, var->name, ASTTypeSpec_cname(var->typeSpec));
+                var->name, var->name, ast_typespec_cname(var->typespec));
     printf("}\n");
 }
 
 // Generates some per-type functions that write out meta info of the
 // type to be used for reflection, serialization, etc.
-void ASTType_genTypeInfoDecls(ASTType* type) {
+void genTypeInfoDecls_type(ast_type_t* type) {
     if (!type->analysed || type->isDeclare) return;
 
     printf("static const char* const %s__memberNames[] = {\n    ", type->name);
     if (type->body) //
-        foreachn(ASTVar*, var, varn, type->body->locals) {
+        foreachn(ast_var_t*, var, varn, type->body->locals) {
             if (!var || !var->used) continue;
             printf("\"%s\", ", var->name);
-            // ASTVar_emit(var, level + STEP, false);
+            // emit_var(var, level + STEP, false);
         }
     printf("};\n");
 }
 
-void ASTType_genTypeInfoDefs(ASTType* type) {
+void genTypeInfoDefs_type(ast_type_t* type) {
     // printf("static const char* const %s__memberNames[] = {\n",
-    // type->name); foreachn(ASTVar*, var, varn, type->body->locals)
+    // type->name); foreachn(ast_var_t*, var, varn, type->body->locals)
     // {
     //     if (! var) continue;
     //     printf("\"%s\",\n", var->name);
-    //     // ASTVar_emit(var, level + STEP, false);
+    //     // emit_var(var, level + STEP, false);
     //     printf("}; \\\n");
     // }
 }

@@ -6,7 +6,7 @@ typedef struct Pool {
     UInt32 used, usedTotal; // used BYTES, unlike in Array!
 } Pool;
 
-monostatic void* Pool_alloc(Pool* self, size_t reqd) {
+jet_static void* Pool_alloc(Pool* self, size_t reqd) {
     void* ans = NULL;
     // printf("asked for %zu B\n", reqd);
 
@@ -39,7 +39,7 @@ typedef union {
 } SmallPtr;
 
 // returns a "SmallPtr"
-monostatic SmallPtr Pool_allocs(Pool* self, size_t reqd) {
+jet_static SmallPtr Pool_allocs(Pool* self, size_t reqd) {
     SmallPtr ans = {};
 
     // This is a pool for single objects, not arrays or large strings.
@@ -62,19 +62,19 @@ monostatic SmallPtr Pool_allocs(Pool* self, size_t reqd) {
     return ans;
 }
 
-monostatic void* Pool_deref(Pool* self, SmallPtr sptr) {
+jet_static void* Pool_deref(Pool* self, SmallPtr sptr) {
     return sptr.id ? self->ptrs.ref[sptr.id - 1] + sptr.ptr
                    : self->ref + sptr.ptr;
 }
 
-monostatic void Pool_free(Pool* self) {
+jet_static void Pool_free(Pool* self) {
     // TODO: reset used here?
     if (self->cap) free(self->ref);
     for (int i = 0; i < self->ptrs.used; i++) free(self->ptrs.ref[i]);
 }
 
-monostatic Pool gPool[1] = {};
-monostatic Pool sPool[1] = {};
+jet_static Pool gPool[1] = {};
+jet_static Pool sPool[1] = {};
 
 #ifndef NDEBUG
 #define NEW(T) (T##_allocTotal++, (T*)Pool_alloc(gPool, sizeof(T)));

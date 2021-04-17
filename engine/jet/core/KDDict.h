@@ -25,30 +25,30 @@ static size_t __totCallocB, __totMallocB;
 static int __totCalloc, __totMalloc;
 const int POINTS_PER_LEAF = 24; // MIN(POW2(DIMS), 8);
 
-typedef struct KDDictNode {
+typedef struct kddict_node_t {
     int isleaf; // GET THIS OUT HOWEVER
     uint64_t threshold[DIMS];
-    struct KDDictNode* child[POW2(DIMS)];
-} KDDictNode;
+    struct kddict_node_t* child[POW2(DIMS)];
+} kddict_node_t;
 
-typedef struct KDDictLeaf {
+typedef struct kddict_leaf_t {
     int isleaf, npoints; // GET THIS OUT HOWEVER
     uint64_t hash[POINTS_PER_LEAF][DIMS];
     void* keys[POINTS_PER_LEAF][DIMS];
     void* value[POINTS_PER_LEAF];
 
-} KDDictLeaf;
+} kddict_leaf_t;
 
-typedef struct KDDict {
-    KDDictNode root[2];
+typedef struct kddict_t {
+    kddict_node_t root[2];
     int count;
     uint64_t (*hash)(void*);
     uint64_t (*equal)(void*, void*);
-} KDDict;
+} kddict_t;
 
-MKSTAT(KDDictNode);
-MKSTAT(KDDictLeaf);
-MKSTAT(KDDict);
+MKSTAT(kddict_node_t);
+MKSTAT(kddict_leaf_t);
+MKSTAT(kddict_t);
 
 #define UPDATE_DIR(dir, dirInDim)                                              \
     dir = 0;                                                                   \
@@ -57,15 +57,15 @@ MKSTAT(KDDict);
         dir |= dirInDim[i];                                                    \
     }
 
-static void addEntry(KDDict* dict, void* keys[DIMS], void* value) {
-    KDDictNode* node = dict->root; // the first, so skipping &[0]
+static void addEntry(kddict_t* dict, void* keys[DIMS], void* value) {
+    kddict_node_t* node = dict->root; // the first, so skipping &[0]
     int dirInDim[DIMS], dir;
     uint64_t hash[DIMS];
     for_to(i, DIMS) hash[i] = dict->hash(keys[i]);
 
     UPDATE_DIR(dir, dirInDim)
 
-    KDDictNode* parent = NULL;
+    kddict_node_t* parent = NULL;
     while (node->child[dir] && !node->child[dir]->isleaf) {
         parent = node;
         node = node->child[dir];
@@ -74,22 +74,22 @@ static void addEntry(KDDict* dict, void* keys[DIMS], void* value) {
 
     // now the child is either NULL or a leaf (i.e. has points)
     if (!node->child[dir]) {
-        node->child[dir] = NEW(KDDictLeaf);
+        node->child[dir] = NEW(kddict_leaf_t);
         node->child[dir]->isleaf = 1;
     }
 
     // now the child must be a leaf
-    KDDictLeaf* child = node->child[dir];
+    kddict_leaf_t* child = node->child[dir];
 
     if (child->npoints == POINTS_PER_LEAF) {
-        KDDictLeaf tmp = *child;
+        kddict_leaf_t tmp = *child;
         // memcpy(points, child->points, sizeof(KDTreePoint*) *
         // POINTS_PER_LEAF);
 
-        KDDictNode* newChild = NEW(KDDictNode);
+        kddict_node_t* newChild = NEW(kddict_node_t);
         node->child[dir] = newChild;
 
-        *child = (KDDictLeaf) {};
+        *child = (kddict_leaf_t) {};
         newChild->child[dir] = child;
         newChild->child[dir]->isleaf = 1;
 
@@ -147,10 +147,10 @@ static void addEntry(KDDict* dict, void* keys[DIMS], void* value) {
     // return NULL;
 }
 
-// static void removePoint(KDDictNode* node, KDTreePoint* point) { }
+// static void removePoint(kddict_node_t* node, KDTreePoint* point) { }
 
-static void* lookup(KDDict* dict, void* keys[DIMS]) {
-    KDDictNode* node = dict->root;
+static void* lookup(kddict_t* dict, void* keys[DIMS]) {
+    kddict_node_t* node = dict->root;
     uint64_t hash[DIMS];
     for_to(i, DIMS) hash[i] = dict->hash(keys[i]);
 
@@ -163,10 +163,10 @@ static void* lookup(KDDict* dict, void* keys[DIMS]) {
     // actually you shouldn't expect to find a NULL leaf here.
     if (!node) return NULL;
 
-    KDDictLeaf* holder = node;
+    kddict_leaf_t* holder = node;
     for_to(i, holder->npoints) {
-        for_to(j, DIMS) if (holder->hash[i][j] != hash[j]) goto skip;
-        for_to(j, DIMS) //
+        for_to_where(j, DIMS, holder->hash[i][j] != hash[j]) goto skip;
+        for_to_where(j, DIMS) //
             if (!dict->equal(holder->keys[i][j], keys[j])) goto skip;
 
         return holder->value[i];
@@ -179,14 +179,14 @@ static void* lookup(KDDict* dict, void* keys[DIMS]) {
 static const char* const spc = "                                            ";
 static const int levStep = 2;
 
-static void printDotRec(FILE* f, KDDictNode* node) {
+static void printDotRec(FILE* f, kddict_node_t* node) {
     for_to(i, POW2(DIMS)) {
         int dirInDim[DIMS];
         for_to(j, DIMS) dirInDim[j] = i & (1 << j);
 
         if (node->child[i]) {
             if (node->child[i]->isleaf) {
-                KDDictLeaf* holder = node->child[i];
+                kddict_leaf_t* holder = node->child[i];
 
                 fprintf(f,
                     "\"Node\\n<%llu, %llu, %llu>\" -> "
@@ -220,8 +220,8 @@ static void printDotRec(FILE* f, KDDictNode* node) {
     }
 }
 
-static void printDot(KDDict* dict) {
-    KDDictNode* node = dict->root;
+static void printDot(kddict_t* dict) {
+    kddict_node_t* node = dict->root;
     FILE* f = fopen("kdd.dot", "w");
     fputs(
         "digraph {\nnode [fontname=\"Miriam Libre\"]; edge [fontname=\"Miriam "
@@ -237,10 +237,10 @@ static void printDot(KDDict* dict) {
 // when you are creating a sparse matrix with known shape and the hash function
 // for ints is a no-op. By the way in that case you don't need to compare keys
 // at all -- lookup should succeed as soon as hashes match.
-static KDDict* initDictWithLimits(uint64_t hashfn(void*),
+static kddict_t* initDictWithLimits(uint64_t hashfn(void*),
     uint64_t equalfn(void*, void*), uint64_t lowLim[DIMS],
     uint64_t highLim[DIMS]) {
-    KDDict* dict = NEW(KDDict);
+    kddict_t* dict = NEW(kddict_t);
     for_to(j, DIMS) {
         dict->root[0].threshold[j] = lowLim[j];
         dict->root[1].threshold[j] = (lowLim[j] + highLim[j]) / 2;
@@ -252,7 +252,7 @@ static KDDict* initDictWithLimits(uint64_t hashfn(void*),
 
     return dict;
 }
-static KDDict* initDict(
+static kddict_t* initDict(
     uint64_t hashfn(void*), uint64_t equalfn(void*, void*)) {
     uint64_t lowl[DIMS] = {};
     uint64_t highl[DIMS] = { UINT64_MAX, UINT64_MAX, UINT64_MAX };
@@ -289,18 +289,12 @@ static uint64_t fasthash64(const void* buf, size_t len, uint64_t seed) {
     v = 0;
 
     switch (len & 7) {
-    case 7:
-        v ^= (uint64_t)pos2[6] << 48;
-    case 6:
-        v ^= (uint64_t)pos2[5] << 40;
-    case 5:
-        v ^= (uint64_t)pos2[4] << 32;
-    case 4:
-        v ^= (uint64_t)pos2[3] << 24;
-    case 3:
-        v ^= (uint64_t)pos2[2] << 16;
-    case 2:
-        v ^= (uint64_t)pos2[1] << 8;
+    case 7: v ^= (uint64_t)pos2[6] << 48;
+    case 6: v ^= (uint64_t)pos2[5] << 40;
+    case 5: v ^= (uint64_t)pos2[4] << 32;
+    case 4: v ^= (uint64_t)pos2[3] << 24;
+    case 3: v ^= (uint64_t)pos2[2] << 16;
+    case 2: v ^= (uint64_t)pos2[1] << 8;
     case 1:
         v ^= (uint64_t)pos2[0];
         h ^= mix(v);
@@ -323,9 +317,6 @@ uint64_t strhash(char* str) {
 
 uint64_t streq(char* str1, char* str2) {
     return str1 == str2 || !strcmp(str1, str2);
-    // in C, you can't have strings of different lengths at the same address,
-    // since they are null-terminated. So it should suffice to compare their
-    // addresses first.
 }
 
 int main(int argc, char* argv[]) {
@@ -333,7 +324,7 @@ int main(int argc, char* argv[]) {
 
     // const int NPTS = argc > 1 ? atoi(argv[1]) : 10000000;
     // clock_Time t0 = clock_getTime();
-    KDDict* dict = initDict(strhash, streq);
+    kddict_t* dict = initDict(strhash, streq);
     // printDot(root);
     // return 0;
     // printf("init: %g ms\n", clock_clockSpanMicro(t0) / 1e3);
