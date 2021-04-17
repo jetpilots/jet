@@ -964,7 +964,7 @@ monostatic ASTVar* ASTModule_getVar(ASTModule* module, const char* name) {
     return NULL;
 }
 
-#include "lint.h"
+#include "write.h"
 #include "emit.h"
 
 #pragma mark - PARSER
@@ -1405,7 +1405,7 @@ int main(int argc, char* argv[]) {
             /* TODO: fallback to token-based linter (formatter)*/
         } else {
             foreach (ASTModule*, mod, modules)
-                ASTModule_lint(mod);
+                ASTModule_write(mod);
         }
     } else if (!(parser->issues.errCount)) {
         switch (parser->mode) {

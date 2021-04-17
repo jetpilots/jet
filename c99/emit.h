@@ -747,13 +747,13 @@ static void ASTFunc_emit(ASTFunc* func, int level) {
     printf("%s%s(", func->isStmt ? "" : "function ", func->name);
 
     foreachn(ASTVar*, arg, args, func->args) {
-        ASTVar_lint(arg, level);
+        ASTVar_write(arg, level);
         printf(args->next ? ", " : "");
     }
     printf(")");
     if (func->returnSpec) {
         printf(" as ");
-        ASTTypeSpec_lint(func->returnSpec, level);
+        ASTTypeSpec_write(func->returnSpec, level);
     }
     puts("\");");
 
@@ -943,7 +943,7 @@ static void ASTExpr_emit_tkFunctionCallResolved(ASTExpr* expr, int level) {
         printf("\n#ifdef DEBUG\n"
                "      %c \"./\" THISFILE \":%d:%d:\\e[0m ",
             expr->left ? ',' : ' ', expr->line, expr->col);
-        ASTExpr_lint(expr, 0, false, true);
+        ASTExpr_write(expr, 0, false, true);
         printf("\"\n"
                "#endif\n        ");
     }
@@ -1060,7 +1060,7 @@ static void ASTExpr_emit_tkCheck(ASTExpr* expr, int level) {
            "       "
            "   THISFILE, \"",
         level + STEP, spaces, expr->line, expr->col + 6);
-    ASTExpr_lint(checkExpr, 0, true, true);
+    ASTExpr_write(checkExpr, 0, true, true);
     printf("\");\n");
     printf("#ifdef DEBUG\n%.*sCHECK_HELP_OPEN;\n", level + STEP, spaces);
 
@@ -1083,7 +1083,7 @@ static void ASTExpr_emit_tkCheck(ASTExpr* expr, int level) {
                 printf("%.*s%s", level + STEP, spaces, "printf(\"    %s = ");
                 printf("%s", TypeType_format(lhsExpr->typeType, true));
                 printf("%s", "\\n\", \"");
-                ASTExpr_lint(lhsExpr, 0, true, true);
+                ASTExpr_write(lhsExpr, 0, true, true);
                 printf("%s", "\", _lhs);\n");
             }
             // checks can't have tkVarAssign inside them
@@ -1099,7 +1099,7 @@ static void ASTExpr_emit_tkCheck(ASTExpr* expr, int level) {
             printf("%.*s%s", level + STEP, spaces, "printf(\"    %s = ");
             printf("%s", TypeType_format(rhsExpr->typeType, true));
             printf("%s", "\\n\", \"");
-            ASTExpr_lint(rhsExpr, 0, true, true);
+            ASTExpr_write(rhsExpr, 0, true, true);
             printf("%s", "\", _rhs);\n");
         }
     }

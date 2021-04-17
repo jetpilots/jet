@@ -1,11 +1,11 @@
 
-static void ASTImport_lint(ASTImport* import, int level) {
+static void ASTImport_write(ASTImport* import, int level) {
     char* alias = import->name + import->aliasOffset;
     printf("import %s%s%s\n", import->name, alias ? " as " : "",
         alias ? alias : "");
 }
 
-static void ASTTypeSpec_lint(ASTTypeSpec* spec, int level) {
+static void ASTTypeSpec_write(ASTTypeSpec* spec, int level) {
     switch (spec->typeType) {
     case TYObject: printf("%s", spec->type->name); break;
     case TYUnresolved: printf("%s", spec->name); break;
@@ -28,10 +28,10 @@ static void ASTTypeSpec_lint(ASTTypeSpec* spec, int level) {
     }
 }
 
-static void ASTExpr_lint(
+static void ASTExpr_write(
     ASTExpr* expr, int level, bool spacing, bool escapeStrings);
 
-static void ASTVar_lint(ASTVar* var, int level) {
+static void ASTVar_write(ASTVar* var, int level) {
     printf("%.*s%s%s", level, spaces,
         var->isVar       ? "var "
             : var->isLet ? "let "
@@ -72,7 +72,7 @@ static void ASTVar_lint(ASTVar* var, int level) {
 
     if (genType) {
         printf(" "); // as ");
-        ASTTypeSpec_lint(var->typeSpec, level + STEP);
+        ASTTypeSpec_write(var->typeSpec, level + STEP);
     }
     // }
     // else {
@@ -91,25 +91,25 @@ static void ASTVar_lint(ASTVar* var, int level) {
     // }
     if (var->init) {
         printf(" = ");
-        ASTExpr_lint(var->init, 0, true, false);
+        ASTExpr_write(var->init, 0, true, false);
     }
 }
 
-static void ASTScope_lint(ASTScope* scope, int level) {
+static void ASTScope_write(ASTScope* scope, int level) {
     foreachn(ASTExpr*, expr, exprList, scope->stmts) {
         switch (expr->kind) {
         case tkKeyword_case:
         case tkKeyword_match:
             printf("%.*s", level, spaces);
             printf("%s ", TokenKind_repr[expr->kind]);
-            if (expr->left) ASTExpr_lint(expr->left, 0, true, false);
+            if (expr->left) ASTExpr_write(expr->left, 0, true, false);
             puts("");
             //, true, escapeStrings);
             if (expr->kind == tkKeyword_match) {
-                if (expr->body) ASTScope_lint(expr->body, level);
+                if (expr->body) ASTScope_write(expr->body, level);
                 printf("%.*send %s\n", level, spaces, ""); // "match");
             } else {
-                if (expr->body) ASTScope_lint(expr->body, level + STEP);
+                if (expr->body) ASTScope_write(expr->body, level + STEP);
             }
             break;
 
@@ -120,10 +120,10 @@ static void ASTScope_lint(ASTScope* scope, int level) {
         case tkKeyword_while: {
             printf("%.*s", level, spaces);
             printf("%s ", TokenKind_repr[expr->kind]);
-            if (expr->left) ASTExpr_lint(expr->left, 0, true, false);
+            if (expr->left) ASTExpr_write(expr->left, 0, true, false);
             puts("");
             if (expr->body)
-                ASTScope_lint(
+                ASTScope_write(
                     expr->body, level + STEP); //, true, escapeStrings);
             //            const char* tok = TokenKind_repr[expr->kind];
             //            if (expr->kind == tkKeyword_else || expr->kind ==
@@ -138,46 +138,46 @@ static void ASTScope_lint(ASTScope* scope, int level) {
                 }
             printf("%.*send %s\n", level, spaces, ""); // tok);
         } break;
-        default: ASTExpr_lint(expr, level, true, false); puts("");
+        default: ASTExpr_write(expr, level, true, false); puts("");
         }
     }
 }
 
-static void ASTType_lint(ASTType* type, int level) {
+static void ASTType_write(ASTType* type, int level) {
     if (type->isDeclare) printf("declare ");
     printf("type %s", type->name);
     if (type->super) {
         printf(" extends ");
-        ASTTypeSpec_lint(type->super, level);
+        ASTTypeSpec_write(type->super, level);
     }
     puts("");
     if (!type->body) return;
 
     foreach (ASTExpr*, stmt, type->body->stmts) {
         if (!stmt) continue;
-        ASTExpr_lint(stmt, level + STEP, true, false);
+        ASTExpr_write(stmt, level + STEP, true, false);
         puts("");
     }
     puts("end\n");
 }
 
-static void ASTEnum_lint(ASTType* type, int level) {
+static void ASTEnum_write(ASTType* type, int level) {
     // if (!type->body) printf("declare ");
     printf("enum %s\n", type->name);
     // if (type->super) {
     //     printf(" extends ");
-    //     ASTTypeSpec_lint(type->super, level);
+    //     ASTTypeSpec_write(type->super, level);
     // }
     // puts("");
     if (type->body) foreach (ASTExpr*, stmt, type->body->stmts) {
             if (!stmt) continue;
-            ASTExpr_lint(stmt, level + STEP, true, false);
+            ASTExpr_write(stmt, level + STEP, true, false);
             puts("");
         }
     puts("end\n");
 }
 
-static void ASTFunc_lint(ASTFunc* func, int level) {
+static void ASTFunc_write(ASTFunc* func, int level) {
     if (func->isDefCtor || func->intrinsic) return;
 
     printf("~ [ ");
@@ -192,38 +192,38 @@ static void ASTFunc_lint(ASTFunc* func, int level) {
     printf("%s%s(", func->isStmt ? "\n" : "function ", func->name);
 
     foreachn(ASTVar*, arg, args, func->args) {
-        ASTVar_lint(arg, level);
+        ASTVar_write(arg, level);
         printf(args->next ? ", " : "");
     }
     printf(")");
 
     if (func->returnSpec && !func->isStmt) {
         printf(" as ");
-        ASTTypeSpec_lint(func->returnSpec, level);
+        ASTTypeSpec_write(func->returnSpec, level);
     }
     if (func->isDeclare) {
         puts("");
         return;
     } else if (!func->isStmt) {
         puts("");
-        ASTScope_lint(func->body, level + STEP);
+        ASTScope_write(func->body, level + STEP);
         puts("end\n");
     } else {
         ASTExpr* def = func->body->stmts->item;
         def = def->right; // its a return expr
         printf(" := ");
-        ASTExpr_lint(def, 0, true, false);
+        ASTExpr_write(def, 0, true, false);
         puts("\n");
     }
 }
 
-static void ASTTest_lint(ASTTest* test, int level) {
+static void ASTTest_write(ASTTest* test, int level) {
     printf("test '%s'\n", test->name);
-    ASTScope_lint(test->body, level + STEP);
+    ASTScope_write(test->body, level + STEP);
     puts("end\n");
 }
 
-static void ASTExpr_lint(
+static void ASTExpr_write(
     ASTExpr* expr, int level, bool spacing, bool escapeStrings) {
     // generally an expr is not split over several lines (but maybe in
     // rare cases). so level is not passed on to recursive calls.
@@ -256,7 +256,7 @@ static void ASTExpr_lint(
 
     case tkFunctionCall:
         printf("%s(", expr->string);
-        if (expr->left) ASTExpr_lint(expr->left, 0, false, escapeStrings);
+        if (expr->left) ASTExpr_write(expr->left, 0, false, escapeStrings);
         printf(")");
         break;
     case tkFunctionCallResolved:
@@ -270,7 +270,7 @@ static void ASTExpr_lint(
                 ASTExpr* arg = (carg->kind == tkOpComma) ? carg->left : carg;
                 if (arg->kind != tkOpAssign && listp != expr->func->args)
                     printf("%s=", var->name);
-                ASTExpr_lint(arg, 0, false, escapeStrings);
+                ASTExpr_write(arg, 0, false, escapeStrings);
                 if (listp->next) printf(", ");
                 carg = (carg->kind == tkOpComma) ? carg->right : NULL;
             }
@@ -283,7 +283,7 @@ static void ASTExpr_lint(
         char* tmp = (expr->kind == tkSubscriptResolved) ? expr->var->name
                                                         : expr->string;
         printf("%s[", tmp);
-        if (expr->left) ASTExpr_lint(expr->left, 0, false, escapeStrings);
+        if (expr->left) ASTExpr_write(expr->left, 0, false, escapeStrings);
         printf("]");
     } break;
 
@@ -293,23 +293,23 @@ static void ASTExpr_lint(
     case tkPeriod:
         if (expr->left && expr->left->typeType == TYObject
             && !expr->left->var->typeSpec->type->isEnum)
-            ASTExpr_lint(expr->left, 0, spacing, escapeStrings);
+            ASTExpr_write(expr->left, 0, spacing, escapeStrings);
         printf(".");
-        ASTExpr_lint(expr->right, 0, spacing, escapeStrings);
+        ASTExpr_write(expr->right, 0, spacing, escapeStrings);
         break;
 
     case tkVarAssign:
         // var x as XYZ = abc... -> becomes an ASTVar and an ASTExpr
-        // (to keep location). Send it to ASTVar_lint.
+        // (to keep location). Send it to ASTVar_write.
         assert(expr->var != NULL);
-        ASTVar_lint(expr->var, 0);
+        ASTVar_write(expr->var, 0);
         break;
 
     case tkArrayOpen:
     case tkBraceOpen:
         printf("%s", TokenKind_repr[expr->kind]);
         if (expr->right)
-            ASTExpr_lint(
+            ASTExpr_write(
                 expr->right, level, expr->kind != tkArrayOpen, escapeStrings);
         printf("%s", TokenKind_repr[TokenKind_reverseBracket(expr->kind)]);
         break;
@@ -318,9 +318,9 @@ static void ASTExpr_lint(
     case tkKeyword_notin:
         // these seem to add precedence parens aruns expr->right if done as
         // normal binops. so ill do them separately here.
-        ASTExpr_lint(expr->left, 0, spacing, escapeStrings);
+        ASTExpr_write(expr->left, 0, spacing, escapeStrings);
         printf("%s", TokenKind_repr[expr->kind]);
-        ASTExpr_lint(expr->right, 0, spacing, escapeStrings);
+        ASTExpr_write(expr->right, 0, spacing, escapeStrings);
         break;
 
     default:
@@ -362,7 +362,7 @@ static void ASTExpr_lint(
         char lpc = leftBr && expr->left->kind == tkOpColon ? ']' : ')';
         if (leftBr) putc(lpo, stdout);
         if (expr->left)
-            ASTExpr_lint(expr->left, 0,
+            ASTExpr_write(expr->left, 0,
                 spacing && !leftBr && expr->kind != tkOpColon, escapeStrings);
         if (leftBr) putc(lpc, stdout);
 
@@ -373,7 +373,7 @@ static void ASTExpr_lint(
         char rpc = rightBr && expr->right->kind == tkOpColon ? ']' : ')';
         if (rightBr) putc(rpo, stdout);
         if (expr->right)
-            ASTExpr_lint(expr->right, 0,
+            ASTExpr_write(expr->right, 0,
                 spacing && !rightBr && expr->kind != tkOpColon, escapeStrings);
         if (rightBr) putc(rpc, stdout);
 
@@ -381,28 +381,28 @@ static void ASTExpr_lint(
     }
 }
 
-static void ASTModule_lint(ASTModule* module) {
+static void ASTModule_write(ASTModule* module) {
     printf("~ module %s\n", module->name);
 
     foreach (ASTImport*, import, module->imports)
-        ASTImport_lint(import, 0);
+        ASTImport_write(import, 0);
 
     puts("");
 
     foreach (ASTVar*, var, module->scope->locals)
-        ASTVar_lint(var, 0), puts("");
+        ASTVar_write(var, 0), puts("");
 
     puts("");
 
     foreach (ASTType*, type, module->types)
-        ASTType_lint(type, 0);
+        ASTType_write(type, 0);
 
     foreach (ASTType*, en, module->enums)
-        ASTEnum_lint(en, 0);
+        ASTEnum_write(en, 0);
 
     foreach (ASTFunc*, func, module->funcs)
-        ASTFunc_lint(func, 0);
+        ASTFunc_write(func, 0);
 
     foreach (ASTTest*, test, module->tests)
-        ASTTest_lint(test, 0);
+        ASTTest_write(test, 0);
 }
