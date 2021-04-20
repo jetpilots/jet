@@ -4,6 +4,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <cassert>
+
 bool isalpha(char c) {
     return (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z');
 }
@@ -22,21 +23,21 @@ T min(T v1, T v2) {
     return v1 < v2 ? v1 : v2;
 }
 
-template <class T>
-struct Reversed {
-    T& base;
-    struct iterator {
-        typename T::iterator& iter;
-        bool operator!=(const iterator& other) const {
-            return iter != other.iter;
-        }
-    };
-    Reversed(T& ref)
-        : base(ref) { }
-    iterator begin() const { return iterator(base.last()); }
-    iterator end() const { return iterator(base.second()); }
-    iterator operator++() { return --ptr, *this; }
-};
+// template <class T>
+// struct Reversed {
+//     T& base;
+//     struct iterator {
+//         typename T::iterator& iter;
+//         bool operator!=(const iterator& other) const {
+//             return iter != other.iter;
+//         }
+//     };
+//     Reversed(T& ref)
+//         : base(ref) { }
+//     iterator begin() const { return iterator(base.last()); }
+//     iterator end() const { return iterator(base.second()); }
+//     iterator operator++() { return --ptr, *this; }
+// };
 
 template <class T>
 class Array {
@@ -85,7 +86,7 @@ public:
         ref[len++] = _item;
         return *this;
     }
-    Reversed<Array<T>> reverse() { return Reversed(*this); }
+    // Reversed<Array<T>> reverse() { return Reversed(*this); }
     Array<T>& pushn(size_t n, T items[]) {
         size_t newlen = len + n, i = 0;
         if (newlen >= cap) resizeto(cap ? cap * 2 : 4); // roundup32(newlen)
@@ -141,9 +142,10 @@ class TagPtr {
 private:
     uint64_t bits;
     TagPtr(T* ptr, short tag)
-        : bits(((uint64_t)ptr) & 0x0000ffffffffffff | tag << 48) { }
+        : bits(((uint64_t)ptr) & 0x0000ffffffffffffUL | ((uint64_t)tag) << 48) {
+    }
     TagPtr(T* ptr)
-        : bits(((uint64_t)ptr) & 0x0000ffffffffffff) { }
+        : bits(((uint64_t)ptr) & 0x0000ffffffffffffUL) { }
 
 public:
     int tag() { return bits >> 48; }
@@ -260,7 +262,7 @@ public:
         , _lastp(&_first)
         , _count(0) { }
     int count() const { return _count; }
-    // //doesnt work when T is a & to sth
+    /* // doesnt work when T is a & to sth
     List<T>& pushn(size_t n, T items[]) {
         for (size_t i = 0; i < n; i++) push(items[i]);
         return *this;
@@ -269,8 +271,9 @@ public:
         while (n-- > 0) shift(items[n]);
         return *this;
     }
-    * / List<T>& push(T _item) {
-        *_lastp = new iterator(_item, &_end);
+    */
+    List<T>& push(T _item) {
+        *_lastp = new iterator(_item);
         _lastp = (*_lastp)->pnext();
         _count++;
         return *this;
@@ -297,7 +300,8 @@ public:
     void print() {
         ::print("[");
         for (auto c = begin(); c != end(); ++c) {
-            ::print(*c), if (c != end())::print(" -> ");
+            ::print(*c);
+            if (c != end()) ::print(" -> ");
         }
         ::print("]\n");
     }
@@ -463,34 +467,34 @@ static const double HASH_UPPER = 0.77;
 // Generally it is not recommended to use   has because you call it and
 // then you call   get again. So just call   get and do whatever.
 // If you don't really want the index, then its fine to call   has.
-#define Dict <K, V>##K##_##V
-#define init(K, V) init_##K##_##V
-#define make(K, V) make_##K##_##V
-#define free(K, V) free_##K##_##V
-#define freedata(K, V) freedata_##K##_##V
-#define clear(K, V) clear_##K##_##V
-#define resize(K, V) resize_##K##_##V
-#define put(K, V) put_##K##_##V
-#define get(K, V) get_##K##_##V
-#define has(K, V) has_##K##_##V
-#define delete (K, V) del_##K##_##V
-#define deleteByKey(K, V) delk_##K##_##V
+// #define Dict <K, V>##K##_##V
+// #define init(K, V) init_##K##_##V
+// #define make(K, V) make_##K##_##V
+// #define free(K, V) free_##K##_##V
+// #define freedata(K, V) freedata_##K##_##V
+// #define clear(K, V) clear_##K##_##V
+// #define resize(K, V) resize_##K##_##V
+// #define put(K, V) put_##K##_##V
+// #define get(K, V) get_##K##_##V
+// #define has(K, V) has_##K##_##V
+// #define delete (K, V) del_##K##_##V
+// #define deleteByKey(K, V) delk_##K##_##V
 
-// TODO: why not void instead of char?
-#define Set(K) Dict(K, char)
-#define Set_init(K) init(K, char)
-#define Set_make(K) make(K, char)
-#define Set_free(K) free(K, char)
-#define Set_freedata(K) freedata(K, char)
-#define Set_clear(K) clear(K, char)
-#define Set_resize(K) resize(K, char)
-#define Set_put(K) put(K, char)
-#define Set_get(K) get(K, char)
-#define Set_has(K) has(K, char)
-#define Set_del(K) delete (K, char)
-#define Set_delk(K) deleteByKey(K, char)
+// // TODO: why not void instead of char?
+// #define Set(K) Dict(K, char)
+// #define Set_init(K) init(K, char)
+// #define Set_make(K) make(K, char)
+// #define Set_free(K) free(K, char)
+// #define Set_freedata(K) freedata(K, char)
+// #define Set_clear(K) clear(K, char)
+// #define Set_resize(K) resize(K, char)
+// #define Set_put(K) put(K, char)
+// #define Set_get(K) get(K, char)
+// #define Set_has(K) has(K, char)
+// #define Set_del(K) delete (K, char)
+// #define Set_delk(K) deleteByKey(K, char)
 
-template <class K, class V>
+template <class K, class V, bool IsMap>
 class Dict {
     uint32_t nBuckets, size, nOccupied, upperBound;
     uint32_t* flags;
@@ -499,7 +503,7 @@ class Dict {
 
     // TODO: move the implementation into  runtime.h
     // #define __ IMPL( , K, V, IsMap, hash, equal)
-    Dict<K, V>* init() { return calloc(1, sizeof(Dict<K, V>)); }
+    Dict<K, V, IsMap>* init() { return calloc(1, sizeof(Dict<K, V, IsMap>)); }
     void freedata() {
         // if (h) {
         free(keys);
@@ -508,14 +512,24 @@ class Dict {
         // }
     }
 
-    bool _empty(i) { return (flags[i >> 4] >> ((i & 0xfU) << 1)) & 2; }
-    bool _deleted(i) { return (flags[i >> 4] >> ((i & 0xfU) << 1)) & 1; }
-    bool _emptyOrDel(i) { return (flags[i >> 4] >> ((i & 0xfU) << 1)) & 3; }
+    bool _empty(uint32_t i) { return (flags[i >> 4] >> ((i & 0xfU) << 1)) & 2; }
+    bool _deleted(uint32_t i) {
+        return (flags[i >> 4] >> ((i & 0xfU) << 1)) & 1;
+    }
+    bool _emptyOrDel(uint32_t i) {
+        return (flags[i >> 4] >> ((i & 0xfU) << 1)) & 3;
+    }
 
-    void _setNotDeleted(i) { flags[i >> 4] &= ~(1ul << ((i & 0xfU) << 1)); }
-    void _setDeleted(i) { flags[i >> 4] |= 1ul << ((i & 0xfU) << 1); }
-    void _setNotEmpty(i) { flags[i >> 4] &= ~(2ul << ((i & 0xfU) << 1)); }
-    void _clearFlags(i) { flags[i >> 4] &= ~(3ul << ((i & 0xfU) << 1)); }
+    void _setNotDeleted(uint32_t i) {
+        flags[i >> 4] &= ~(1ul << ((i & 0xfU) << 1));
+    }
+    void _setDeleted(uint32_t i) { flags[i >> 4] |= 1ul << ((i & 0xfU) << 1); }
+    void _setNotEmpty(uint32_t i) {
+        flags[i >> 4] &= ~(2ul << ((i & 0xfU) << 1));
+    }
+    void _clearFlags(uint32_t i) {
+        flags[i >> 4] &= ~(3ul << ((i & 0xfU) << 1));
+    }
 
     // void free() { free(thi); }
     void clear() {
@@ -528,7 +542,7 @@ class Dict {
         if (nBuckets) {
             uint32_t k, i, last, mask, step = 0;
             mask = nBuckets - 1;
-            k = hashkey;
+            k = hash(key);
             i = k & mask;
             last = i;
             while (not _empty(i) and (_deleted(i) or !equal(keys[i], key))) {
@@ -540,7 +554,7 @@ class Dict {
             return 0;
     }
     bool has(K key) {
-        uint32_t x = getkey;
+        uint32_t x = get(key);
         return x < nBuckets and exist(x);
     }
     int resize(uint32_t nnBuckets) {
@@ -585,7 +599,7 @@ class Dict {
                     // kick-out process; sort of like in Cuckoo hashing
                     while (1) {
                         uint32_t k, i, step = 0;
-                        k = hashkey;
+                        k = hash(key);
                         i = k & new_mask;
                         while (not _empty(nFlags, i))
                             i = (i + (++step)) & new_mask;
@@ -595,7 +609,7 @@ class Dict {
                             {
                                 K tmp = keys[i];
                                 keys[i] = key;
-                                key = tmp,
+                                key = tmp;
                             }
                             if (IsMap) {
                                 V tmp = vals[i];
@@ -642,7 +656,7 @@ class Dict {
 
         uint32_t k, i, site, last, mask = nBuckets - 1, step = 0;
         x = site = nBuckets;
-        k = hashkey;
+        k = hash(key);
         i = k & mask;
         if (_empty(i))
             x = i; // for speed up
@@ -676,16 +690,16 @@ class Dict {
             *ret = 0; // Don't touch  keys[x] if present and not _deleted
         return x;
     }
-    void delete (uint32_t x) {
+    void del(uint32_t x) {
         if (x != nBuckets and !_emptyOrDel(x)) {
             _setDeleted(flags, x);
             --size;
         }
     }
-    void deleteByKey(K key) { delete (getkey); }
+    void deleteByKey(K key) { del(get(key)); }
     Dict() { }
     Dict(int size, K keys[], V values[]) {
-        // Dict<K, V>* ret = init();
+        // Dict<K, V, IsMap>* ret = init();
         int p;
         for (int i = 0; i < size; i++) {
             uint32_t idx = put(keys[i], &p);

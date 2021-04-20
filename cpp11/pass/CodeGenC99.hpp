@@ -90,11 +90,11 @@ struct CodeGenC99 {
     bool mustPromote(const char* name) {
         // TODO: at some point these should go into a dict or trie or MPH
         // whatever
-        if (!strcmp(name, "Array_any_filter")) return true;
-        if (!strcmp(name, "Array_all_filter")) return true;
-        if (!strcmp(name, "Array_count_filter")) return true;
-        if (!strcmp(name, "Array_write_filter")) return true;
-        if (!strcmp(name, "Strs_print_filter")) return true;
+        if (not strcmp(name, "Array_any_filter")) return true;
+        if (not strcmp(name, "Array_all_filter")) return true;
+        if (not strcmp(name, "Array_count_filter")) return true;
+        if (not strcmp(name, "Array_write_filter")) return true;
+        if (not strcmp(name, "Strs_print_filter")) return true;
         return false;
     }
 
@@ -113,7 +113,7 @@ struct CodeGenC99 {
         case tkKeyword_while: unmarkVisited(expr.left); break;
         default:
             if (expr.prec) {
-                if (!expr.unary) unmarkVisited(expr.left);
+                if (not expr.unary) unmarkVisited(expr.left);
                 unmarkVisited(expr.right);
             }
         }
@@ -163,7 +163,7 @@ struct CodeGenC99 {
 
         default:
             if (expr.prec) {
-                if (!expr.unary) genPrintVars(expr.left, level);
+                if (not expr.unary) genPrintVars(expr.left, level);
                 genPrintVars(expr.right, level);
             }
         }
@@ -213,7 +213,7 @@ struct CodeGenC99 {
             if (expr.prec) {
                 if (expr.right and (ret = findPromotionCandidate(*expr.right)))
                     return ret;
-                if (!expr.unary)
+                if (not expr.unary)
                     if ((ret = findPromotionCandidate(*expr.left))) return ret;
             }
         }
@@ -229,9 +229,9 @@ struct CodeGenC99 {
     ///////////////////////////////////////////////////////////////////////////
     bool isCtrlExpr(Expr& expr) {
         return expr.kind == tkKeyword_if //
-            || expr.kind == tkKeyword_for //
-            || expr.kind == tkKeyword_while //
-            || expr.kind == tkKeyword_else;
+            or expr.kind == tkKeyword_for //
+            or expr.kind == tkKeyword_while //
+            or expr.kind == tkKeyword_else;
     }
 
     bool isLiteralExpr(Expr& expr) { return false; }
@@ -243,7 +243,7 @@ struct CodeGenC99 {
 
             if (isCtrlExpr(stmt) and stmt.body) lowerElementalOps(stmt.body);
 
-            if (!stmt.elemental) continue;
+            if (not stmt.elemental) continue;
 
             // wrap it in an empty block (or use if true)
             Expr& ifblk = NEW(ASTExpr);
@@ -309,13 +309,13 @@ struct CodeGenC99 {
         List(ASTExpr)* prev = NULL;
         for (Expr &stmt, stmts, scope->stmts) {
             // TODO:
-            // if (! stmt.promote) {prev=stmts;continue;}
+            // if (not  stmt.promote) {prev=stmts;continue;}
 
             if (isCtrlExpr(stmt) and stmt.body) promoteCandidates(stmt.body);
 
         startloop:
 
-            if (!(pc = findPromotionCandidate(stmt))) { // most likely
+            if (not(pc = findPromotionCandidate(stmt))) { // most likely
                 prev = stmts;
                 continue;
             }
@@ -344,7 +344,7 @@ struct CodeGenC99 {
 
             // 3. insert the tmp var as an additional argument into the call
 
-            if (!pcClone->left)
+            if (not pcClone->left)
                 pcClone->left = pc;
             else if (pcClone->left->kind != tkOpComma) {
                 // single arg
@@ -373,7 +373,7 @@ struct CodeGenC99 {
             //        PtrList_append(prev ? &prev : &self->stmts, pcClone);
             //        PtrList* tmp = prev->next;
             // THIS SHOULD BE in PtrList as insertAfter method
-            if (!prev) {
+            if (not prev) {
                 scope->stmts = PtrList_with(pcClone);
                 scope->stmts->next = stmts;
                 prev = scope->stmts;
@@ -414,9 +414,9 @@ struct CodeGenC99 {
             // You need to know if the emit will in fact generate
             // something. This is true in general unless it is an unused var
             // init.
-            if (stmt.kind != tkVarAssign || stmt.var.used) {
+            if (stmt.kind != tkVarAssign or stmt.var.used) {
 
-                // if (genCoverage || genLineProfile) //
+                // if (genCoverage or genLineProfile) //
                 //     printf("    /************/ ");
                 if (genCoverage)
                     printf("%.*sJET_COVERAGE_UP(%d); \n", level, spaces,
@@ -427,11 +427,11 @@ struct CodeGenC99 {
                         stmt.line);
                     // printf("    _lprof_last_ = _lprof_tmp_;\n");
                 }
-                if (genCoverage || genLineProfile) puts(""); // ************/");
+                if (genCoverage or genLineProfile) puts(""); // ************/");
             }
 
             emit(stmt, level);
-            if (!isCtrlExpr(stmt) and stmt.kind != tkKeyword_return)
+            if (not isCtrlExpr(stmt) and stmt.kind != tkKeyword_return)
                 puts(";");
             else
                 puts("");
@@ -462,7 +462,7 @@ struct CodeGenC99 {
                                 = 0; // this means var has been dropped.
                         }
                     }
-            } while (!sco->isLoop // if loop scope, don't walk up
+            } while (not sco->isLoop // if loop scope, don't walk up
                 and (sco = sco->parent) // walk up to the last loop scope
                 and sco->parent and !sco->parent->isLoop);
             // all scopes have the global scope as the final parent.
@@ -505,7 +505,7 @@ struct CodeGenC99 {
         // TODO: move this part into its own func so that subclasses can ask the
         // superclass to add in their fields inline
         for (Var& var : type.body->vars) {
-            if (!var /*or not var.used*/) continue;
+            if (not var /*or not var.used*/) continue;
             printf("    printf(\"%%.*s\\\"%s\\\": \", nspc+4, _spaces_);\n",
                 var.name);
             const char* valueType = typeName(var.init);
@@ -541,12 +541,12 @@ struct CodeGenC99 {
 
     ///////////////////////////////////////////////////////////////////////////
     void emit(Type& type, int level) {
-        if (!type.body || !type.analysed || type.isDeclare) return;
-        // if (! type.body or not type.analysed) return;
+        if (not type.body or !type.analysed or type.isDeclare) return;
+        // if (not  type.body or not type.analysed) return;
         const char* const name = type.name;
         printf("#define FIELDS_%s \\\n", name);
         for (Var &var, type.body->vars) {
-            if (!var /*or not var.used*/) continue;
+            if (not var /*or not var.used*/) continue;
             // It's not so easy to just skip 'unused' type members.
             // what if I just construct an object and print it?
             // I expect to see the default members. But if they
@@ -573,7 +573,7 @@ struct CodeGenC99 {
             printf("#define %s self->%s\n", var.name, var.name);
 
         for (Expr& stmt : type.body->stmts) {
-            if (!stmt || stmt.kind != tkVarAssign || !stmt.var.init)
+            if (not stmt or stmt.kind != tkVarAssign or !stmt.var.init)
                 //            or not stmt.var.used)
                 continue;
             printf("%.*s%s = ", level + STEP, spaces, stmt.var.name);
@@ -582,7 +582,7 @@ struct CodeGenC99 {
             if (throws(stmt.var.init))
                 puts("    if (_err_ == ERROR_TRACE) return NULL;");
         }
-        for (Var &var, type.body->vars) // if (var.used)
+        for (Var& var : type.body->vars) // if (var.used)
             printf("#undef %s \n", var.name);
 
         printf("    return self;\n}\n\n");
@@ -613,7 +613,7 @@ struct CodeGenC99 {
 
     ///////////////////////////////////////////////////////////////////////////
     void genh(Type& type, int level) {
-        if (!type.body || !type.analysed || type.isDeclare) return;
+        if (not type.body or !type.analysed or type.isDeclare) return;
 
         const char* const name = type.name;
         printf("typedef struct %s* %s;\nstruct %s;\n", name, name, name);
@@ -628,7 +628,7 @@ struct CodeGenC99 {
     }
     ///////////////////////////////////////////////////////////////////////////
     void genh(Type& type, int level) {
-        if (!type.body || !type.analysed) return;
+        if (not type.body or !type.analysed) return;
         const char* const name = type.name;
         puts("typedef enum {");
 
@@ -658,7 +658,7 @@ struct CodeGenC99 {
         //     // puts("};");
         // }
         for (Expr &stmt, type.body->stmts) {
-            if (!stmt || stmt.kind != tkOpAssign) //|| !stmt.var.init)
+            if (not stmt or stmt.kind != tkOpAssign) // or !stmt.var.init)
                 // //     //            or not stmt.var.used)
                 continue;
             printf("%.*s%s__data[%s_%s] = ", level + STEP, spaces, name, name,
@@ -681,7 +681,7 @@ struct CodeGenC99 {
     }
     ///////////////////////////////////////////////////////////////////////////
     void emit(Func& func, int level) {
-        if (!func->body || !func->analysed || func->isDeclare)
+        if (not func->body or !func->analysed or func->isDeclare)
             return; // declares, default ctors
 
         // actual stack usage is higher due to stack protection, frame
@@ -692,7 +692,7 @@ struct CodeGenC99 {
 
         printf("#define DEFAULT_VALUE %s\n",
             getDefaultValueForType(func->returnSpec));
-        if (!func->isExported) printf("  ");
+        if (not func->isExported) printf("  ");
         if (func->returnSpec) {
             emit(func->returnSpec, level, false);
         } else {
@@ -736,8 +736,8 @@ struct CodeGenC99 {
 
     ///////////////////////////////////////////////////////////////////////////
     void genh(Func& func, int level) {
-        if (!func->body || !func->analysed || func->isDeclare) return;
-        if (!func->isExported) printf("  ");
+        if (not func->body or !func->analysed or func->isDeclare) return;
+        if (not func->isExported) printf("  ");
         if (func->returnSpec) {
             emit(func->returnSpec, level, false);
         } else {
@@ -755,10 +755,10 @@ struct CodeGenC99 {
 
     ///////////////////////////////////////////////////////////////////////////
     void genh(Var& var, int level) {
-        // if (! func->body or not func->analysed) return;
-        // if (!func->isExported) printf("  ");
+        // if (not  func->body or not func->analysed) return;
+        // if (not func->isExported) printf("  ");
         // if (var.typeInfo) {
-        if (!var.init) return;
+        if (not var.init) return;
 
         emit(var.typeInfo, level, false);
         // }
@@ -789,7 +789,7 @@ struct CodeGenC99 {
     ////////////////////////////////////////////////////
     void emit(Test& test) // TODO: should tests not return BOOL?
     {
-        if (!test->body) return;
+        if (not test->body) return;
         printf("\nstatic void test_%s() {\n", test->name);
         emit(test->body, STEP);
         puts("}");
@@ -907,7 +907,7 @@ struct CodeGenC99 {
 
         if (expr.left) emit(expr.left, 0);
 
-        if (!expr.func->isDeclare) {
+        if (not expr.func->isDeclare) {
             printf("\n#ifdef DEBUG\n"
                    "      %c \"./\" THISFILE \":%d:%d:\\e[0m ",
                 expr.left ? ',' : ' ', expr.line, expr.col);
@@ -942,7 +942,7 @@ struct CodeGenC99 {
 
     void emit_tkString(Expr& expr, int level) {
         lineupmultilinestring(expr, level + STEP);
-        if (!expr.vars) {
+        if (not expr.vars) {
             printmultilstr(expr.string + 1);
         } else {
             char* pos = expr.string;
@@ -960,7 +960,7 @@ struct CodeGenC99 {
                 // printmultilstr(last + 1);
                 pos[-1] = '$';
                 last = pos;
-                while (*pos and isalnum(*pos) || *pos == '.') pos++;
+                while (*pos and isalnum(*pos) or *pos == '.') pos++;
                 // l = pos - last;
                 // eprintf("%.*s\n", l, last);
                 if (e) {
@@ -974,10 +974,7 @@ struct CodeGenC99 {
                 }
             }
             printf("\"");
-            for (Expr &e, expr.vars) {
-                printf(", ");
-                emit(e, 0);
-            }
+            for (Var& e : expr.vars) { printf(", "), emit(e, 0); }
             printf(")");
         }
     }
@@ -1002,7 +999,7 @@ struct CodeGenC99 {
         Expr* lhsExpr = checkExpr->left;
         Expr* rhsExpr = checkExpr->right;
         printf("{\n");
-        if (!checkExpr.unary) {
+        if (not checkExpr.unary) {
             printf("%.*s%s _lhs = ", level, spaces, typeName(lhsExpr));
             emit(lhsExpr, 0);
             printf(";\n");
@@ -1010,7 +1007,7 @@ struct CodeGenC99 {
         printf("%.*s%s _rhs = ", level, spaces, typeName(rhsExpr));
         emit(rhsExpr, 0);
         printf(";\n");
-        printf("%.*sif (!(", level, spaces);
+        printf("%.*sif (not (", level, spaces);
         // ----- use lhs rhs cached values instead of the expression
         emit(checkExpr, 0);
         // how are you doing to deal with x < y < z? Repeat all the logic of
@@ -1037,7 +1034,7 @@ struct CodeGenC99 {
         // (genPrintVars uses this to avoid printing the same var
         // twice). This should be unset after every toplevel call to
         // genPrintVars.
-        if (!checkExpr.unary) {
+        if (not checkExpr.unary) {
             // dont print literals or arrays
             if (lhsExpr.collectionType == CTYNone //
                 and lhsExpr.kind != tkString //
@@ -1047,7 +1044,7 @@ struct CodeGenC99 {
                 and lhsExpr.kind != tkOpLT) {
 
                 if (lhsExpr.kind != tkIdentifierResolved
-                    || !lhsExpr.var->visited) {
+                    or !lhsExpr.var->visited) {
                     printf(
                         "%.*s%s", level + STEP, spaces, "printf(\"    %s = ");
                     printf("%s", TypeType_format(lhsExpr.typeType, true));
@@ -1064,7 +1061,7 @@ struct CodeGenC99 {
             and rhsExpr.kind != tkString //
             and rhsExpr.kind != tkNumber //
             and rhsExpr.kind != tkRawString) {
-            if (rhsExpr.kind != tkIdentifierResolved || !rhsExpr.var->visited) {
+            if (rhsExpr.kind != tkIdentifierResolved or !rhsExpr.var->visited) {
                 printf("%.*s%s", level + STEP, spaces, "printf(\"    %s = ");
                 printf("%s", TypeType_format(rhsExpr.typeType, true));
                 printf("%s", "\\n\", \"");
@@ -1221,7 +1218,7 @@ struct CodeGenC99 {
                 unreachable(
                     "found token kind %s\n", TokenKinds_names[expr.left->kind]);
             }
-            // if (! inFuncArgs) {
+            // if (not  inFuncArgs) {
             //     emit(self->left, 0,
             //     escStrings); printf("%s", TokenKind_repr(tkOpAssign,
             //     spacing));
@@ -1235,7 +1232,7 @@ struct CodeGenC99 {
             // TODO: send parent Expr& as an arg to this function. Then
             // here do various things based on whether parent is a =,
             // funcCall, etc.
-            if (!expr.right) {
+            if (not expr.right) {
                 printf("Array_init(%s)()", "double");
             } else {
                 printf("Array_make(((%s[]) {", "double"); // FIXME
@@ -1251,7 +1248,7 @@ struct CodeGenC99 {
         case tkBraceOpen: {
             const char* Ktype = "CString";
             const char* Vtype = "Real64";
-            if (!expr.right)
+            if (not expr.right)
                 printf("Dict_init(%s,%s)()", Ktype, Vtype); // FIXME
             else {
                 printf("Dict_make(%s,%s)(%d, (%s[]){", Ktype, Vtype,
@@ -1320,7 +1317,7 @@ struct CodeGenC99 {
 
         case tkKeyword_match: {
             // char* typeName = typeName(expr.left);
-            // if (!typeName)
+            // if (not typeName)
             //     unreachable(
             //         "unresolved type during emit at %d:%d", expr.line,
             //         expr.col);
@@ -1329,7 +1326,7 @@ struct CodeGenC99 {
             printf("{%s __match_cond = ", typeName(expr.left));
             emit(expr.left, 0);
             if (expr.left->typeType > TYInt8
-                || (expr.left->typeType == TYObject
+                or (expr.left->typeType == TYObject
                     and getObjectType(expr.left)->isEnum))
                 puts("; switch (__match_cond) {");
             else
@@ -1357,7 +1354,7 @@ struct CodeGenC99 {
             Expr& cond = expr.left;
             if (cond->kind == tkOpComma) {
                 if (cond->typeType > TYInt8
-                    || (cond->typeType == TYObject and getEnumType(cond))) {
+                    or (cond->typeType == TYObject and getEnumType(cond))) {
                     printf(
                         "case "); // match has handled the cond with a 'switch'
                     emit(cond->left, 0);
@@ -1372,16 +1369,16 @@ struct CodeGenC99 {
                     emit(cond->right, 0);
                     puts(": {");
                 } else if (cond->typeType == TYString) {
-                    printf("else if (!strcmp(__match_cond, ");
+                    printf("else if (not strcmp(__match_cond, ");
                     emit(cond->left, 0);
                     printf(")");
                     while (cond->right->kind == tkOpComma) {
                         cond = cond->right;
-                        printf(" || !strcmp(__match_cond, ");
+                        printf(" or !strcmp(__match_cond, ");
                         emit(cond->left, 0);
                         printf(")");
                     }
-                    printf(" || !strcmp(__match_cond, ");
+                    printf(" or !strcmp(__match_cond, ");
                     emit(cond->right, 0);
                     puts(")) do {");
                 } else {
@@ -1389,7 +1386,7 @@ struct CodeGenC99 {
                     emit(cond->left, 0);
                     while (cond->right->kind == tkOpComma) {
                         cond = cond->right;
-                        printf(" || __match_cond == (");
+                        printf(" or __match_cond == (");
                         emit(cond->left, 0);
                     }
                     emit(cond->right, 0);
@@ -1398,13 +1395,13 @@ struct CodeGenC99 {
 
             } else {
                 if (cond->typeType > TYInt8
-                    || (cond->typeType == TYObject and getEnumType(cond))) {
+                    or (cond->typeType == TYObject and getEnumType(cond))) {
                     printf(
                         "case "); // match has handled the cond with a 'switch'
                     emit(cond, 0);
                     puts(": {");
                 } else if (cond->typeType == TYString) {
-                    printf("else if (!strcmp(__match_cond, ");
+                    printf("else if (not strcmp(__match_cond, ");
                     emit(cond, 0);
                     puts(")) do {");
                 } else {
@@ -1416,7 +1413,7 @@ struct CodeGenC99 {
             if (expr.body) emit(expr.body, level);
             printf("%.*s}", level, spaces);
             if (cond->typeType > TYInt8
-                || (cond->typeType == TYObject and getEnumType(cond)))
+                or (cond->typeType == TYObject and getEnumType(cond)))
                 printf(" break");
             else
                 printf(" while(0)");
@@ -1528,7 +1525,7 @@ struct CodeGenC99 {
             }
             fallthrough;
         default:
-            if (!expr.prec) break;
+            if (not expr.prec) break;
             // not an operator, but this should be error if you reach here
             bool leftBr
                 = expr.left and expr.left->prec and expr.left->prec < expr.prec;
@@ -1653,7 +1650,7 @@ struct CodeGenC99 {
         // TODO: instead of a linear search over all members this should
         // generate a switch for checking using a prefix tree -> see
         // genrec.c
-        if (!type.analysed || type.isDeclare) return;
+        if (not type.analysed or type.isDeclare) return;
         // genMemberRecognizer( type, "Int64 value",  )
 
         printf("  void* %s__memberNamed(%s self, const char* name) {\n",
@@ -1684,12 +1681,12 @@ struct CodeGenC99 {
     // Generates some per-type functions that write out meta info of the
     // type to be used for reflection, serialization, etc.
     void genTypeInfoDecls(Type& type) {
-        if (!type.analysed || type.isDeclare) return;
+        if (not type.analysed or type.isDeclare) return;
 
         printf("  const char* const %s__memberNames[] = {\n    ", type.name);
         if (type.body) //
             for (Var &var, varn, type.body->vars) {
-                if (!var || !var.used) continue;
+                if (not var or !var.used) continue;
                 printf("\"%s\", ", var.name);
                 // emit(var, level + STEP, false);
             }
@@ -1700,7 +1697,7 @@ struct CodeGenC99 {
         // printf("  const char* const %s__memberNames[] = {\n",
         // type.name); for(Var& var, varn, type.body->vars)
         // {
-        //     if (! var) continue;
+        //     if (not  var) continue;
         //     printf("\"%s\",\n", var.name);
         //     // emit(var, level + STEP, false);
         //     printf("}; \\\n");

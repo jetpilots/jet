@@ -43,6 +43,7 @@ enum TypeSubTypeNumber : char {
 };
 enum TypeSubTypeString : char { TYStrGrowable, TYStrFixed, TYStrCString };
 struct Type;
+struct Expr;
 typedef unsigned long long u64;
 union TypeInfo {
     struct {
