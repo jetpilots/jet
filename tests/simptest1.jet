@@ -1,5 +1,5 @@
 ~ declare type Text
-declare type Strings
+~ declare type Strings
 ~ declare type point
 
 ~ declared funcs are basically implemented in C, they
@@ -34,7 +34,7 @@ end
 ~ printing name by default not numeric value.
 
 ~ export
-type Another #extends Point
+type Another ~ #extends Point
     var g = 12
     var exp = Expr()
 end
@@ -46,24 +46,27 @@ end
 ~ ACTUALLY DONT BOTHER WITH CYCLE DETECTION AT ALL
 ~ DISALLOW INHERITANCE & FAVOUR COMPOSITION
 ~ AND ALLOW RECURSIVE CONSTRUCTOR (stack overflow checker works)
-type Other # extends Another
+type Other ~ # extends Another
     var m = 43
     var we = Another()
     ~ var po = point()
 end
 
-type Point # extends Other
+type Point ~ # extends Other
     ~ var p = Other()
     var x = fxfunc(3)
     var y = 69.6723
     ~ var o = Other()
-    var z = y + 5.6 * x #+ o.we.g
+    var z = y + 5.6 * x~ #+ o.we.g
     ~ var o = nil(other) + 6
     var cstr = "xyz"
 end
 
 ~ export
 fxfunc(x Number) := x * 1.5
+
+func twoargs(x Number, y Number)
+end
 
 ~ export
 func Point(x Number)
@@ -73,10 +76,10 @@ func Point(x Number)
     return p
 end
 
-func main(args Strings) as Number
+func main() as Number
     var po = Point()
     var pcx = Point(78)
-    var mg = args
+    var mg = 3 ~args
     var cm = [8, 7, 6, 5]
     ~ json(cm[3])
     json(po)
@@ -344,7 +347,7 @@ func joyce()
 
     if x != 3
         print(x)
-    else # if x == 5
+    else ~ # if x == 5
         print(x+4)
     end
 

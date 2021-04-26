@@ -1,6 +1,6 @@
 
 #pragma mark - PARSE EXPR
-static ASTExpr* parseExpr(Parser* parser) {
+static JetExpr* parseExpr(Parser* parser) {
     // there are 2 steps to this madness.
     // 1. parse a sequence of tokens into RPN using shunting-yard.
     // 2. walk the rpn stack as a sequence and copy it into a result
@@ -15,7 +15,7 @@ static ASTExpr* parseExpr(Parser* parser) {
 
     static PtrArray rpn, ops, result;
     int prec_top = 0;
-    ASTExpr* p = NULL;
+    JetExpr* p = NULL;
     TokenKind revBrkt = tkUnknown;
 
     // ******* STEP 1 CONVERT TOKENS INTO RPN
@@ -31,13 +31,13 @@ static ASTExpr* parseExpr(Parser* parser) {
             && memchr(parser->token.pos, '_', parser->token.matchlen))
             Parser_errorInvalidIdent(parser); // but continue parsing
 
-        ASTExpr* expr;
+        JetExpr* expr;
         if (Parser_matches(parser, tkParenOpen))
             expr = lparen;
         else if (Parser_matches(parser, tkParenClose))
             expr = rparen;
         else
-            expr = ASTExpr_fromToken(&parser->token); // dont advance yet
+            expr = JetExpr_fromToken(&parser->token); // dont advance yet
 
         int prec = expr->prec;
         bool rassoc = prec ? expr->rassoc : false;
@@ -81,7 +81,7 @@ static ASTExpr* parseExpr(Parser* parser) {
         case tkParenOpen:
             PtrArray_push(&ops, expr);
             if (!PtrArray_empty(&ops)
-                && PtrArray_topAs(ASTExpr*, &ops)->kind == tkFunctionCall)
+                && PtrArray_topAs(JetExpr*, &ops)->kind == tkFunctionCall)
                 PtrArray_push(&rpn, expr);
             if (lookAheadChar == ')') PtrArray_push(&rpn, NULL);
             // for empty func() push null for no args
@@ -92,7 +92,7 @@ static ASTExpr* parseExpr(Parser* parser) {
         case tkArrayOpen:
             PtrArray_push(&ops, expr);
             if (!PtrArray_empty(&ops)
-                && PtrArray_topAs(ASTExpr*, &ops)->kind == tkSubscript)
+                && PtrArray_topAs(JetExpr*, &ops)->kind == tkSubscript)
                 PtrArray_push(&rpn, expr);
             if (lookAheadChar == ']') PtrArray_push(&rpn, NULL);
             // for empty arr[] push null for no args
@@ -101,7 +101,7 @@ static ASTExpr* parseExpr(Parser* parser) {
         case tkBraceOpen:
             PtrArray_push(&ops, expr);
             if (!PtrArray_empty(&ops)
-                && PtrArray_topAs(ASTExpr*, &ops)->kind == tkObjectInit)
+                && PtrArray_topAs(JetExpr*, &ops)->kind == tkObjectInit)
                 PtrArray_push(&rpn, expr);
             if (lookAheadChar == '}') PtrArray_push(&rpn, NULL);
             // for empty Obj {} push null for no args
@@ -129,12 +129,12 @@ static ASTExpr* parseExpr(Parser* parser) {
             if ((p && p->kind == tkArrayOpen))
                 if ((PtrArray_empty(&ops)
                         || (PtrArray_top(&rpn)
-                            && PtrArray_topAs(ASTExpr*, &ops)->kind
+                            && PtrArray_topAs(JetExpr*, &ops)->kind
                                 != tkSubscript))
                     // don't do this if its part of a subscript
                     || (PtrArray_empty(&rpn)
                         || (PtrArray_top(&rpn)
-                            && PtrArray_topAs(ASTExpr*, &rpn)->kind
+                            && PtrArray_topAs(JetExpr*, &rpn)->kind
                                 != tkOpColon)))
                     // or aa range. range exprs are handled separately. by
                     // themselves they don't need a surrounding [], but for
@@ -145,7 +145,7 @@ static ASTExpr* parseExpr(Parser* parser) {
             if ((p && p->kind == tkBraceOpen)
                 && (PtrArray_empty(&ops)
                     || (PtrArray_top(&rpn)
-                        && PtrArray_topAs(ASTExpr*, &ops)->kind
+                        && PtrArray_topAs(JetExpr*, &ops)->kind
                             != tkObjectInit)))
                 // again, not if it is an object init
                 PtrArray_push(&rpn, p);
@@ -159,7 +159,7 @@ static ASTExpr* parseExpr(Parser* parser) {
         case tkKeyword_check: PtrArray_push(&ops, expr); break;
         case tkExclamation:
             if (PtrArray_empty(&rpn)
-                || PtrArray_topAs(ASTExpr*, &rpn)->kind != tkIdentifier) {
+                || PtrArray_topAs(JetExpr*, &rpn)->kind != tkIdentifier) {
                 Parser_errorParsingExpr(parser, expr, "invalid use of '!'");
                 // TODO: change error to "invalid use of ! operator or
                 // something"
@@ -182,11 +182,11 @@ static ASTExpr* parseExpr(Parser* parser) {
             // the inferred enum type.
 
             // if (!PtrArray_empty(&ops)) {
-            //     TokenKind kt = PtrArray_topAs(ASTExpr*, &ops)->kind;
+            //     TokenKind kt = PtrArray_topAs(JetExpr*, &ops)->kind;
             //     if (!ISIN(2, kt, tkPeriod, tkFunctionCall))
             //         PtrArray_push(&rpn, NULL);
             //     // && rpn.used > 1
-            //     //                    && PtrArray_topAs(ASTExpr*,
+            //     //                    && PtrArray_topAs(JetExpr*,
             //     //                    &rpn)->kind != tkIdentifier))
             //     // fallthru
             // }
@@ -196,13 +196,13 @@ static ASTExpr* parseExpr(Parser* parser) {
                 if (expr->kind == tkOpColon) {
                     if (PtrArray_empty(&rpn)
                         || (!PtrArray_top(&rpn) && !PtrArray_empty(&ops)
-                            && PtrArray_topAs(ASTExpr*, &ops)->kind
+                            && PtrArray_topAs(JetExpr*, &ops)->kind
                                 != tkOpColon)
-                        || (PtrArray_topAs(ASTExpr*, &rpn)->kind == tkOpColon
+                        || (PtrArray_topAs(JetExpr*, &rpn)->kind == tkOpColon
                             && !PtrArray_empty(&ops)
-                            && (PtrArray_topAs(ASTExpr*, &ops)->kind
+                            && (PtrArray_topAs(JetExpr*, &ops)->kind
                                     == tkOpComma
-                                || PtrArray_topAs(ASTExpr*, &ops)->kind
+                                || PtrArray_topAs(JetExpr*, &ops)->kind
                                     == tkArrayOpen)))
                         // TODO: better way to parse :, 1:, :-1, etc.
                         // while passing tokens to RPN, if you see a :
@@ -214,7 +214,7 @@ static ASTExpr* parseExpr(Parser* parser) {
                     // indicates empty operand
                 }
                 while (!PtrArray_empty(&ops)) {
-                    prec_top = PtrArray_topAs(ASTExpr*, &ops)->prec;
+                    prec_top = PtrArray_topAs(JetExpr*, &ops)->prec;
                     if (!prec_top) break; // left parenthesis
                     if (prec > prec_top) break;
                     if (prec == prec_top && rassoc) break;
@@ -222,8 +222,8 @@ static ASTExpr* parseExpr(Parser* parser) {
 
                     if (p->kind != tkOpComma && p->kind != tkOpSemiColon
                         && p->kind != tkFunctionCall && p->kind != tkSubscript
-                        && PtrArray_topAs(ASTExpr*, &rpn)
-                        && PtrArray_topAs(ASTExpr*, &rpn)->kind == tkOpComma) {
+                        && PtrArray_topAs(JetExpr*, &rpn)
+                        && PtrArray_topAs(JetExpr*, &rpn)->kind == tkOpComma) {
                         Parser_errorUnexpectedToken(
                             parser, "unsupported use of comma");
                         // TODO: make this an error of unexpected expr instead
@@ -268,9 +268,9 @@ exitloop:
 
         if (p->kind != tkOpComma && p->kind != tkFunctionCall
             && p->kind != tkSubscript && p->kind != tkArrayOpen
-            && PtrArray_topAs(ASTExpr*, &rpn)
-            && PtrArray_topAs(ASTExpr*, &rpn)->kind == tkOpComma) {
-            Parser_errorUnexpectedExpr(parser, PtrArray_topAs(ASTExpr*, &rpn));
+            && PtrArray_topAs(JetExpr*, &rpn)
+            && PtrArray_topAs(JetExpr*, &rpn)->kind == tkOpComma) {
+            Parser_errorUnexpectedExpr(parser, PtrArray_topAs(JetExpr*, &rpn));
             goto error;
         }
 
@@ -288,7 +288,7 @@ exitloop:
 
     // *** STEP 2 CONVERT RPN INTO EXPR TREE
 
-    ASTExpr* arg;
+    JetExpr* arg;
     for (int i = 0; i < rpn.used; i++) {
         if (!(p = rpn.ref[i])) goto justpush;
         switch (p->kind) {
@@ -349,7 +349,7 @@ exitloop:
             parser, "nothing parsed"); //    (parser, p);
         goto error;
     } else if (result.used != 1) {
-        if (PtrArray_topAs(ASTExpr*, &result)->kind != tkLineComment) {
+        if (PtrArray_topAs(JetExpr*, &result)->kind != tkLineComment) {
             Parser_errorParsingExpr(parser, p, "more than 1 result");
             goto error;
         }
@@ -371,7 +371,7 @@ error:
     if (ops.used) {
         eputs("ops: [ ");
         for (int i = 0; i < ops.used; i++)
-            eprintf("%s ", TokenKind_repr[((ASTExpr*)ops.ref[i])->kind]);
+            eprintf("%s ", TokenKind_repr[((JetExpr*)ops.ref[i])->kind]);
         eputs("];;");
     }
 
@@ -381,7 +381,7 @@ error:
             if (!rpn.ref[i])
                 eputs("NUL ");
             else {
-                ASTExpr* e = rpn.ref[i];
+                JetExpr* e = rpn.ref[i];
                 eprintf(
                     "%.*s ", 32, e->prec ? TokenKind_repr[e->kind] : e->string);
             }
@@ -394,7 +394,7 @@ error:
             if (!result.ref[i])
                 eputs("NUL ");
             else {
-                ASTExpr* e = result.ref[i];
+                JetExpr* e = result.ref[i];
                 eprintf(
                     "%.*s ", 32, e->prec ? TokenKind_repr[e->kind] : e->string);
             }
@@ -414,24 +414,24 @@ error:
 }
 
 #pragma mark - PARSE TYPESPEC
-static ASTTypeSpec* parseTypeSpec(Parser* parser) {
+static JetTypeSpec* parseTypeSpec(Parser* parser) {
     parser->token.mergeArrayDims = true;
 
-    ASTTypeSpec* typeSpec = NEW(ASTTypeSpec);
-    typeSpec->line = parser->token.line;
-    typeSpec->col = parser->token.col;
+    JetTypeSpec* spec = NEW(JetTypeSpec);
+    spec->line = parser->token.line;
+    spec->col = parser->token.col;
 
     if (memchr(parser->token.pos, '_', parser->token.matchlen))
         Parser_errorInvalidIdent(parser);
 
     if (!isalpha(*parser->token.pos)) Parser_errorInvalidIdent(parser);
 
-    typeSpec->name = parseIdent(parser);
+    spec->name = parseIdent(parser);
     // parser->token.pos; //
     // Token_advance(&parser->token);
     // while (isalnum(parser->token.pos) || *parser->token.pos == '.')
     //     parser->token.pos++;
-    // int len = parser->token.pos - typeSpec->name;
+    // int len = parser->token.pos - spec->name;
     // Token_detect(&parser->token);
 
     if (Parser_matches(parser, tkArrayDims)) {
@@ -439,10 +439,9 @@ static ASTTypeSpec* parseTypeSpec(Parser* parser) {
             // Dict
         } else {
             for (int i = 0; i < parser->token.matchlen; i++)
-                if (parser->token.pos[i] == ':') typeSpec->dims++;
-            if (!typeSpec->dims) typeSpec->dims = 1;
-            typeSpec->collectionType
-                = typeSpec->dims == 1 ? CTYArray : CTYTensor;
+                if (parser->token.pos[i] == ':') spec->dims++;
+            if (!spec->dims) spec->dims = 1;
+            spec->collectionType = spec->dims == 1 ? CTYArray : CTYTensor;
         }
         Token_advance(&parser->token);
     }
@@ -453,12 +452,12 @@ static ASTTypeSpec* parseTypeSpec(Parser* parser) {
     assert(parser->token.kind != tkArrayDims);
 
     parser->token.mergeArrayDims = false;
-    return typeSpec;
+    return spec;
 }
 
 #pragma mark - PARSE VAR
-static ASTVar* parseVar(Parser* parser) {
-    ASTVar* var = NEW(ASTVar);
+static JetVar* parseVar(Parser* parser) {
+    JetVar* var = NEW(JetVar);
     var->isVar = (parser->token.kind == tkKeyword_var);
     var->isLet = (parser->token.kind == tkKeyword_let);
 
@@ -499,14 +498,14 @@ static ASTVar* parseVar(Parser* parser) {
     //        && Parser_ignore(parser, tkKeyword_as)) {
     //      Parser_consume(parser, tkOneSpace);
     {
-        var->typeSpec = parseTypeSpec(parser);
+        var->spec = parseTypeSpec(parser);
     } else {
-        var->typeSpec = NEW(ASTTypeSpec);
-        var->typeSpec->line = parser->token.line;
-        var->typeSpec->col = parser->token.col;
-        var->typeSpec->name = "";
+        var->spec = NEW(JetTypeSpec);
+        var->spec->line = parser->token.line;
+        var->spec->col = parser->token.col;
+        var->spec->name = "";
     }
-    // var->typeSpec->dims = dims;
+    // var->spec->dims = dims;
 
     Parser_ignore(parser, tkOneSpace);
     if (Parser_ignore(parser, tkOpAssign)) //
@@ -515,12 +514,12 @@ static ASTVar* parseVar(Parser* parser) {
     return var;
 }
 
-static List(ASTVar) * parseArgs(Parser* parser) {
-    List(ASTVar)* args = NULL;
+static List(JetVar) * parseArgs(Parser* parser) {
+    List(JetVar)* args = NULL;
     Parser_consume(parser, tkParenOpen);
     if (Parser_ignore(parser, tkParenClose)) return args;
 
-    ASTVar* arg;
+    JetVar* arg;
     do {
         arg = parseVar(parser);
         arg->isArg = true;
@@ -530,14 +529,14 @@ static List(ASTVar) * parseArgs(Parser* parser) {
     Parser_consume(parser, tkParenClose);
     return args;
 }
-static ASTScope* parseScope(Parser* parser, ASTScope* parent, bool isTypeBody);
+static JetScope* parseScope(Parser* parser, JetScope* parent, bool isTypeBody);
 
-static ASTScope* parseScopeCases(Parser* parser, ASTScope* parent) {
+static JetScope* parseScopeCases(Parser* parser, JetScope* parent) {
 
-    ASTScope* scope = NEW(ASTScope);
+    JetScope* scope = NEW(JetScope);
     scope->parent = parent;
-    List(ASTVar)** stmts = &scope->stmts;
-    ASTExpr* expr;
+    List(JetVar)** stmts = &scope->stmts;
+    JetExpr* expr;
 
     while (parser->token.pos < parser->end) {
         switch (parser->token.kind) {
@@ -593,20 +592,20 @@ exitloop:
 }
 
 #pragma mark - PARSE SCOPE
-static ASTScope* parseScope(Parser* parser, ASTScope* parent, bool isTypeBody) {
-    ASTScope* scope = NEW(ASTScope);
+static JetScope* parseScope(Parser* parser, JetScope* parent, bool isTypeBody) {
+    JetScope* scope = NEW(JetScope);
 
-    ASTVar *var = NULL, *orig = NULL;
-    ASTExpr* expr = NULL;
+    JetVar *var = NULL, *orig = NULL;
+    JetExpr* expr = NULL;
     TokenKind tt = tkUnknown;
-    ASTScope* forScope = NULL;
+    JetScope* forScope = NULL;
 
     scope->parent = parent;
     bool startedElse = false;
     bool startedCase = false;
 
-    List(ASTVar)** locals = &scope->locals;
-    List(ASTVar)** stmts = &scope->stmts;
+    List(JetVar)** locals = &scope->locals;
+    List(JetVar)** stmts = &scope->stmts;
 
     while (parser->token.kind != tkKeyword_end) {
 
@@ -624,19 +623,19 @@ static ASTScope* parseScope(Parser* parser, ASTScope* parent, bool isTypeBody) {
                 continue;
             else
                 Token_advance(&parser->token);
-            if ((orig = ASTScope_getVar(scope, var->name)))
+            if ((orig = JetScope_getVar(scope, var->name)))
                 Parser_errorDuplicateVar(parser, var, orig->line, orig->col);
             // TODO: why only idents and binops for resolveVars??
 
-            // resolveType(var->typeSpec, scope);
+            // resolveType(var->spec, scope);
             // resolve BEFORE it is added to the list! in
             // `var x = x + 1` x should not resolve
-            // if var->typeSpec is NULL then set the type
+            // if var->spec is NULL then set the type
             // if it isn't NULL then check the types match
             locals = PtrList_append(locals, var);
             // TODO: validation should raise issue if var->init is
             // missing
-            expr = NEW(ASTExpr);
+            expr = NEW(JetExpr);
             expr->kind = tkVarAssign;
             expr->line = var->init ? var->init->line : var->line;
             // parser->token.line;
@@ -650,7 +649,7 @@ static ASTScope* parseScope(Parser* parser, ASTScope* parent, bool isTypeBody) {
             // itself
             if (var->init) resolveVars(parser, var->init, scope, false);
 
-            // TODO: KEEP THE LAST LISTITEM AND APPEND TO THAT!!
+            // TODO: KEEP THE LJet LISTITEM AND APPEND TO THAT!!
             stmts = PtrList_append(stmts, expr);
         } break;
 
@@ -710,10 +709,10 @@ static ASTScope* parseScope(Parser* parser, ASTScope* parent, bool isTypeBody) {
             // if(parser->token.pos)
             // TODO: for must <parse its expr as a VarDecl, because it can
             // have 'as Type' etc. Now you parse an assignment Expr and hack
-            // an ASTVar out of it.
+            // an JetVar out of it.
             if (tt == tkKeyword_for) {
                 // TODO: new Parser_error
-                ASTVar* fvar = NULL;
+                JetVar* fvar = NULL;
                 if (!expr->left)
                     unreachable("Missing for-loop condition at %d:%d\n",
                         expr->line, expr->col);
@@ -724,20 +723,20 @@ static ASTScope* parseScope(Parser* parser, ASTScope* parent, bool isTypeBody) {
 
                     resolveVars(parser, expr->left->right, scope, false);
 
-                    fvar = NEW(ASTVar);
+                    fvar = NEW(JetVar);
                     fvar->name = expr->left->left->string;
                     fvar->line = expr->left->line;
                     fvar->col = expr->left->left->col;
                     fvar->isVar = true;
                     fvar->init = expr->left->right;
-                    fvar->typeSpec = NEW(ASTTypeSpec);
-                    fvar->typeSpec->typeType = TYReal64;
+                    fvar->spec = NEW(JetTypeSpec);
+                    fvar->spec->typeType = TYReal64;
 
-                    if ((orig = ASTScope_getVar(scope, fvar->name)))
+                    if ((orig = JetScope_getVar(scope, fvar->name)))
                         Parser_errorDuplicateVar(
                             parser, fvar, orig->line, orig->col);
                 }
-                forScope = NEW(ASTScope);
+                forScope = NEW(JetScope);
                 if (fvar) PtrList_shift(&forScope->locals, fvar);
                 forScope->parent = scope;
 
@@ -756,11 +755,11 @@ static ASTScope* parseScope(Parser* parser, ASTScope* parent, bool isTypeBody) {
             if (tt == tkKeyword_for) {
                 // TODO: here it is too late to add the variable,
                 // because parseScope will call resolveVars.
-                // var = NEW(ASTVar);
+                // var = NEW(JetVar);
                 // var->name = expr->left->left->string;
                 // var->init = expr->left->right;
-                // var->typeSpec = NEW(ASTTypeSpec);
-                // var->typeSpec->typeType = TYUInt32;
+                // var->spec = NEW(JetTypeSpec);
+                // var->spec->typeType = TYUInt32;
                 // PtrList_append(&expr->body->locals, var);
                 expr->body = parseScope(parser, forScope, isTypeBody);
             } else {
@@ -796,7 +795,7 @@ static ASTScope* parseScope(Parser* parser, ASTScope* parent, bool isTypeBody) {
 
         case tkLineComment:
             if (parser->generateCommentExprs) {
-                expr = ASTExpr_fromToken(&parser->token);
+                expr = JetExpr_fromToken(&parser->token);
                 stmts = PtrList_append(stmts, expr);
             }
             Token_advance(&parser->token);
@@ -819,13 +818,13 @@ exitloop:
     return scope;
 }
 
-static ASTScope* parseEnumBody(Parser* parser, ASTScope* globScope) {
-    ASTScope* scope = NEW(ASTScope);
+static JetScope* parseEnumBody(Parser* parser, JetScope* globScope) {
+    JetScope* scope = NEW(JetScope);
     scope->parent = globScope;
-    ASTExpr* expr = NULL;
-    ASTVar* var = NULL;
-    List(ASTVar)** vars = &scope->locals;
-    List(ASTVar)** stmts = &scope->stmts;
+    JetExpr* expr = NULL;
+    JetVar* var = NULL;
+    List(JetVar)** vars = &scope->locals;
+    List(JetVar)** stmts = &scope->stmts;
 
     while (parser->token.kind != tkKeyword_end) {
         switch (parser->token.kind) {
@@ -839,7 +838,7 @@ static ASTScope* parseEnumBody(Parser* parser, ASTScope* globScope) {
 
         case tkLineComment:
             if (parser->generateCommentExprs) {
-                expr = ASTExpr_fromToken(&parser->token);
+                expr = JetExpr_fromToken(&parser->token);
                 PtrList_append(&scope->stmts, expr);
             }
             Token_advance(&parser->token);
@@ -866,8 +865,8 @@ static ASTScope* parseEnumBody(Parser* parser, ASTScope* globScope) {
             stmts = PtrList_append(stmts, expr);
             Token_advance(&parser->token); // eat the newline
 
-            var = NEW(ASTVar);
-            var->typeSpec = NEW(ASTTypeSpec);
+            var = NEW(JetVar);
+            var->spec = NEW(JetTypeSpec);
             var->line = expr->line;
             var->col = (expr->kind == tkOpAssign) ? expr->left->col : expr->col;
             var->name = (expr->kind == tkOpAssign) ? expr->left->string
@@ -875,8 +874,8 @@ static ASTScope* parseEnumBody(Parser* parser, ASTScope* globScope) {
             var->init = expr->right;
             vars = PtrList_append(vars, var);
 
-            // var->typeSpec->typeType = TYObject;
-            // var->typeSpec->type = ;
+            // var->spec->typeType = TYObject;
+            // var->spec->type = ;
 
             if (expr->kind == tkOpAssign)
                 resolveVars(parser, expr->right, scope, false);
@@ -893,15 +892,15 @@ exitloop:
 }
 
 #pragma mark - PARSE PARAM
-static List(ASTVar) * parseParams(Parser* parser) {
+static List(JetVar) * parseParams(Parser* parser) {
     Parser_consume(parser, tkOpLT);
-    List(ASTVar) * params;
-    ASTVar* param;
+    List(JetVar) * params;
+    JetVar* param;
     do {
-        param = NEW(ASTVar);
+        param = NEW(JetVar);
         param->name = parseIdent(parser);
         if (Parser_ignore(parser, tkKeyword_as))
-            param->typeSpec = parseTypeSpec(parser);
+            param->spec = parseTypeSpec(parser);
         if (Parser_ignore(parser, tkOpAssign)) param->init = parseExpr(parser);
         PtrList_append(&params, param);
     } while (Parser_ignore(parser, tkOpComma));
@@ -910,11 +909,11 @@ static List(ASTVar) * parseParams(Parser* parser) {
 }
 
 #pragma mark - PARSE FUNC / STMT-FUNC
-static ASTFunc* parseFunc(
-    Parser* parser, ASTScope* globScope, bool shouldParseBody) {
+static JetFunc* parseFunc(
+    Parser* parser, JetScope* globScope, bool shouldParseBody) {
     Parser_consume(parser, tkKeyword_function);
     Parser_consume(parser, tkOneSpace);
-    ASTFunc* func = NEW(ASTFunc);
+    JetFunc* func = NEW(JetFunc);
 
     func->line = parser->token.line;
     func->col = parser->token.col;
@@ -933,7 +932,7 @@ static ASTFunc* parseFunc(
     func->argCount = PtrList_count(func->args);
 
     if (mutator && func->argCount) {
-        ASTVar* arg1 = func->args->item;
+        JetVar* arg1 = func->args->item;
         arg1->isVar = true;
         func->mutator = true;
     }
@@ -941,13 +940,13 @@ static ASTFunc* parseFunc(
     if (Parser_ignore(parser, tkOneSpace)
         && Parser_ignore(parser, tkKeyword_as)) {
         Parser_consume(parser, tkOneSpace);
-        func->returnSpec = parseTypeSpec(parser);
+        func->spec = parseTypeSpec(parser);
     }
 
     if (shouldParseBody) {
         Parser_consume(parser, tkNewline);
 
-        ASTScope* funcScope = NEW(ASTScope);
+        JetScope* funcScope = NEW(JetScope);
         funcScope->parent = globScope;
         funcScope->locals = func->args;
         func->body = parseScope(parser, funcScope, false);
@@ -960,8 +959,8 @@ static ASTFunc* parseFunc(
     return func;
 }
 
-static ASTFunc* parseStmtFunc(Parser* parser, ASTScope* globScope) {
-    ASTFunc* func = NEW(ASTFunc);
+static JetFunc* parseStmtFunc(Parser* parser, JetScope* globScope) {
+    JetFunc* func = NEW(JetFunc);
 
     func->line = parser->token.line;
     func->isStmt = true;
@@ -979,19 +978,19 @@ static ASTFunc* parseStmtFunc(Parser* parser, ASTScope* globScope) {
     func->argCount = PtrList_count(func->args);
 
     if (mutator && func->argCount) {
-        ASTVar* arg1 = func->args->item;
+        JetVar* arg1 = func->args->item;
         arg1->isVar = true;
         func->mutator = true;
     }
 
     Parser_ignore(parser, tkOneSpace);
 
-    func->returnSpec = NEW(ASTTypeSpec);
-    func->returnSpec->line = parser->token.line;
-    func->returnSpec->col = parser->token.col;
-    func->returnSpec->name = "";
+    func->spec = NEW(JetTypeSpec);
+    func->spec->line = parser->token.line;
+    func->spec->col = parser->token.col;
+    func->spec->name = "";
 
-    ASTExpr* ret = exprFromCurrentToken(parser);
+    JetExpr* ret = exprFromCurrentToken(parser);
 
     // if you have toplevel code (eg func call) it tends to reach here
     if (ret->kind != tkOpColEq) return NULL;
@@ -1000,10 +999,10 @@ static ASTFunc* parseStmtFunc(Parser* parser, ASTScope* globScope) {
     ret->unary = true;
 
     ret->right = parseExpr(parser);
-    ASTScope* scope = NEW(ASTScope);
+    JetScope* scope = NEW(JetScope);
     PtrList_append(&scope->stmts, ret);
 
-    ASTScope* funcScope = NEW(ASTScope);
+    JetScope* funcScope = NEW(JetScope);
     funcScope->locals = func->args;
     scope->parent = funcScope;
     func->body = scope;
@@ -1015,10 +1014,10 @@ static ASTFunc* parseStmtFunc(Parser* parser, ASTScope* globScope) {
 }
 
 #pragma mark - PARSE TEST
-static ASTTest* parseTest(Parser* parser, ASTScope* globScope) {
+static JetTest* parseTest(Parser* parser, JetScope* globScope) {
     Parser_consume(parser, tkKeyword_test);
     Parser_consume(parser, tkOneSpace);
-    ASTTest* test = NEW(ASTTest);
+    JetTest* test = NEW(JetTest);
 
     test->line = parser->token.line;
 
@@ -1039,12 +1038,12 @@ static ASTTest* parseTest(Parser* parser, ASTScope* globScope) {
 }
 
 #pragma mark - PARSE UNITS
-static ASTUnits* parseUnits(Parser* parser) { return NULL; }
+static JetUnits* parseUnits(Parser* parser) { return NULL; }
 
 #pragma mark - PARSE TYPE
-static ASTType* parseType(
-    Parser* parser, ASTScope* globScope, bool shouldParseBody) {
-    ASTType* type = NEW(ASTType);
+static JetType* parseType(
+    Parser* parser, JetScope* globScope, bool shouldParseBody) {
+    JetType* type = NEW(JetType);
 
     Parser_consume(parser, tkKeyword_type);
     Parser_consume(parser, tkOneSpace);
@@ -1082,8 +1081,8 @@ static ASTType* parseType(
     return type;
 }
 
-static ASTType* parseEnum(Parser* parser, ASTScope* globScope) {
-    ASTType* en = NEW(ASTType);
+static JetType* parseEnum(Parser* parser, JetScope* globScope) {
+    JetType* en = NEW(JetType);
 
     Parser_consume(parser, tkKeyword_enum);
     Parser_consume(parser, tkOneSpace);
@@ -1115,8 +1114,8 @@ static ASTType* parseEnum(Parser* parser, ASTScope* globScope) {
     return en;
 }
 
-static ASTImport* parseImport(Parser* parser, ASTModule* ownerMod) {
-    ASTImport* import = NEW(ASTImport);
+static JetImport* parseImport(Parser* parser, JetModule* ownerMod) {
+    JetImport* import = NEW(JetImport);
     char* tmp;
     Parser_consume(parser, tkKeyword_import);
     Parser_consume(parser, tkOneSpace);
@@ -1160,9 +1159,9 @@ static ASTImport* parseImport(Parser* parser, ASTModule* ownerMod) {
 
     char endchar = *parser->token.pos;
     *parser->token.pos = 0;
-    if (ASTModule_getImportByAlias(ownerMod, import->name + import->aliasOffset)
-        || ASTModule_getFuncByName(ownerMod, import->name + import->aliasOffset)
-        || ASTModule_getVar(ownerMod, import->name + import->aliasOffset)) {
+    if (JetModule_getImportByAlias(ownerMod, import->name + import->aliasOffset)
+        || JetModule_getFuncByName(ownerMod, import->name + import->aliasOffset)
+        || JetModule_getVar(ownerMod, import->name + import->aliasOffset)) {
         unreachable(
             "import name already used: %s", import->name + import->aliasOffset);
         import = NULL;
@@ -1184,10 +1183,10 @@ static ASTImport* parseImport(Parser* parser, ASTModule* ownerMod) {
     return import;
 }
 
-void analyseModule(Parser* parser, ASTModule* mod);
+void analyseModule(Parser* parser, JetModule* mod);
 
-static ASTFunc* ASTType_makeDefaultCtor(ASTType* type) {
-    ASTFunc* ctor = NEW(ASTFunc);
+static JetFunc* JetType_makeDefaultCtor(JetType* type) {
+    JetFunc* ctor = NEW(JetFunc);
     ctor->line = type->line;
     ctor->isDefCtor = true;
     // Ctors must AlWAYS return a new object.
@@ -1197,54 +1196,58 @@ static ASTFunc* ASTType_makeDefaultCtor(ASTType* type) {
     char buf[128];
     int l = snprintf(buf, 128, "%s_new_", type->name);
     ctor->selector = CString_pndup(buf, l);
-    ASTTypeSpec* tspec = ASTTypeSpec_new(TYObject, CTYNone);
+    JetTypeSpec* tspec = JetTypeSpec_new(TYObject, CTYNone);
     tspec->type = type;
-    ctor->returnSpec = tspec;
+    ctor->spec = tspec;
     return ctor;
 }
 
 // this func should just be replaced by parseScope handling function type etc
 
 //,
-//        .init = (ASTExpr[]) { { .kind = tkNumber, .string = "1" } } }
+//        .init = (JetExpr[]) { { .kind = tkNumber, .string = "1" } } }
 //}
 //;
 
 // vno->vno->;
-// ASTVar* vyes = NEW(ASTVar);
+// JetVar* vyes = NEW(JetVar);
 // vyes->name = "yes";
 // vyes->typeType = TYBool;
 
-// static ASTModule* Parser_lookupModuleByAlias(PtrList* existingModules, char*
+// static JetModule* Parser_lookupModuleByAlias(PtrList* existingModules, char*
 // name) {
-//     foreach (ASTModule*, mod, existingModules) {
+//     foreach (JetModule*, mod, existingModules) {
 //         // eprintf("lookup %s %s\n", name, mod->name);
 //         if (!strcasecmp(name, mod->name)) return mod;
 //     }
 //     return NULL;
 // }
-static ASTModule* Parser_lookupModule(PtrList* existingModules, char* name) {
-    foreach (ASTModule*, mod, existingModules) {
+static JetModule* Parser_lookupModule(PtrList* existingModules, char* name) {
+    foreach (JetModule*, mod, existingModules) {
         // eprintf("lookup %s %s\n", name, mod->name);
         if (!strcasecmp(name, mod->name)) return mod;
     }
     return NULL;
 }
 
-static ASTModule* parseModule(
-    Parser* parser, PtrList** existingModulesPtr, ASTModule* importer) {
-    ASTModule* root = NEW(ASTModule);
-    root->name = parser->moduleName;
+static JetModule* parseModule(
+    Parser* parser, PtrList** existingModulesPtr, JetModule* importer) {
+    JetModule* root = NEW(JetModule);
+
+    // ret->noext = CString_noext(CString_clone(filename));
+    root->name = CString_tr_ip(
+        CString_noext_ip(CString_clone(parser->filename)), '/', '.');
+    // root->name = parser->moduleName;
     // To break recursion, add the root to the existingModules list right away.
     // The name is all that is required for this module to be found later.
     PtrList_shift(existingModulesPtr, root);
     // eprintf("Parsing %s\n", root->name);
-    // root->scope = NEW(ASTScope);
+    // root->scope = NEW(JetScope);
 
     // Token parser->token = { .pos = data.ref, .end = data.ref + data.len };
     Token_advance(&parser->token); // maybe put this in parser ctor
 
-    ASTImport* import = NULL;
+    JetImport* import = NULL;
     // The take away is (for C gen):
     // Every caller who calls append(List) should keep a local List*
     // to follow the list top as items are appended. Each actual append
@@ -1253,14 +1256,14 @@ static ASTModule* parseModule(
     // the first. (it will work but seek through the whole list every
     // time).
 
-    List(ASTFunc)** funcs = &root->funcs;
-    List(ASTImport)** imports = &root->imports;
-    List(ASTType)** types = &root->types;
-    List(ASTTest)** tests = &root->tests;
-    List(ASTEnum)** enums = &root->enums;
-    ASTScope* gscope = root->scope;
-    List(ASTVar)** gvars = &gscope->locals; // globals
-    List(ASTExpr)** gexprs = &gscope->stmts; // globals
+    List(JetFunc)** funcs = &root->funcs;
+    List(JetImport)** imports = &root->imports;
+    List(JetType)** types = &root->types;
+    List(JetTest)** tests = &root->tests;
+    List(JetEnum)** enums = &root->enums;
+    JetScope* gscope = root->scope;
+    List(JetVar)** gvars = &gscope->locals; // globals
+    List(JetExpr)** gexprs = &gscope->stmts; // globals
 
     // for_to(i, countof(vnoyes))
     // gvars = PtrList_append(gvars, expr_const_empty);
@@ -1271,7 +1274,7 @@ static ASTModule* parseModule(
     while (parser->token.kind != tkNullChar) {
 
         if (parser->mode == PMTokenize) {
-            printf("%s %2d %3d %3d %-20s\t%.*s\n", parser->moduleName,
+            printf("%s %2d %3d %3d %-20s\t%.*s\n", parser->filename,
                 parser->token.line, parser->token.col, parser->token.matchlen,
                 TokenKind_names[parser->token.kind],
                 parser->token.kind == tkNewline ? 0 : parser->token.matchlen,
@@ -1286,12 +1289,12 @@ static ASTModule* parseModule(
             Token_advance(&parser->token);
             Parser_consume(parser, tkOneSpace);
             if (parser->token.kind == tkKeyword_function) {
-                ASTFunc* func = parseFunc(parser, gscope, false);
+                JetFunc* func = parseFunc(parser, gscope, false);
                 func->isDeclare = true;
                 funcs = PtrList_append(funcs, func);
             }
             if (parser->token.kind == tkKeyword_type) {
-                ASTType* type = parseType(parser, gscope, false);
+                JetType* type = parseType(parser, gscope, false);
                 type->isDeclare = true;
                 types = PtrList_append(types, type);
             }
@@ -1302,37 +1305,37 @@ static ASTModule* parseModule(
             break;
 
         case tkKeyword_enum: {
-            ASTType* en = parseEnum(parser, gscope);
+            JetType* en = parseEnum(parser, gscope);
             enums = PtrList_append(enums, en);
             // add a global of the corresponding type so that it can be used
             // to access members.
             assert(en);
-            ASTVar* enumv = NEW(ASTVar);
+            JetVar* enumv = NEW(JetVar);
             enumv->name = en->name;
             enumv->line = en->line;
             enumv->col = en->col;
-            enumv->typeSpec = NEW(ASTTypeSpec);
-            enumv->typeSpec->typeType = TYObject;
-            enumv->typeSpec->type = en;
+            enumv->spec = NEW(JetTypeSpec);
+            enumv->spec->typeType = TYObject;
+            enumv->spec->type = en;
             gvars = PtrList_append(gvars, enumv);
         }
 
         break;
 
         case tkKeyword_type: {
-            ASTType* type = parseType(parser, gscope, true);
+            JetType* type = parseType(parser, gscope, true);
             types = PtrList_append(types, type);
 
             // create default constructor
-            ASTFunc* ctor = ASTType_makeDefaultCtor(type);
+            JetFunc* ctor = JetType_makeDefaultCtor(type);
             funcs = PtrList_append(funcs, ctor);
 
             // create some extra function declares
             char* defFuncs[] = { "json", "print", "describe" };
 
             for (int i = 0; i < countof(defFuncs); i++) {
-                ASTFunc* func
-                    = ASTFunc_createDeclWithArg(defFuncs[i], NULL, type->name);
+                JetFunc* func
+                    = JetFunc_createDeclWithArg(defFuncs[i], NULL, type->name);
                 func->line = type->line;
                 func->intrinsic = true;
                 funcs = PtrList_append(funcs, func);
@@ -1353,7 +1356,7 @@ static ASTModule* parseModule(
                     char* filename = malloc(len);
                     filename[len - 1] = 0;
                     strcpy(filename, import->name);
-                    CString_tr_ip(filename, '.', '/', len - 5);
+                    CString_tr_ip_len(filename, '.', '/', len - 5);
                     strcpy(filename + len - 5, ".jet");
                     // later you can have a fancier routine that figures out
                     // the file name from a module name
@@ -1381,16 +1384,16 @@ static ASTModule* parseModule(
             // TODO: add these to exprs
             {
                 int col = parser->token.col + parser->token.matchlen;
-                ASTVar *var = parseVar(parser), *orig;
+                JetVar *var = parseVar(parser), *orig;
                 if (!var) {
                     Token_advance(&parser->token);
                     continue;
                 }
-                if ((orig = ASTScope_getVar(gscope, var->name)))
+                if ((orig = JetScope_getVar(gscope, var->name)))
                     Parser_errorDuplicateVar(
                         parser, var, orig->line, orig->col);
-                ASTImport* imp = ASTModule_getImportByAlias(root, var->name);
-                ASTFunc* fnc = ASTModule_getFuncByName(root, var->name);
+                JetImport* imp = JetModule_getImportByAlias(root, var->name);
+                JetFunc* fnc = JetModule_getFuncByName(root, var->name);
                 if (imp)
                     Parser_errorDuplicateVar(parser, var, imp->line, imp->col);
                 if (fnc) Parser_errorDuplicateVar(parser, var, fnc->line, 5);
@@ -1402,7 +1405,7 @@ static ASTModule* parseModule(
 
                 // TODO: validation should raise issue if var->init is
                 // missing
-                ASTExpr* expr = NEW(ASTExpr);
+                JetExpr* expr = NEW(JetExpr);
                 expr->kind = tkVarAssign;
                 expr->line = var->init ? var->init->line : parser->token.line;
                 expr->col = col;
@@ -1446,14 +1449,14 @@ static ASTModule* parseModule(
 
     for (int j = 0; j < countof(defTypes); j++)
         for (int i = 0; i < countof(defFuncs); i++) {
-            ASTFunc* func = ASTFunc_createDeclWithArg(
+            JetFunc* func = JetFunc_createDeclWithArg(
                 defFuncs[i], retTypes[i], defTypes[j]);
             func->intrinsic = true;
             funcs = PtrList_append(funcs, func);
         }
 
     // do some analysis that happens after the entire module is loaded
-    ASTModule_analyse(parser, root);
+    JetModule_analyse(parser, root);
     // if (importer) PtrList_shift(&importer->importedBy, root);
     return root;
 }

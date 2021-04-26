@@ -6,7 +6,7 @@
     "configurations": [
         {
             "name": "Debug current file (linter)",
-            "program": "${workspaceRoot}/jetc-dbg",
+            "program": "${workspaceRoot}/c99/cjet-dbg",
             "args": [
                 "${fileDirname}/${fileBasename}",
                 "l"
@@ -15,11 +15,24 @@
             "MIMode": "lldb",
             "request": "launch",
             "type": "cppdbg",
-            "preLaunchTask": "Run make jetc-dbg"
+            "preLaunchTask": "Run make cjet-dbg"
+        },
+        {
+            "name": "Debug current file (coverage)",
+            "program": "${workspaceRoot}/c99/cjet-cov",
+            "args": [
+                "${fileDirname}/${fileBasename}",
+                "l"
+            ],
+            "cwd": "${fileDirname}",
+            "MIMode": "lldb",
+            "request": "launch",
+            "type": "cppdbg",
+            "preLaunchTask": "Run make cjet-cov"
         },
         {
             "name": "Debug current file (compiler)",
-            "program": "${workspaceRoot}/jetc-dbg",
+            "program": "${workspaceRoot}/c99/cjet-dbg",
             "args": [
                 "${fileDirname}/${fileBasename}"
             ],
@@ -27,23 +40,22 @@
             "MIMode": "lldb",
             "request": "launch",
             "type": "cppdbg",
-            "preLaunchTask": "Run make jetc-dbg"
+            "preLaunchTask": "Run make cjet-dbg"
         },
         {
-            "name": "Debug jetc-dbg",
+            "name": "Debug cjet-dbg",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceRoot}/jetc-dbg",
+            "program": "${workspaceRoot}/c99/cjet-dbg",
             "args": [
-                "tests/genc.jet",
-                "l"
+                "tests/bigg.jet"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
             "externalConsole": false,
             "MIMode": "lldb",
-            "preLaunchTask": "Run make jetc-dbg"
+            "preLaunchTask": "Run make cjet-dbg"
         }
     ]
 }

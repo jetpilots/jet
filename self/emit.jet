@@ -26,8 +26,8 @@ func emit(typeInfo=TypeInfo, level=Number, isconst=Boolean)
     print(isconst ? "const " : "")
     print(typeInfo.dims ? "SArray$(typeInfo.dims)D(" : "SArray(")
     match typeInfo.typeType
-    case .object do print(typeInfo.typ.name)
-    case .unresolved do print(typeInfo.name or "ErrorType")
+    case #object do print(typeInfo.typ.name)
+    case #unresolved do print(typeInfo.name or "ErrorType")
     case do print(value(typeInfo.typeType).name)
     end
     print(typeInfo.dims ? ")" : "")
@@ -40,17 +40,17 @@ x := "asd"
 x := Type()
 x := Type nil
 x := Type {..}
-x := Type [.., ..]
+x := Type [.., #.]
 x := Type funcCall(...)
 x := [] ~ ok for later inference
 for v = [...] do x.push(f(v)) ~ ok sets x type
 
 globVarDict = {
     "yes" = Var {
-        typeInfo.typeType = .boolean,
+        typeInfo.typeType = #boolean,
         intrinsic = yes,
         init = Expr {
-            kind = .number
+            kind = #number
         }
     }
 }
@@ -65,7 +65,7 @@ mWin = Window {
     ~ should also have a dump function that serializes objs to this format.
     title = "My Application"
     size = 1280x800|px
-    flags = .resizable + .movable + .fullScreen
+    flags = #resizable + #movable + #fullScreen
     draw = func (c Canvas)
         c.drawLine(0x0, 120x120|pt)
         c.fillRoundRect(0x0, 120x120|pt, 5x5|pt)
@@ -100,9 +100,9 @@ mWin.show()
 
     func unmarkVisited(expr Expr)
         match (expr.kind)
-        case .identifierResolved, .varAssign
+        case #identifierResolved, #varAssign
             expr.var.visited = no
-        case .functionCallResolved ,.functionCall ,.subscriptResolved ,.subscript ,.keywordIf ,.keywordFor ,.keywordElse ,.keywordWhile
+        case #functionCallResolved ,.functionCall ,.subscriptResolved ,.subscript ,.keywordIf ,.keywordFor ,.keywordElse ,.keywordWhile
             unmarkVisited(expr.left)
         default:
             if (expr.prec)
@@ -126,7 +126,8 @@ mWin.show()
 
             //~            if (e.var.visited)
 
-        case #functionCallResolved, #functionCall, #subscriptResolved, #subscript, #keywordIf, #keywordElse, #keywordFor, #keywordWhile
+        case #functionCallResolved, #functionCall, #subscriptResolved,
+            #subscript, #keywordIf, #keywordElse, #keywordFor, #keywordWhile
             genPrintVars(expr.left, level)
         default:
             if (expr.prec)
@@ -136,31 +137,26 @@ mWin.show()
         end
     end
 
-    func findPromotionCandidate(expr=Expr) ret=Expr
-        assert(expr)
-        ret Expr
+    func findPromotionCandidate(expr: Expr) -> Expr
+        ~ assert(expr)
+        result = Expr()
 
         match (expr.kind)
-        case .functionCallResolved
+        case #functionCallResolved
             if (expr.left and (ret = findPromotionCandidate(expr.left)))
                 return ret
             else if (mustPromote(expr.func.selector))
                 return expr
 
-        case .subscriptResolved
-            return findPromotionCandidate(expr.left)
-        case .subscript return findPromotionCandidate(expr.left)
-        case .keywordIf
-        case .keywordFor
-        case .keywordElse
-        case .keywordElif
-        case .keywordWhile
-            if (expr.left) return findPromotionCandidate(*expr.left)
+        case #subscriptResolved, #subscript, #keywordIf, #keywordFor,
+             #keywordElse, #keywordElif, #keywordWhile
 
-        case .varAssign
+            result = findPromotionCandidate(expr.left) or nil
+
+        case #varAssign
             if ((ret = findPromotionCandidate(*expr.var.init))) return ret
 
-        case .functionCall ~ unresolved
+        case #functionCall ~ unresolved
             unreachable("unresolved call %s\n", expr.string)
             if ((ret = findPromotionCandidate(*expr.left))) return ret
 
@@ -181,10 +177,10 @@ mWin.show()
     end
 
     func isCtrlExpr(expr Expr)
-        return expr.kind == .keywordIf //
-            or expr.kind == .keywordFor //
-            or expr.kind == .keywordWhile //
-            or expr.kind == .keywordElse
+        return expr.kind == #keywordIf //
+            or expr.kind == #keywordFor //
+            or expr.kind == #keywordWhile //
+            or expr.kind == #keywordElse
     end
     func isLiteralExpr(expr Expr)  return no  end
     func isComparatorExpr(expr Expr)  return no  end
@@ -195,9 +191,9 @@ mWin.show()
             if (not stmt.elemental) continue
 
             ifblk Expr = NEW(ASTExpr)
-            ifblk.kind = .keywordIf
+            ifblk.kind = #keywordIf
             ifblk.left = NEW(ASTExpr)
-            ifblk.left.kind = .number
+            ifblk.left.kind = #number
             ifblk.string = "1"
 
         end
@@ -229,38 +225,38 @@ mWin.show()
 
             PtrListappend(scope.vars, tmpvar)
 
-            pc.kind = .identifierResolved
+            pc.kind = #identifierResolved
             pc.prec = 0
             pc.var = tmpvar
 
             if (not pcClone.left)
                 pcClone.left = pc
-            else if (pcClone.left.kind != .opComma)
+            else if (pcClone.left.kind != #opComma)
                 com Expr = NEW(ASTExpr)
                 com.prec = TokenKindgetPrecedence(tkOpComma)
-                com.kind = .opComma
+                com.kind = #opComma
                 com.left = pcClone.left
                 com.right = pc
                 pcClone.left = com
             else
                 argn Expr = pcClone.left
                 while (
-                    argn.kind == .opComma and argn.right.kind == .opComma)
+                    argn.kind == #opComma and argn.right.kind == #opComma)
                     argn = argn.right
                 com Expr = NEW(ASTExpr)
                 com.prec = TokenKindgetPrecedence(tkOpComma)
-                com.kind = .opComma
+                com.kind = #opComma
                 com.left = argn.right
                 com.right = pc
                 argn.right = com
             end
 
             if (not prev)
-                scope.stmts = PtrListwith(pcClone)
+                scope.stmts = ptrListWith(pcClone)
                 scope.stmts.next = stmts
                 prev = scope.stmts
             else
-                prev.next = PtrListwith(pcClone)
+                prev.next = ptrListWith(pcClone)
                 prev.next.next = stmts
                 prev = prev.next
             end ~ List(ASTExpr)* insertionPos = prev ? prev.next : self.stmts
@@ -278,10 +274,10 @@ mWin.show()
                 puts(" ")
             end ~ these will be declared at top and defined within the expr list
         for (Expr stmt, scope.stmts)
-            if (stmt.kind == .lineComment) continue
+            if (stmt.kind == #lineComment) continue
             if (genLineNumbers) print("#line %d\n", stmt.line)
 
-            if (stmt.kind != .varAssign or stmt.var.used)
+            if (stmt.kind != #varAssign or stmt.var.used)
 
                 if (genCoverage)
                     print("%.*sJETCOVERAGEUP(%d)  \n", level, spaces,
@@ -293,7 +289,7 @@ mWin.show()
                 if (genCoverage or genLineProfile) puts("")  ~ ************/")
             end
             emit(stmt, level)
-            if (not isCtrlExpr(stmt) and stmt.kind != .keywordReturn)
+            if (not isCtrlExpr(stmt) and stmt.kind != #keywordReturn)
                 puts(" ")
             else
                 puts("")
@@ -388,7 +384,7 @@ mWin.show()
         for (Var : typ.body.vars) ~ if (var.used)
             print("#define %s self.%s\n", var.name, var.name)
         for (stmt Expr : typ.body.stmts)
-            if (not stmt or stmt.kind != .varAssign or !stmt.var.init)
+            if (not stmt or stmt.kind != #varAssign or !stmt.var.init)
                 continue
             print("%.*s%s = ", level + STEP, spaces, stmt.var.name)
             emit(stmt.var.init, 0)
@@ -447,7 +443,7 @@ end
         print("end %s \n", name)
         ex1 Expr = typ.body.stmts.item
         var datType CString
-            = ex1.kind == .opAssign ? typeName(ex1.right) : NULL
+            = ex1.kind == #opAssign ? typeName(ex1.right) : NULL
         if (datType)
             print("monostatic %s %sdata[%d] \n", datType, name,
                 PtrListcount(typ.body.vars))
@@ -462,7 +458,7 @@ end
         print("monostatic void %sinit() \n", name)
 
         for (Expr stmt, typ.body.stmts)
-            if (not stmt or stmt.kind != .opAssign) //or !stmt.var.init)
+            if (not stmt or stmt.kind != #opAssign) //or !stmt.var.init)
                 continue
             print("%.*s%sdata[%s%s] = ", level + STEP, spaces, name, name,
                 stmt.left.string)
@@ -563,36 +559,36 @@ end
         index Expr = expr.left
         assert(index)
         match (index.kind)
-        case .number ~ indexing with a single number, can be a -ve number
+        case #number ~ indexing with a single number, can be a -ve number
             print("Arrayget%s(%s, %s)", cname(expr.var.typeInfo), name,
                 index.string)
 
-        case .string
-        case .rawString ~ indexing with single string or regex
+        case #string
+        case #rawString ~ indexing with single string or regex
             print("DictgetCString%s(%s, %s)", cname(expr.var.typeInfo),
                 name, index.string)
 
-        case .opComma ~ higher dims. validation etc. has been done by this
+        case #opComma ~ higher dims. validation etc. has been done by this
 
             print("Tensor%dDget%s(%s, {", expr.var.typeInfo.dims,
                 cname(expr.var.typeInfo), name)
             emit(index, 0)
             print("end)")
 
-        case .opColon
+        case #opColon
             print("ArraygetSlice%s(%s, ", name(expr.var.typeInfo), name)
             emit(index, 0)
             print(")")
 
-        case .opEQ
-        case .opLE
-        case .opGE
-        case .opGT
-        case .opLT
-        case .opNE
-        case .keywordAnd
-        case .keywordOr
-        case .keywordNot
+        case #opEQ
+        case #opLE
+        case #opGE
+        case #opGT
+        case #opLT
+        case #opNE
+        case #keywordAnd
+        case #keywordOr
+        case #keywordNot
 
             print("Arraycopyfilter%s(%s, ", name(expr.var.typeInfo), name)
             emit(index, 0)
@@ -613,7 +609,7 @@ end
         arg1 Expr = expr.left
         var tmpc CString = ""
         if (arg1)
-            if (arg1.kind == .opComma) arg1 = arg1.left
+            if (arg1.kind == #opComma) arg1 = arg1.left
             tmpc = CollectionTypenativeName(arg1.collectionType)
         end
         print("%s%s", tmpc, tmp)
@@ -670,8 +666,8 @@ end
                 while (*pos and isalnum(*pos) or *pos == '.') pos++
 
                 if (e)
-                    while (e.kind == .period) e = e.right
-                    assert(e.kind == .identifierResolved)
+                    while (e.kind == #period) e = e.right
+                    assert(e.kind == #identifierResolved)
                     assert(e.var)
                     print(
                         "%s", TypeTypeformat(e.var.typeInfo.typeType, no))
@@ -729,12 +725,12 @@ end
 
         if (not checkExpr.unary)
             if (lhsExpr.collectionType == CTYNone //
-                and lhsExpr.kind != .string //
-                and lhsExpr.kind != .number //
-                and lhsExpr.kind != .rawString //
-                and lhsExpr.kind != .opLE //
-                and lhsExpr.kind != .opLT)
-                if (lhsExpr.kind != .identifierResolved
+                and lhsExpr.kind != #string //
+                and lhsExpr.kind != #number //
+                and lhsExpr.kind != #rawString //
+                and lhsExpr.kind != #opLE //
+                and lhsExpr.kind != #opLT)
+                if (lhsExpr.kind != #identifierResolved
                     or !lhsExpr.var.visited)
                     print(
                         "%.*s%s", level + STEP, spaces, "print(\"    %s = ")
@@ -747,10 +743,10 @@ end
             end
         end
         if (rhsExpr.collectionType == CTYNone //
-            and rhsExpr.kind != .string //
-            and rhsExpr.kind != .number //
-            and rhsExpr.kind != .rawString)
-            if (rhsExpr.kind != .identifierResolved or !rhsExpr.var.visited)
+            and rhsExpr.kind != #string //
+            and rhsExpr.kind != #number //
+            and rhsExpr.kind != #rawString)
+            if (rhsExpr.kind != #identifierResolved or !rhsExpr.var.visited)
                 print("%.*s%s", level + STEP, spaces, "print(\"    %s = ")
                 print("%s", TypeTypeformat(rhsExpr.typeType, yes))
                 print("%s", "\\n\", \"")
@@ -770,46 +766,46 @@ end
 
         print("%.*s", level, spaces)
         match (expr.kind)
-        case .number .number(expr, level)
-        case .keywordNo print("no")
-        case .keywordYes print("yes")
-        case .keywordNil print("nil")
-        case .multiDotNumber
-        case .identifier print("%s", expr.string)
-        case .string emittkString(expr, level)
-        case .identifierResolved print("%s", expr.var.name)
-        case .rawString ~ 'raw strings' or 'regexes'
+        case #number #number(expr, level)
+        case #keywordNo print("no")
+        case #keywordYes print("yes")
+        case #keywordNil print("nil")
+        case #multiDotNumber
+        case #identifier print("%s", expr.string)
+        case #string emittkString(expr, level)
+        case #identifierResolved print("%s", expr.var.name)
+        case #rawString ~ 'raw strings' or 'regexes'
             print("\"%s\"", expr.string + 1)
 
-        case .regexp ~ inline C code?
+        case #regexp ~ inline C code?
             print("%s", expr.string + 1)
 
-        case .lineComment: ~ TODO skip  comments in generated code
+        case #lineComment: ~ TODO skip  comments in generated code
             print("~ %s", expr.string)
 
-        case .functionCall
+        case #functionCall
             unreachable("unresolved call to '%s'\n", expr.string)
 
-        case .functionCallResolved
+        case #functionCallResolved
             emittkFunctionCallResolved(expr, level)
 
-        case .subscript
+        case #subscript
             unreachable("unresolved subscript on '%s'\n", expr.string)
 
-        case .subscriptResolved .subscriptResolved(expr, level)
-        case .opAssign
-        case .opPlusEq
-        case .opMinusEq
-        case .opTimesEq
-        case .opSlashEq
-        case .opPowerEq
-        case .opModEq
+        case #subscriptResolved #subscriptResolved(expr, level)
+        case #opAssign
+        case #opPlusEq
+        case #opMinusEq
+        case #opTimesEq
+        case #opSlashEq
+        case #opPowerEq
+        case #opModEq
             match (expr.left.kind)
-            case .subscriptResolved
+            case #subscriptResolved
                 match (expr.left.left.kind)
-                case .number
-                case .string
-                case .rawString
+                case #number
+                case #string
+                case #rawString
 
                     print("%sset(%s, %s,%s, ", typeName(expr.left),
                         expr.left.var.name, expr.left.left.string,
@@ -817,7 +813,7 @@ end
                     emit(expr.right, 0)
                     print(")")
 
-                case .opColon
+                case #opColon
                     print("%ssetSlice(%s, ", typeName(expr.left),
                         expr.left.var.name)
                     emit(expr.left.left, 0)
@@ -825,15 +821,15 @@ end
                     emit(expr.right, 0)
                     print(")")
 
-                case .opEQ
-                case .opGE
-                case .opNE
-                case .opGT
-                case .opLE
-                case .opLT
-                case .keywordAnd
-                case .keywordOr
-                case .keywordNot
+                case #opEQ
+                case #opGE
+                case #opNE
+                case #opGT
+                case #opLE
+                case #opLT
+                case #keywordAnd
+                case #keywordOr
+                case #keywordNot
                     print("%ssetFiltered(%s, ", typeName(expr.left),
                         expr.left.var.name)
                     emit(expr.left.left, 0)
@@ -841,36 +837,36 @@ end
                     emit(expr.right, 0)
                     print(")")
 
-                case .opComma
+                case #opComma
 
-                case .identifierResolved
+                case #identifierResolved
 
-                case .subscriptResolved
+                case #subscriptResolved
 
-                case .functionCallResolved
+                case #functionCallResolved
 
                 default:
                     unreachable("%s\n", TokenKindsnames[expr.left.kind])
                     assert(0)
                 end
-            case .identifierResolved
-            case .period
+            case #identifierResolved
+            case #period
                 emit(expr.left, 0)
                 print("%s", TokenKindrepr(expr.kind, yes))
                 emit(expr.right, 0)
-            case .identifier
+            case #identifier
                 unreachable("unresolved var %s", expr.left.string)
-            case .argumentLabel
+            case #argumentLabel
                 emit(expr.right, 0)
 
-            case .string
+            case #string
             default:
 
                 unreachable(
                     "found token kind %s\n", TokenKindsnames[expr.left.kind])
             end
 
-        case .arrayOpen
+        case #arrayOpen
 
             if (not expr.right)
                 print("Arrayinit(%s)()", "double")
@@ -882,7 +878,7 @@ end
                 print(", %d)", countCommaList(expr.right))
             end
 
-        case .braceOpen {
+        case #braceOpen {
             var Ktype CString = "CString"
             var Vtype CString = "Real64"
             if (not expr.right)
@@ -891,7 +887,7 @@ end
                 print("Dictmake(%s,%s)(%d, (%s[]){", Ktype, Vtype,
                     countCommaList(expr.right), Ktype)  ~ FIXME
                 p Expr = expr.right
-                while (p and p.kind == .opComma)
+                while (p and p.kind == #opComma)
                     emit(p.left.left, 0)
                     print(", ")
                     p = p.right
@@ -899,7 +895,7 @@ end
                 emit(p.left, 0)
                 print("end, (%s[]){", Vtype)
                 p = expr.right
-                while (p and p.kind == .opComma)
+                while (p and p.kind == #opComma)
                     emit(p.left.right, 0)
                     print(", ")
                     p = p.right
@@ -908,20 +904,20 @@ end
                 print("end)")
             end
         end
-        case .opColon: ~ convert 3:45 to range(...)
+        case #opColon: ~ convert 3:45 to range(...)
             print("%s(",
-                expr.left.kind != .opColon ? "rangeto" : "rangetoby")
-            if (expr.left.kind == .opColon)
-                expr.left.kind = .opComma
+                expr.left.kind != #opColon ? "rangeto" : "rangetoby")
+            if (expr.left.kind == #opColon)
+                expr.left.kind = #opComma
                 emit(expr.left, 0)
-                expr.left.kind = .opColon
+                expr.left.kind = #opColon
             end else
                 emit(expr.left, 0)
             print(", ")
             emit(expr.right, 0)
             print(")")
 
-        case .varAssign ~ basically a .opAssign corresponding to a local
+        case #varAssign ~ basically a #opAssign corresponding to a local
 
             if (expr.var.init != NULL and expr.var.used)
                 print("%s = ", expr.var.name)
@@ -931,24 +927,24 @@ end
                     expr.var.used ? "null" : "unused", expr.line)
             end
 
-        case .keywordElse
+        case #keywordElse
             puts("else {")
             if (expr.body) emit(expr.body, level + STEP)
             print("%.*send", level, spaces)
 
-        case .keywordElif
+        case #keywordElif
             puts("else if (")
             emit(expr.left, 0)
             puts(") ")
             if (expr.body) emit(expr.body, level + STEP)
             print("%.*send", level, spaces)
 
-        case .keywordMatch {
+        case #keywordMatch {
 
             print("{%s matchcond = ", typeName(expr.left))
             emit(expr.left, 0)
-            if (expr.left.typeType > .int8
-                or (expr.left.typeType == .object
+            if (expr.left.typeType > #int8
+                or (expr.left.typeType == #object
                     and getObjectType(expr.left).isEnum))
                 puts("  match (matchcond) ")
             else
@@ -957,23 +953,23 @@ end
             print("%.*sendend", level, spaces)
         end
             /*
-            This is how you walk a ASTExpr that is a .opComma (left to right):
+            This is how you walk a ASTExpr that is a #opComma (left to right):
                 process(cond.left)
-                while (cond.right.kind == .opComma)
+                while (cond.right.kind == #opComma)
                     cond = cond.right, process(cond.left)
                 process(cond.right)
             */
 
-        case .keywordCase {
+        case #keywordCase {
             cond Expr = expr.left
-            if (cond.kind == .opComma)
-                if (cond.typeType > .int8
-                    or (cond.typeType == .object and getEnumType(cond)))
+            if (cond.kind == #opComma)
+                if (cond.typeType > #int8
+                    or (cond.typeType == #object and getEnumType(cond)))
                     print(
                         "case ")  ~ match has handled the cond with a 'match'
                     emit(cond.left, 0)
                     print(": ")
-                    while (cond.right.kind == .opComma)
+                    while (cond.right.kind == #opComma)
                         cond = cond.right
                         print("case ")
                         emit(cond.left, 0)
@@ -982,11 +978,11 @@ end
                     print("case ")
                     emit(cond.right, 0)
                     puts(": {")
-                end else if (cond.typeType == .string)
+                end else if (cond.typeType == #string)
                     print("else if (equals(matchcond, ")
                     emit(cond.left, 0)
                     print(")")
-                    while (cond.right.kind == .opComma)
+                    while (cond.right.kind == #opComma)
                         cond = cond.right
                         print(" or equals(matchcond, ")
                         emit(cond.left, 0)
@@ -998,7 +994,7 @@ end
                 else
                     print("else if (matchcond == ")
                     emit(cond.left, 0)
-                    while (cond.right.kind == .opComma)
+                    while (cond.right.kind == #opComma)
                         cond = cond.right
                         print(" or matchcond == (")
                         emit(cond.left, 0)
@@ -1007,13 +1003,13 @@ end
                     puts(")) do {")
                 end
             else
-                if (cond.typeType > .int8
-                    or (cond.typeType == .object and getEnumType(cond)))
+                if (cond.typeType > #int8
+                    or (cond.typeType == #object and getEnumType(cond)))
                     print(
                         "case ")  ~ match has handled the cond with a 'match'
                     emit(cond, 0)
                     puts(": {")
-                end else if (cond.typeType == .string)
+                end else if (cond.typeType == #string)
                     print("else if (equals(matchcond, ")
                     emit(cond, 0)
                     puts(")) do {")
@@ -1025,55 +1021,55 @@ end
             end
             if (expr.body) emit(expr.body, level)
             print("%.*send", level, spaces)
-            if (cond.typeType > .int8
-                or (cond.typeType == .object and getEnumType(cond)))
+            if (cond.typeType > #int8
+                or (cond.typeType == #object and getEnumType(cond)))
                 print("  ")
             else
                 print(" while(0)")
         end
-        case .keywordFor
-        case .keywordIf
+        case #keywordFor
+        case #keywordIf
 
-        case .keywordWhile
-            if (expr.kind == .keywordFor)
+        case #keywordWhile
+            if (expr.kind == #keywordFor)
                 print("FOR(")
             else
                 print("%s (", TokenKindrepr(expr.kind, yes))
-            if (expr.kind == .keywordFor) expr.left.kind = .opComma
+            if (expr.kind == #keywordFor) expr.left.kind = #opComma
             if (expr.left) emit(expr.left, 0)
-            if (expr.kind == .keywordFor) expr.left.kind = .opAssign
+            if (expr.kind == #keywordFor) expr.left.kind = #opAssign
             puts(") ")
             if (expr.body) emit(expr.body, level + STEP)
             print("%.*send", level, spaces)
 
-        case .opPower
+        case #opPower
             print("pow(")
             emit(expr.left, 0)
             print(",")
             emit(expr.right, 0)
             print(")")
 
-        case .keywordReturn
+        case #keywordReturn
             print("{err = NULL  STACKDEPTHDOWN  return ")
             if (expr.right) emit(expr.right, 0)
             print(" end\n")
 
-        case .keywordCheck .check(expr, 0)
-        case .period
+        case #keywordCheck #check(expr, 0)
+        case #period
             emit(expr.left, 0)
-            if (expr.left.typeType == .object
+            if (expr.left.typeType == #object
                 and getObjectType(expr.left).isEnum)
                 print("")
             else
-                print(".")  ~ may be . if right is embedded and not a
+                print(".")  ~ may be # if right is embedded and not a
             emit(expr.right, 0)
 
-        case .keywordNotin print("!")  fallthrough
-        case .keywordIn
+        case #keywordNotin print("!")  fallthrough
+        case #keywordIn
 
             match (expr.right.kind)
-            case .arrayOpen
-                if (expr.right.right.kind == .opColon)
+            case #arrayOpen
+                if (expr.right.right.kind == #opColon)
                     goto inRangeOp  ~ x in [a:b]
 
                 {
@@ -1086,24 +1082,26 @@ end
                     print(")")
                 end
 
-            case .subscript
+            case #subscript
 
-            case .opColon: ~ x in ab
+            case #opColon: ~ x in ab
             inRangeOp:
             default:
                 unreachable("inside in operator: rhs is %s",
                     TokenKindrepr(expr.right.kind, no))
             end
 
-        case .opEQ,.opNE,.opGE,.opLE,.opGT,.opLT
-            if expr.kind in [.opLE, .opLT] and expr.left.kind in [.opLE, .opLT]
+        case #opEQ,.opNE,.opGE,.opLE,.opGT,.opLT
+            if expr.kind in [.opLE, #opLT]
+                and expr.left.kind in [.opLE, #opLT]
+
                 print("$1cmp3way$2$3(" % expr.left.right.typeName(),
                     ascrepr(expr.kind), ascrepr(expr.left.kind))
                 expr.left.left.emit(); print(", ")
                 expr.left.right.emit(); print(", ")
                 expr.right.emit(); print(")")
 
-            else if expr.right.typeType == .string
+            else if expr.right.typeType == #string
                 print("CStringcmp(%s, ", TokenKindssrepr[expr.kind])
                 expr.left.emit(); print(", ")
                 expr.right.emit(); print(")")
@@ -1114,7 +1112,7 @@ end
             leftBr Boolean
                 = expr.left and expr.left.prec and expr.left.prec < expr.prec
             rightBr Boolean = expr.right and expr.right.prec
-                and expr.right.kind != .keywordReturn
+                and expr.right.kind != #keywordReturn
                 and expr.right.prec < expr.prec
 
             char lpo = '('
@@ -1122,7 +1120,7 @@ end
             if (leftBr) putc(lpo, stdout)
             if (expr.left) emit(expr.left, 0)
             if (leftBr) putc(lpc, stdout)
-            if (expr.kind == .arrayOpen)
+            if (expr.kind == #arrayOpen)
                 putc('{', stdout)
             else
                 print("%s", TokenKindrepr(expr.kind, yes))
@@ -1131,7 +1129,7 @@ end
             if (rightBr) do putc(rpo, stdout)
             if (expr.right) do emit(expr.right)
             if (rightBr) do putc(rpc, stdout)
-            if (expr.kind == .arrayOpen) do putc('end', stdout)
+            if (expr.kind == #arrayOpen) do putc('end', stdout)
         end
     end
 

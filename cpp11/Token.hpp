@@ -1,4 +1,4 @@
-#include "TokenKinds.h"
+#include "../c99/TokenKind.h"
 
 struct SourceLoc {
     unsigned line : 16, col : 8, len : 8;

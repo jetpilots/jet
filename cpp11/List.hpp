@@ -5,6 +5,8 @@
 #include <cstdlib>
 #include <cassert>
 
+struct Collection { };
+
 bool isalpha(char c) {
     return (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z');
 }
@@ -40,7 +42,7 @@ T min(T v1, T v2) {
 // };
 
 template <class T>
-class Array {
+class Array : public Collection {
 public:
     class iterator {
     public:
@@ -153,7 +155,7 @@ public:
 };
 
 template <class T>
-class List1 {
+class List1 : public Collection {
     T _item;
     List1<T>* _next;
 
@@ -224,7 +226,7 @@ int foomk() {
     return 0;
 }
 template <class T>
-class List {
+class List : public Collection {
 
     class iterator {
         T _item;
@@ -324,7 +326,7 @@ public:
 //     ::print("]");
 // }
 
-class ConstCharsArray {
+class ConstCharsArray : public Collection {
     Array<cchars> arr;
 
 public:
@@ -495,7 +497,7 @@ static const double HASH_UPPER = 0.77;
 // #define Set_delk(K) deleteByKey(K, char)
 
 template <class K, class V, bool IsMap>
-class Dict {
+class Dict : public Collection {
     uint32_t nBuckets, size, nOccupied, upperBound;
     uint32_t* flags;
     K* keys;
@@ -872,3 +874,28 @@ bool equal(const char* a, const char* b) { return a == b or not strcmp(a, b); }
 // MAKE_DICT(Ptr, Ptr)
 
 #endif // HAVE_DICT
+
+template <typename C>
+void testfunc(Array<C> coll, int n) {
+    for (auto& item : coll) testfunc(item, n);
+}
+template <typename C>
+void testfunc(List<C> coll, int n) {
+    for (auto& item : coll) testfunc(item, n);
+}
+
+template <typename C, typename D, bool g>
+void testfunc(Dict<C, D, g> coll, int n) {
+    for (auto& item : coll) testfunc(item, n);
+}
+
+int f() {
+    Dict<int, int, false> dt;
+    Array<int> ar;
+    List<int> li;
+    List1<int> li1;
+    testfunc(dt, 87);
+    testfunc(ar, 87);
+    testfunc(li, 87);
+    testfunc(li1, 87);
+}

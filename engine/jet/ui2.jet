@@ -1,0 +1,43 @@
+
+
+type JetUIWindow
+end
+
+func windowDidLoad(win ui.Window)
+    nsApp.activationPolicy = .regular
+
+    ~ Menu
+    var menu = loadMainMenu()
+    nsApp.mainMenu = menu  ~ makeMainMenu()]
+
+    ~ Window
+    if not window
+        window = NSWindow {
+            rect = 0x0:500x400
+            style = #titled + #resizable + #miniaturizable + #closable
+            backing = #buffered
+            defer = no
+        }
+        window.title = "My App RBCK"
+    end
+    window!.cascadeTopLeft(offset=20x20)
+    window!.makeKeyAndOrderFront()
+
+    ~ Toolbar
+    ExampleToolbarController1* tbCon = [ExampleToolbarController1 new]
+    window.toolbar = tbCon.toolbar
+
+    ~ Content view
+    ~ id nsv = [[KaleidoView alloc]
+    ~ initWithTrackingInFrame:NSMakeRect(0,0,200,200)]
+    id nsv = [[ScatterPlotView alloc] initWithFrame:NSMakeRect(0, 0, 200, 200)]
+    ~ [nsv setAutoresizingMask: NSViewHeightSizable|NSViewWidthSizable]
+
+    ~ [nsv setData]
+    [nsv setRandomData:3000]
+    ~ [[window contentView] addSubview: nsv]
+    window.contentView = nsv  ~<< you can do this too
+
+    ~ [window.contentView setAutoresizesSubviews:YES]
+    nsApp.activate(ignoreOthers=yes)
+end

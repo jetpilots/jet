@@ -10,6 +10,26 @@ isArithOp(expr ASTExpr) := expr.kind in [
 ~     .plusEq, .minusEq, .slashEq, .timesEq, .opModEq, .opAssign
 ~ ]
 
+func bang(expr ASTExpr) ASTExpr
+    continue if isdigit(x)
+    ~ func writer should assume that result is already new & ctor'd
+    ~ result = ASTExpr()
+    result = copy(expr)
+    ~ when you do p = bang(p) this copy is a noop
+    ~ so it is result = (result==expr)?expr:copy(expr)
+
+    ~ ^ such a statement shows you the dependence. get it from first assignment
+    result = f(expr)
+
+    ...
+end
+
+type <T>List(it T)
+    var item = it
+    var next = <T>List nil
+end
+var v = <Expr>List nil
+push(&v, ...)
 ~ function resolve(typeSpec as ASTTypeSpec, mod as ASTModule, par as Parser)
 ~     if typeSpec.typeType != .unresolved then return
 ~     if typeSpec.name == "" then return
@@ -27,7 +47,7 @@ isArithOp(expr ASTExpr) := expr.kind in [
 
 func resolveTypeSpec(parser Parser, typeSpec ASTTypeSpec, mod ASTModule)
     ~ TODO: disallow a type that derives from itself!
-    if (typeSpec.typeType != TYUnresolved) return
+    if (typeSpec.typeType != .unresolved) return
     if (typeSpec.name=="") return
 
     ~ TODO: DO THIS IN PARSE... stuff!!
@@ -38,7 +58,7 @@ func resolveTypeSpec(parser Parser, typeSpec ASTTypeSpec, mod ASTModule)
     else
         type ASTType = ASTModule_getType(mod, typeSpec.name)
         if (type)
-            typeSpec.typeType = TYObject
+            typeSpec.typeType = .object
             typeSpec.type = type
             return
         end
@@ -62,8 +82,8 @@ func checkUnusedVars!(parser Parser, scope ASTScope)
     for var in scope.locals
         if not var.used then warnUnusedVar!(parser, var)
     end
-    for stmt in scope.stmts
-        if isCtrlExpr(stmt) then checkUnusedVars!(parser, scope=stmt.body)
+    for stmt = scope.stmts where stmt.isCtrlExpr()
+        then checkUnusedVars!(parser, scope=stmt.body)
     end
 end
 
@@ -87,8 +107,7 @@ func resolveMember(parser Parser, expr ASTExpr, atype ASTType)
     var ret TokenKind = (expr.kind == .identifier) ? .identifierResolved
                                                  : .subscriptResolved
     var found ASTVar =
-        getVar(atype.body, byName=expr.string) or
-        throw .unresolved
+        getVar(atype.body, name=expr.string) or throw .unresolved
 
     expr.kind = ret
     expr.var = found
@@ -123,7 +142,7 @@ func resolveVars!(parser Parser, expr ASTExpr, scope ASTScope, inFuncCall Bool)
     case .functionCall
         resolveVars!(parser, expr=expr.left, scope=scope, inFuncCall=yes)
 
-    case .period:
+    case .period
         resolveVars!(parser, expr=expr.left, scope=scope, inFuncCall=inFuncCall)
 
         if expr.right.kind in [.subscript, .subscriptResolved]
@@ -158,7 +177,7 @@ func resolveVars!(parser Parser, expr ASTExpr, scope ASTScope, inFuncCall Bool)
 
                 catch .syntax do errs.stringInterp!(parser, expr=expr, name=pos)
             end
-            pos = find(pos + 1, char='$')
+            pos = pos.find(pos + 1, char='$')
         end
     end
 

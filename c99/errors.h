@@ -9,13 +9,8 @@
 #define noPoison 0
 static void Parser__errHeaderWithLoc(
     Parser* parser, int line, int col, int len) {
-    // "%s%s:%d:%d: error: "
-    eprintf("%s%s:%d:%d-%d: error: #%d;;",
-        RELF(parser->filename), //
-        line, //
-        col, //
-        col + len, //
-        parser->issues.errCount + 1);
+    eprintf("%s%s:%d:%d-%d: error: #%d;;", RELF(parser->filename), line, col,
+        col + len, parser->issues.errCount + 1);
 }
 static void Parser__errHeader(Parser* parser) {
     Parser__errHeaderWithLoc(parser, parser->token.line, parser->token.col,
@@ -23,23 +18,14 @@ static void Parser__errHeader(Parser* parser) {
 }
 static void Parser__warnHeaderWithLoc(
     Parser* parser, int line, int col, int len) {
-    // "%s%s:%d:%d: error: "
-    eprintf("%s%s:%d:%d-%d: warning: #%d;;",
-        RELF(parser->filename), //
-        line, //
-        col, //
-        col + len, //
-        ++parser->issues.warnCount);
+    eprintf("%s%s:%d:%d-%d: warning: #%d;;", RELF(parser->filename), line, col,
+        col + len, ++parser->issues.warnCount);
 }
-// static void Parser__errHeader(Parser* parser) {
-//     Parser__errHeaderWithLoc(parser, parser->token.line, parser->token.col,
-//         parser->token.col + parser->token.matchlen);
-// }
-static void Parser__errHeaderWithExpr(Parser* parser, ASTExpr* expr) {
+
+static void Parser__errHeaderWithExpr(Parser* parser, JetExpr* expr) {
     int len;
     int col = expr->col;
     switch (expr->kind) {
-    // case tkKeyword_cheater:
     case tkKeyword_for:
     case tkKeyword_while:
     case tkKeyword_if:
@@ -117,14 +103,13 @@ void _PRREDLINE(
 
 void Parser__printSourceLinesWithOffset(
     Parser* parser, int line, int col, int len, int offs, char* msg) {
-    // eputs("\n"); //-----+\n");
     _PRLINE(line - 2)
     _PRLINE(line - 1)
     _PRREDLINE(parser, line, col, len, offs, msg);
     _PRLINE(line + 1)
     _PRLINE(line + 2)
 
-    eputs("\n\n"); //-----+\n");
+    eputs("\n\n");
 }
 
 void Parser__printSourceLines(
@@ -135,15 +120,8 @@ void Parser__printSourceLines(
 static void Parser_errorExpectedToken(Parser* parser, TokenKind expected) {
     Parser__errHeader(parser);
 
-    eprintf("expected '%s' (%s) but found '%s'\n",
-        // parser->issues.errCount + 1, //
-        TokenKind_repr[expected], //
-        TokenKind_names[expected] + 2, //
-        TokenKind_repr[parser->token.kind] //
-        // RELF(parser->filename), //
-        // parser->token.line, //
-        // parser->token.col //
-    );
+    eprintf("expected '%s' (%s) but found '%s'\n", TokenKind_repr[expected],
+        TokenKind_names[expected] + 2, TokenKind_repr[parser->token.kind]);
 
     char msg[128];
     msg[127] = 0;
@@ -158,22 +136,12 @@ static void Parser_errorExpectedToken(Parser* parser, TokenKind expected) {
         && !Parser_matches(parser, tkNullChar))
         Token_advance(&parser->token);
 
-    // eprintf("at %s%s:%d:%d\n"
-    //         "      expected '%s' (%s) but found '%s'\n",
-    //     parser->issues.errCount + 1, //
-    //     RELF(parser->filename), //
-    //     parser->token.line,
-    //     parser->token.col, //
-    //     TokenKind_repr(expected, false), //
-    //     TokenKind_str[expected] + 2, //
-    //     TokenKind_repr(parser->token.kind, false));
-
+    parser->issues.hasParseErrors = 1;
     Parser_errorIncrement(parser);
 }
 
 bool isKeywordKind(TokenKind kind) {
     switch (kind) {
-    // case tkKeyword_cheater:
     case tkKeyword_for:
     case tkKeyword_while:
     case tkKeyword_if:
@@ -210,19 +178,11 @@ bool isKeywordKind(TokenKind kind) {
     return false;
 }
 
-static void Parser_errorParsingExpr(Parser* parser, ASTExpr* expr, char* what) {
-
-    // eprintf("syntax error at %s%s:%d/%d\n"
-    //         "    probably around %d:%d\n",
-    // parser->issues.errCount + 1, RELF(parser->filename),
-    // expr->line ? expr->line : parser->token.line - 1, expr->col);
+static void Parser_errorParsingExpr(Parser* parser, JetExpr* expr, char* what) {
 
     Parser__errHeaderWithExpr(parser, expr);
-    eprintf("invalid syntax (%s);;", what); //,
-
-    // Parser__printSourceLines(parser,
-    //     expr->line ? expr->line : parser->token.line - 1, expr->col, len,
-    //     "syntax error");
+    eprintf(
+        "invalid syntax at '%s' (%s);;", TokenKind_repr[expr->kind], what); //,
 
     if (isKeywordKind(expr->kind))
         eputs("info: keywords cannot be used as identifiers;;");
@@ -233,35 +193,19 @@ static void Parser_errorParsingExpr(Parser* parser, ASTExpr* expr, char* what) {
 
 static void Parser_errorInvalidIdent(Parser* parser) {
     Parser__errHeader(parser);
-    eprintf("invalid name '%.*s'\n", //
-                                     // parser->issues.errCount + 1, //
-        parser->token.matchlen, //
-        parser->token.pos //, //
-        // RELF(parser->filename), //
-        // parser->token.line, parser->token.col
-    );
+    eprintf("invalid name '%.*s'\n", parser->token.matchlen, parser->token.pos);
     Parser_errorIncrement(parser);
 }
 
 static void Parser_errorInvalidTypeMember(Parser* parser) {
     Parser__errHeader(parser);
-    eputs("invalid member\n" //
-                             // parser->issues.errCount + 1, //
-                             // RELF(parser->filename), //
-                             // parser->token.line - 1
-    );
+    eputs("invalid member\n");
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorUnrecognizedVar(Parser* parser, ASTExpr* expr) {
+static void Parser_errorUnrecognizedVar(Parser* parser, JetExpr* expr) {
     Parser__errHeaderWithExpr(parser, expr);
-    eprintf("unknown variable '%.*s'\n",
-        // parser->issues.errCount + 1, //
-        64, expr->string
-        // RELF(parser->filename), //
-        // expr->line, //
-        // expr->col //
-    );
+    eprintf("unknown variable '%.*s'\n", 64, expr->string);
 
     Parser__printSourceLines(parser, expr->line, expr->col,
         strlen(expr->string), "unknown variable");
@@ -270,18 +214,13 @@ static void Parser_errorUnrecognizedVar(Parser* parser, ASTExpr* expr) {
 }
 
 static void Parser_errorUnrecognizedMember(
-    Parser* parser, ASTType* type, ASTExpr* expr) {
+    Parser* parser, JetType* type, JetExpr* expr) {
     Parser__errHeaderWithExpr(parser, expr);
-    eprintf("%s '%s' has no member '%s';;",
-        // parser->issues.errCount + 1, //
-        type->isEnum ? "enum" : "type", type->name, expr->string //, //
-        // RELF(parser->filename), //
-        // expr->line, //
-        // expr->col
-    );
+    eprintf("%s '%s' has no member '%s';;", type->isEnum ? "enum" : "type",
+        type->name, expr->string);
 
     if (type->body) {
-        foreach (ASTVar*, var, type->body->locals) {
+        foreach (JetVar*, var, type->body->locals) {
             unsigned l1 = strlen(var->name);
             unsigned l2 = strlen(expr->string);
 
@@ -289,28 +228,27 @@ static void Parser_errorUnrecognizedMember(
                 eprintf("did you mean: '%s'?;;", var->name);
         }
         eputs("members: ");
-        foreachn(ASTVar*, var, vi, type->body->locals) if (var->name
+        foreachn(JetVar*, var, vi, type->body->locals) if (var->name
             && *var->name) eprintf("%s%s", var->name, vi->next ? ", " : "");
         eputs("\n");
     }
     Parser_errorIncrement(parser);
 }
 
-static void Parser_warnUnusedArg(Parser* parser, ASTVar* var) {
+static void Parser_warnUnusedArg(Parser* parser, JetVar* var) {
     if (!parser->issues.warnUnusedArg) return;
-    Parser__warnHeaderWithLoc(parser, var->line, //
-        var->col, strlen(var->name));
+    Parser__warnHeaderWithLoc(parser, var->line, var->col, strlen(var->name));
     eprintf("unused or unnecessary argument '%s'\n", var->name);
 }
 
-static void Parser_warnUnusedVar(Parser* parser, ASTVar* var) {
+static void Parser_warnUnusedVar(Parser* parser, JetVar* var) {
     if (!parser->issues.warnUnusedVar) return;
-    Parser__warnHeaderWithLoc(parser, var->line, //
-        var->col - 4, 4 + strlen(var->name));
+    Parser__warnHeaderWithLoc(
+        parser, var->line, var->col - 4, 4 + strlen(var->name));
     eprintf("unused or unnecessary variable '%s'\n", var->name);
 }
 
-static void Parser_warnUnusedFunc(Parser* parser, ASTFunc* func) {
+static void Parser_warnUnusedFunc(Parser* parser, JetFunc* func) {
     if (!parser->issues.warnUnusedFunc) return;
     Parser__warnHeaderWithLoc(
         parser, func->line, func->col - 5, 5 + strlen(func->name));
@@ -318,14 +256,14 @@ static void Parser_warnUnusedFunc(Parser* parser, ASTFunc* func) {
         func->selector);
 }
 
-static void Parser_warnUnusedType(Parser* parser, ASTType* type) {
+static void Parser_warnUnusedType(Parser* parser, JetType* type) {
     if (!parser->issues.warnUnusedType) return;
     Parser__warnHeaderWithLoc(
         parser, type->line, type->col, strlen(type->name));
     eprintf("unused type '%s'\n", type->name);
 }
 
-static void Parser_warnSameExpr(Parser* parser, ASTExpr* e1, ASTExpr* e2) {
+static void Parser_warnSameExpr(Parser* parser, JetExpr* e1, JetExpr* e2) {
     Parser__warnHeaderWithLoc(parser, e1->line, e1->col, 1);
     eprintf("CSE candidate '%s' for %d:%d\n", TokenKind_repr[e1->kind],
         e2->line, e2->col);
@@ -336,82 +274,57 @@ static void Parser_warnSameExpr(Parser* parser, ASTExpr* e1, ASTExpr* e2) {
 }
 
 static void Parser_errorDuplicateVar(
-    Parser* parser, ASTVar* var, int line, int col) {
+    Parser* parser, JetVar* var, int line, int col) {
     Parser__errHeaderWithLoc(parser, var->line, var->col, strlen(var->name));
     eprintf("duplicate variable '%s' already declared at %s%s:%d:%d\n",
-        // parser->issues.errCount + 1, //
-        var->name, //
-        // RELF(parser->filename),
-        // var->line, //
-        // var->col, //
-        RELF(parser->filename), //
-        line, //
-        col);
+        var->name, RELF(parser->filename), line, col);
     Parser_errorIncrement(parser);
 }
 
 static void Parser_errorDuplicateType(
-    Parser* parser, ASTType* type, ASTType* orig) {
+    Parser* parser, JetType* type, JetType* orig) {
     Parser__errHeaderWithLoc(parser, type->line, type->col, strlen(type->name));
     if (orig)
         eprintf("duplicate type '%s' already declared at %s%s:%d:%d\n",
-            // parser->issues.errCount + 1,
-            type->name,
-            //  RELF(parser->filename),
-            // type->line, type->col,
-            RELF(parser->filename), orig->line, orig->col);
+            type->name, RELF(parser->filename), orig->line, orig->col);
     else
-        eprintf("invalid type name '%s' refers to a built-in type\n",
-            // parser->issues.errCount + 1,
-            type->name
-            //  RELF(parser->filename),
-            // type->line, type->col
-        );
+        eprintf(
+            "invalid type name '%s' refers to a built-in type\n", type->name);
     Parser_errorIncrement(parser);
 }
 
 static void Parser_errorDuplicateEnum(
-    Parser* parser, ASTType* en, ASTType* orig) {
+    Parser* parser, JetType* en, JetType* orig) {
     Parser__errHeaderWithLoc(parser, en->line, en->col, strlen(en->name));
     if (orig)
         eprintf("duplicate enum '%s' already declared at %s%s:%d:%d\n",
-            // parser->issues.errCount + 1,
-            en->name,
-            //   RELF(parser->filename), en->line, en->col,
-            RELF(parser->filename), orig->line, orig->col);
+            en->name, RELF(parser->filename), orig->line, orig->col);
     else
-        eprintf("invalid enum name '%s' refers to a built-in type\n",
-            // parser->issues.errCount + 1,
-            en->name
-            // , RELF(parser->filename),en->line, en->col
-        );
+        eprintf("invalid enum name '%s' refers to a built-in type\n", en->name);
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorTypeInheritsSelf(Parser* parser, ASTType* type) {
+static void Parser_errorTypeInheritsSelf(Parser* parser, JetType* type) {
     Parser__errHeader(parser);
-    eprintf("type inherits from parser "
-            "%s at %s%s:%d:%d\n",
-        // parser->issues.errCount + 1,
-        type->name, RELF(parser->filename), type->line, type->col);
+    eprintf("type inherits from self %s at %s%s:%d:%d\n", type->name,
+        RELF(parser->filename), type->line, type->col);
     Parser_errorIncrement(parser);
 }
 
 static void Parser_errorCtorHasType(
-    Parser* parser, ASTFunc* func, ASTType* orig) {
+    Parser* parser, JetFunc* func, JetType* orig) {
     Parser__errHeader(parser);
     eprintf("constructor needs no return "
             "type: %s at %s%s:%d:%d\n"
             "             type declared at %s%s:%d:%d\n"
             "             remove the return type specification\n",
-        // parser->issues.errCount + 1,
         func->name, RELF(parser->filename), func->line, 1,
         RELF(parser->filename), orig->line, orig->col);
     Parser_errorIncrement(parser);
 }
 
-static void Parser_warnCtorCase(Parser* parser, ASTFunc* func) {
-    ASTType* orig = func->returnSpec->type;
+static void Parser_warnCtorCase(Parser* parser, JetFunc* func) {
+    JetType* orig = func->spec->type;
     Parser__errHeader(parser);
     eprintf("\n(%d) warning: wrong case "
             "%s for constructor at %s%s:%d:%d\n"
@@ -424,59 +337,38 @@ static void Parser_warnCtorCase(Parser* parser, ASTFunc* func) {
 }
 
 static void Parser_errorDuplicateFunc(
-    Parser* parser, ASTFunc* func, ASTFunc* orig) {
+    Parser* parser, JetFunc* func, JetFunc* orig) {
     Parser__errHeaderWithLoc(parser, func->line, 5, strlen(func->name));
     eprintf("duplicate function "
             "'%s' already declared at %s%s:%d:%d with selector %s\n",
-        // parser->issues.errCount + 1,
-        func->name,
-        //  RELF(parser->filename), func->line, 1,
-        RELF(parser->filename), orig->line, 5, func->selector);
+        func->name, RELF(parser->filename), orig->line, 5, func->selector);
     Parser_errorIncrement(parser);
 }
 
 static void Parser_errorDuplicateTest(
-    Parser* parser, ASTTest* test, ASTTest* orig) {
+    Parser* parser, JetTest* test, JetTest* orig) {
     Parser__errHeaderWithLoc(parser, test->line, 5, strlen(test->name));
     eprintf("duplicate test \"%s\" already declared at %s%s:%d:%d\n",
-        // parser->issues.errCount + 1,
-        test->name,
-        //   RELF(parser->filename),
-        // test->line, 1,
-        RELF(parser->filename), orig->line, 1);
+        test->name, RELF(parser->filename), orig->line, 1);
     Parser_errorIncrement(parser);
 }
 
 static void Parser_errorUnrecognizedFunc(
-    Parser* parser, ASTExpr* expr, char* selector) {
+    Parser* parser, JetExpr* expr, char* selector) {
     if (noPoison && *selector == '<') return; // invalid type; already error'd
     Parser__errHeaderWithExpr(parser, expr);
 
-    eprintf("cannot resolve call to '%s'\n",
-        // parser->issues.errCount + 1, //
-        expr->string //, //
-        // RELF(parser->filename), //
-        // expr->line, //
-        // expr->col //
-    );
+    eprintf("cannot resolve call to '%s'\n", expr->string);
 
     Parser__printSourceLines(parser, expr->line, expr->col,
         strlen(expr->string), "unknown function");
 
     eprintf("info: no function with selector '%s'\n", selector);
 
-    // eprintf("\n ERROR                                    "
-    //         "           "
-    //         "                       \n %s%s:%d:%d:\n This "
-    //         "%s call could not be resolved.\n"
-    //         " There is no method with selector %s and %d "
-    //         "arguments.\n",
-    //     RELF(parser->filename), expr->line, expr->col, expr->string,
-    //     selector, ASTExpr_countCommaList(expr->left));
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorStringInterp(Parser* parser, ASTExpr* expr, char* pos) {
+static void Parser_errorStringInterp(Parser* parser, JetExpr* expr, char* pos) {
     Parser__errHeader(parser);
     eprintf("\n ERROR                                    "
             "           "
@@ -496,7 +388,7 @@ static void Parser_errorStringInterp(Parser* parser, ASTExpr* expr, char* pos) {
 }
 
 static void Parser_errorCallingFuncWithVoid(
-    Parser* parser, ASTExpr* expr, ASTExpr* arg) {
+    Parser* parser, JetExpr* expr, JetExpr* arg) {
     Parser__errHeader(parser);
     eprintf("\n ERROR                                    "
             "           "
@@ -509,14 +401,14 @@ static void Parser_errorCallingFuncWithVoid(
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorInheritanceCycle(Parser* parser, ASTType* type) {
+static void Parser_errorInheritanceCycle(Parser* parser, JetType* type) {
     Parser__errHeader(parser);
     eprintf("\n ERROR                                    "
             "           "
             "                       \n %s%s:%d:%d:\n Type "
             "%s has a cycle in its inheritance graph.",
         RELF(parser->filename), type->line, type->col, type->name);
-    ASTType* super = type->super->type;
+    JetType* super = type->super->type;
     eputs("");
     do {
         eprintf("\n extends %s (defined at %s%s:%d:%d)", super->name,
@@ -531,7 +423,7 @@ static void Parser_errorInheritanceCycle(Parser* parser, ASTType* type) {
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorConstructorHasCycle(Parser* parser, ASTType* type) {
+static void Parser_errorConstructorHasCycle(Parser* parser, JetType* type) {
     Parser__errHeader(parser);
     eprintf("\n ERROR                                    "
             "           "
@@ -542,84 +434,61 @@ static void Parser_errorConstructorHasCycle(Parser* parser, ASTType* type) {
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorArgsCountMismatch(Parser* parser, ASTExpr* expr) {
+static void Parser_errorArgsCountMismatch(Parser* parser, JetExpr* expr) {
     assert(expr->kind == tkFunctionCallResolved);
     Parser__errHeader(parser);
     eprintf("arg count mismatch for "
             "%s at %s%s:%d:%d\n"
             "          have %d args, need %d, func defined at "
             "%s%s:%d\n",
-        // parser->issues.errCount + 1,
         expr->func->name, RELF(parser->filename), expr->line, expr->col,
-        ASTExpr_countCommaList(expr->left), expr->func->argCount,
+        JetExpr_countCommaList(expr->left), expr->func->argCount,
         RELF(parser->filename), expr->func->line);
     Parser_errorIncrement(parser);
 }
 
 static void Parser_errorIndexDimsMismatch(
-    Parser* parser, ASTExpr* expr, int nhave) {
+    Parser* parser, JetExpr* expr, int nhave) {
     assert(expr->kind == tkSubscriptResolved);
-    if (expr->var->typeSpec->typeType == TYErrorType
-        || expr->var->typeSpec->typeType == TYUnresolved)
+    if (expr->var->spec->typeType == TYErrorType
+        || expr->var->spec->typeType == TYUnresolved)
         return;
     // ^ type resolution failed (and must have raised error) so
     // don't process further
-    int reqdDims = expr->var->typeSpec->dims;
+    int reqdDims = expr->var->spec->dims;
     Parser__errHeaderWithExpr(parser, expr);
     if (!reqdDims)
         eprintf("can't index a scalar '%s' with %d dims (defined at %s%s:%d)\n",
-            // parser->issues.errCount + 1,
-            expr->var->name,
-            // RELF(parser->filename), expr->line, expr->col,
-            nhave, RELF(parser->filename), expr->var->typeSpec->line);
+            expr->var->name, nhave, RELF(parser->filename),
+            expr->var->spec->line);
     else {
         eprintf("dims mismatch for '%s': have %d indexes, need %d (defined "
                 "at %s%s:%d)\n",
-            // parser->issues.errCount + 1,
-            expr->var->name,
-            // RELF(parser->filename), expr->line, expr->col,
-            nhave, reqdDims, RELF(parser->filename), expr->var->typeSpec->line);
+            expr->var->name, nhave, reqdDims, RELF(parser->filename),
+            expr->var->spec->line);
     }
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorMissingInit(Parser* parser, ASTExpr* expr) {
+static void Parser_errorMissingInit(Parser* parser, JetExpr* expr) {
     assert(expr->kind == tkVarAssign);
     Parser__errHeaderWithExpr(parser, expr);
     eprintf("missing initializer for "
             "%s\n",
-        // parser->issues.errCount + 1,
-        expr->var->name
-        //  ,
-        //  RELF(parser->filename),
-        // expr->line - 1, expr->line
-    );
+        expr->var->name);
     parser->issues.hasParseErrors = 1;
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorUnrecognizedType(
-    Parser* parser, ASTTypeSpec* typeSpec) {
-    Parser__errHeaderWithLoc(
-        parser, typeSpec->line, typeSpec->col, strlen(typeSpec->name));
-    eprintf("unknown typespec '%s'\n",
-        // parser->issues.errCount + 1,
-        typeSpec->name
-        //  , RELF(parser->filename),
-        // typeSpec->line, typeSpec->col
-    );
+static void Parser_errorUnrecognizedType(Parser* parser, JetTypeSpec* spec) {
+    Parser__errHeaderWithLoc(parser, spec->line, spec->col, strlen(spec->name));
+    eprintf("unknown typespec '%s'\n", spec->name);
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorUnrecognizedCtor(Parser* parser, ASTFunc* func) {
+static void Parser_errorUnrecognizedCtor(Parser* parser, JetFunc* func) {
     Parser__errHeaderWithLoc(parser, func->line, 5, strlen(func->name));
-    eprintf("unknown type '%s' for constructor\n",
-        // parser->issues.errCount + 1,
-        func->name
-        // ,
-        // RELF(parser->filename),
-        // func->line
-    );
+    eprintf("unknown type '%s' for constructor\n", func->name);
     Parser_errorIncrement(parser);
 }
 
@@ -627,48 +496,35 @@ static void Parser_errorInvalidTestName(Parser* parser) {
     Parser__errHeader(parser);
     eprintf("invalid test name "
             "'%.*s'; must be a string\n",
-        // parser->issues.errCount + 1,
-        parser->token.matchlen, parser->token.pos
-        // ,
-        // RELF(parser->filename), parser->token.line
-    );
+        parser->token.matchlen, parser->token.pos);
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorTypeMismatchBinOp(Parser* parser, ASTExpr* expr) {
+static void Parser_errorTypeMismatchBinOp(Parser* parser, JetExpr* expr) {
     // if one of the types is "<invalid>", an error has already been
     // reported for it; so don't bother
-    const char* leftTypeName = ASTExpr_typeName(expr->left);
-    const char* rightTypeName = ASTExpr_typeName(expr->right);
+    const char* leftTypeName = JetExpr_typeName(expr->left);
+    const char* rightTypeName = JetExpr_typeName(expr->right);
     if (noPoison && (*leftTypeName == '<' || *rightTypeName == '<')) return;
     Parser__errHeaderWithExpr(parser, expr);
     eprintf("type mismatch; can't apply '%s' to '%s' and '%s'\n",
-        // parser->issues.errCount + 1,
-        // RELF(parser->filename), expr->line, expr->col,
         TokenKind_repr[expr->kind], leftTypeName, rightTypeName);
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorTypeMismatch(Parser* parser, ASTExpr* e1, ASTExpr* e2) {
-    // if one of the types is "<invalid>", an error has already been
-    // reported for it; so don't bother
-    const char* leftTypeName = ASTExpr_typeName(e1);
-    const char* rightTypeName = ASTExpr_typeName(e2);
+static void Parser_errorTypeMismatch(Parser* parser, JetExpr* e1, JetExpr* e2) {
+    const char* leftTypeName = JetExpr_typeName(e1);
+    const char* rightTypeName = JetExpr_typeName(e2);
     if (noPoison && (*leftTypeName == '<' || *rightTypeName == '<')) return;
     Parser__errHeaderWithExpr(parser, e2);
     eprintf("type mismatch: '%s' here must be '%s' instead (from %s%s:%d:%d)\n",
-        // parser->issues.errCount + 1,
-        leftTypeName,
-        //  RELF(parser->filename), e2->line, e2->col,
-        rightTypeName, RELF(parser->filename), e1->line, e1->col);
+        leftTypeName, rightTypeName, RELF(parser->filename), e1->line, e1->col);
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorInitMismatch(Parser* parser, ASTExpr* expr) {
-    // if one of the types is "<invalid>", an error has already been
-    // reported for it; so don't bother
-    const char* leftTypeName = ASTTypeSpec_name(expr->var->typeSpec);
-    const char* rightTypeName = ASTExpr_typeName(expr->var->init);
+static void Parser_errorInitMismatch(Parser* parser, JetExpr* expr) {
+    const char* leftTypeName = JetTypeSpec_name(expr->var->spec);
+    const char* rightTypeName = JetExpr_typeName(expr->var->init);
     //    if (*leftTypeName == '<' or *rightTypeName == '<') return;
 
     // for collections, RHS is allowed to be an empty [] or {} to
@@ -678,115 +534,65 @@ static void Parser_errorInitMismatch(Parser* parser, ASTExpr* expr) {
     // arr[:,:,:] = [] that would be an error.
     if ((expr->var->init->kind == tkArrayOpen
             || expr->var->init->kind == tkBraceOpen)
-        && expr->var->typeSpec->collectionType != CTYNone
-        && !expr->var->init->right
-        && expr->var->typeSpec->typeType != TYUnresolved)
+        && expr->var->spec->collectionType != CTYNone && !expr->var->init->right
+        && expr->var->spec->typeType != TYUnresolved)
         return;
     Parser__errHeaderWithExpr(parser, expr);
 
     eprintf("can't init '%s' with an expression of type '%s' (hint: just "
             "remove the type annotation.)\n",
-        // parser->issues.errCount + 1, //
-        // RELF(parser->filename), //
-        // expr->line,
-        // expr->col, //
-        leftTypeName, //
-        rightTypeName);
+        leftTypeName, rightTypeName);
     Parser_errorIncrement(parser);
 }
 
 static void Parser_errorInitDimsMismatch(
-    Parser* parser, ASTExpr* expr, int dims) {
-    // if one of the types is "<invalid>", an error has already been
-    // reported for it; so don't bother
-    //    char* leftTypeName =
-    //    ASTTypeSpec_name(expr->var->typeSpec); char* rightTypeName
-    //    = ASTExpr_typeName(expr->var->init); if (*leftTypeName ==
-    //    '<' or *rightTypeName == '<') return;
+    Parser* parser, JetExpr* expr, int dims) {
+
     Parser__errHeaderWithExpr(parser, expr);
     eprintf("can't init %dD array '%s' with a %dD literal. "
             "(hint: just remove the dimension specification.)\n",
-        // parser->issues.errCount + 1, //
-        // RELF(parser->filename), //
-        // expr->line,
-        // expr->col, //
-        expr->var->typeSpec->dims, //
-        expr->var->name, dims);
+        expr->var->spec->dims, expr->var->name, dims);
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorBinOpDimsMismatch(Parser* parser, ASTExpr* expr) {
+static void Parser_errorBinOpDimsMismatch(Parser* parser, JetExpr* expr) {
     Parser__errHeaderWithExpr(parser, expr);
 
     eprintf("can't apply '%s' to %dD array and %dD array\n",
-        // parser->issues.errCount + 1, //
-        // RELF(parser->filename), //
-        // expr->line,
-        // expr->col, //
-        TokenKind_repr[expr->kind], //
-        expr->left->dims, //
-        expr->right->dims);
+        TokenKind_repr[expr->kind], expr->left->dims, expr->right->dims);
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorReadOnlyVar(Parser* parser, ASTExpr* expr) {
+static void Parser_errorReadOnlyVar(Parser* parser, JetExpr* expr) {
     Parser__errHeaderWithExpr(parser, expr);
-    eprintf("can't mutate read-only variable '%s'\n",
-        // parser->issues.errCount + 1, //
-        expr->var->name
-        // , //
-        // RELF(parser->filename), //
-        // expr->line, //
-        // expr->col
-    );
+    eprintf("can't mutate read-only variable '%s'\n", expr->var->name);
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorNoEnumInferred(Parser* parser, ASTExpr* expr) {
+static void Parser_errorNoEnumInferred(Parser* parser, JetExpr* expr) {
     Parser__errHeaderWithExpr(parser, expr);
-    eprintf("could not infer enum type for '.%s'\n",
-        // parser->issues.errCount + 1, //
-        expr->string
-        // , //
-        // RELF(parser->filename), //
-        // expr->line, //
-        // expr->col
-    );
+    eprintf("could not infer enum type for '.%s'\n", expr->string);
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorInvalidTypeForOp(Parser* parser, ASTExpr* expr) {
+static void Parser_errorInvalidTypeForOp(Parser* parser, JetExpr* expr) {
     if (expr->left->typeType == TYErrorType
         || expr->right->typeType == TYErrorType)
         return;
     Parser__errHeaderWithExpr(parser, expr);
 
-    eprintf("invalid types for '%s'\n",
-        // parser->issues.errCount + 1, //
-        TokenKind_repr[expr->kind]
-        // , //
-        // RELF(parser->filename), //
-        // expr->line, expr->col
-    );
+    eprintf("invalid types for '%s'\n", TokenKind_repr[expr->kind]);
     Parser_errorIncrement(parser);
 }
 
 static void Parser_errorArgTypeMismatch(
-    Parser* parser, ASTExpr* expr, ASTVar* var) {
+    Parser* parser, JetExpr* expr, JetVar* var) {
     Parser__errHeaderWithExpr(parser, expr);
 
     eprintf("type '%s' for argument '%s' should be '%s' instead (from "
             "%s%s:%d:%d)\n",
-        // parser->issues.errCount + 1, //
-        ASTExpr_typeName(expr), //
-        var->name, //
-        // var->typeSpec->typeType, //
-        ASTTypeSpec_name(var->typeSpec),
-        RELF(parser->filename), //
-        var->line, //
-        var->col //, //
-        // expr->typeType
-    );
+        JetExpr_typeName(expr), var->name, JetTypeSpec_name(var->spec),
+        RELF(parser->filename), var->line, var->col);
     parser->issues.hasParseErrors = 1;
     Parser_errorIncrement(parser);
 }
@@ -794,17 +600,8 @@ static void Parser_errorArgTypeMismatch(
 static void Parser_errorUnexpectedToken(Parser* parser, char* msg) {
     Parser__errHeader(parser);
 
-    eprintf( //"\n_________________________________" //
-             //"____________________________________ #%d\n" //
-        // "%s%s:%d:%d: error: "
-        "unexpected token '%.*s'\n",
-        // parser->issues.errCount + 1, //
-        // RELF(parser->filename), //
-        // parser->token.line, //
-        // parser->token.col, //
-        parser->token.matchlen, //
-        parser->token.pos //
-    );
+    eprintf(
+        "unexpected token '%.*s'\n", parser->token.matchlen, parser->token.pos);
 
     Parser__printSourceLines(parser, parser->token.line, parser->token.col,
         parser->token.matchlen, msg);
@@ -815,19 +612,14 @@ static void Parser_errorUnexpectedToken(Parser* parser, char* msg) {
         && !Parser_matches(parser, tkNullChar))
         Token_advance(&parser->token);
 
+    parser->issues.hasParseErrors = 1;
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorUnexpectedExpr(Parser* parser, ASTExpr* expr) {
+static void Parser_errorUnexpectedExpr(Parser* parser, JetExpr* expr) {
     Parser__errHeaderWithExpr(parser, expr);
     eprintf("unexpected expr '%s' (%s)\n",
-        // parser->issues.errCount + 1, //
-        // RELF(parser->filename), //
-        // expr->line, //
-        // expr->col,
-        expr->prec //
-            ? TokenKind_repr[expr->kind] //
-            : expr->string,
+        expr->prec ? TokenKind_repr[expr->kind] : expr->string,
         TokenKind_names[expr->kind] + 2);
     Parser_errorIncrement(parser);
 }

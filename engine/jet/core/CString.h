@@ -60,7 +60,7 @@ monostatic unsigned long long CString_toULongLong(CString str) {
     return strtoull(str, NULL, 0);
 }
 
-monostatic CString CString_noext(CString str) {
+monostatic CString CString_noext_ip(CString str) {
     const size_t len = strlen(str);
     CString s = str; // pstrndup(str, len);
     CString sc = s + len;
@@ -101,7 +101,7 @@ monostatic CString CString_upper(CString str) {
 }
 
 // in place
-monostatic void CString_tr_ip(
+monostatic void CString_tr_ip_len(
     CString str, const char oldc, const char newc, const size_t length) {
     CString sc = str - 1;
     CString end = length ? str + length : (CString)0xFFFFFFFFFFFFFFFF;
@@ -109,10 +109,11 @@ monostatic void CString_tr_ip(
         if (*sc == oldc) *sc = newc;
 }
 
-monostatic CString CString_tr(CString str, const char oldc, const char newc) {
+monostatic CString CString_tr_ip(
+    CString str, const char oldc, const char newc) {
     size_t len = strlen(str);
     CString s = str; // pstrndup(str, len);
-    CString_tr_ip(s, oldc, newc, len);
+    CString_tr_ip_len(s, oldc, newc, len);
     return s;
 }
 

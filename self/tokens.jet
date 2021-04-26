@@ -1,0 +1,25 @@
+enum TokenKind
+    kwif
+    kwelse
+    kwcase
+end
+
+func detect(token Token)
+    match token.data
+    case `+=`
+        token.kind = #opPlusEq
+    case `**`
+        token.kind = #opMatmul
+    case `[a-zA-Z_][a-zA-Z0-9_]*`
+        token.kind = #identifier
+    case `[0-9]+(\.[0-9]+)?([eEdD][+-][0-9]+)?(i|x[0-9]+)?`
+        token.kind = #number
+    case `if`
+        token.kind = #if
+    end
+end
+
+func advance(&token Token)
+    token.data = token.data[token.pos+token.len:end]
+    detect(&token)
+end

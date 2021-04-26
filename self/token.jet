@@ -12,7 +12,8 @@ var tokenKindTable[] = [
     [32] = .spaces,
     ['a':'z', 'A':'Z'] = .alphabet,
     ['0':'9'] = .digit,
-    [127:255] = .unknown ]
+    [127:255] = .unknown
+]
 
 
 
@@ -72,15 +73,12 @@ end
 
 ~ Get the token kind based only on the char at the current position
 ~ (or an offset).
-func getType(token Token, const size_t offset)
-    const char c = token.pos[offset]
-    const char cn = c ? token.pos[1 + offset] : 0
-    TokenKind ret = (TokenKind)TokenKindTable[(unsigned char)c]
-    match (c)
-    case '<'
+func getType(token Token, const size_t offset) := match c
+    case '<=' := .opLE
+    case '<' := .opLT
+    case `[a-zA-Z_][a-zA-Z_0-9]*` := .identifier
         match (cn)
-        case '='
-            ret = .opLE
+        case '=' := .opLE
         case
             ret = .opLT
         end
@@ -93,10 +91,8 @@ func getType(token Token, const size_t offset)
         end
     case '='
         match (cn)
-        case '='
-            ret = .opEQ
-        case '>'
-            ret = .opResults
+        case '=':= .opEQ
+        case '>':= .opResults
         case
             ret = .opAssign
         end

@@ -612,12 +612,8 @@ private:
                             and expr.right->typeInfo.dims != 0) {
                             errs.binOpDimsMismatch(expr);
                             expr.right->typeInfo.typeType = TYErrorType;
-                        } else if (expr.is(tkOpPlus) //
-                            or expr.is(tkOpMinus) //
-                            or expr.is(tkOpTimes) //
-                            or expr.is(tkOpSlash) //
-                            or expr.is(tkOpPower) //
-                            or expr.is(tkOpMod)) {
+                        } else if (expr.in(tkOpPlus, tkOpMinus, tkOpTimes,
+                                       tkOpSlash, tkOpPower, tkOpMod)) {
                             expr.typeInfo.dims = expr.left->typeInfo.dims
                                 + expr.right->typeInfo.dims;
                             expr.typeInfo.collectionType

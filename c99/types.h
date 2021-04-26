@@ -72,7 +72,7 @@ enum TypeSubTypes_Number {
 */
 // enum TypeSubTypes_ {};
 
-// TODO: ASTTypeSpecs will have a TypeTypes typeType; that can be used
+// TODO: JetTypeSpecs will have a TypeTypes typeType; that can be used
 // to determine quickly if it is a primitive. fits in 4bits btw
 typedef enum TypeTypes {
     // FIXME: this should fit in 4bit max!!!! or not?
@@ -82,14 +82,19 @@ typedef enum TypeTypes {
     // serialise, identify, reflect, etc.
     TYNoType, // void
     TYNilType, // passes type validation with anything. be careful!
-    TYObject, // resolved to an ASTType
+    TYObject, // resolved to an JetType
     // primitives that can be printed or represented with no fuss
     TYErrorType, // use this to poison an expr which has a type error
     // and the error has been reported, to avoid
     // reporting the same error for all parents, as the
     // error-checking routine unwinds.
+    TYDateTime, // this should have subtypes TYDateTimeSeconds and
+    // TYDateTimeStructTM; based on usage patterns the right one
+    // is applied (for just > >= etc. seconds from epoch is enough)
     TYSize, // this is actually uintptr_t, since actual ptrs are
     // TYObjects. maybe rename it
+    TY2DPoint, // 200x200
+    TYRect, // 0x0:150x150. A range of 2 2D points is a... rect!
     TYString, // need to distinguish String and char*?
     TYBool,
     // above this, ie. > 4 or >= TYInt8, all may have units |kg.m/s etc.

@@ -1,0 +1,43 @@
+~ declare type Stat
+~ end
+
+~ File
+~     name = ""
+~     fd = -1
+~     stat() = fd && c.fstat(fd) || c.stat(name)
+~     ctime() = stat.ctime
+~     fun(a, b) = a + b^2
+~     new() = c.alloc(File)
+~     extractable(e) = e && e.kind ??
+~         #identifier -> e
+~         #funcCall   -> extractable(e.args)
+~         #subscript  -> extractable(e.index)
+~         #if #for    -> extractable(e.cond) || extractable(e.body)
+~         #unOps      -> extractable(e.right)
+~         #binOps     -> extractable(e.left) || extractable(e.right)
+~         --          -> e.prec &! e.unary
+~                     ?? extractable(e.left) || extractable(e.right) || nil
+
+~ ctime(f File) := f.stat.ctime
+~ atime(f File) := f.stat.atime
+~ mtime(f File) := f.stat.mtime
+
+~ static bool JetFunc_calls(JetFunc* func, JetFunc* target) {
+~     bool ret = false;
+~     if (!func->visited) {
+~         func->visited = true;
+~         foreach (JetFunc*, fn, func->callees) {
+~             if (!fn->intrinsic && fn == target || JetFunc_calls(fn, target)) {
+~                 ret = true;
+~                 break;
+~             }
+~         }
+~         func->visited = false;
+~     }
+~     return ret;
+~ }
+
+~ calls(a, b) = !a.visited ? ..
+~     a.visited = yes
+~     fn @ a.callees -> (!fn.intrinsic && fn == b || calls(fn, b)) ? ret = yes
+~     a.visited = no

@@ -1,5 +1,5 @@
 
-CCFLAGS=-std=c99 -I../engine -ferror-limit=999
+CCFLAGS=-std=c99 -I../engine
 CCLIBS=-lc -lm
 CC=gcc
 
@@ -24,7 +24,7 @@ cjet-dbg: *.[ch] TokenKind.h
 	$(CC) -g -O0 -DDEBUG $(CCFLAGS) main.c $(CCLIBS) -o $@
 
 cjet-cov: *.[ch] TokenKind.h
-	$(CC) -g -DCOVERAGE -fprofile-arcs -ftest-coverage -O3 $(CCFLAGS) main.c $(CCLIBS) -o $@
+	$(CC) -g -DCOVERAGE -fprofile-arcs -ftest-coverage -O0 $(CCFLAGS) main.c $(CCLIBS) -o $@
 
 # test:  #cjet-cov
 # 	./coverage.sh

@@ -1,5 +1,5 @@
 
-static bool isSelfMutOp(ASTExpr* expr) {
+static bool isSelfMutOp(JetExpr* expr) {
     return expr->kind > __tk__selfMutOps__begin
         && expr->kind < __tk__selfMutOps__end;
     //  expr->kind == tkPlusEq //
@@ -11,7 +11,7 @@ static bool isSelfMutOp(ASTExpr* expr) {
     //     || expr->kind == tkOpAssign;
 }
 
-static bool isArithOp(ASTExpr* expr) {
+static bool isArithOp(JetExpr* expr) {
     return expr->kind > __tk__arithOps__begin
         && expr->kind < __tk__arithOps__end;
     // == tkPlusEq //
@@ -25,89 +25,88 @@ static bool isArithOp(ASTExpr* expr) {
     //     || expr->kind == tkPower || expr->kind == tkOpMod;
 }
 
-// isSelfMutOp(expr as ASTExpr) := expr.kind in [
+// isSelfMutOp(expr as JetExpr) := expr.kind in [
 //     .plusEq, .minusEq, .slashEq, .timesEq, .opModEq, .opAssign
 // ]
 
-// function resolve(typeSpec as ASTTypeSpec, mod as ASTModule, par as Parser)
-//     if typeSpec.typeType != .unresolved then return
-//     if typeSpec.name == "" then return
-//     var tyty = typeTypeByName(typeSpec.name)
+// function resolve(spec as JetTypeSpec, mod as JetModule, par as Parser)
+//     if spec.typeType != .unresolved then return
+//     if spec.name == "" then return
+//     var tyty = typeTypeByName(spec.name)
 //     if tyty != .unresolved
-//         typeSpec.typeType = tyty
+//         spec.typeType = tyty
 //     else
-//         type = lookupType(typeSpec.name, module = mod)
-//         typeSpec.typeType = .object
-//         typeSpec.type = type
+//         type = lookupType(spec.name, module = mod)
+//         spec.typeType = .object
+//         spec.type = type
 //     end if
 //     on error . itemNotFound
-//         errorUnrecognized(typeSpec, parser = parser)
+//         errorUnrecognized(spec, parser = parser)
 // end function
 
-static void resolveTypeSpec(
-    Parser* parser, ASTTypeSpec* typeSpec, ASTModule* mod) {
+static void resolveTypeSpec(Parser* parser, JetTypeSpec* spec, JetModule* mod) {
     // TODO: disallow a type that derives from itself!
-    if (typeSpec->typeType != TYUnresolved) return;
-    if (!*typeSpec->name) return;
+    if (spec->typeType != TYUnresolved) return;
+    if (!*spec->name) return;
 
     // TODO: DO THIS IN PARSE... stuff!!
 
-    TypeTypes tyty = TypeType_byName(typeSpec->name);
-    if (tyty) { // can be member of ASTTypeSpec!
-        typeSpec->typeType = tyty;
+    TypeTypes tyty = TypeType_byName(spec->name);
+    if (tyty) { // can be member of JetTypeSpec!
+        spec->typeType = tyty;
     } else {
-        ASTType* type = ASTModule_getType(mod, typeSpec->name);
+        JetType* type = JetModule_getType(mod, spec->name);
         if (type) {
-            typeSpec->typeType = TYObject;
-            typeSpec->type = type;
+            spec->typeType = TYObject;
+            spec->type = type;
             type->used++;
             return;
         }
-        Parser_errorUnrecognizedType(parser, typeSpec);
+        Parser_errorUnrecognizedType(parser, spec);
         return;
     }
-    if (typeSpec->dims) {
+    if (spec->dims) {
         // set collection type, etc.
         // for this we will need info about the var and its usage
         // patterns. so this will probably be a separate func that is
         // called during such analysis.
     }
 }
-// function checkUnusedVars(scope as ASTScope, parser as Parser)
+// function checkUnusedVars(scope as JetScope, parser as Parser)
 //     for var = scope.locals
 //
 //     end for
 // end function
 
-static void ASTScope_checkUnusedVars(Parser* parser, ASTScope* scope) {
-    foreach (ASTVar*, var, scope->locals)
+static void JetScope_checkUnusedVars(Parser* parser, JetScope* scope) {
+    foreach (JetVar*, var, scope->locals)
         if (!var->used) Parser_warnUnusedVar(parser, var);
 
-    foreach (ASTExpr*, stmt, scope->stmts)
+    foreach (JetExpr*, stmt, scope->stmts)
         if (isCtrlExpr(stmt) && stmt->body)
-            ASTScope_checkUnusedVars(parser, stmt->body);
+            JetScope_checkUnusedVars(parser, stmt->body);
 }
 
-static void ASTFunc_checkUnusedVars(Parser* parser, ASTFunc* func) {
-    foreach (ASTVar*, arg, func->args)
+static void JetFunc_checkUnusedVars(Parser* parser, JetFunc* func) {
+    foreach (JetVar*, arg, func->args)
         if (!arg->used) Parser_warnUnusedArg(parser, arg);
 
-    ASTScope_checkUnusedVars(parser, func->body);
+    JetScope_checkUnusedVars(parser, func->body);
 }
 
-static void ASTTest_checkUnusedVars(Parser* parser, ASTTest* test) {
-    ASTScope_checkUnusedVars(parser, test->body);
+static void JetTest_checkUnusedVars(Parser* parser, JetTest* test) {
+    JetScope_checkUnusedVars(parser, test->body);
 }
 
 // TODO: Btw there should be a module level scope to hold lets (and
 // comments). That will be the root scope which has parent==NULL.
 
-static void resolveMember(Parser* parser, ASTExpr* expr, ASTType* type) {
+static void resolveMember(Parser* parser, JetExpr* expr, JetType* type) {
     assert(expr->kind == tkIdentifier || expr->kind == tkSubscript);
     TokenKind ret = (expr->kind == tkIdentifier) ? tkIdentifierResolved
                                                  : tkSubscriptResolved;
-    ASTVar* found = NULL;
-    if (type->body) found = ASTScope_getVar(type->body, expr->string);
+    JetVar* found = NULL;
+    if (type->body) found = JetScope_getVar(type->body, expr->string);
     if (found) {
         expr->kind = ret;
         expr->var = found;
@@ -119,7 +118,7 @@ static void resolveMember(Parser* parser, ASTExpr* expr, ASTType* type) {
 
 // This function is called in one pass, during the line-by-line parsing.
 // (since variables cannot be "forward-declared").
-static void resolveVars(Parser* parser, ASTExpr* expr, ASTScope* scope,
+static void resolveVars(Parser* parser, JetExpr* expr, JetScope* scope,
     bool inFuncCall) { // TODO: this could be done on rpn in parseExpr, making
                        // it iterative instead of recursive = behaves
                        // differently inside a func call: the ->left is not
@@ -155,14 +154,14 @@ static void resolveVars(Parser* parser, ASTExpr* expr, ASTScope* scope,
     case tkSubscript: {
         TokenKind ret = (expr->kind == tkIdentifier) ? tkIdentifierResolved
                                                      : tkSubscriptResolved;
-        ASTVar* found = ASTScope_getVar(scope, expr->string);
+        JetVar* found = JetScope_getVar(scope, expr->string);
         if (found) {
             expr->kind = ret;
             expr->var = found;
             expr->var->used++;
             expr->var->lastUsage = expr->line; // see above for a TODO and info
         } else {
-            // ASTImport* import = ASTModule_getImportByAlias(mod,
+            // JetImport* import = JetModule_getImportByAlias(mod,
             // expr->string); if (import) {
             //     expr->kind = tkKeyword_import;
             //     expr->import = import;
@@ -177,8 +176,8 @@ static void resolveVars(Parser* parser, ASTExpr* expr, ASTScope* scope,
             // recheck kind since the var may have failed resolution
             // TODO: handle dims 0 as dims 1 because arr[] is the same as arr[:]
             //            if (expr->kind == tkSubscriptResolved
-            //                and ASTExpr_countCommaList(expr->left)
-            //                    != expr->var->typeSpec->dims)
+            //                and JetExpr_countCommaList(expr->left)
+            //                    != expr->var->spec->dims)
             //                Parser_errorIndexDimsMismatch(parser, expr);
             // do it in analysis after type/dims inference
         }
@@ -228,7 +227,7 @@ static void resolveVars(Parser* parser, ASTExpr* expr, ASTScope* scope,
                     buf[len] = 0;
                     buf[31] = 0;
                     //            eprintf("lookup '%s'\n", buf);
-                    ASTVar* var = ASTScope_getVar(scope, buf);
+                    JetVar* var = JetScope_getVar(scope, buf);
                     if (!var) {
                         char* orig = expr->string;
                         expr->string = buf;
@@ -267,17 +266,19 @@ static void resolveVars(Parser* parser, ASTExpr* expr, ASTScope* scope,
             resolveVars(parser, expr->right, scope, inFuncCall);
 
             if (isSelfMutOp(expr)) {
-                ASTVar* var = NULL;
-                ASTExpr* varExpr = expr->left;
-               if (varExpr){ if (varExpr->kind == tkIdentifierResolved || //
-                    varExpr->kind == tkSubscriptResolved) {
-                    var = varExpr->var;
-                } else if (varExpr->kind == tkPeriod && //
-                    varExpr->left
-                    && varExpr->left->kind == tkIdentifierResolved) {
-                    varExpr = varExpr->left;
-                    var = varExpr->var;
-                }}
+                JetVar* var = NULL;
+                JetExpr* varExpr = expr->left;
+                if (varExpr) {
+                    if (varExpr->kind == tkIdentifierResolved || //
+                        varExpr->kind == tkSubscriptResolved) {
+                        var = varExpr->var;
+                    } else if (varExpr->kind == tkPeriod && //
+                        varExpr->left
+                        && varExpr->left->kind == tkIdentifierResolved) {
+                        varExpr = varExpr->left;
+                        var = varExpr->var;
+                    }
+                }
                 if (var) {
                     // TODO: If you will allow changing the first arg of a
                     // function, using an & op or whatever, check for those

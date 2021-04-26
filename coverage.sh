@@ -15,23 +15,23 @@ do
     RET=$((RET+$?))
     ./c99/cjet-cov "$f" t > /dev/null  2>&1
     RET=$((RET+$?))
-    [ $RET == 0 ] && ST="\e[33mOK\e[0m" || ST="\e[31mERR\e[0m:$RET"
+    [ $RET == 0 ] && ST="\e[32mOK\e[0m" || ST="\e[31mERR\e[0m:$RET"
     [ $RET == 0 ] || NERR=$((NERR+1))
     printf "[$ST] $f\n" 1>&2
     NTOT=$((NTOT+1))
 done
 echo "*** $NERR of $NTOT failed"
 cd c99
-ln -sf ../main.gcno .
-ln -sf ../main.gcda .
-cd - > /dev/null 2>&1
+# ln -sf ../main.gcno .
+# ln -sf ../main.gcda .
+# cd - > /dev/null 2>&1
 
 # rm ../main.c
 echo >  coverage.txt
 echo "Unit                                        Unexec      Lines   Branches    Taken1+" >> coverage.txt
 echo "----                                        ------      -----   --------    -------" >> coverage.txt
 
-gcov -f -b -a c99/main.c | awk '
+gcov -f -b -a main.c | awk '
 
 $1=="File" || $1=="Function" {
     printf "\n%s %-36s ",tolower(substr($1,1,4)), substr($2,2,length($2)-2)

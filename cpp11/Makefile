@@ -1,5 +1,5 @@
 
-CCFLAGS=-std=c++11 -I../engine -ferror-limit=999
+CCFLAGS=-std=c++11 -I../engine
 CCLIBS=-lc -lm
 CC=g++
 

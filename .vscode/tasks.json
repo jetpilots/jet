@@ -2,13 +2,31 @@
     "tasks": [
         {
             "type": "shell",
-            "label": "Run make jetc-dbg",
+            "label": "Run make cjet-dbg",
             "command": "make",
             "args": [
-                "jetc-dbg"
+                "cjet-dbg"
             ],
             "options": {
-                "cwd": "${workspaceFolder}"
+                "cwd": "${workspaceFolder}/c99"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "type": "shell",
+            "label": "Run make cjet-cov",
+            "command": "make",
+            "args": [
+                "cjet-cov"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/c99"
             },
             "problemMatcher": [
                 "$gcc"

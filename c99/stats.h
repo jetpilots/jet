@@ -4,7 +4,7 @@ static void expralloc_stat() {
     for (int i = 0; i < 128; i++) sum += exprsAllocHistogram[i];
     thres = sum / 20;
 
-    eputs("ASTExpr allocation by kind (those above 5% of total)\n"
+    eputs("JetExpr allocation by kind (those above 5% of total)\n"
           "  Kind        #      %%\n");
     for_to_where(i, 128, (iexpr = exprsAllocHistogram[i]) > thres) //
         eprintf("  %-8s %4d %7.2f\n", TokenKind_repr[i], iexpr,
@@ -13,32 +13,29 @@ static void expralloc_stat() {
 }
 
 static void printstats(Parser* const parser, double tms) {
-    eputs("\n======================================================="
-          "\n");
+    eputs("\n=======================================================\n");
     eputs("PARSER STATISTICS\n");
-    eputs("-------------------------------------------------------"
-          "\n");
+    eputs("-------------------------------------------------------\n");
 
     eputs("Node allocations:\n");
-    allocstat(ASTImport);
-    allocstat(ASTExpr);
-    allocstat(ASTVar);
-    allocstat(ASTType);
-    allocstat(ASTScope);
-    allocstat(ASTTypeSpec);
-    allocstat(ASTFunc);
-    allocstat(ASTModule);
+    allocstat(JetImport);
+    allocstat(JetExpr);
+    allocstat(JetVar);
+    allocstat(JetType);
+    allocstat(JetScope);
+    allocstat(JetTypeSpec);
+    allocstat(JetFunc);
+    allocstat(JetModule);
     allocstat(PtrList);
-    // allocstat(List_ASTExpr);
-    // allocstat(List_ASTVar);
-    // allocstat(List_ASTModule);
-    // allocstat(List_ASTFunc);
-    // allocstat(List_ASTType);
-    // allocstat(List_ASTImport);
-    // allocstat(List_ASTScope);
+    // allocstat(List_JetExpr);
+    // allocstat(List_JetVar);
+    // allocstat(List_JetModule);
+    // allocstat(List_JetFunc);
+    // allocstat(List_JetType);
+    // allocstat(List_JetImport);
+    // allocstat(List_JetScope);
     allocstat(Parser);
-    eputs("-------------------------------------------------------"
-          "\n");
+    eputs("-------------------------------------------------------\n");
     eprintf("*** Total size of nodes                     = %7d B\n",
         gPool->usedTotal);
     eprintf("*** Space allocated for nodes               = %7d B\n",

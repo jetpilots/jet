@@ -1,24 +1,23 @@
 
-static void setStmtFuncTypeInfo(Parser* parser, ASTFunc* func) {
+static void setStmtFuncTypeInfo(Parser* parser, JetFunc* func) {
     // this assumes that setExprTypeInfo has been called on the func body
-    ASTExpr* stmt = func->body->stmts->item;
-    if (!func->returnSpec->typeType)
-        func->returnSpec->typeType = stmt->typeType;
-    else if (func->returnSpec->typeType != stmt->typeType)
+    JetExpr* stmt = func->body->stmts->item;
+    if (!func->spec->typeType)
+        func->spec->typeType = stmt->typeType;
+    else if (func->spec->typeType != stmt->typeType)
         Parser_errorTypeMismatchBinOp(parser, stmt);
 }
 
-// TODO make sempassModule -> same as ASTModule_analyse now
-static void ASTType_analyse(Parser* parser, ASTType* type, ASTModule* mod);
-static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod);
+// TODO make sempassModule -> same as JetModule_analyse now
+static void JetType_analyse(Parser* parser, JetType* type, JetModule* mod);
+static void JetFunc_analyse(Parser* parser, JetFunc* func, JetModule* mod);
 
-///////////////////////////////////////////////////////////////////////////
-static void analyseDictLiteral(Parser* parser, ASTExpr* expr, ASTModule* mod) {
+static void analyseDictLiteral(Parser* parser, JetExpr* expr, JetModule* mod) {
     // check that
     // - dict keys in the dict literal are of the same type.
     // - values are of the same type.
     // - all exprs within the commas are tkOpAssign.
-    // assign the typeSpec pair somehow to the tkDictLiteral expr.
+    // assign the spec pair somehow to the tkDictLiteral expr.
     // maybe alloc twice the size and set the pointer so you can access
     // spec[0] and spec[1].
 }
@@ -34,8 +33,8 @@ static void analyseDictLiteral(Parser* parser, ASTExpr* expr, ASTModule* mod) {
 // 1. compute the format string
 // 2. compute a guess for the size
 // 3. keep a stack of vars that are in the string in the right order
-static void ASTExpr_prepareInterp(
-    Parser* parser, ASTExpr* expr, ASTScope* scope) {
+static void JetExpr_prepareInterp(
+    Parser* parser, JetExpr* expr, JetScope* scope) {
     static Array(Ptr) vars;
     assert(expr->kind == tkString || expr->kind == tkRawString);
     PtrList** exprvars = &expr->vars;
@@ -86,7 +85,7 @@ static void ASTExpr_prepareInterp(
         if (*varend == ')') *varend++ = 0;
         char endchar = *varend; // store the char in a temp
         *varend = 0;
-        ASTVar* var = ASTScope_getVar(scope, varname);
+        JetVar* var = JetScope_getVar(scope, varname);
 
         if (var) strcpy(varname, var->name); // fix case
         *varend = endchar;
@@ -99,8 +98,8 @@ static void ASTExpr_prepareInterp(
         // You should have checked for all var refs to be valid in the analysis
         // phase!
 
-        ASTExpr* ex = NEW(ASTExpr);
-        ASTExpr* exdot = NULL;
+        JetExpr* ex = NEW(JetExpr);
+        JetExpr* exdot = NULL;
         ex->kind = tkIdentifierResolved;
         ex->line = line, ex->col = col;
         ex->var = var;
@@ -109,7 +108,7 @@ static void ASTExpr_prepareInterp(
         exdot = ex;
         if (!wasbracket)
             while (endchar == '.') {
-                if (!var || var->typeSpec->typeType != TYObject) {
+                if (!var || var->spec->typeType != TYObject) {
                     unreachable("using a . for a non-object type (string "
                                 "interp: $%.*s)",
                         (int)(varend - varname), varname);
@@ -122,23 +121,23 @@ static void ASTExpr_prepareInterp(
                 col += varend - varname;
                 endchar = *varend;
                 *varend = 0;
-                ASTType* type = var->typeSpec->type;
-                var = ASTType_getVar(type, varname);
+                JetType* type = var->spec->type;
+                var = JetType_getVar(type, varname);
                 if (!var) {
                     exdot = NULL; // reset it if was set along the chain
                     Parser_errorUnrecognizedMember(parser, type,
-                        &(ASTExpr) { .string = varname,
+                        &(JetExpr) { .string = varname,
                             .line = line,
                             .col = col,
                             .kind = tkIdentifier });
                 } else {
                     var->used = true;
                     strcpy(varname, var->name); // fix case
-                    exdot = NEW(ASTExpr);
+                    exdot = NEW(JetExpr);
                     exdot->kind = tkPeriod;
                     // exdot->line=line,exdot->col=ex->col+varend-varname;
                     exdot->left = ex;
-                    exdot->right = NEW(ASTExpr);
+                    exdot->right = NEW(JetExpr);
                     exdot->right->kind = tkIdentifierResolved;
                     exdot->right->line = line,
                     exdot->right->col = col + varend - varname;
@@ -151,12 +150,12 @@ static void ASTExpr_prepareInterp(
         // Here var is the final one ie c in a.b.c
 
         // const char* fmtstr;
-        // if (var->typeSpec->typeType == TYObject) {
+        // if (var->spec->typeType == TYObject) {
         //     fmtstr = "%s";
         //     // you'll have to call Type_str(...) for it. Or actually why
         //     // not just do Type_print?
         // } else {
-        //     fmtstr = TypeType_format(var->typeSpec->typeType, false);
+        //     fmtstr = TypeType_format(var->spec->typeType, false);
         // }
         // printf(",%s", var->name);
         // ^ this should be qualified name or the cgen version
@@ -179,10 +178,10 @@ static void ASTExpr_prepareInterp(
 // case tkObjectInit:
 // case tkObjectInitResolved:
 // case tkSubscriptResolved:
-//     if (expr->left) ASTExpr_prepareInterp(expr->left, scope);
+//     if (expr->left) JetExpr_prepareInterp(expr->left, scope);
 //     break;
 // case tkVarAssign:
-//     ASTExpr_prepareInterp(expr->var->init, scope);
+//     JetExpr_prepareInterp(expr->var->init, scope);
 //     break;
 // case tkKeyword_for:
 // case tkKeyword_if:
@@ -191,14 +190,14 @@ static void ASTExpr_prepareInterp(
 // case tkKeyword_case:
 // case tkKeyword_elif:
 // case tkKeyword_while:
-//     ASTExpr_prepareInterp(expr->left, scope);
-//     foreach (ASTExpr*, subexpr, expr->body->stmts)
-//         ASTExpr_prepareInterp(subexpr, expr->body);
+//     JetExpr_prepareInterp(expr->left, scope);
+//     foreach (JetExpr*, subexpr, expr->body->stmts)
+//         JetExpr_prepareInterp(subexpr, expr->body);
 //     break;
 // default:
 //     if (expr->prec) {
-//         if (!expr->unary) ASTExpr_prepareInterp(expr->left, scope);
-//         if (expr->right) ASTExpr_prepareInterp(expr->right, scope);
+//         if (!expr->unary) JetExpr_prepareInterp(expr->left, scope);
+//         if (expr->right) JetExpr_prepareInterp(expr->right, scope);
 //     } else {
 //         unreachable("unknown token kind %s", TokenKind_str[expr->kind]);
 //     }
@@ -211,12 +210,12 @@ static void ASTExpr_prepareInterp(
 //     dog.",
 //         ""`;
 
-static void ASTExpr_setEnumBase(
-    Parser* parser, ASTExpr* expr, ASTTypeSpec* spec, ASTModule* mod) {
+static void JetExpr_setEnumBase(
+    Parser* parser, JetExpr* expr, JetTypeSpec* spec, JetModule* mod) {
     switch (expr->kind) {
     case tkPeriod:
         if (expr->left) return;
-        expr->left = NEW(ASTExpr);
+        expr->left = NEW(JetExpr);
         expr->left->kind = tkIdentifier;
         expr->left->string
             = spec->typeType == TYObject ? spec->type->name : spec->name;
@@ -227,100 +226,73 @@ static void ASTExpr_setEnumBase(
     case tkOpComma:
     case tkOpEQ:
     case tkOpNE:
-        ASTExpr_setEnumBase(parser, expr->left, spec, mod);
+        JetExpr_setEnumBase(parser, expr->left, spec, mod);
         fallthrough;
     case tkOpAssign:
-    case tkArrayOpen: ASTExpr_setEnumBase(parser, expr->right, spec, mod);
+    case tkArrayOpen: JetExpr_setEnumBase(parser, expr->right, spec, mod);
     default:;
     }
 }
 
-static void ASTExpr_reduceVarUsage(ASTExpr* expr) {
+static void JetExpr_reduceVarUsage(JetExpr* expr) {
     // vars and subscripts, but also function calls have their usage counts
     // reduced when being involved in an expr that inits a known unused
     // variable.
     switch (expr->kind) {
     case tkString: break; // TODO: vars within string intrp
+    case tkSubscript:
+    case tkFunctionCall:
+        if (expr->left) JetExpr_reduceVarUsage(expr->left);
+        break;
     case tkSubscriptResolved:
-        if (expr->left) ASTExpr_reduceVarUsage(expr->left); // fallthru
+        if (expr->left) JetExpr_reduceVarUsage(expr->left); // fallthru
     case tkIdentifierResolved:
         // reduce this var's usage, and if it drops to zero reduce the usage of
         // all vars in this var's init. Sort of like a compile time ref count.
         if (!--expr->var->used) {
-            if (expr->var->init) ASTExpr_reduceVarUsage(expr->var->init);
-            // if (expr->var->typeSpec->typeType == TYObject)
-            //     --expr->var->typeSpec->type->used;
+            if (expr->var->init) JetExpr_reduceVarUsage(expr->var->init);
+            // if (expr->var->spec->typeType == TYObject)
+            //     --expr->var->spec->type->used;
         }
         break;
     case tkFunctionCallResolved:
-        if (expr->left) ASTExpr_reduceVarUsage(expr->left);
+        if (expr->left) JetExpr_reduceVarUsage(expr->left);
         expr->func->used--;
         break;
-    case tkPeriod: ASTExpr_reduceVarUsage(expr->left); break;
+    case tkPeriod:
+        if (expr->left) JetExpr_reduceVarUsage(expr->left);
+        break;
     default:
         if (expr->prec) {
-            if (!expr->unary && expr->left) ASTExpr_reduceVarUsage(expr->left);
-            if (expr->right) ASTExpr_reduceVarUsage(expr->right);
+            if (!expr->unary && expr->left) JetExpr_reduceVarUsage(expr->left);
+            if (expr->right) JetExpr_reduceVarUsage(expr->right);
         };
     }
 }
 
-// might func be calling target directly?
-static bool ASTFunc_calls(ASTFunc* func, ASTFunc* target) {
-    foreach (ASTFunc*, fn, func->callees) {
-        if (fn == target) return true;
-        eprintf(
-            "callee %s of %s is not %s\n", fn->name, func->name, target->name);
-    }
-    return false;
-}
-// might func be calling target indirectly through other calls?
-// static bool ASTFunc_recurs(ASTFunc* func);
-static void ASTFunc_checkRecursion(ASTFunc* func);
-
-// static int ASTFunc_hasPathTo(ASTFunc* func, ASTFunc* target) {
-//     if (ASTFunc_calls(func, target)) return 1;
-//     foreach (ASTFunc*, fn, func->callees) {
-//         if (fn->intrinsic) continue;
-//         ASTFunc_checkRecursion(fn);
-//         if (func->recursivity == 1) continue;
-//         // ^ a nonrecurs func cannot be a path anyway.
-//         if (ASTFunc_hasPathTo(fn, target)) return 2;
-//         eprintf("no indirect %s -> %s -> %s call\n", func->name, fn->name,
-//             target->name);
-//     }
-//     return 0;
-// }
-
-static bool haspathto(ASTFunc* func, ASTFunc* target) {
+static bool JetFunc_calls(JetFunc* func, JetFunc* target) {
     bool ret = false;
     if (!func->visited) {
         func->visited = true;
-
-        foreach (ASTFunc*, fn, func->callees) {
-            if (fn->intrinsic) continue;
-            if (fn == target || haspathto(fn, target)) {
+        foreach (JetFunc*, fn, func->callees) {
+            if (!fn->intrinsic && //
+                (fn == target || JetFunc_calls(fn, target))) {
                 ret = true;
-                eputs("ok\n");
                 break;
             }
-            eputs("no\n");
         }
-
         func->visited = false;
-    } else {
     }
     return ret;
 }
 
-static void ASTFunc_checkRecursion(ASTFunc* func) {
-    if (!func->recursivity) // 0 means not checked
-        func->recursivity = 1 + haspathto(func, func);
+static void JetFunc_checkRecursion(JetFunc* func) {
+    if (!func->recursivity) func->recursivity = 1 + JetFunc_calls(func, func);
+    // 0 means not checked
 }
 
-///////////////////////////////////////////////////////////////////////////
-static void ASTExpr_analyse(Parser* parser, ASTExpr* expr, ASTScope* scope,
-    ASTModule* mod, ASTFunc* ownerFunc, bool inFuncArgs) {
+static void JetExpr_analyse(Parser* parser, JetExpr* expr, JetScope* scope,
+    JetModule* mod, JetFunc* ownerFunc, bool inFuncArgs) {
     switch (expr->kind) {
 
         // -------------------------------------------------- //
@@ -330,16 +302,16 @@ static void ASTExpr_analyse(Parser* parser, ASTExpr* expr, ASTScope* scope,
             PtrList_shift(&ownerFunc->callees, expr->func);
             PtrList_shift(&expr->func->callers, ownerFunc);
         }
-        if (ASTExpr_countCommaList(expr->left) != expr->func->argCount)
+        if (JetExpr_countCommaList(expr->left) != expr->func->argCount)
             Parser_errorArgsCountMismatch(parser, expr);
-        expr->typeType = expr->func->returnSpec
-            ? expr->func->returnSpec->typeType
+        expr->typeType = expr->func->spec
+            ? expr->func->spec->typeType
             : TYNoType; // should actually be TYVoid
-        expr->collectionType = expr->func->returnSpec
-            ? expr->func->returnSpec->collectionType
+        expr->collectionType = expr->func->spec
+            ? expr->func->spec->collectionType
             : CTYNone; // should actually be TYVoid
         expr->elemental = expr->func->elemental;
-        if (expr->func->returnSpec) expr->dims = expr->func->returnSpec->dims;
+        if (expr->func->spec) expr->dims = expr->func->spec->dims;
         // isElementalFunc means the func is only defined for (all)
         // Number arguments and another definition for vector args
         // doesn't exist. Basically during typecheck this should see
@@ -347,12 +319,12 @@ static void ASTExpr_analyse(Parser* parser, ASTExpr* expr, ASTScope* scope,
         if (!expr->left) break;
         expr->elemental = expr->elemental && expr->left->elemental;
         expr->throws = expr->left->throws || expr->func->throws;
-        ASTExpr* currArg = expr->left;
-        foreach (ASTVar*, arg, expr->func->args) {
-            ASTExpr* cArg
+        JetExpr* currArg = expr->left;
+        foreach (JetVar*, arg, expr->func->args) {
+            JetExpr* cArg
                 = (currArg->kind == tkOpComma) ? currArg->left : currArg;
             if (cArg->kind == tkOpAssign) cArg = cArg->right;
-            if (cArg->typeType != arg->typeSpec->typeType)
+            if (cArg->typeType != arg->spec->typeType)
                 Parser_errorArgTypeMismatch(parser, cArg, arg);
             // TODO: check dims mismatch
             // TODO: check units mismatch
@@ -362,14 +334,14 @@ static void ASTExpr_analyse(Parser* parser, ASTExpr* expr, ASTScope* scope,
 
         currArg = expr->left;
         while (currArg) {
-            ASTExpr* cArg
+            JetExpr* cArg
                 = (currArg->kind == tkOpComma) ? currArg->left : currArg;
             if (cArg->kind == tkOpAssign) {
                 // LHS will be a tkIdentifier. You should resolve it to one
                 // of the function's arguments and set it to tkArgumentLabel.
                 assert(cArg->left->kind == tkIdentifier);
-                ASTVar* theArg = NULL;
-                foreach (ASTVar*, arg, expr->func->args) {
+                JetVar* theArg = NULL;
+                foreach (JetVar*, arg, expr->func->args) {
                     if (!strcasecmp(cArg->left->string, arg->name))
                         theArg = arg;
                 }
@@ -394,28 +366,28 @@ static void ASTExpr_analyse(Parser* parser, ASTExpr* expr, ASTScope* scope,
         char buf[128] = {};
         char* bufp = buf;
         if (expr->left)
-            ASTExpr_analyse(parser, expr->left, scope, mod, ownerFunc, true);
+            JetExpr_analyse(parser, expr->left, scope, mod, ownerFunc, true);
 
         // TODO: need a function to make and return selector
-        ASTExpr* arg1 = expr->left;
+        JetExpr* arg1 = expr->left;
         if (arg1 && arg1->kind == tkOpComma) arg1 = arg1->left;
-        const char* typeName = ASTExpr_typeName(arg1);
+        const char* typeName = JetExpr_typeName(arg1);
         //        const char* collName = "";
         //        if (arg1)
         //        collName=CollectionType_nativeName(arg1->collectionType);
         if (arg1) bufp += sprintf(bufp, "%s_", typeName);
         bufp += sprintf(bufp, "%s", expr->string);
         if (expr->left)
-            ASTExpr_strarglabels(expr->left, bufp, 128 - ((int)(bufp - buf)));
+            JetExpr_strarglabels(expr->left, bufp, 128 - ((int)(bufp - buf)));
 
-        ASTFunc* found = ASTModule_getFunc(mod, buf);
-        if (!found) found = ASTModule_getFuncByTypeMatch(mod, expr);
+        JetFunc* found = JetModule_getFunc(mod, buf);
+        if (!found) found = JetModule_getFuncByTypeMatch(mod, expr);
         if (found) {
             expr->kind = tkFunctionCallResolved;
             expr->func = found;
             expr->func->used++;
-            ASTFunc_analyse(parser, found, mod);
-            ASTExpr_analyse(parser, expr, scope, mod, ownerFunc, inFuncArgs);
+            JetFunc_analyse(parser, found, mod);
+            JetExpr_analyse(parser, expr, scope, mod, ownerFunc, inFuncArgs);
             return;
         }
         if (!strncmp(buf, "Void_", 5))
@@ -426,7 +398,7 @@ static void ASTExpr_analyse(Parser* parser, ASTExpr* expr, ASTScope* scope,
             if (*buf != '<') // not invalid type
             {
                 int sugg = 0;
-                foreach (ASTFunc*, func, mod->funcs) {
+                foreach (JetFunc*, func, mod->funcs) {
                     if (!strcasecmp(expr->string, func->name)) {
                         eprintf("\e[36;1minfo:\e[0;2m   not viable: %s with %d "
                                 "arguments at %s:%d\e[0m\n",
@@ -454,23 +426,22 @@ static void ASTExpr_analyse(Parser* parser, ASTExpr* expr, ASTScope* scope,
 
         // -------------------------------------------------- //
     case tkVarAssign: {
-        ASTExpr* const init = expr->var->init;
-        ASTTypeSpec* const typeSpec = expr->var->typeSpec;
+        JetExpr* const init = expr->var->init;
+        JetTypeSpec* const spec = expr->var->spec;
 
-        if (typeSpec->typeType == TYUnresolved)
-            resolveTypeSpec(parser, typeSpec, mod);
+        if (spec->typeType == TYUnresolved) resolveTypeSpec(parser, spec, mod);
 
         if (!init) {
             // if the typespec is given, generate the init expr yourself
             // this is only for basic types like primitives.
             // and arrays of anything can be left without an init.
-            if (!typeSpec->dims) // goto errorMissingInit;
-                switch (typeSpec->typeType) {
+            if (!spec->dims) // goto errorMissingInit;
+                switch (spec->typeType) {
                 case TYReal64: expr->var->init = expr_const_0; break;
                 case TYString: expr->var->init = expr_const_empty; break;
                 case TYBool: expr->var->init = expr_const_no; break;
                 case TYObject:
-                    if (!typeSpec->type->isEnum) {
+                    if (!spec->type->isEnum) {
                         expr->var->init = expr_const_nil;
                         break;
                     }
@@ -480,20 +451,20 @@ static void ASTExpr_analyse(Parser* parser, ASTExpr* expr, ASTScope* scope,
                     Parser_errorMissingInit(parser, expr);
                 }
         } else {
-            // if (typeSpec->typeType == TYUnresolved)
-            //     resolveTypeSpec(parser, typeSpec, mod);
+            // if (spec->typeType == TYUnresolved)
+            //     resolveTypeSpec(parser, spec, mod);
             // first try to set enum base if applicable.
-            if (typeSpec->typeType == TYObject && typeSpec->type->isEnum)
-                ASTExpr_setEnumBase(parser, init, typeSpec, mod);
+            if (spec->typeType == TYObject && spec->type->isEnum)
+                JetExpr_setEnumBase(parser, init, spec, mod);
 
-            ASTExpr_analyse(parser, init, scope, mod, ownerFunc, false);
+            JetExpr_analyse(parser, init, scope, mod, ownerFunc, false);
 
             if (!expr->var->used) {
                 // assigning to an unused var on the left of =. Decrement the
                 // usage counts of all vars referenced on the RHS because well
                 // being used for an unused var is not actually being used.
                 // TODO: this should also be done for += -= *= etc.
-                ASTExpr_reduceVarUsage(init);
+                JetExpr_reduceVarUsage(init);
             }
 
             if (init->typeType != TYNilType) {
@@ -505,57 +476,57 @@ static void ASTExpr_analyse(Parser* parser, ASTExpr* expr, ASTScope* scope,
                 expr->throws = init->throws;
                 expr->impure = init->impure;
                 expr->dims = init->dims;
-            } else if (typeSpec->typeType == TYObject) {
+            } else if (spec->typeType == TYObject) {
                 // if nil, and typespec given and resolved, set type info from
                 // typespec.
-                expr->typeType = typeSpec->typeType;
+                expr->typeType = spec->typeType;
 
-            } else if (typeSpec->typeType == TYUnresolved) {
+            } else if (spec->typeType == TYUnresolved) {
                 // this will already have caused an error while resolution.
                 // since specified type is unresolved and init is nil, there
                 // is nothing to do except to mark it an error type.
-                typeSpec->typeType = expr->typeType = TYErrorType;
+                spec->typeType = expr->typeType = TYErrorType;
 
             } else {
                 // this would be something like init'ing primitives with nil.
                 Parser_errorInitMismatch(parser, expr);
-                typeSpec->typeType = expr->typeType = TYErrorType;
+                spec->typeType = expr->typeType = TYErrorType;
             }
 
-            if (typeSpec->typeType == TYUnresolved) {
-                typeSpec->typeType = init->typeType;
+            if (spec->typeType == TYUnresolved) {
+                spec->typeType = init->typeType;
                 if (init->typeType == TYObject) {
                     if (init->kind == tkFunctionCallResolved) {
-                        expr->var->typeSpec = init->func->returnSpec;
-                        // ^ TODO: DROP old expr->var->typeSpec!!
-                        typeSpec->type = init->func->returnSpec->type;
-                        typeSpec->dims = init->func->returnSpec->dims;
+                        expr->var->spec = init->func->spec;
+                        // ^ TODO: DROP old expr->var->spec!!
+                        spec->type = init->func->spec->type;
+                        spec->dims = init->func->spec->dims;
                     } else if (init->kind == tkIdentifierResolved) {
-                        expr->var->typeSpec = init->var->typeSpec;
-                        typeSpec->type = init->var->typeSpec->type;
-                        typeSpec->dims = init->var->typeSpec->dims;
+                        expr->var->spec = init->var->spec;
+                        spec->type = init->var->spec->type;
+                        spec->dims = init->var->spec->dims;
                     } else if (init->kind == tkArrayOpen)
-                        typeSpec->type = init->elementType;
+                        spec->type = init->elementType;
                     else if (init->kind == tkBraceOpen)
-                        typeSpec->type = init->elementType;
+                        spec->type = init->elementType;
                     else if (init->kind == tkPeriod) {
-                        ASTExpr* e = init;
-                        if (init->left->var->typeSpec->type->isEnum) {
-                            typeSpec->type = init->left->var->typeSpec->type;
+                        JetExpr* e = init;
+                        if (init->left->var->spec->type->isEnum) {
+                            spec->type = init->left->var->spec->type;
                         } else {
                             while (e->kind == tkPeriod) e = e->right;
                             // at this point, it must be a resolved ident or
                             // subscript
-                            typeSpec->type = e->var->typeSpec->type;
-                            typeSpec->dims = e->var->typeSpec->dims;
+                            spec->type = e->var->spec->type;
+                            spec->dims = e->var->spec->dims;
                         }
 
                     } else {
                         unreachable("%s", "var type inference failed");
                     }
-                    ASTType_analyse(parser, typeSpec->type, mod);
+                    JetType_analyse(parser, spec->type, mod);
                 }
-            } else if (typeSpec->typeType != init->typeType
+            } else if (spec->typeType != init->typeType
                 // && init->typeType != TYNilType
             ) {
                 // init can be nil, which is a TYNilType
@@ -563,21 +534,19 @@ static void ASTExpr_analyse(Parser* parser, ASTExpr* expr, ASTScope* scope,
                 expr->typeType = TYErrorType;
             }
 
-            if (typeSpec->dims == 0) {
-                typeSpec->collectionType = init->collectionType;
-                typeSpec->dims = init->collectionType == CTYTensor ? init->dims
-                    : init->collectionType == CTYArray             ? 1
-                                                                   : 0;
-            } else if (typeSpec->dims != 1
-                && init->collectionType == CTYArray) {
+            if (spec->dims == 0) {
+                spec->collectionType = init->collectionType;
+                spec->dims = init->collectionType == CTYTensor ? init->dims
+                    : init->collectionType == CTYArray         ? 1
+                                                               : 0;
+            } else if (spec->dims != 1 && init->collectionType == CTYArray) {
                 Parser_errorInitDimsMismatch(parser, expr, 1);
                 expr->typeType = TYErrorType;
-            } else if (typeSpec->dims != 2
-                && init->collectionType == CTYTensor) {
+            } else if (spec->dims != 2 && init->collectionType == CTYTensor) {
                 Parser_errorInitDimsMismatch(parser, expr, 2);
                 expr->typeType = TYErrorType;
 
-            } else if (typeSpec->dims != 0 && init->collectionType == CTYNone) {
+            } else if (spec->dims != 0 && init->collectionType == CTYNone) {
                 Parser_errorInitDimsMismatch(parser, expr, 0);
                 expr->typeType = TYErrorType;
             }
@@ -586,27 +555,27 @@ static void ASTExpr_analyse(Parser* parser, ASTExpr* expr, ASTScope* scope,
 
         // -------------------------------------------------- //
     case tkKeyword_match: {
-        ASTExpr* cond = expr->left;
+        JetExpr* cond = expr->left;
         if (cond) {
-            ASTExpr_analyse(parser, cond, scope, mod, ownerFunc, false);
-            ASTTypeSpec* tsp = ASTExpr_getObjectTypeSpec(cond);
+            JetExpr_analyse(parser, cond, scope, mod, ownerFunc, false);
+            JetTypeSpec* tsp = JetExpr_getObjectTypeSpec(cond);
             if (expr->body && tsp && tsp->type
                 && tsp->type
                        ->isEnum) { // left->typeType == TYObject&&->isEnum) {
-                foreach (ASTExpr*, cas, expr->body->stmts)
+                foreach (JetExpr*, cas, expr->body->stmts)
                     if (cas->left)
-                        ASTExpr_setEnumBase(parser, cas->left, tsp, mod);
+                        JetExpr_setEnumBase(parser, cas->left, tsp, mod);
             }
         }
 
-        foreach (ASTExpr*, stmt, expr->body->stmts) {
-            ASTExpr_analyse(
+        foreach (JetExpr*, stmt, expr->body->stmts) {
+            JetExpr_analyse(
                 parser, stmt, expr->body, mod, ownerFunc, inFuncArgs);
             if (cond && stmt->kind == tkKeyword_case && stmt->left
                 && (stmt->left->typeType != cond->typeType
                     || (cond->typeType == TYObject
-                        && ASTExpr_getTypeOrEnum(stmt->left)
-                            != ASTExpr_getTypeOrEnum(cond))))
+                        && JetExpr_getTypeOrEnum(stmt->left)
+                            != JetExpr_getTypeOrEnum(cond))))
                 Parser_errorTypeMismatch(parser, cond, stmt->left);
         }
     } break;
@@ -617,27 +586,27 @@ static void ASTExpr_analyse(Parser* parser, ASTExpr* expr, ASTScope* scope,
     case tkKeyword_while:
     case tkKeyword_case: {
         if (expr->left)
-            ASTExpr_analyse(parser, expr->left, scope, mod, ownerFunc, false);
-        foreach (ASTExpr*, stmt, expr->body->stmts)
-            ASTExpr_analyse(
+            JetExpr_analyse(parser, expr->left, scope, mod, ownerFunc, false);
+        foreach (JetExpr*, stmt, expr->body->stmts)
+            JetExpr_analyse(
                 parser, stmt, expr->body, mod, ownerFunc, inFuncArgs);
     } break;
 
         // -------------------------------------------------- //
     case tkSubscriptResolved: {
         // assert(expr->left->kind == tkArrayOpen);
-        int nhave = ASTExpr_countCommaList(expr->left);
-        if (nhave != expr->var->typeSpec->dims)
+        int nhave = JetExpr_countCommaList(expr->left);
+        if (nhave != expr->var->spec->dims)
             Parser_errorIndexDimsMismatch(parser, expr, nhave);
     }
         // fallthru
     case tkSubscript:
         if (expr->left)
-            ASTExpr_analyse(
+            JetExpr_analyse(
                 parser, expr->left, scope, mod, ownerFunc, inFuncArgs);
         if (expr->kind == tkSubscriptResolved) {
-            expr->typeType = expr->var->typeSpec->typeType;
-            expr->collectionType = expr->var->typeSpec->collectionType;
+            expr->typeType = expr->var->spec->typeType;
+            expr->collectionType = expr->var->spec->collectionType;
             // TODO: since it is a subscript, if it has no left (i.e. arr[])
             // i'm guessing it is a full array, and therefore can be an
             // elemental op
@@ -649,7 +618,7 @@ static void ASTExpr_analyse(Parser* parser, ASTExpr* expr, ASTScope* scope,
             // subscript result by 1. For now the default is to keep the dims at
             // 0, which is what it would be if you indexed something with a
             // scalar index in each dimension.
-            // ASTExpr_analyse for a : op should set dims to 1. Then you just
+            // JetExpr_analyse for a : op should set dims to 1. Then you just
             // walk the comma op in expr->right here and check which index exprs
             // have dims=0. Special case is when the index expr is a logical,
             // meaning you are filtering the array, in this case the result's
@@ -660,7 +629,7 @@ static void ASTExpr_analyse(Parser* parser, ASTExpr* expr, ASTScope* scope,
     case tkString:
     case tkRawString:
         expr->typeType = TYString;
-        ASTExpr_prepareInterp(parser, expr, scope);
+        JetExpr_prepareInterp(parser, expr, scope);
         break;
 
     case tkNumber: expr->typeType = TYReal64; break;
@@ -678,10 +647,10 @@ static void ASTExpr_analyse(Parser* parser, ASTExpr* expr, ASTScope* scope,
         break;
 
     case tkIdentifierResolved:
-        expr->typeType = expr->var->typeSpec->typeType;
-        expr->collectionType = expr->var->typeSpec->collectionType;
+        expr->typeType = expr->var->spec->typeType;
+        expr->collectionType = expr->var->spec->collectionType;
         expr->elemental = expr->collectionType != CTYNone;
-        expr->dims = expr->var->typeSpec->dims;
+        expr->dims = expr->var->spec->dims;
 
         // this was done just to ensure enums are caught and analysed in
         // non-lint mode. In lint mode they are done anyway.
@@ -689,13 +658,13 @@ static void ASTExpr_analyse(Parser* parser, ASTExpr* expr, ASTScope* scope,
         // be too intensive. let it just be done on each var decl and you figure
         // out a way to set the enum type on var decls.
         if (expr->typeType == TYObject)
-            ASTType_analyse(parser, expr->var->typeSpec->type, mod);
+            JetType_analyse(parser, expr->var->spec->type, mod);
         break;
 
     case tkArrayOpen:
         expr->collectionType = CTYArray;
         if (expr->right) {
-            ASTExpr_analyse(
+            JetExpr_analyse(
                 parser, expr->right, scope, mod, ownerFunc, inFuncArgs);
             expr->typeType = expr->right->typeType;
             expr->collectionType
@@ -705,21 +674,21 @@ static void ASTExpr_analyse(Parser* parser, ASTExpr* expr, ASTScope* scope,
             if (expr->typeType == TYObject) {
                 // you need to save the exact type of the elements, it's not a
                 // primitive type. You'll find it in the first element.
-                ASTExpr* first = expr->right;
+                JetExpr* first = expr->right;
                 while (first->kind == tkOpComma || first->kind == tkOpSemiColon)
                     first = first->left;
                 switch (first->kind) {
                 case tkIdentifierResolved:
-                    expr->elementType = first->var->typeSpec->type;
-                    if (first->var->typeSpec->dims
-                        || first->var->typeSpec->collectionType != CTYNone)
+                    expr->elementType = first->var->spec->type;
+                    if (first->var->spec->dims
+                        || first->var->spec->collectionType != CTYNone)
                         unreachable(
                             "trying to make array of arrays %d", expr->line);
                     break;
                 case tkFunctionCallResolved:
-                    expr->elementType = first->func->returnSpec->type;
-                    if (first->func->returnSpec->dims
-                        || first->var->typeSpec->collectionType != CTYNone)
+                    expr->elementType = first->func->spec->type;
+                    if (first->func->spec->dims
+                        || first->var->spec->collectionType != CTYNone)
                         unreachable("trying to make array of arrays line %d",
                             expr->line);
                     break;
@@ -727,7 +696,7 @@ static void ASTExpr_analyse(Parser* parser, ASTExpr* expr, ASTScope* scope,
                     break;
                     // TODO: object init literals
                     // case tkObjectInitResolved:
-                    // expr->elementType = first->var->typeSpec->type;break;
+                    // expr->elementType = first->var->spec->type;break;
                 }
                 // expr->elementType =
             }
@@ -736,8 +705,8 @@ static void ASTExpr_analyse(Parser* parser, ASTExpr* expr, ASTScope* scope,
 
     case tkBraceOpen:
         if (expr->right) {
-            ASTExpr_analyse(parser, expr->right, scope, mod, ownerFunc, true);
-            // TODO: you told ASTExpr_analyse to not care about what's on the
+            JetExpr_analyse(parser, expr->right, scope, mod, ownerFunc, true);
+            // TODO: you told JetExpr_analyse to not care about what's on the
             // LHS of tkOpAssign exprs. Now you handle it yourself. Ensure that
             // they're all of the same type and set that type to the expr
             // somehow.
@@ -746,23 +715,23 @@ static void ASTExpr_analyse(Parser* parser, ASTExpr* expr, ASTScope* scope,
             if (expr->typeType == TYObject) {
                 // you need to save the exact type of the elements, it's not a
                 // primitive type. You'll find it in the first element.
-                ASTExpr* first = expr->right;
+                JetExpr* first = expr->right;
                 while (first->kind == tkOpComma) first = first->left;
                 if (first->kind == tkOpAssign) first = first->right;
                 // we care about the value in the key-value pair. We'll figure
                 // out the key type later or not, whatever.
                 switch (first->kind) {
                 case tkIdentifierResolved:
-                    expr->elementType = first->var->typeSpec->type;
+                    expr->elementType = first->var->spec->type;
                     break;
                 case tkFunctionCallResolved:
-                    expr->elementType = first->func->returnSpec->type;
+                    expr->elementType = first->func->spec->type;
                     break;
                 default:
                     break;
                     // TODO: object init literals
                     // case tkObjectInitResolved:
-                    // expr->elementType = first->var->typeSpec->type;break;
+                    // expr->elementType = first->var->spec->type;break;
                 }
             }
             expr->collectionType = CTYDictS;
@@ -780,12 +749,12 @@ static void ASTExpr_analyse(Parser* parser, ASTExpr* expr, ASTScope* scope,
 
         assert(expr->left->kind == tkIdentifierResolved
             || expr->left->kind == tkIdentifier);
-        ASTExpr_analyse(parser, expr->left, scope, mod, ownerFunc, inFuncArgs);
+        JetExpr_analyse(parser, expr->left, scope, mod, ownerFunc, inFuncArgs);
 
         // The name/type resolution of expr->left may have failed.
         if (!expr->left->typeType) break;
 
-        ASTExpr* member = expr->right;
+        JetExpr* member = expr->right;
         if (member->kind == tkPeriod) {
             member = member->left;
             if (member->kind != tkIdentifier) {
@@ -800,19 +769,19 @@ static void ASTExpr_analyse(Parser* parser, ASTExpr* expr, ASTScope* scope,
         }
         //  or member->kind == tkFunctionCall);
         if (member->kind != tkIdentifier && member->left)
-            ASTExpr_analyse(
+            JetExpr_analyse(
                 parser, member->left, scope, mod, ownerFunc, inFuncArgs);
 
         // the left must be a resolved ident
         if (expr->left->kind != tkIdentifierResolved) break;
 
-        if (expr->left->var->typeSpec->typeType == TYErrorType) {
+        if (expr->left->var->spec->typeType == TYErrorType) {
             expr->typeType = TYErrorType;
             break;
         }
-        assert(expr->left->var->typeSpec->typeType != TYNilType);
+        assert(expr->left->var->spec->typeType == TYObject); //!= TYNilType);
 
-        ASTType* type = expr->left->var->typeSpec->type;
+        JetType* type = expr->left->var->spec->type;
         if (!type) {
             expr->typeType = TYErrorType;
             break;
@@ -825,10 +794,10 @@ static void ASTExpr_analyse(Parser* parser, ASTExpr* expr, ASTScope* scope,
             expr->typeType = TYErrorType;
             break;
         }
-        ASTExpr_analyse(parser, member, scope, mod, ownerFunc, inFuncArgs);
+        JetExpr_analyse(parser, member, scope, mod, ownerFunc, inFuncArgs);
 
         if (expr->right->kind == tkPeriod)
-            ASTExpr_analyse(
+            JetExpr_analyse(
                 parser, expr->right, scope, mod, ownerFunc, inFuncArgs);
 
         expr->typeType = type->isEnum ? TYObject : expr->right->typeType;
@@ -857,26 +826,26 @@ static void ASTExpr_analyse(Parser* parser, ASTExpr* expr, ASTScope* scope,
     default:
         if (expr->prec) {
             if (!expr->unary && expr->left)
-                ASTExpr_analyse(
+                JetExpr_analyse(
                     parser, expr->left, scope, mod, ownerFunc, inFuncArgs);
             // some exprs like return can be used without any args
 
             if (ISIN(5, expr->kind, tkKeyword_in, tkKeyword_notin, tkOpAssign,
                     tkOpEQ, tkOpNE)) {
-                ASTTypeSpec* spec = ASTExpr_getObjectTypeSpec(expr->left);
+                JetTypeSpec* spec = JetExpr_getObjectTypeSpec(expr->left);
                 if (spec && spec->typeType == TYObject && spec->type->isEnum) {
-                    ASTExpr_setEnumBase(parser, expr->right, spec, mod);
+                    JetExpr_setEnumBase(parser, expr->right, spec, mod);
                 } else {
-                    spec = ASTExpr_getObjectTypeSpec(expr->left);
+                    spec = JetExpr_getObjectTypeSpec(expr->left);
                     if (spec && spec->typeType == TYObject
                         && spec->type->isEnum) {
-                        ASTExpr_setEnumBase(parser, expr->right, spec, mod);
+                        JetExpr_setEnumBase(parser, expr->right, spec, mod);
                     }
                 }
             }
 
             if (expr->right)
-                ASTExpr_analyse(
+                JetExpr_analyse(
                     parser, expr->right, scope, mod, ownerFunc, inFuncArgs);
 
             if (expr->kind == tkKeyword_or && expr->left->typeType != TYBool) {
@@ -1023,11 +992,10 @@ static void ASTExpr_analyse(Parser* parser, ASTExpr* expr, ASTScope* scope,
     }
 }
 
-///////////////////////////////////////////////////////////////////////////
-static void ASTType_analyse(Parser* parser, ASTType* type, ASTModule* mod) {
+static void JetType_analyse(Parser* parser, JetType* type, JetModule* mod) {
     if (type->analysed) return;
     // eprintf(
-    //     "ASTExpr_analyse: %s at ./%s:%d\n", type->name, parser->filename,
+    //     "JetExpr_analyse: %s at ./%s:%d\n", type->name, parser->filename,
     //     type->line);
     if (type->super) {
         resolveTypeSpec(parser, type->super, mod);
@@ -1035,7 +1003,7 @@ static void ASTType_analyse(Parser* parser, ASTType* type, ASTModule* mod) {
             Parser_errorTypeInheritsSelf(parser, type);
     }
     // TODO: this should be replaced by a dict query
-    foreach (ASTType*, type2, mod->types) {
+    foreach (JetType*, type2, mod->types) {
         if (type2 == type) break;
         if (!strcasecmp(type->name, type2->name))
             Parser_errorDuplicateType(parser, type, type2);
@@ -1054,27 +1022,26 @@ static void ASTType_analyse(Parser* parser, ASTType* type, ASTModule* mod) {
     type->analysed = true;
     // nothing to do for declared/empty types etc. with no body
     if (type->body) //
-        foreach (ASTExpr*, stmt, type->body->stmts)
-            ASTExpr_analyse(parser, stmt, type->body, mod, NULL, false);
+        foreach (JetExpr*, stmt, type->body->stmts)
+            JetExpr_analyse(parser, stmt, type->body, mod, NULL, false);
 }
-static void ASTFunc_hashExprs(Parser* parser, ASTFunc* func);
+static void JetFunc_hashExprs(Parser* parser, JetFunc* func);
 
-///////////////////////////////////////////////////////////////////////////
-static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod) {
+static void JetFunc_analyse(Parser* parser, JetFunc* func, JetModule* mod) {
     if (func->analysed) return;
-    // eprintf("ASTExpr_analyse: %s at ./%s:%d\n", func->selector,
+    // eprintf("JetExpr_analyse: %s at ./%s:%d\n", func->selector,
     // parser->filename, func->line);
 
     bool isCtor = false;
     // Check if the function is a constructor call and identify the type.
     // TODO: this should be replaced by a dict query
-    foreach (ASTType*, type, mod->types) {
+    foreach (JetType*, type, mod->types) {
         if (!strcasecmp(func->name, type->name)) {
-            if (func->returnSpec && !(func->isStmt || func->isDefCtor))
+            if (func->spec && !(func->isStmt || func->isDefCtor))
                 Parser_errorCtorHasType(parser, func, type);
-            if (!func->returnSpec) {
-                func->returnSpec = ASTTypeSpec_new(TYObject, CTYNone);
-                func->returnSpec->type = type;
+            if (!func->spec) {
+                func->spec = JetTypeSpec_new(TYObject, CTYNone);
+                func->spec->type = type;
                 // Ctors must AlWAYS return a new object.
                 // even Ctors with args.
                 func->returnsNewObjectAlways = true;
@@ -1107,7 +1074,7 @@ static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod) {
 
     // Check for duplicate functions (same selectors) and report errors.
     // TODO: this should be replaced by a dict query
-    foreach (ASTFunc*, func2, mod->funcs) {
+    foreach (JetFunc*, func2, mod->funcs) {
         if (func == func2) break;
         if (!strcasecmp(func->selector, func2->selector))
             Parser_errorDuplicateFunc(parser, func, func2);
@@ -1118,79 +1085,79 @@ static void ASTFunc_analyse(Parser* parser, ASTFunc* func, ASTModule* mod) {
     func->analysed = true;
 
     // Run the statement-level semantic pass on the function body.
-    foreach (ASTExpr*, stmt, func->body->stmts)
-        ASTExpr_analyse(parser, stmt, func->body, mod, func, false);
+    foreach (JetExpr*, stmt, func->body->stmts)
+        JetExpr_analyse(parser, stmt, func->body, mod, func, false);
 
     // Check unused variables in the function and report warnings.
-    ASTFunc_checkUnusedVars(parser, func);
+    JetFunc_checkUnusedVars(parser, func);
     // Statement functions are written without an explicit return type.
     // Figure out the type (now that the body has been analyzed).
     if (func->isStmt) setStmtFuncTypeInfo(parser, func);
-    // TODO: for normal funcs, ASTExpr_analyse should check return statements to
+    // TODO: for normal funcs, JetExpr_analyse should check return statements to
     // have the same type as the declared return type.
 
     // this is done here so that linter can give hints on what is picked up for
-    // CSE. This func should not modify the AST except marking CSE candidates!
-    ASTFunc_hashExprs(parser, func);
+    // CSE. This func should not modify the Jet except marking CSE candidates!
+    JetFunc_hashExprs(parser, func);
 
     // Do optimisations or ANY lowering only if there are no errors
     if (!parser->issues.errCount && parser->mode != PMLint) {
 
         // Handle elemental operations like arr[4:50] = mx[14:60] + 3
-        ASTScope_lowerElementalOps(func->body);
+        JetScope_lowerElementalOps(func->body);
         // Extract subexprs like count(arr[arr<1e-15]) and promote them to
         // full statements corresponding to their C macros e.g.
         // Number _1; Array_count_filter(arr, arr<1e-15, _1);
-        ASTScope_promoteCandidates(func->body);
+        JetScope_promoteCandidates(func->body);
     }
 }
 
-static void ASTTest_analyse(Parser* parser, ASTTest* test, ASTModule* mod) {
+static void JetTest_analyse(Parser* parser, JetTest* test, JetModule* mod) {
     if (!test->body) return;
 
     // Check for duplicate test names and report errors.
     // TODO: this should be replaced by a dict query
-    foreach (ASTTest*, test2, mod->tests) {
+    foreach (JetTest*, test2, mod->tests) {
         if (test == test2) break;
         if (!strcasecmp(test->name, test2->name))
             Parser_errorDuplicateTest(parser, test, test2);
     }
 
     // Check unused variables in the function and report warnings.
-    ASTTest_checkUnusedVars(parser, test);
+    JetTest_checkUnusedVars(parser, test);
 
     // Run the statement-level semantic pass on the function body.
-    foreach (ASTExpr*, stmt, test->body->stmts)
-        ASTExpr_analyse(parser, stmt, test->body, mod, NULL, false);
+    foreach (JetExpr*, stmt, test->body->stmts)
+        JetExpr_analyse(parser, stmt, test->body, mod, NULL, false);
 
     // Do optimisations or ANY lowering only if there are no errors
     if (!parser->issues.errCount && parser->mode != PMLint) {
-        ASTScope_lowerElementalOps(test->body);
-        ASTScope_promoteCandidates(test->body);
+        JetScope_lowerElementalOps(test->body);
+        JetScope_promoteCandidates(test->body);
     }
 }
 
-static void ASTModule_unmarkTypesVisited(ASTModule* mod);
-static int ASTExpr_markTypesVisited(Parser* parser, ASTExpr* expr);
-static int ASTType_checkCycles(Parser* parser, ASTType* type);
+static void JetModule_unmarkTypesVisited(JetModule* mod);
+static int JetExpr_markTypesVisited(Parser* parser, JetExpr* expr);
+static int JetType_checkCycles(Parser* parser, JetType* type);
 
-void ASTModule_analyse(Parser* parser, ASTModule* mod) {
+void JetModule_analyse(Parser* parser, JetModule* mod) {
     // If function calls are going to be resolved based on the type of
     // first arg, then ALL functions must be visited in order to
     // generate their selectors and resolve their typespecs. (this does
     // not set the resolved flag on the func -- that is done by the
     // semantic pass)
-    foreach (ASTFunc*, func, mod->funcs) {
-        foreach (ASTVar*, arg, func->args)
-            resolveTypeSpec(parser, arg->typeSpec, mod);
-        if (func->returnSpec) resolveTypeSpec(parser, func->returnSpec, mod);
+    foreach (JetFunc*, func, mod->funcs) {
+        foreach (JetVar*, arg, func->args)
+            resolveTypeSpec(parser, arg->spec, mod);
+        if (func->spec) resolveTypeSpec(parser, func->spec, mod);
         getSelector(func);
     }
 
-    ASTFunc* fstart = NULL;
+    JetFunc* fstart = NULL;
     // don't break on the first match, keep looking so that duplicate starts
     // can be found
-    foreach (ASTFunc*, func, mod->funcs) {
+    foreach (JetFunc*, func, mod->funcs) {
         if (!strcmp(func->name, "start")) {
             fstart = func;
             fstart->used = 1;
@@ -1201,30 +1168,30 @@ void ASTModule_analyse(Parser* parser, ASTModule* mod) {
     //     the whole file must be analysed.this happens
     // regardless of whether start was found or not
     // if (parser->mode == PMTest || parser->mode == PMLint) {
-    foreach (ASTExpr*, stmt, mod->scope->stmts)
-        ASTExpr_analyse(parser, stmt, mod->scope, mod, NULL, false);
-    // foreach (ASTVar*, var, mod->scope->locals)
+    foreach (JetExpr*, stmt, mod->scope->stmts)
+        JetExpr_analyse(parser, stmt, mod->scope, mod, NULL, false);
+    // foreach (JetVar*, var, mod->scope->locals)
     //     if (var->init)
-    //         ASTExpr_analyse(parser, var->init, mod->scope, mod, false);
-    foreach (ASTTest*, test, mod->tests)
-        ASTTest_analyse(parser, test, mod);
-    foreach (ASTFunc*, func, mod->funcs)
-        ASTFunc_analyse(parser, func, mod);
-    foreach (ASTType*, type, mod->types)
-        ASTType_analyse(parser, type, mod);
-    foreach (ASTType*, en, mod->enums)
-        ASTType_analyse(parser, en, mod);
+    //         JetExpr_analyse(parser, var->init, mod->scope, mod, false);
+    foreach (JetTest*, test, mod->tests)
+        JetTest_analyse(parser, test, mod);
+    foreach (JetFunc*, func, mod->funcs)
+        JetFunc_analyse(parser, func, mod);
+    foreach (JetType*, type, mod->types)
+        JetType_analyse(parser, type, mod);
+    foreach (JetType*, en, mod->enums)
+        JetType_analyse(parser, en, mod);
 
     // } else if (fstart) {
     /* TODO: what if you have tests and a start()? Now you will have to
      analyse the tests anyway */
-    // foreach (ASTExpr*, stmt, mod->scope->stmts)
-    // ASTExpr_analyse(parser, stmt, mod->scope, mod, NULL, false);
-    // foreach (ASTVar*, var, mod->scope->locals)
+    // foreach (JetExpr*, stmt, mod->scope->stmts)
+    // JetExpr_analyse(parser, stmt, mod->scope, mod, NULL, false);
+    // foreach (JetVar*, var, mod->scope->locals)
     //     if (var->init)
-    //         ASTExpr_analyse(parser, var->init, mod->scope, mod, false);
+    //         JetExpr_analyse(parser, var->init, mod->scope, mod, false);
 
-    // ASTFunc_analyse(parser, fstart, mod);
+    // JetFunc_analyse(parser, fstart, mod);
 
     // Check dead code -- unused funcs and types, and report warnings.
 
@@ -1233,15 +1200,15 @@ void ASTModule_analyse(Parser* parser, ASTModule* mod) {
               "\e[33mstart\e[0m.\n");
         parser->issues.errCount++;
     }
-    foreach (ASTFunc*, func, mod->funcs)
+    foreach (JetFunc*, func, mod->funcs)
         if (!func->intrinsic
             && (!func->used || (!func->analysed && !func->isDefCtor)))
             Parser_warnUnusedFunc(parser, func);
-    foreach (ASTType*, type, mod->types)
+    foreach (JetType*, type, mod->types)
         if (!type->used || !type->analysed) Parser_warnUnusedType(parser, type);
 
-    foreach (ASTFunc*, func, mod->funcs)
-        ASTFunc_checkRecursion(func);
+    foreach (JetFunc*, func, mod->funcs)
+        JetFunc_checkRecursion(func);
     // now that funcs are marked recursive you can do a second pass analysis,
     // which deals with var storage decisions, inlining,  etc. or perhaps this
     // pass can be called 'optimising'.
@@ -1254,12 +1221,12 @@ void ASTModule_analyse(Parser* parser, ASTModule* mod) {
     // into that type to check its statements to see if you ever revisit
     // anything. Unfortunately it does not seem that this would be easy to
     // do iteratively (not recursively), as it can be done for just checking
-    // supers. foreach (ASTType*, type, mod->types) {
+    // supers. foreach (JetType*, type, mod->types) {
     //     if (! type->analysed or not type->super) continue;
     //     assert(type->super->typeType == TYObject);
 
     //     // traverse the type hierarchy for this type and see if you
-    //     revisit any ASTType* superType = type->super->type; while
+    //     revisit any JetType* superType = type->super->type; while
     //     (superType) {
     //         if (superType->visited) {
     //             Parser_errorInheritanceCycle(self, type);
@@ -1272,14 +1239,14 @@ void ASTModule_analyse(Parser* parser, ASTModule* mod) {
     //     }
 
     //     // reset the cycle check flag on all types
-    //     foreach (ASTType*, etype, mod->types)
+    //     foreach (JetType*, etype, mod->types)
     //         if (type->analysed) etype->visited = false;
     // }
 
     // check each stmt in each type to find cycles.
-    foreach (ASTType*, type, mod->types)
+    foreach (JetType*, type, mod->types)
         if (type->analysed && type->body && !type->visited) {
-            if (ASTType_checkCycles(parser, type)) {
+            if (JetType_checkCycles(parser, type)) {
                 // cycle was detected. err has been reported along with a
                 // backtrace. now just unset the dim control codes.
                 eprintf(" ...%s\n", "\e[0m");
@@ -1293,14 +1260,14 @@ void ASTModule_analyse(Parser* parser, ASTModule* mod) {
                 // the next iteration will skip over those whose flags are
                 // already set.
             } else
-                ASTModule_unmarkTypesVisited(mod);
+                JetModule_unmarkTypesVisited(mod);
         }
 }
 
 // return 0 on no cycle found, -1 on cycle found
-static int ASTType_checkCycles(Parser* parser, ASTType* type) {
-    foreach (ASTExpr*, stmt, type->body->stmts)
-        if (ASTExpr_markTypesVisited(parser, stmt)) {
+static int JetType_checkCycles(Parser* parser, JetType* type) {
+    foreach (JetExpr*, stmt, type->body->stmts)
+        if (JetExpr_markTypesVisited(parser, stmt)) {
             eprintf("  -> created in type \e[;1;2m%s\e[0;2m at ./%s:%d:%d \n",
                 type->name, parser->filename, stmt->line, stmt->col);
             return -1;
@@ -1308,23 +1275,23 @@ static int ASTType_checkCycles(Parser* parser, ASTType* type) {
     return 0;
 }
 
-static int ASTExpr_markTypesVisited(Parser* parser, ASTExpr* expr) {
-    ASTType* type = NULL;
+static int JetExpr_markTypesVisited(Parser* parser, JetExpr* expr) {
+    JetType* type = NULL;
     if (!expr) return 0;
     switch (expr->kind) {
-    case tkVarAssign: return ASTExpr_markTypesVisited(parser, expr->var->init);
-    case tkFunctionCall: return ASTExpr_markTypesVisited(parser, expr->left);
+    case tkVarAssign: return JetExpr_markTypesVisited(parser, expr->var->init);
+    case tkFunctionCall: return JetExpr_markTypesVisited(parser, expr->left);
     case tkFunctionCallResolved:
-        if (ASTExpr_markTypesVisited(parser, expr->left)) return -1;
+        if (JetExpr_markTypesVisited(parser, expr->left)) return -1;
         // if (expr->func->isDefCtor) type =
-        // expr->func->returnSpec->type;
-        if (expr->func->returnSpec->typeType == TYObject
+        // expr->func->spec->type;
+        if (expr->func->spec->typeType == TYObject
             && expr->func->returnsNewObjectAlways)
-            type = expr->func->returnSpec->type;
+            type = expr->func->spec->type;
         break;
     case tkSubscript:
     case tkSubscriptResolved:
-        return ASTExpr_markTypesVisited(parser, expr->left);
+        return JetExpr_markTypesVisited(parser, expr->left);
         // case tkKeyword_if:
         // case tkKeyword_elif:
         // case tkKeyword_case:
@@ -1343,8 +1310,8 @@ static int ASTExpr_markTypesVisited(Parser* parser, ASTExpr* expr) {
         if (expr->prec) {
             int ret = 0;
             if (!expr->unary)
-                ret += ASTExpr_markTypesVisited(parser, expr->left);
-            ret += ASTExpr_markTypesVisited(parser, expr->right);
+                ret += JetExpr_markTypesVisited(parser, expr->left);
+            ret += JetExpr_markTypesVisited(parser, expr->right);
             if (ret) return ret;
         } else
             unreachable("unknown expr kind: %s at %d:%d\n",
@@ -1357,12 +1324,12 @@ static int ASTExpr_markTypesVisited(Parser* parser, ASTExpr* expr) {
         return -1;
     }
     type->visited = true;
-    return ASTType_checkCycles(parser, type);
+    return JetType_checkCycles(parser, type);
 }
 
-static void ASTModule_unmarkTypesVisited(ASTModule* mod) {
+static void JetModule_unmarkTypesVisited(JetModule* mod) {
     // reset the cycle check flag on all types
-    foreach (ASTType*, type, mod->types)
+    foreach (JetType*, type, mod->types)
         type->visited = false;
 }
 
