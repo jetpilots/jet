@@ -7,7 +7,7 @@
 #define iprintf(nspc, fmt, ...)                                                \
     printf("%.*s", nspc, spaces), printf(fmt, __VA_ARGS__)
 
-static void JetImport_emit(JetImport* import, int level) {
+static void Import_emit(Import* import, int level) {
     char* alias = import->aliasOffset + import->name;
     CString_tr_ip_len(import->name, '.', '_', 0);
     printf("\n#include \"%s.h\"\n", import->name);
@@ -17,11 +17,11 @@ static void JetImport_emit(JetImport* import, int level) {
     CString_tr_ip_len(import->name, '_', '.', 0);
 }
 
-static void JetImport_undefc(JetImport* import) {
+static void Import_undefc(Import* import) {
     // if (import->alias) printf("#undef %s\n", import->alias);
 }
 
-static void JetTypeSpec_emit(JetTypeSpec* spec, int level, bool isconst) {
+static void TypeSpec_emit(TypeSpec* spec, int level, bool isconst) {
     if (isconst) outl("const ");
     // TODO: actually this depends on the collectionType. In general
     // Array is the default, but in other cases it may be SArray, Array64,
@@ -62,12 +62,12 @@ static void JetTypeSpec_emit(JetTypeSpec* spec, int level, bool isconst) {
     //        }
 }
 
-static void JetExpr_emit(JetExpr* expr, int level);
+static void Expr_emit(Expr* expr, int level);
 
-static void JetVar_emit(JetVar* var, int level, bool isconst) {
+static void Var_emit(Var* var, int level, bool isconst) {
     // for C the variables go at the top of the block, without init
     printf("%.*s", level, spaces);
-    if (var->spec) JetTypeSpec_emit(var->spec, level + STEP, isconst);
+    if (var->spec) TypeSpec_emit(var->spec, level + STEP, isconst);
     printf(" %s", var->name);
 }
 
@@ -88,7 +88,7 @@ static void JetVar_emit(JetVar* var, int level, bool isconst) {
 //     return false;
 // }
 
-static void JetExpr_unmarkVisited(JetExpr* expr) {
+static void Expr_unmarkVisited(Expr* expr) {
     switch (expr->kind) {
     case tkIdentifierResolved:
     case tkVarAssign: expr->var->visited = false; break;
@@ -99,11 +99,11 @@ static void JetExpr_unmarkVisited(JetExpr* expr) {
     case tkKeyword_if:
     case tkKeyword_for:
     case tkKeyword_else:
-    case tkKeyword_while: JetExpr_unmarkVisited(expr->left); break;
+    case tkKeyword_while: Expr_unmarkVisited(expr->left); break;
     default:
         if (expr->prec) {
-            if (!expr->unary) JetExpr_unmarkVisited(expr->left);
-            JetExpr_unmarkVisited(expr->right);
+            if (!expr->unary) Expr_unmarkVisited(expr->left);
+            Expr_unmarkVisited(expr->right);
         }
     }
 }
@@ -115,7 +115,7 @@ static void JetExpr_unmarkVisited(JetExpr* expr) {
 // printf("m = %?\n", m);
 // checks will print the vars involved in the check expr, if the check
 // fails. This routine will be used there.
-static void JetExpr_genPrintVars(JetExpr* expr, int level) {
+static void Expr_genPrintVars(Expr* expr, int level) {
     assert(expr);
     // what about func args?
     switch (expr->kind) {
@@ -130,7 +130,7 @@ static void JetExpr_genPrintVars(JetExpr* expr, int level) {
 
     case tkPeriod:
         //        {
-        //            JetExpr* e = expr->right;
+        //            Expr* e = expr->right;
         //            while (e->kind==tkPeriod) e=e->right;
         ////            if (e->var->visited) break;
         //            printf("%.*sprintf(\"    %s = %s\\n\", %s);\n", level,
@@ -147,63 +147,62 @@ static void JetExpr_genPrintVars(JetExpr* expr, int level) {
     case tkKeyword_if:
     case tkKeyword_else:
     case tkKeyword_for:
-    case tkKeyword_while: JetExpr_genPrintVars(expr->left, level); break;
+    case tkKeyword_while: Expr_genPrintVars(expr->left, level); break;
 
     default:
         if (expr->prec) {
-            if (!expr->unary) JetExpr_genPrintVars(expr->left, level);
-            JetExpr_genPrintVars(expr->right, level);
+            if (!expr->unary) Expr_genPrintVars(expr->left, level);
+            Expr_genPrintVars(expr->right, level);
         }
     }
 }
 
 // Extraction scan & Extraction happens AFTER resolving functions!
-static JetExpr* JetExpr_findExtractionCandidate(JetExpr* expr) {
+static Expr* Expr_findExtractionCandidate(Expr* expr) {
     assert(expr);
-    JetExpr* ret;
+    Expr* ret;
 
     // what about func args?
     switch (expr->kind) {
     case tkFunctionCallResolved:
         // promote innermost first, so check args
-        if (expr->left && (ret = JetExpr_findExtractionCandidate(expr->left)))
+        if (expr->left && (ret = Expr_findExtractionCandidate(expr->left)))
             return ret;
         else if (expr->extract)
             return expr;
         break;
 
     case tkSubscriptResolved:
+        return Expr_findExtractionCandidate(expr->left);
         // TODO: here see if the subscript itself needs to be promoted up
-        return JetExpr_findExtractionCandidate(expr->left);
 
-    case tkSubscript: return JetExpr_findExtractionCandidate(expr->left);
+    case tkSubscript: return Expr_findExtractionCandidate(expr->left);
 
     case tkKeyword_if:
     case tkKeyword_for:
     case tkKeyword_else:
     case tkKeyword_elif:
     case tkKeyword_while:
-        if (expr->left) return JetExpr_findExtractionCandidate(expr->left);
+        if (expr->left) return Expr_findExtractionCandidate(expr->left);
         // body will be handled by parent scope
 
     case tkVarAssign:
-        if ((ret = JetExpr_findExtractionCandidate(expr->var->init)))
-            return ret;
+        if ((ret = Expr_findExtractionCandidate(expr->var->init))) return ret;
         break;
 
     case tkFunctionCall: // unresolved
         // assert(0);
         unreachable("unresolved call %s\n", expr->string);
-        if ((ret = JetExpr_findExtractionCandidate(expr->left))) return ret;
+        if ((ret = Expr_findExtractionCandidate(expr->left))) return ret;
         break;
 
     default:
         if (expr->prec) {
             if (expr->right
-                && (ret = JetExpr_findExtractionCandidate(expr->right)))
+                && (ret = Expr_findExtractionCandidate(expr->right)))
                 return ret;
             if (!expr->unary)
-                if ((ret = JetExpr_findExtractionCandidate(expr->left)))
+                if ((ret = Expr_findExtractionCandidate(expr->left)))
                     return ret;
         }
     }
@@ -216,28 +215,27 @@ static char* newTmpVarName(int num, char c) {
     return CString_pndup(buf, l);
 }
 
-static bool isCtrlExpr(JetExpr* expr) {
+static bool isCtrlExpr(Expr* expr) {
     return expr->kind == tkKeyword_if //
         || expr->kind == tkKeyword_for //
         || expr->kind == tkKeyword_while //
         || expr->kind == tkKeyword_else;
 }
 
-static bool isLiteralExpr(JetExpr* expr) { return false; }
-static bool isComparatorExpr(JetExpr* expr) { return false; }
+static bool isLiteralExpr(Expr* expr) { return false; }
+static bool isComparatorExpr(Expr* expr) { return false; }
 
-static void JetScope_lowerElementalOps(JetScope* scope) {
-    foreach (JetExpr*, stmt, scope->stmts) {
+static void Scope_lowerElementalOps(Scope* scope) {
+    foreach (Expr*, stmt, scope->stmts) {
 
-        if (isCtrlExpr(stmt) && stmt->body)
-            JetScope_lowerElementalOps(stmt->body);
+        if (isCtrlExpr(stmt) && stmt->body) Scope_lowerElementalOps(stmt->body);
 
         if (!stmt->elemental) continue;
 
         // wrap it in an empty block (or use if true)
-        JetExpr* ifblk = NEW(JetExpr);
+        Expr* ifblk = NEW(Expr);
         ifblk->kind = tkKeyword_if;
-        ifblk->left = NEW(JetExpr);
+        ifblk->left = NEW(Expr);
         ifblk->left->kind = tkNumber;
         ifblk->string = "1";
 
@@ -256,7 +254,7 @@ static void JetScope_lowerElementalOps(JetScope* scope) {
         // so then you might have for the above example :
         // T* vec_p1 = vec->start + 7;
         // // ^ this func could be membptr(a,i) -> i<0 ? a->end-i :
-        // a->start+i #define vec_1 *vec_p1 // these could be JetVars with
+        // a->start+i #define vec_1 *vec_p1 // these could be Vars with
         // an isCMacro flag T2* arr2_p1 = membptr(arr2, 6); #define arr2_1
         // *arr2_p1 T3* arr2_p2 = membptr(arr2, -6); #define arr2_2 *arr2_p2
         // ...
@@ -291,20 +289,19 @@ static void JetScope_lowerElementalOps(JetScope* scope) {
     }
 }
 
-static void JetScope_promoteCandidates(JetScope* scope) {
+static void Scope_promoteCandidates(Scope* scope) {
     int tmpCount = 0;
-    JetExpr* pc = NULL;
-    List(JetExpr)* prev = NULL;
-    foreachn(JetExpr*, stmt, stmts, scope->stmts) {
+    Expr* pc = NULL;
+    List(Expr)* prev = NULL;
+    foreachn(Expr*, stmt, stmts, scope->stmts) {
         // TODO:
         // if (! stmt->promote) {prev=stmts;continue;}
 
-        if (isCtrlExpr(stmt) && stmt->body)
-            JetScope_promoteCandidates(stmt->body);
+        if (isCtrlExpr(stmt) && stmt->body) Scope_promoteCandidates(stmt->body);
 
     startloop:
 
-        if (!(pc = JetExpr_findExtractionCandidate(stmt))) { // most likely
+        if (!(pc = Expr_findExtractionCandidate(stmt))) { // most likely
             prev = stmts;
             continue;
         }
@@ -315,13 +312,13 @@ static void JetScope_promoteCandidates(JetScope* scope) {
             continue;
         }
 
-        JetExpr* pcClone = NEW(JetExpr);
+        Expr* pcClone = NEW(Expr);
         *pcClone = *pc;
 
         // 1. add a temp var to the scope
-        JetVar* tmpvar = NEW(JetVar);
+        Var* tmpvar = NEW(Var);
         tmpvar->name = newTmpVarName(++tmpCount, 'p');
-        tmpvar->spec = NEW(JetTypeSpec);
+        tmpvar->spec = NEW(TypeSpec);
         //        tmpvar->spec->typeType = TYReal64; // FIXME
         // TODO: setup tmpvar->spec
         PtrList_append(&scope->locals, tmpvar);
@@ -337,7 +334,7 @@ static void JetScope_promoteCandidates(JetScope* scope) {
             pcClone->left = pc;
         else if (pcClone->left->kind != tkOpComma) {
             // single arg
-            JetExpr* com = NEW(JetExpr);
+            Expr* com = NEW(Expr);
             // TODO: really should have an astexpr ctor
             com->prec = TokenKind_getPrecedence(tkOpComma);
             com->kind = tkOpComma;
@@ -345,10 +342,10 @@ static void JetScope_promoteCandidates(JetScope* scope) {
             com->right = pc;
             pcClone->left = com;
         } else {
-            JetExpr* argn = pcClone->left;
+            Expr* argn = pcClone->left;
             while (argn->kind == tkOpComma && argn->right->kind == tkOpComma)
                 argn = argn->right;
-            JetExpr* com = NEW(JetExpr);
+            Expr* com = NEW(Expr);
             // TODO: really should have an astexpr ctor
             com->prec = TokenKind_getPrecedence(tkOpComma);
             com->kind = tkOpComma;
@@ -369,7 +366,7 @@ static void JetScope_promoteCandidates(JetScope* scope) {
             prev->next = PtrList_with(pcClone);
             prev->next->next = stmts;
             prev = prev->next;
-        } // List(JetExpr)* insertionPos = prev ? prev->next : self->stmts;
+        } // List(Expr)* insertionPos = prev ? prev->next : self->stmts;
           //  insertionPos
         //  = insertionPos;
         goto startloop; // it will continue there if no more Extractions are
@@ -379,36 +376,34 @@ static void JetScope_promoteCandidates(JetScope* scope) {
     }
 }
 
-void JetVar_insertDrop(JetVar* var, int level) {
-    iprintf(level, "DROP(%s,%s,%s,%s);\n", JetTypeSpec_name(var->spec),
-        var->name, CollectionType_nativeName(var->spec->collectionType),
+void Var_insertDrop(Var* var, int level) {
+    iprintf(level, "DROP(%s,%s,%s,%s);\n", TypeSpec_name(var->spec), var->name,
+        CollectionType_nativeName(var->spec->collectionType),
         StorageClassNames[var->storage]);
 }
 
-static void JetScope_emit(JetScope* scope, int level) {
+static void Scope_emit(Scope* scope, int level) {
 
-    foreach (JetExpr*, stmt, scope->stmts) {
+    foreach (Expr*, stmt, scope->stmts) {
         if (stmt->kind == tkLineComment) continue;
 
         if (genLineNumbers) printf("#line %d\n", stmt->line);
 
-        // You need to know if the JetExpr_emit will in fact generate something.
+        // You need to know if the Expr_emit will in fact generate something.
         // This is true in general unless it is an unused var init.
         if (stmt->kind != tkVarAssign || stmt->var->used) {
 
-            if (genCoverage)
+            if (genCoverage) {
                 iprintf(level, "JET_COVERAGE_UP(%d); \n", stmt->line);
+            }
             if (genLineProfile) {
                 iprintf(level, "JET_PROFILE_LINE(%d);\n", stmt->line);
             }
             if (genCoverage || genLineProfile) outln("");
         }
 
-        JetExpr_emit(stmt, level);
-        if (!isCtrlExpr(stmt) && stmt->kind != tkKeyword_return)
-            outln(";");
-        else
-            outln("");
+        Expr_emit(stmt, level);
+        outln(!(isCtrlExpr(stmt) || stmt->kind == tkKeyword_return) ? "" : ";");
         // convert this into a flag which is set in the resolution pass
 
         // here you see if any vars are to be dropped at this point (because
@@ -416,11 +411,11 @@ static void JetScope_emit(JetScope* scope, int level) {
         // own scope, not an inner or outer scope, so just scan our own vars.
         // In a sense the stmt->line is a local ID for the statement within the
         // scope.
-        JetScope* sco = scope;
+        Scope* sco = scope;
         do {
-            foreach (JetVar*, var, sco->locals)
+            foreach (Var*, var, sco->locals)
                 if (var->used && var->lastUsage == stmt->line) {
-                    JetVar_insertDrop(var, level);
+                    Var_insertDrop(var, level);
                     var->lastUsage = 0; // this means var has been dropped.
                 }
         } while (!sco->isLoop // if loop scope, don't walk up
@@ -437,13 +432,12 @@ static void JetScope_emit(JetScope* scope, int level) {
         // which is the line of the cond expr of if / while etc., you change the
         // lastUsage to that line and it gets dropped just after the scope.
 
-        if (JetExpr_throws(stmt))
-            printf("%.*sTRACE_IF_ERROR;\n", level, spaces);
+        if (stmt->throws) printf("%.*sTRACE_IF_ERROR;\n", level, spaces);
     }
     // It's possible some vars were not detected in inner scopes and dropped. So
     // let's drop them here. No need to walk up the parent chain here.
-    foreach (JetVar*, var, scope->locals)
-        if (var->used && var->lastUsage) JetVar_insertDrop(var, level);
+    foreach (Var*, var, scope->locals)
+        if (var->used && var->lastUsage) Var_insertDrop(var, level);
     // ^ these are all the vars whose lastUsage could not be
     // matched. This may be because they are in an inner scope. In
     // this case they should be dropped at the end of the scope.
@@ -452,7 +446,7 @@ static void JetScope_emit(JetScope* scope, int level) {
     // after that subscope and doesn't wait until the very end.
 }
 
-static void JetType_genJson(JetType* type) {
+static void Type_genJson(Type* type) {
     printf("static void %s_json_(const %s self, int nspc) {\n", type->name,
         type->name);
 
@@ -460,11 +454,11 @@ static void JetType_genJson(JetType* type) {
 
     // TODO: move this part into its own func so that subclasses can ask the
     // superclass to add in their fields inline
-    foreachn(JetVar*, var, vars, type->body->locals) {
+    foreachn(Var*, var, vars, type->body->locals) {
         if (!var) continue;
         printf("    printf(\"%%.*s\\\"%s\\\": \", nspc+4, _spaces_);\n",
             var->name);
-        const char* valueType = JetExpr_typeName(var->init);
+        const char* valueType = Expr_typeName(var->init);
         printf("    %s_json_(self->%s, nspc+4);\n    printf(\"", valueType,
             var->name);
         if (vars->next) outl(",");
@@ -475,7 +469,7 @@ static void JetType_genJson(JetType* type) {
         type->name);
 }
 
-static void JetType_genJsonReader(JetType* type) { }
+static void Type_genJsonReader(Type* type) { }
 
 static const char functionEntryStuff_UNESCAPED[]
     = "    STACKDEPTH_UP; DO_STACK_CHECK;\n";
@@ -488,31 +482,31 @@ static const char functionExitStuff_UNESCAPED[]
       "return_: STACKDEPTH_DOWN;\n"
       "    return DEFAULT_VALUE;";
 
-static void JetFunc_printStackUsageDef(size_t stackUsage) {
+static void Func_printStackUsageDef(size_t stackUsage) {
     printf("#define MYSTACKUSAGE (%lu + 6*sizeof(void*) + "
            "IFDEBUGELSE(sizeof(char*),0))\n",
         stackUsage);
 }
 
-static void JetType_emit(JetType* type, int level) {
+static void Type_emit(Type* type, int level) {
     if (!type->body || !type->analysed || type->isDeclare) return;
     // if (! type->body or not type->analysed) return;
     const char* const name = type->name;
     printf("#define FIELDS_%s \\\n", name);
-    foreach (JetVar*, var, type->body->locals) {
+    foreach (Var*, var, type->body->locals) {
         if (!var /*or not var->used*/) continue;
         // It's not so easy to just skip 'unused' type members.
         // what if I just construct an object and print it?
         // I expect to see the default members. But if they
         // haven't been otherwise accessed, they are left out.
-        JetVar_emit(var, level + STEP, false);
+        Var_emit(var, level + STEP, false);
         outln("; \\");
     }
     printf("\n\nstruct %s {\n", name);
 
     if (type->super) {
         outl("    FIELDS_");
-        JetTypeSpec_emit(type->super, level, false);
+        TypeSpec_emit(type->super, level, false);
         outln("");
     }
 
@@ -523,26 +517,26 @@ static void JetType_emit(JetType* type, int level) {
         name, name, name);
     printf("static %s %s_init_(%s self) {\n", name, name, name);
 
-    foreach (JetVar*, var, type->body->locals) // if (var->used)
+    foreach (Var*, var, type->body->locals) // if (var->used)
         printf("#define %s self->%s\n", var->name, var->name);
 
-    foreach (JetExpr*, stmt, type->body->stmts) {
+    foreach (Expr*, stmt, type->body->stmts) {
         if (!stmt //
             || stmt->kind != tkVarAssign //
             || !stmt->var->init)
             continue;
         printf("%.*s%s = ", level + STEP, spaces, stmt->var->name);
-        JetExpr_emit(stmt->var->init, 0);
+        Expr_emit(stmt->var->init, 0);
         outln(";");
-        if (JetExpr_throws(stmt->var->init))
+        if (Expr_throws(stmt->var->init))
             outln("    if (_err_ == ERROR_TRACE) return NULL;");
     }
-    foreach (JetVar*, var, type->body->locals)
+    foreach (Var*, var, type->body->locals)
         printf("#undef %s \n", var->name);
 
     outln("    return self;\n}\n");
 
-    JetFunc_printStackUsageDef(48);
+    Func_printStackUsageDef(48);
     printf("#define DEFAULT_VALUE NULL\n"
            "JET_STATIC %s %s_new_(IFDEBUG(const char* callsite_)) {\n"
            "IFDEBUG(static const char* sig_ = \"%s()\");\n",
@@ -561,11 +555,11 @@ static void JetType_emit(JetType* type, int level) {
         name, name, name, name);
     outln("");
 
-    JetType_genJson(type);
-    JetType_genJsonReader(type);
+    Type_genJson(type);
+    Type_genJsonReader(type);
 }
 
-static void JetType_genh(JetType* type, int level) {
+static void Type_genh(Type* type, int level) {
     if (!type->body || !type->analysed || type->isDeclare) return;
 
     const char* const name = type->name;
@@ -580,61 +574,61 @@ static void JetType_genh(JetType* type, int level) {
     printf("static void %s_json_(const %s self, int nspc);\n", name, name);
 }
 
-static void JetEnum_genh(JetType* type, int level) {
+static void JetEnum_genh(Type* type, int level) {
     if (!type->body || !type->analysed) return;
     const char* const name = type->name;
     outln("typedef enum {");
 
-    foreach (JetVar*, var, type->body->locals)
+    foreach (Var*, var, type->body->locals)
         printf("    %s_%s,\n", name, var->name);
     printf("} %s;\n", name);
-    JetExpr* ex1 = type->body->stmts->item;
+    Expr* ex1 = type->body->stmts->item;
     const char* datType
-        = ex1->kind == tkOpAssign ? JetExpr_typeName(ex1->right) : NULL;
+        = ex1->kind == tkOpAssign ? Expr_typeName(ex1->right) : NULL;
     if (datType)
         printf("JET_STATIC %s %s__data[%d];\n", datType, name,
             PtrList_count(type->body->locals));
     printf("JET_STATIC const char* %s__fullnames[] ={\n", name);
-    foreach (JetVar*, var, type->body->locals)
+    foreach (Var*, var, type->body->locals)
         printf("    \"%s.%s\",\n", name, var->name);
     outln("};");
     printf("JET_STATIC const char* %s__names[] ={\n", name);
-    foreach (JetVar*, var, type->body->locals)
+    foreach (Var*, var, type->body->locals)
         printf("    \".%s\",\n", var->name);
     outln("};");
 
     printf("JET_STATIC void %s__init() {\n", name);
 
-    foreach (JetExpr*, stmt, type->body->stmts) {
+    foreach (Expr*, stmt, type->body->stmts) {
         if (!stmt || stmt->kind != tkOpAssign) continue;
         printf("%.*s%s__data[%s_%s] = ", level + STEP, spaces, name, name,
             stmt->left->string);
-        JetExpr_emit(stmt->right, 0);
+        Expr_emit(stmt->right, 0);
         outln(";");
         if (stmt->right->throws) outln("    TRACE_IF_ERROR;");
     }
     outln("}");
 }
 
-static void JetFunc_emit(JetFunc* func, int level) {
+static void Func_emit(Func* func, int level) {
     if (!func->body || !func->analysed || func->isDeclare)
         return; // declares, default ctors
 
     // actual stack usage is higher due to stack protection, frame bookkeeping
     // ...
-    size_t stackUsage = JetFunc_calcSizeUsage(func);
-    JetFunc_printStackUsageDef(stackUsage);
+    size_t stackUsage = Func_calcSizeUsage(func);
+    Func_printStackUsageDef(stackUsage);
 
     printf("#define DEFAULT_VALUE %s\n", getDefaultValueForType(func->spec));
     if (!func->isExported) outl("static ");
     if (func->spec) {
-        JetTypeSpec_emit(func->spec, level, false);
+        TypeSpec_emit(func->spec, level, false);
     } else {
         outl("void");
     }
     printf(" %s(", func->selector);
-    foreachn(JetVar*, arg, args, func->args) {
-        JetVar_emit(arg, level, true);
+    foreachn(Var*, arg, args, func->args) {
+        Var_emit(arg, level, true);
         printf(args->next ? ", " : "");
     }
 
@@ -648,37 +642,37 @@ static void JetFunc_emit(JetFunc* func, int level) {
     printf("    IFDEBUG(static const char* sig_ = \"");
     printf("%s%s(", func->isStmt ? "" : "function ", func->name);
 
-    foreachn(JetVar*, arg, args, func->args) {
-        JetVar_write(arg, level);
+    foreachn(Var*, arg, args, func->args) {
+        Var_write(arg, level);
         printf(args->next ? ", " : "");
     }
     outl(")");
     if (func->spec) {
         outl(" as ");
-        JetTypeSpec_write(func->spec, level);
+        TypeSpec_write(func->spec, level);
     }
     outln("\");");
 
     puts(functionEntryStuff_UNESCAPED);
 
-    JetScope_emit(func->body, level + STEP);
+    Scope_emit(func->body, level + STEP);
 
     puts(functionExitStuff_UNESCAPED);
     outln("}\n#undef DEFAULT_VALUE");
     outln("#undef MYSTACKUSAGE");
 }
 
-static void JetFunc_genh(JetFunc* func, int level) {
+static void Func_genh(Func* func, int level) {
     if (!func->body || !func->analysed || func->isDeclare) return;
     if (!func->isExported) outl("static ");
     if (func->spec) {
-        JetTypeSpec_emit(func->spec, level, false);
+        TypeSpec_emit(func->spec, level, false);
     } else {
         outl("void");
     }
     printf(" %s(", func->selector);
-    foreachn(JetVar*, arg, args, func->args) {
-        JetVar_emit(arg, level, true);
+    foreachn(Var*, arg, args, func->args) {
+        Var_emit(arg, level, true);
         printf(args->next ? ", " : "");
     }
     printf("\n#ifdef DEBUG\n    %c const char* callsite_\n#endif\n",
@@ -686,16 +680,16 @@ static void JetFunc_genh(JetFunc* func, int level) {
     outln(");\n");
 }
 
-static void JetVar_genh(JetVar* var, int level) {
+static void Var_genh(Var* var, int level) {
     // if (! func->body or not func->analysed) return;
     // if (!func->isExported) outl("static ");
     // if (var->spec) {
     if (!var->init) return;
 
-    JetTypeSpec_emit(var->spec, level, false);
+    TypeSpec_emit(var->spec, level, false);
 
     printf(" %s = ", var->name);
-    JetExpr_emit(var->init, 0);
+    Expr_emit(var->init, 0);
 
     outln("");
 }
@@ -705,55 +699,55 @@ static void JetVar_genh(JetVar* var, int level) {
 //         { __VA_ARGS__ }                                                        \
 //     }
 
-// JetFunc* decld = (JetFunc[]) { { .name = "Oiunko",
+// Func* decld = (Func[]) { { .name = "Oiunko",
 //     .selector = "Oinko_uio_uyt",
 //     .line = 21,
-//     .args = (PtrList[]) { { .item = (JetVar[1]) { { .name = "arg1" } } } },
+//     .args = (PtrList[]) { { .item = (Var[1]) { { .name = "arg1" } } } },
 //     .isDeclare = 1,
 //     .isRecursive = 1 } };
 
-// JetFunc* declc = MKEMB(JetFunc, .name = "Oiunko", .selector =
+// Func* declc = MKEMB(Func, .name = "Oiunko", .selector =
 // "Oinko_uio_uyt",
 //     .line = 21,
-//     .args = MKEMB(PtrList, .item = MKEMB(JetVar, .name = "arg1", .line =
+//     .args = MKEMB(PtrList, .item = MKEMB(Var, .name = "arg1", .line =
 //     6)));
 
 static void JetTest_emit(JetTest* test) // TODO: should tests not return BOOL?
 {
     if (!test->body) return;
     printf("\nstatic void test_%s() {\n", test->name);
-    JetScope_emit(test->body, STEP);
+    Scope_emit(test->body, STEP);
     outln("}");
 }
 
 //_____________________________________________________________________________
 /// Emits the equivalent C code for a subscript (that has been resolved to
-/// its corresponding `JetVariable`). This function does all of the heavy
+/// its corresponding `Variable`). This function does all of the heavy
 /// lifting to decide what the subscript actually does, based on the kind of the
 /// subscript expression, number of dimensions and the context.
-static void JetExpr_emit_tkSubscriptResolved(JetExpr* expr, int level) {
+static void Expr_emit_tkSubscriptResolved(Expr* expr, int level) {
     char* name = expr->var->name;
-    JetExpr* index = expr->left;
+    Expr* index = expr->left;
     assert(index);
     // index = index->right;
     switch (index->kind) {
     case tkNumber: // indexing with a single number, can be a -ve number
-        printf("Array_get_%s(%s, %s)", JetTypeSpec_cname(expr->var->spec), name,
+        printf("Array_get_%s(%s, %s)", TypeSpec_cname(expr->var->spec), name,
             index->string);
         break;
 
     case tkString:
     case tkRawString: // indexing with single string or regex
-        printf("Dict_get_CString_%s(%s, %s)",
-            JetTypeSpec_cname(expr->var->spec), name, index->string);
+        printf("Dict_get_CString_%s(%s, %s)", TypeSpec_cname(expr->var->spec),
+            name, index->string);
         break;
 
     case tkOpComma: // higher dims. validation etc. has been done by this stage.
 
         // this is for cases like arr[2, 3, 4].
         printf("Tensor%dD_get_%s(%s, {", expr->var->spec->dims,
-            JetTypeSpec_cname(expr->var->spec), name);
-        JetExpr_emit(index, 0);
+            TypeSpec_cname(expr->var->spec), name);
+        Expr_emit(index, 0);
         outl("})");
 
         // TODO: cases like arr[2:3, 4:5, 1:end]
@@ -769,9 +763,8 @@ static void JetExpr_emit_tkSubscriptResolved(JetExpr* expr, int level) {
 
     case tkOpColon:
         // a single range.
-        printf(
-            "Array_getSlice_%s(%s, ", JetTypeSpec_name(expr->var->spec), name);
-        JetExpr_emit(index, 0);
+        printf("Array_getSlice_%s(%s, ", TypeSpec_name(expr->var->spec), name);
+        Expr_emit(index, 0);
         outl(")");
         break;
         // what about mixed cases, e.g. arr[2:3, 5, 3:end]
@@ -806,9 +799,9 @@ static void JetExpr_emit_tkSubscriptResolved(JetExpr* expr, int level) {
         //    and then the generation will follow the modified Jet.
         //    Don't handle this as a special case at the code generation
         //    stage.
-        printf("Array_copy_filter_%s(%s, ", JetTypeSpec_name(expr->var->spec),
-            name);
-        JetExpr_emit(index, 0);
+        printf(
+            "Array_copy_filter_%s(%s, ", TypeSpec_name(expr->var->spec), name);
+        Expr_emit(index, 0);
         outl(")");
         break;
 
@@ -818,14 +811,14 @@ static void JetExpr_emit_tkSubscriptResolved(JetExpr* expr, int level) {
 
 //_____________________________________________________________________________
 /// Emits the equivalent C code for a function call (that has been resolved to
-/// its corresponding `JetFunc`). Type constructors call a C function
+/// its corresponding `Func`). Type constructors call a C function
 /// that has `_new` appended to the type name. This function passes a
 /// constructed string as the extra argument `callsite_` that is used to
 /// generate accurate backtraces.
-static void JetExpr_emit_tkFunctionCallResolved(JetExpr* expr, int level) {
+static void Expr_emit_tkFunctionCallResolved(Expr* expr, int level) {
     char* tmp = expr->func->selector;
 
-    JetExpr* arg1 = expr->left;
+    Expr* arg1 = expr->left;
     const char* tmpc = "";
     if (arg1) {
         if (arg1->kind == tkOpComma) arg1 = arg1->left;
@@ -835,13 +828,13 @@ static void JetExpr_emit_tkFunctionCallResolved(JetExpr* expr, int level) {
     if (*tmp >= 'A' && *tmp <= 'Z' && !strchr(tmp, '_')) outl("_new_");
     outl("(");
 
-    if (expr->left) JetExpr_emit(expr->left, 0);
+    if (expr->left) Expr_emit(expr->left, 0);
 
     if (!expr->func->isDeclare) {
         printf("\n#ifdef DEBUG\n"
                "      %c \"./\" THISFILE \":%d:%d:\\e[0m ",
             expr->left ? ',' : ' ', expr->line, expr->col);
-        JetExpr_write(expr, 0, false, true);
+        Expr_write(expr, 0, false, true);
         printf("\"\n"
                "#endif\n        ");
     }
@@ -852,7 +845,7 @@ char* strchrnul(char* str, char ch) {
     while (*str && *str != ch) str++;
     return str;
 }
-static void astexpr_lineupmultilinestring(JetExpr* expr, int indent) {
+static void astexpr_lineupmultilinestring(Expr* expr, int indent) {
     return;
     char* pos = expr->string;
     while (*(pos = strpbrk(pos, "\n"))) {
@@ -870,7 +863,7 @@ static void printmultilstr(char* pos) {
     } while (*pos);
 }
 
-static void JetExpr_emit_tkString(JetExpr* expr, int level) {
+static void Expr_emit_tkString(Expr* expr, int level) {
     astexpr_lineupmultilinestring(expr, level + STEP);
     if (!expr->vars) {
         printmultilstr(expr->string + 1);
@@ -878,9 +871,9 @@ static void JetExpr_emit_tkString(JetExpr* expr, int level) {
         char* pos = expr->string;
         // putc('"', stdout);
         char* last = pos;
-        JetVar* v;
+        Var* v;
         PtrList* p = expr->vars;
-        JetExpr* e = p->item;
+        Expr* e = p->item;
         outl("strinterp_h(64, ");
         while (*pos) {
             while (*pos && *pos != '$') pos++;
@@ -903,9 +896,9 @@ static void JetExpr_emit_tkString(JetExpr* expr, int level) {
             }
         }
         printf("\"");
-        foreach (JetExpr*, e, expr->vars) {
+        foreach (Expr*, e, expr->vars) {
             outl(", ");
-            JetExpr_emit(e, 0);
+            Expr_emit(e, 0);
         }
         outl(")");
     }
@@ -915,7 +908,7 @@ static void JetExpr_emit_tkString(JetExpr* expr, int level) {
 /// Emits the equivalent C code for a (literal) numeric expression.
 /// Complex numbers follow C99 literal syntax, e.g. 1i generates
 /// `_Complex_I * 1`.
-static void JetExpr_emit_tkNumber(JetExpr* expr, int level) {
+static void Expr_emit_tkNumber(Expr* expr, int level) {
     size_t ls = CString_length(expr->string);
     if (expr->string[ls - 1] == 'i') {
         outl("_Complex_I*");
@@ -924,26 +917,26 @@ static void JetExpr_emit_tkNumber(JetExpr* expr, int level) {
     printf("%s", expr->string);
 }
 
-static void JetExpr_emit_tkCheck(JetExpr* expr, int level) {
+static void Expr_emit_tkCheck(Expr* expr, int level) {
     // TODO: need llhs and lrhs in case all 3 in 3way are exprs
     // e.g. check a+b < c+d < e+f
-    JetExpr* checkExpr = expr->right; // now use checkExpr below
-    JetExpr* lhsExpr = checkExpr->left;
-    JetExpr* rhsExpr = checkExpr->right;
+    Expr* checkExpr = expr->right; // now use checkExpr below
+    Expr* lhsExpr = checkExpr->left;
+    Expr* rhsExpr = checkExpr->right;
     outln("{");
     if (!checkExpr->unary) {
-        printf("%.*s%s _lhs = ", level, spaces, JetExpr_typeName(lhsExpr));
-        JetExpr_emit(lhsExpr, 0);
+        printf("%.*s%s _lhs = ", level, spaces, Expr_typeName(lhsExpr));
+        Expr_emit(lhsExpr, 0);
         outln(";");
     }
-    printf("%.*s%s _rhs = ", level, spaces, JetExpr_typeName(rhsExpr));
-    JetExpr_emit(rhsExpr, 0);
+    printf("%.*s%s _rhs = ", level, spaces, Expr_typeName(rhsExpr));
+    Expr_emit(rhsExpr, 0);
     outln(";");
     printf("%.*sif (!(", level, spaces);
     // ----- use lhs rhs cached values instead of the expression
-    JetExpr_emit(checkExpr, 0);
+    Expr_emit(checkExpr, 0);
     // how are you doing to deal with x < y < z? Repeat all the logic of
-    // JetExpr_emit?
+    // Expr_emit?
     // ----------------------------------------------------------------
     // if (checkExpr->unary) {
     //     outl("_rhs");
@@ -957,11 +950,11 @@ static void JetExpr_emit_tkCheck(JetExpr* expr, int level) {
            "       "
            "   THISFILE, \"",
         level + STEP, spaces, expr->line, expr->col + 6);
-    JetExpr_write(checkExpr, 0, true, true);
+    Expr_write(checkExpr, 0, true, true);
     outln("\");");
     printf("#ifdef DEBUG\n%.*sCHECK_HELP_OPEN;\n", level + STEP, spaces);
 
-    JetExpr_genPrintVars(checkExpr, level + STEP);
+    Expr_genPrintVars(checkExpr, level + STEP);
     // the `printed` flag on all vars of the expr will be set
     // (genPrintVars uses this to avoid printing the same var
     // twice). This should be unset after every toplevel call to
@@ -980,7 +973,7 @@ static void JetExpr_emit_tkCheck(JetExpr* expr, int level) {
                 printf("%.*s%s", level + STEP, spaces, "printf(\"    %s = ");
                 printf("%s", TypeType_format(lhsExpr->typeType, true));
                 printf("%s", "\\n\", \"");
-                JetExpr_write(lhsExpr, 0, true, true);
+                Expr_write(lhsExpr, 0, true, true);
                 printf("%s", "\", _lhs);\n");
             }
             // checks can't have tkVarAssign inside them
@@ -996,12 +989,12 @@ static void JetExpr_emit_tkCheck(JetExpr* expr, int level) {
             printf("%.*s%s", level + STEP, spaces, "printf(\"    %s = ");
             printf("%s", TypeType_format(rhsExpr->typeType, true));
             printf("%s", "\\n\", \"");
-            JetExpr_write(rhsExpr, 0, true, true);
+            Expr_write(rhsExpr, 0, true, true);
             printf("%s", "\", _rhs);\n");
         }
     }
 
-    JetExpr_unmarkVisited(checkExpr);
+    Expr_unmarkVisited(checkExpr);
 
     printf("%.*sCHECK_HELP_CLOSE;\n", level + STEP, spaces);
     printf("#else\n%.*sCHECK_HELP_DISABLED;\n", level + STEP, spaces);
@@ -1010,13 +1003,13 @@ static void JetExpr_emit_tkCheck(JetExpr* expr, int level) {
 
 /// This should be a standard dispatcher that does nothing except the
 /// actual dispatching (via a function pointer table, not a switch).
-static void JetExpr_emit(JetExpr* expr, int level) {
+static void Expr_emit(Expr* expr, int level) {
     // generally an expr is not split over several lines (but maybe in
     // rare cases). so level is not passed on to recursive calls.
 
     printf("%.*s", level, spaces);
     switch (expr->kind) {
-    case tkNumber: JetExpr_emit_tkNumber(expr, level); break;
+    case tkNumber: Expr_emit_tkNumber(expr, level); break;
 
     case tkKeyword_no: outl("no"); break;
     case tkKeyword_yes: outl("yes"); break;
@@ -1026,7 +1019,7 @@ static void JetExpr_emit(JetExpr* expr, int level) {
     case tkIdentifier: printf("%s", expr->string); break;
 
     case tkString: // TODO: parse vars inside, escape stuff, etc.
-        JetExpr_emit_tkString(expr, level);
+        Expr_emit_tkString(expr, level);
         // printf(escStrings ? "\\%s\\\"" : "%s\"", expr->string);
         break;
 
@@ -1049,16 +1042,14 @@ static void JetExpr_emit(JetExpr* expr, int level) {
         break;
 
     case tkFunctionCallResolved:
-        JetExpr_emit_tkFunctionCallResolved(expr, level);
+        Expr_emit_tkFunctionCallResolved(expr, level);
         break;
 
     case tkSubscript:
         unreachable("unresolved subscript on '%s'\n", expr->string);
         break;
 
-    case tkSubscriptResolved:
-        JetExpr_emit_tkSubscriptResolved(expr, level);
-        break;
+    case tkSubscriptResolved: Expr_emit_tkSubscriptResolved(expr, level); break;
 
     case tkOpAssign:
     case tkOpPlusEq:
@@ -1076,19 +1067,19 @@ static void JetExpr_emit(JetExpr* expr, int level) {
             case tkRawString:
                 // TODO: astexpr_typename should return Array_Scalar or
                 // Tensor2D_Scalar or Dict_String_Scalar etc.
-                printf("%s_set(%s, %s,%s, ", JetExpr_typeName(expr->left),
+                printf("%s_set(%s, %s,%s, ", Expr_typeName(expr->left),
                     expr->left->var->name, expr->left->left->string,
                     TokenKind_srepr[expr->kind]);
-                JetExpr_emit(expr->right, 0);
+                Expr_emit(expr->right, 0);
                 outl(")");
                 break;
 
             case tkOpColon:
-                printf("%s_setSlice(%s, ", JetExpr_typeName(expr->left),
+                printf("%s_setSlice(%s, ", Expr_typeName(expr->left),
                     expr->left->var->name);
-                JetExpr_emit(expr->left->left, 0);
+                Expr_emit(expr->left->left, 0);
                 printf(",%s, ", TokenKind_srepr[expr->kind]);
-                JetExpr_emit(expr->right, 0);
+                Expr_emit(expr->right, 0);
                 outl(")");
                 break;
 
@@ -1101,11 +1092,11 @@ static void JetExpr_emit(JetExpr* expr, int level) {
             case tkKeyword_and:
             case tkKeyword_or:
             case tkKeyword_not:
-                printf("%s_setFiltered(%s, ", JetExpr_typeName(expr->left),
+                printf("%s_setFiltered(%s, ", Expr_typeName(expr->left),
                     expr->left->var->name);
-                JetExpr_emit(expr->left->left, 0);
+                Expr_emit(expr->left->left, 0);
                 printf(",%s, ", TokenKind_srepr[expr->kind]);
-                JetExpr_emit(expr->right, 0);
+                Expr_emit(expr->right, 0);
                 outl(")");
                 break;
 
@@ -1132,16 +1123,16 @@ static void JetExpr_emit(JetExpr* expr, int level) {
             break;
         case tkIdentifierResolved:
         case tkPeriod:
-            JetExpr_emit(expr->left, 0);
+            Expr_emit(expr->left, 0);
             printf("%s", TokenKind_srepr[expr->kind]);
-            JetExpr_emit(expr->right, 0);
+            Expr_emit(expr->right, 0);
             break;
         case tkIdentifier:
             unreachable("unresolved var %s", expr->left->string);
             break;
         case tkArgumentLabel:
             // assert(inFuncArgs);
-            JetExpr_emit(expr->right, 0);
+            Expr_emit(expr->right, 0);
             // function call arg label, do not generate ->left
             break;
         case tkString: break;
@@ -1154,17 +1145,17 @@ static void JetExpr_emit(JetExpr* expr, int level) {
                 "found token kind %s\n", TokenKind_names[expr->left->kind]);
         }
         // if (! inFuncArgs) {
-        //     JetExpr_emit(self->left, 0,
+        //     Expr_emit(self->left, 0,
         //     escStrings); printf("%s", TokenKind_repr(tkOpAssign,
         //     spacing));
         // }
-        // JetExpr_emit(self->right, 0,     escStrings);
+        // Expr_emit(self->right, 0,     escStrings);
         // check various types of lhs  here, eg arr[9:87] = 0,
         // map["uuyt"]="hello" etc.
         break;
 
     case tkArrayOpen:
-        // TODO: send parent JetExpr* as an arg to this function. Then
+        // TODO: send parent Expr* as an arg to this function. Then
         // here do various things based on whether parent is a =,
         // funcCall, etc.
         if (!expr->right) {
@@ -1174,9 +1165,9 @@ static void JetExpr_emit(JetExpr* expr, int level) {
             // TODO: MKARR should be different based on the
             // CollectionType of the var or arg in question, eg stack
             // cArray, heap allocated Array, etc.
-            JetExpr_emit(expr->right, 0);
+            Expr_emit(expr->right, 0);
             outl("})");
-            printf(", %d)", JetExpr_countCommaList(expr->right));
+            printf(", %d)", Expr_countCommaList(expr->right));
         }
         break;
 
@@ -1187,23 +1178,23 @@ static void JetExpr_emit(JetExpr* expr, int level) {
             printf("Dict_init(%s,%s)()", Ktype, Vtype); // FIXME
         else {
             printf("Dict_make(%s,%s)(%d, (%s[]){", Ktype, Vtype,
-                JetExpr_countCommaList(expr->right), Ktype); // FIXME
+                Expr_countCommaList(expr->right), Ktype); // FIXME
 
-            JetExpr* p = expr->right;
+            Expr* p = expr->right;
             while (p && p->kind == tkOpComma) {
-                JetExpr_emit(p->left->left, 0);
+                Expr_emit(p->left->left, 0);
                 outl(", ");
                 p = p->right;
             };
-            JetExpr_emit(p->left, 0);
+            Expr_emit(p->left, 0);
             printf("}, (%s[]){", Vtype);
             p = expr->right;
             while (p && p->kind == tkOpComma) {
-                JetExpr_emit(p->left->right, 0);
+                Expr_emit(p->left->right, 0);
                 outl(", ");
                 p = p->right;
             };
-            JetExpr_emit(p->right, 0);
+            Expr_emit(p->right, 0);
             outl("})");
         }
     } break;
@@ -1214,23 +1205,23 @@ static void JetExpr_emit(JetExpr* expr, int level) {
             "%s(", expr->left->kind != tkOpColon ? "range_to" : "range_to_by");
         if (expr->left->kind == tkOpColon) {
             expr->left->kind = tkOpComma;
-            JetExpr_emit(expr->left, 0);
+            Expr_emit(expr->left, 0);
             expr->left->kind = tkOpColon;
         } else
-            JetExpr_emit(expr->left, 0);
+            Expr_emit(expr->left, 0);
         outl(", ");
-        JetExpr_emit(expr->right, 0);
+        Expr_emit(expr->right, 0);
         outl(")");
         break;
 
     case tkVarAssign: // basically a tkOpAssign corresponding to a local
                       // var
-        // var x as XYZ = abc... -> becomes an JetVar and an
-        // JetExpr (to keep location). Send it to JetVar::gen.
+        // var x as XYZ = abc... -> becomes an Var and an
+        // Expr (to keep location). Send it to Var::gen.
         if (expr->var->init != NULL && expr->var->used) {
-            JetVar_emit(expr->var, 0, !expr->var->isVar);
+            Var_emit(expr->var, 0, !expr->var->isVar);
             outl(" = "); //, expr->var->name);
-            JetExpr_emit(expr->var->init, 0);
+            Expr_emit(expr->var->init, 0);
         } else {
             printf("/* %s %s at line %d */", expr->var->name,
                 expr->var->used ? "null" : "unused", expr->line);
@@ -1239,107 +1230,107 @@ static void JetExpr_emit(JetExpr* expr, int level) {
 
     case tkKeyword_else:
         outln("else {");
-        if (expr->body) JetScope_emit(expr->body, level + STEP);
+        if (expr->body) Scope_emit(expr->body, level + STEP);
         printf("%.*s}", level, spaces);
         break;
 
     case tkKeyword_elif:
         outln("else if (");
-        JetExpr_emit(expr->left, 0);
+        Expr_emit(expr->left, 0);
         outln(") {");
-        if (expr->body) JetScope_emit(expr->body, level + STEP);
+        if (expr->body) Scope_emit(expr->body, level + STEP);
         printf("%.*s}", level, spaces);
         break;
 
     case tkKeyword_match: {
-        // char* typeName = JetExpr_typeName(expr->left);
+        // char* typeName = Expr_typeName(expr->left);
         // if (!typeName)
         //     unreachable(
         //         "unresolved type during emit at %d:%d", expr->line,
         //         expr->col);
         // if (expr->left->typeType == TYObject)
-        //     typeName = JetExpr_typeName(expr->left);
-        printf("{%s __match_cond = ", JetExpr_typeName(expr->left));
-        JetExpr_emit(expr->left, 0);
+        //     typeName = Expr_typeName(expr->left);
+        printf("{%s __match_cond = ", Expr_typeName(expr->left));
+        Expr_emit(expr->left, 0);
         if (expr->left->typeType > TYInt8
             || (expr->left->typeType == TYObject
-                && JetExpr_getObjectType(expr->left)->isEnum))
+                && Expr_getObjectType(expr->left)->isEnum))
             outln("; switch (__match_cond) {");
         else
             outln("; { if (0) {}"); // the case will add 'else if's
         // outln(") {");
-        if (expr->body) JetScope_emit(expr->body, level);
+        if (expr->body) Scope_emit(expr->body, level);
         printf("%.*s}}", level, spaces);
         break;
     }
 
         /*
-        This is how you walk a JetExpr that is a tkOpComma (left to right):
+        This is how you walk a Expr that is a tkOpComma (left to right):
             process(cond->left);
             while (cond->right->kind == tkOpComma)
                 cond = cond->right, process(cond->left);
             process(cond->right);
         */
 
-        // void pro(JetExpr * c) { }
+        // void pro(Expr * c) { }
         // TODO: generally all comma exprs should be handled like this
         // iteratively. What if you have a large array with lots of items?
         // recursion will blow the stack
     case tkKeyword_case: {
         // TODO: maybe make this a macro
-        JetExpr* cond = expr->left;
+        Expr* cond = expr->left;
         if (cond->kind == tkOpComma) {
             if (cond->typeType > TYInt8
-                || (cond->typeType == TYObject && JetExpr_getEnumType(cond))) {
+                || (cond->typeType == TYObject && Expr_getEnumType(cond))) {
                 // match has handled the cond with a 'switch'
-                outl("case "), JetExpr_emit(cond->left, 0), outl(": ");
+                outl("case "), Expr_emit(cond->left, 0), outl(": ");
                 while (cond->right->kind == tkOpComma) {
                     cond = cond->right;
-                    outl("case "), JetExpr_emit(cond->left, 0), outl(": ");
+                    outl("case "), Expr_emit(cond->left, 0), outl(": ");
                 }
-                outl("case "), JetExpr_emit(cond->right, 0), outln(": {");
+                outl("case "), Expr_emit(cond->right, 0), outln(": {");
             } else if (cond->typeType == TYString) {
                 outl("else if (!strcmp(__match_cond, ");
-                JetExpr_emit(cond->left, 0);
+                Expr_emit(cond->left, 0);
                 outl(")");
                 while (cond->right->kind == tkOpComma) {
                     cond = cond->right;
                     outl(" || !strcmp(__match_cond, ");
-                    JetExpr_emit(cond->left, 0), outl(")");
+                    Expr_emit(cond->left, 0), outl(")");
                 }
                 outl(" || !strcmp(__match_cond, ");
-                JetExpr_emit(cond->right, 0), outln(")) do {");
+                Expr_emit(cond->right, 0), outln(")) do {");
             } else {
                 outl("else if (__match_cond == ");
-                JetExpr_emit(cond->left, 0);
+                Expr_emit(cond->left, 0);
                 while (cond->right->kind == tkOpComma) {
                     cond = cond->right;
-                    outl(" || __match_cond == ("), JetExpr_emit(cond->left, 0);
+                    outl(" || __match_cond == ("), Expr_emit(cond->left, 0);
                 }
-                JetExpr_emit(cond->right, 0);
+                Expr_emit(cond->right, 0);
                 outln(")) do {");
             };
 
         } else {
             if (cond->typeType > TYInt8
-                || (cond->typeType == TYObject && JetExpr_getEnumType(cond))) {
+                || (cond->typeType == TYObject && Expr_getEnumType(cond))) {
                 outl("case "); // match has handled the cond with a 'switch'
-                JetExpr_emit(cond, 0);
+                Expr_emit(cond, 0);
                 outln(": {");
             } else if (cond->typeType == TYString) {
                 outl("else if (!strcmp(__match_cond, ");
-                JetExpr_emit(cond, 0);
+                Expr_emit(cond, 0);
                 outln(")) do {");
             } else {
                 outl("else if (__match_cond == (");
-                JetExpr_emit(cond, 0);
+                Expr_emit(cond, 0);
                 outln(")) do {");
             };
         };
-        if (expr->body) JetScope_emit(expr->body, level);
+        if (expr->body) Scope_emit(expr->body, level);
         printf("%.*s}", level, spaces);
         if (cond->typeType > TYInt8
-            || (cond->typeType == TYObject && JetExpr_getEnumType(cond)))
+            || (cond->typeType == TYObject && Expr_getEnumType(cond)))
             outl(" break");
         else
             outl(" while(0)");
@@ -1355,38 +1346,38 @@ static void JetExpr_emit(JetExpr* expr, int level) {
         else
             printf("%s (", TokenKind_repr[expr->kind]);
         if (expr->kind == tkKeyword_for) expr->left->kind = tkOpComma;
-        if (expr->left) JetExpr_emit(expr->left, 0);
+        if (expr->left) Expr_emit(expr->left, 0);
         if (expr->kind == tkKeyword_for) expr->left->kind = tkOpAssign;
         outln(") {");
-        if (expr->body) JetScope_emit(expr->body, level + STEP);
+        if (expr->body) Scope_emit(expr->body, level + STEP);
         printf("%.*s}", level, spaces);
         break;
 
     case tkOpPower:
         outl("pow(");
-        JetExpr_emit(expr->left, 0);
+        Expr_emit(expr->left, 0);
         outl(",");
-        JetExpr_emit(expr->right, 0);
+        Expr_emit(expr->right, 0);
         outl(")");
         break;
 
     case tkKeyword_return:
         outl("{_err_ = NULL; STACKDEPTH_DOWN; return ");
-        if (expr->right) JetExpr_emit(expr->right, 0);
+        if (expr->right) Expr_emit(expr->right, 0);
         outln(";}");
         break;
 
-    case tkKeyword_check: JetExpr_emit_tkCheck(expr, 0); break;
+    case tkKeyword_check: Expr_emit_tkCheck(expr, 0); break;
 
     case tkPeriod:
-        JetExpr_emit(expr->left, 0);
+        Expr_emit(expr->left, 0);
         if (expr->left->typeType == TYObject
-            && JetExpr_getObjectType(expr->left)->isEnum)
+            && Expr_getObjectType(expr->left)->isEnum)
             outl("_");
         else
             outl("->"); // may be . if right is embedded and not a
                         // reference
-        JetExpr_emit(expr->right, 0);
+        Expr_emit(expr->right, 0);
         break;
 
     case tkKeyword_notin: outl("!"); fallthrough;
@@ -1402,14 +1393,14 @@ static void JetExpr_emit(JetExpr* expr, int level) {
             // the array.
 
             {
-                int c = JetExpr_countCommaList(expr->right->right);
+                int c = Expr_countCommaList(expr->right->right);
                 // if (c <= 64) {
                 // TODO: ISIN/isin must be specialized for types other than
                 // int. in particular strings cannot be used yet
                 printf("%s(%d, ", c <= 64 ? "ISIN" : "isin", c);
-                JetExpr_emit(expr->left, 0);
+                Expr_emit(expr->left, 0);
                 outl(", ");
-                JetExpr_emit(expr->right->right, 0);
+                Expr_emit(expr->right->right, 0);
                 outl(")");
                 // }
             }
@@ -1436,21 +1427,21 @@ static void JetExpr_emit(JetExpr* expr, int level) {
     case tkOpLT:
         if ((expr->kind == tkOpLE || expr->kind == tkOpLT)
             && (expr->left->kind == tkOpLE | expr->left->kind == tkOpLT)) {
-            printf("%s_cmp3way_%s_%s(", JetExpr_typeName(expr->left->right),
+            printf("%s_cmp3way_%s_%s(", Expr_typeName(expr->left->right),
                 TokenKind_ascrepr(expr->kind, false),
                 TokenKind_ascrepr(expr->left->kind, false));
-            JetExpr_emit(expr->left->left, 0);
+            Expr_emit(expr->left->left, 0);
             outl(", ");
-            JetExpr_emit(expr->left->right, 0);
+            Expr_emit(expr->left->right, 0);
             outl(", ");
-            JetExpr_emit(expr->right, 0);
+            Expr_emit(expr->right, 0);
             outl(")");
             break;
         } else if (expr->right->typeType == TYString) {
             printf("CString_cmp(%s, ", TokenKind_srepr[expr->kind]);
-            JetExpr_emit(expr->left, 0);
+            Expr_emit(expr->left, 0);
             outl(", ");
-            JetExpr_emit(expr->right, 0);
+            Expr_emit(expr->right, 0);
             outl(")");
             break;
         }
@@ -1468,7 +1459,7 @@ static void JetExpr_emit(JetExpr* expr, int level) {
         char lpo = '(';
         char lpc = ')';
         if (leftBr) putc(lpo, stdout);
-        if (expr->left) JetExpr_emit(expr->left, 0);
+        if (expr->left) Expr_emit(expr->left, 0);
         if (leftBr) putc(lpc, stdout);
 
         if (expr->kind == tkArrayOpen)
@@ -1479,7 +1470,7 @@ static void JetExpr_emit(JetExpr* expr, int level) {
         char rpo = '(';
         char rpc = ')';
         if (rightBr) putc(rpo, stdout);
-        if (expr->right) JetExpr_emit(expr->right, 0);
+        if (expr->right) Expr_emit(expr->right, 0);
         if (rightBr) putc(rpc, stdout);
 
         if (expr->kind == tkArrayOpen) putc('}', stdout);
@@ -1526,60 +1517,60 @@ static void JetExpr_emit(JetExpr* expr, int level) {
 // };
 // TODO: why do you need to pass level here?
 
-void JetType_genTypeInfoDecls(JetType* type);
-void JetType_genTypeInfoDefs(JetType* type);
-void JetType_genNameAccessors(JetType* type);
-static void JetModule_emit(JetModule* module) {
+void Type_genTypeInfoDecls(Type* type);
+void Type_genTypeInfoDefs(Type* type);
+void Type_genNameAccessors(Type* type);
+static void Module_emit(Module* module) {
     // outln("");
     printf("#ifndef HAVE_%s\n#define HAVE_%s\n\n", module->name, module->name);
     printf("#define THISMODULE %s\n", module->name);
 
-    foreach (JetImport*, import, module->imports)
-        JetImport_emit(import, 0);
+    foreach (Import*, import, module->imports)
+        Import_emit(import, 0);
 
     outln("");
 
-    foreach (JetVar*, var, module->scope->locals)
-        if (var->used) JetVar_genh(var, 0);
+    foreach (Var*, var, module->scope->locals)
+        if (var->used) Var_genh(var, 0);
 
-    foreach (JetType*, type, module->enums) {
+    foreach (Type*, type, module->enums) {
         if (type->body && type->analysed) {
             JetEnum_genh(type, 0);
-            // JetType_genTypeInfoDecls(type);
+            // Type_genTypeInfoDecls(type);
         }
     }
 
-    foreach (JetType*, type, module->types) {
+    foreach (Type*, type, module->types) {
         if (type->body && type->analysed) {
-            JetType_genh(type, 0);
-            JetType_genTypeInfoDecls(type);
+            Type_genh(type, 0);
+            Type_genTypeInfoDecls(type);
         }
     }
-    foreach (JetFunc*, func, module->funcs) {
-        if (func->body && func->analysed) { JetFunc_genh(func, 0); }
+    foreach (Func*, func, module->funcs) {
+        if (func->body && func->analysed) { Func_genh(func, 0); }
     }
 
-    foreach (JetType*, type, module->types) {
+    foreach (Type*, type, module->types) {
         if (type->body && type->analysed) {
-            // foreach (JetExpr*, expr, type->body->stmts)
-            //     JetExpr_prepareInterp(expr, type->body);
-            // ^ MOVE THIS INTO JetType_emit
-            JetType_emit(type, 0);
-            JetType_genTypeInfoDefs(type);
-            JetType_genNameAccessors(type);
+            // foreach (Expr*, expr, type->body->stmts)
+            //     Expr_prepareInterp(expr, type->body);
+            // ^ MOVE THIS INTO Type_emit
+            Type_emit(type, 0);
+            Type_genTypeInfoDefs(type);
+            Type_genNameAccessors(type);
         }
     }
-    foreach (JetFunc*, func, module->funcs) {
+    foreach (Func*, func, module->funcs) {
         if (func->body && func->analysed) {
-            // foreach (JetExpr*, expr, func->body->stmts) {
-            //     JetExpr_prepareInterp(parser,expr, func->body);
+            // foreach (Expr*, expr, func->body->stmts) {
+            //     Expr_prepareInterp(parser,expr, func->body);
             // }
-            // ^ MOVE THIS INTO JetFunc_emit
-            JetFunc_emit(func, 0);
+            // ^ MOVE THIS INTO Func_emit
+            Func_emit(func, 0);
         }
     }
-    foreach (JetImport*, import, module->imports)
-        JetImport_undefc(import);
+    foreach (Import*, import, module->imports)
+        Import_undefc(import);
 
     // puts(coverageFunc[genCoverage]);
     // puts(lineProfileFunc[genLineProfile]);
@@ -1588,8 +1579,8 @@ static void JetModule_emit(JetModule* module) {
     printf("#endif // HAVE_%s\n", module->name);
 }
 
-static void JetModule_genTests(JetModule* module) {
-    JetModule_emit(module);
+static void Module_genTests(Module* module) {
+    Module_emit(module);
     foreach (JetTest*, test, module->tests)
         JetTest_emit(test);
     // generate a func that main will call
@@ -1602,18 +1593,18 @@ static void JetModule_genTests(JetModule* module) {
 // Generates a couple of functions that allow setting an integral member
 // of a type at runtime by name, or getting a pointer to a member by
 // name.
-void JetType_genNameAccessors(JetType* type) {
+void Type_genNameAccessors(Type* type) {
     // TODO: instead of a linear search over all members this should
     // generate a switch for checking using a prefix tree -> see
     // genrec.c
     if (!type->analysed || type->isDeclare) return;
-    // JetType_genMemberRecognizer( type, "Int64 value",  )
+    // Type_genMemberRecognizer( type, "Int64 value",  )
 
     printf("static void* %s__memberNamed(%s self, const char* name) {\n",
         type->name, type->name);
 
     // TODO: skip bitfield members in this loop or it wont compile
-    foreach (JetVar*, var, type->body->locals) /*if (var->used) */ //
+    foreach (Var*, var, type->body->locals) /*if (var->used) */ //
         printf("    if (CString_equals(name, \"%s\")) return "
                "&(self->%s);\n",
             var->name, var->name);
@@ -1624,37 +1615,37 @@ void JetType_genNameAccessors(JetType* type) {
            "Int64 "
            "value) {\n",
         type->name, type->name);
-    foreach (JetVar*, var, type->body->locals) // if (var->used) //
+    foreach (Var*, var, type->body->locals) // if (var->used) //
         if (var->spec->typeType >= TYBool && var->spec->typeType <= TYReal64)
             printf("    if (CString_equals(name, \"%s\"))  {self->%s = "
                    "*(%s*) "
                    "&value;return;}\n",
-                var->name, var->name, JetTypeSpec_cname(var->spec));
+                var->name, var->name, TypeSpec_cname(var->spec));
     outln("}");
 }
 
 // Generates some per-type functions that write out meta info of the
 // type to be used for reflection, serialization, etc.
-void JetType_genTypeInfoDecls(JetType* type) {
+void Type_genTypeInfoDecls(Type* type) {
     if (!type->analysed || type->isDeclare) return;
 
     printf("static const char* const %s__memberNames[] = {\n    ", type->name);
     if (type->body) //
-        foreachn(JetVar*, var, varn, type->body->locals) {
+        foreachn(Var*, var, varn, type->body->locals) {
             if (!var || !var->used) continue;
             printf("\"%s\", ", var->name);
-            // JetVar_emit(var, level + STEP, false);
+            // Var_emit(var, level + STEP, false);
         }
     outln("};");
 }
 
-void JetType_genTypeInfoDefs(JetType* type) {
+void Type_genTypeInfoDefs(Type* type) {
     // printf("static const char* const %s__memberNames[] = {\n",
-    // type->name); foreachn(JetVar*, var, varn, type->body->locals)
+    // type->name); foreachn(Var*, var, varn, type->body->locals)
     // {
     //     if (! var) continue;
     //     printf("\"%s\",\n", var->name);
-    //     // JetVar_emit(var, level + STEP, false);
+    //     // Var_emit(var, level + STEP, false);
     //     outln("}; \\");
     // }
 }

@@ -3,12 +3,12 @@
 
 #define MK1OBJ(T, block)                                                       \
     (T[1]) { block }
-#define CT_MODULE(block) MK1OBJ(JetModule, block)
-#define CT_FUNC(block) MK1OBJ(JetFunc, block)
-#define CT_TYPE(block) MK1OBJ(JetType, block)
-#define CT_TSPEC(block) MK1OBJ(JetTypeSpec, block)
-#define CT_VAR(block) MK1OBJ(JetVar, block)
-#define CT_EXPR(block) MK1OBJ(JetExpr, block)
+#define CT_MODULE(block) MK1OBJ(Module, block)
+#define CT_FUNC(block) MK1OBJ(Func, block)
+#define CT_TYPE(block) MK1OBJ(Type, block)
+#define CT_TSPEC(block) MK1OBJ(TypeSpec, block)
+#define CT_VAR(block) MK1OBJ(Var, block)
+#define CT_EXPR(block) MK1OBJ(Expr, block)
 // #define CT_LIST(n, ...) CT_LIST##n(__VA_ARGS__)
 #define CT_LIST1(it) MK1OBJ(PtrList, .item = it)
 // #define CT_LIST2(it, ...) MK1OBJ(PtrList, .item = it, .next = __VA_ARGS__)
@@ -142,9 +142,9 @@
 #define CT_LIST4(a1, a2, a3, a4) CT_LIST3(a1, a2, a3)
 #define CT_LIST5(a1, a2, a3, a4, a5) CT_LIST4(a1, a2, a3, a4)
 
-JetVar* v = CT_VAR({ .name = "arg1" });
+Var* v = CT_VAR({ .name = "arg1" });
 
-JetModule* base = //
+Module* base = //
     CT_MODULE(({
         .name = "base",
         .filename = "<builtin>", //

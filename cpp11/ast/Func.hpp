@@ -20,7 +20,7 @@ struct Func {
             // if (arg->used)
             sum += size;
         }
-        if (body) sum += body.calcSizeUsage();
+        if (body) sum += body->calcSizeUsage();
         return sum;
     }
     Func() { }

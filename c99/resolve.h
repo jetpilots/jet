@@ -1,5 +1,5 @@
 
-static bool isSelfMutOp(JetExpr* expr) {
+static bool isSelfMutOp(Expr* expr) {
     return expr->kind > __tk__selfMutOps__begin
         && expr->kind < __tk__selfMutOps__end;
     //  expr->kind == tkPlusEq //
@@ -11,7 +11,7 @@ static bool isSelfMutOp(JetExpr* expr) {
     //     || expr->kind == tkOpAssign;
 }
 
-static bool isArithOp(JetExpr* expr) {
+static bool isArithOp(Expr* expr) {
     return expr->kind > __tk__arithOps__begin
         && expr->kind < __tk__arithOps__end;
     // == tkPlusEq //
@@ -25,11 +25,11 @@ static bool isArithOp(JetExpr* expr) {
     //     || expr->kind == tkPower || expr->kind == tkOpMod;
 }
 
-// isSelfMutOp(expr as JetExpr) := expr.kind in [
+// isSelfMutOp(expr as Expr) := expr.kind in [
 //     .plusEq, .minusEq, .slashEq, .timesEq, .opModEq, .opAssign
 // ]
 
-// function resolve(spec as JetTypeSpec, mod as JetModule, par as Parser)
+// function resolve(spec as TypeSpec, mod as Module, par as Parser)
 //     if spec.typeType != .unresolved then return
 //     if spec.name == "" then return
 //     var tyty = typeTypeByName(spec.name)
@@ -44,7 +44,7 @@ static bool isArithOp(JetExpr* expr) {
 //         errorUnrecognized(spec, parser = parser)
 // end function
 
-static void resolveTypeSpec(Parser* parser, JetTypeSpec* spec, JetModule* mod) {
+static void resolveTypeSpec(Parser* parser, TypeSpec* spec, Module* mod) {
     // TODO: disallow a type that derives from itself!
     if (spec->typeType != TYUnresolved) return;
     if (!*spec->name) return;
@@ -52,10 +52,10 @@ static void resolveTypeSpec(Parser* parser, JetTypeSpec* spec, JetModule* mod) {
     // TODO: DO THIS IN PARSE... stuff!!
 
     TypeTypes tyty = TypeType_byName(spec->name);
-    if (tyty) { // can be member of JetTypeSpec!
+    if (tyty) { // can be member of TypeSpec!
         spec->typeType = tyty;
     } else {
-        JetType* type = JetModule_getType(mod, spec->name);
+        Type* type = Module_getType(mod, spec->name);
         if (type) {
             spec->typeType = TYObject;
             spec->type = type;
@@ -72,41 +72,41 @@ static void resolveTypeSpec(Parser* parser, JetTypeSpec* spec, JetModule* mod) {
         // called during such analysis.
     }
 }
-// function checkUnusedVars(scope as JetScope, parser as Parser)
+// function checkUnusedVars(scope as Scope, parser as Parser)
 //     for var = scope.locals
 //
 //     end for
 // end function
 
-static void JetScope_checkUnusedVars(Parser* parser, JetScope* scope) {
-    foreach (JetVar*, var, scope->locals)
+static void Scope_checkUnusedVars(Parser* parser, Scope* scope) {
+    foreach (Var*, var, scope->locals)
         if (!var->used) Parser_warnUnusedVar(parser, var);
 
-    foreach (JetExpr*, stmt, scope->stmts)
+    foreach (Expr*, stmt, scope->stmts)
         if (isCtrlExpr(stmt) && stmt->body)
-            JetScope_checkUnusedVars(parser, stmt->body);
+            Scope_checkUnusedVars(parser, stmt->body);
 }
 
-static void JetFunc_checkUnusedVars(Parser* parser, JetFunc* func) {
-    foreach (JetVar*, arg, func->args)
+static void Func_checkUnusedVars(Parser* parser, Func* func) {
+    foreach (Var*, arg, func->args)
         if (!arg->used) Parser_warnUnusedArg(parser, arg);
 
-    JetScope_checkUnusedVars(parser, func->body);
+    Scope_checkUnusedVars(parser, func->body);
 }
 
 static void JetTest_checkUnusedVars(Parser* parser, JetTest* test) {
-    JetScope_checkUnusedVars(parser, test->body);
+    Scope_checkUnusedVars(parser, test->body);
 }
 
 // TODO: Btw there should be a module level scope to hold lets (and
 // comments). That will be the root scope which has parent==NULL.
 
-static void resolveMember(Parser* parser, JetExpr* expr, JetType* type) {
+static void resolveMember(Parser* parser, Expr* expr, Type* type) {
     assert(expr->kind == tkIdentifier || expr->kind == tkSubscript);
     TokenKind ret = (expr->kind == tkIdentifier) ? tkIdentifierResolved
                                                  : tkSubscriptResolved;
-    JetVar* found = NULL;
-    if (type->body) found = JetScope_getVar(type->body, expr->string);
+    Var* found = NULL;
+    if (type->body) found = Scope_getVar(type->body, expr->string);
     if (found) {
         expr->kind = ret;
         expr->var = found;
@@ -118,7 +118,7 @@ static void resolveMember(Parser* parser, JetExpr* expr, JetType* type) {
 
 // This function is called in one pass, during the line-by-line parsing.
 // (since variables cannot be "forward-declared").
-static void resolveVars(Parser* parser, JetExpr* expr, JetScope* scope,
+static void resolveVars(Parser* parser, Expr* expr, Scope* scope,
     bool inFuncCall) { // TODO: this could be done on rpn in parseExpr, making
                        // it iterative instead of recursive = behaves
                        // differently inside a func call: the ->left is not
@@ -154,14 +154,14 @@ static void resolveVars(Parser* parser, JetExpr* expr, JetScope* scope,
     case tkSubscript: {
         TokenKind ret = (expr->kind == tkIdentifier) ? tkIdentifierResolved
                                                      : tkSubscriptResolved;
-        JetVar* found = JetScope_getVar(scope, expr->string);
+        Var* found = Scope_getVar(scope, expr->string);
         if (found) {
             expr->kind = ret;
             expr->var = found;
             expr->var->used++;
             expr->var->lastUsage = expr->line; // see above for a TODO and info
         } else {
-            // JetImport* import = JetModule_getImportByAlias(mod,
+            // Import* import = Module_getImportByAlias(mod,
             // expr->string); if (import) {
             //     expr->kind = tkKeyword_import;
             //     expr->import = import;
@@ -176,7 +176,7 @@ static void resolveVars(Parser* parser, JetExpr* expr, JetScope* scope,
             // recheck kind since the var may have failed resolution
             // TODO: handle dims 0 as dims 1 because arr[] is the same as arr[:]
             //            if (expr->kind == tkSubscriptResolved
-            //                and JetExpr_countCommaList(expr->left)
+            //                and Expr_countCommaList(expr->left)
             //                    != expr->var->spec->dims)
             //                Parser_errorIndexDimsMismatch(parser, expr);
             // do it in analysis after type/dims inference
@@ -227,7 +227,7 @@ static void resolveVars(Parser* parser, JetExpr* expr, JetScope* scope,
                     buf[len] = 0;
                     buf[31] = 0;
                     //            eprintf("lookup '%s'\n", buf);
-                    JetVar* var = JetScope_getVar(scope, buf);
+                    Var* var = Scope_getVar(scope, buf);
                     if (!var) {
                         char* orig = expr->string;
                         expr->string = buf;
@@ -266,8 +266,8 @@ static void resolveVars(Parser* parser, JetExpr* expr, JetScope* scope,
             resolveVars(parser, expr->right, scope, inFuncCall);
 
             if (isSelfMutOp(expr)) {
-                JetVar* var = NULL;
-                JetExpr* varExpr = expr->left;
+                Var* var = NULL;
+                Expr* varExpr = expr->left;
                 if (varExpr) {
                     if (varExpr->kind == tkIdentifierResolved || //
                         varExpr->kind == tkSubscriptResolved) {

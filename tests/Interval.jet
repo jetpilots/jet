@@ -23,7 +23,7 @@ products(a _Range, b Range) :=
 ~ items of private type must themselves be private. unless you plan on making
 ~ type members private / public! (which might be better)
 
-let some = _Range(5) # vars can still remain public since they are eval'd
+let some = _Range(5) ~ vars can still remain public since they are eval'd
 
 Range(x Real) :=
     Range(lo = x, hi = x)

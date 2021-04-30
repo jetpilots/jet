@@ -48,7 +48,7 @@ func loadFile()
 
     catch .resourceNotFound
         print("Can't find file: $file")
-        skip
+        continue
     catch .memoryExhausted
         print("I'm exhausted")
         return

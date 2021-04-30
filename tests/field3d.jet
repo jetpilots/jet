@@ -16,12 +16,12 @@ define FP_PTR2OFF(member) out.member = (void*) *currpos; *currpos += sizeof(*mem
 void Outer_writefbin(Outer* self, FILE* file, size_t* currpos)
 {
 static Outer out;
-out = *self; # // make a copy. can be static to avoid blowing stack, ok if its clobbered by inner calls since the object will have been written out and not used later.
+out = *self; ~ // make a copy. can be static to avoid blowing stack, ok if its clobbered by inner calls since the object will have been written out and not used later.
     *currpos += sizeof(out);
 ~ // currpos is not the currpos to write the file at, but tracks how many btytes were written cumulatively so far
 ~ loop over members and change pointers to offsets
 ~ // skip over Point since it is a value type
-~ out.inner = (void*)currpos; # // C will take care of void* -> type*
+~ out.inner = (void*)currpos; ~ // C will take care of void* -> type*
 ~ currpos += sizeof(*out.inner);
 FP_PTR2OFF(inner);
 ~ // similarly for all members
@@ -129,7 +129,7 @@ type Mesh3D
     ~ can you handle more than 3 way cmps?
     ~ e.g. check a == b == c == d == e >= 4
     ~ SHOULD you?
-    check centroids.size == cells.size == volumes.size
+    hold centroids.size == cells.size == volumes.size
 end
 
 ~ Can you come up with a general (in dims) way of doing SoA to AoS or vice
@@ -148,7 +148,7 @@ type Field3D
     var r[] Real|kg/m3
     var k[] Real|m2/s
     var e[] Real|m2/s3
-    var ut[] Real|s/m2 nosave # no output in serialisation
+    var ut[] Real|s/m2 nosave ~ no output in serialisation
     var y[2D] as Real|1
     var mesh Mesh3D
 end
@@ -162,13 +162,13 @@ type CellState
     var r Real|kg/m3
     var k Real|m2/s
     var e Real|m2/s3
-    var ut Real|s/m2 nosave # don't write it out in serialization. btw you should take a flag links= in serialize(), jetson(), yaml() etc. that says whether to copy or preserve links.
+    var ut Real|s/m2 nosave ~ don't write it out in serialization. btw you should take a flag links= in serialize(), jetson(), yaml() etc. that says whether to copy or preserve links.
     var y[] Real|1
 end
 ~ aside: how also about funcs ct.name(v) ct.saved(v) ct.typeof(v) ct.sizeof(v) ct.units(v) ct.range(v) ct.count(v) etc. all COMPILE TIME only nah
 
 type Field3D
-    var s CellState[] # seeing this, the compiler should mark CellState for
+    var s CellState[] ~ seeing this, the compiler should mark CellState for
     ~ AoS->SoA conversion. well not merely seeing this, there should be actual
     ~ usage in downstream code that suggests SoA conversion will pay off.
     ~ or you could do it yourself with keyword soa
@@ -190,7 +190,7 @@ where s_.ref[0] => u, s_.ref[1] => v and so on. ofo(v) = 1, ofo(u) = 0, ...
 ~ another argument in favour of keeping everything 64-bit. but what about 32-bit OSs?
 s_.ref[0][i] is s.u[i] and so on. But the user has written s[i].u everywhere...
 
-so cgen all s[i].u calls into s[i][ofo(u)] -> s_.ref[ofo(u)][i] # note the flip
+so cgen all s[i].u calls into s[i][ofo(u)] -> s_.ref[ofo(u)][i] ~ note the flip
 
 finally, s_ is not separately generated, but s itelf is generated as s_ would have been (i.e. transposed).
 
@@ -236,10 +236,10 @@ access the member, then index that. easy. get rid of x[][] idea
 
 ~# COMPLEX
 var r = -1
-var s = sqrt(r) # error
+var s = sqrt(r) ~ error
 var c = -1 + 0i
-var x = sqrt(c) # works, returns Complex[2]
-var y = cbrt(c) # works, returns Complex[3]
+var x = sqrt(c) ~ works, returns Complex[2]
+var y = cbrt(c) ~ works, returns Complex[3]
 
 ~ how about instead of operator overload on [], there is an implicit
 ~ op that indexes into the first member (if it is an array)
@@ -263,7 +263,7 @@ end
 func mean(field Field3D) -> ans Real
     ~ volume weighted average of the scalar field's values on the mesh
     ans = sum(field.mesh.volumes * field.values) ...
-         / sum(field.mesh.volumes)
+        / sum(field.mesh.volumes)
 end
 
 func map(source Field3D, dest Mesh3D) Field3D

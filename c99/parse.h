@@ -1,6 +1,6 @@
 
 #pragma mark - PARSE EXPR
-static JetExpr* parseExpr(Parser* parser) {
+static Expr* parseExpr(Parser* parser) {
     // there are 2 steps to this madness.
     // 1. parse a sequence of tokens into RPN using shunting-yard.
     // 2. walk the rpn stack as a sequence and copy it into a result
@@ -15,7 +15,7 @@ static JetExpr* parseExpr(Parser* parser) {
 
     static PtrArray rpn, ops, result;
     int prec_top = 0;
-    JetExpr* p = NULL;
+    Expr* p = NULL;
     TokenKind revBrkt = tkUnknown;
 
     // ******* STEP 1 CONVERT TOKENS INTO RPN
@@ -31,13 +31,13 @@ static JetExpr* parseExpr(Parser* parser) {
             && memchr(parser->token.pos, '_', parser->token.matchlen))
             Parser_errorInvalidIdent(parser); // but continue parsing
 
-        JetExpr* expr;
+        Expr* expr;
         if (Parser_matches(parser, tkParenOpen))
             expr = lparen;
         else if (Parser_matches(parser, tkParenClose))
             expr = rparen;
         else
-            expr = JetExpr_fromToken(&parser->token); // dont advance yet
+            expr = Expr_fromToken(&parser->token); // dont advance yet
 
         int prec = expr->prec;
         bool rassoc = prec ? expr->rassoc : false;
@@ -81,7 +81,7 @@ static JetExpr* parseExpr(Parser* parser) {
         case tkParenOpen:
             PtrArray_push(&ops, expr);
             if (!PtrArray_empty(&ops)
-                && PtrArray_topAs(JetExpr*, &ops)->kind == tkFunctionCall)
+                && PtrArray_topAs(Expr*, &ops)->kind == tkFunctionCall)
                 PtrArray_push(&rpn, expr);
             if (lookAheadChar == ')') PtrArray_push(&rpn, NULL);
             // for empty func() push null for no args
@@ -92,7 +92,7 @@ static JetExpr* parseExpr(Parser* parser) {
         case tkArrayOpen:
             PtrArray_push(&ops, expr);
             if (!PtrArray_empty(&ops)
-                && PtrArray_topAs(JetExpr*, &ops)->kind == tkSubscript)
+                && PtrArray_topAs(Expr*, &ops)->kind == tkSubscript)
                 PtrArray_push(&rpn, expr);
             if (lookAheadChar == ']') PtrArray_push(&rpn, NULL);
             // for empty arr[] push null for no args
@@ -101,7 +101,7 @@ static JetExpr* parseExpr(Parser* parser) {
         case tkBraceOpen:
             PtrArray_push(&ops, expr);
             if (!PtrArray_empty(&ops)
-                && PtrArray_topAs(JetExpr*, &ops)->kind == tkObjectInit)
+                && PtrArray_topAs(Expr*, &ops)->kind == tkObjectInit)
                 PtrArray_push(&rpn, expr);
             if (lookAheadChar == '}') PtrArray_push(&rpn, NULL);
             // for empty Obj {} push null for no args
@@ -129,13 +129,12 @@ static JetExpr* parseExpr(Parser* parser) {
             if ((p && p->kind == tkArrayOpen))
                 if ((PtrArray_empty(&ops)
                         || (PtrArray_top(&rpn)
-                            && PtrArray_topAs(JetExpr*, &ops)->kind
+                            && PtrArray_topAs(Expr*, &ops)->kind
                                 != tkSubscript))
                     // don't do this if its part of a subscript
                     || (PtrArray_empty(&rpn)
                         || (PtrArray_top(&rpn)
-                            && PtrArray_topAs(JetExpr*, &rpn)->kind
-                                != tkOpColon)))
+                            && PtrArray_topAs(Expr*, &rpn)->kind != tkOpColon)))
                     // or aa range. range exprs are handled separately. by
                     // themselves they don't need a surrounding [], but for
                     // grouping like 2+[8:66] they do.
@@ -145,8 +144,7 @@ static JetExpr* parseExpr(Parser* parser) {
             if ((p && p->kind == tkBraceOpen)
                 && (PtrArray_empty(&ops)
                     || (PtrArray_top(&rpn)
-                        && PtrArray_topAs(JetExpr*, &ops)->kind
-                            != tkObjectInit)))
+                        && PtrArray_topAs(Expr*, &ops)->kind != tkObjectInit)))
                 // again, not if it is an object init
                 PtrArray_push(&rpn, p);
             // Object { member1 = 3, member3 = "train" }
@@ -159,7 +157,7 @@ static JetExpr* parseExpr(Parser* parser) {
         case tkKeyword_check: PtrArray_push(&ops, expr); break;
         case tkExclamation:
             if (PtrArray_empty(&rpn)
-                || PtrArray_topAs(JetExpr*, &rpn)->kind != tkIdentifier) {
+                || PtrArray_topAs(Expr*, &rpn)->kind != tkIdentifier) {
                 Parser_errorParsingExpr(parser, expr, "invalid use of '!'");
                 // TODO: change error to "invalid use of ! operator or
                 // something"
@@ -182,11 +180,11 @@ static JetExpr* parseExpr(Parser* parser) {
             // the inferred enum type.
 
             // if (!PtrArray_empty(&ops)) {
-            //     TokenKind kt = PtrArray_topAs(JetExpr*, &ops)->kind;
+            //     TokenKind kt = PtrArray_topAs(Expr*, &ops)->kind;
             //     if (!ISIN(2, kt, tkPeriod, tkFunctionCall))
             //         PtrArray_push(&rpn, NULL);
             //     // && rpn.used > 1
-            //     //                    && PtrArray_topAs(JetExpr*,
+            //     //                    && PtrArray_topAs(Expr*,
             //     //                    &rpn)->kind != tkIdentifier))
             //     // fallthru
             // }
@@ -196,13 +194,11 @@ static JetExpr* parseExpr(Parser* parser) {
                 if (expr->kind == tkOpColon) {
                     if (PtrArray_empty(&rpn)
                         || (!PtrArray_top(&rpn) && !PtrArray_empty(&ops)
-                            && PtrArray_topAs(JetExpr*, &ops)->kind
-                                != tkOpColon)
-                        || (PtrArray_topAs(JetExpr*, &rpn)->kind == tkOpColon
+                            && PtrArray_topAs(Expr*, &ops)->kind != tkOpColon)
+                        || (PtrArray_topAs(Expr*, &rpn)->kind == tkOpColon
                             && !PtrArray_empty(&ops)
-                            && (PtrArray_topAs(JetExpr*, &ops)->kind
-                                    == tkOpComma
-                                || PtrArray_topAs(JetExpr*, &ops)->kind
+                            && (PtrArray_topAs(Expr*, &ops)->kind == tkOpComma
+                                || PtrArray_topAs(Expr*, &ops)->kind
                                     == tkArrayOpen)))
                         // TODO: better way to parse :, 1:, :-1, etc.
                         // while passing tokens to RPN, if you see a :
@@ -214,7 +210,7 @@ static JetExpr* parseExpr(Parser* parser) {
                     // indicates empty operand
                 }
                 while (!PtrArray_empty(&ops)) {
-                    prec_top = PtrArray_topAs(JetExpr*, &ops)->prec;
+                    prec_top = PtrArray_topAs(Expr*, &ops)->prec;
                     if (!prec_top) break; // left parenthesis
                     if (prec > prec_top) break;
                     if (prec == prec_top && rassoc) break;
@@ -222,8 +218,8 @@ static JetExpr* parseExpr(Parser* parser) {
 
                     if (p->kind != tkOpComma && p->kind != tkOpSemiColon
                         && p->kind != tkFunctionCall && p->kind != tkSubscript
-                        && PtrArray_topAs(JetExpr*, &rpn)
-                        && PtrArray_topAs(JetExpr*, &rpn)->kind == tkOpComma) {
+                        && PtrArray_topAs(Expr*, &rpn)
+                        && PtrArray_topAs(Expr*, &rpn)->kind == tkOpComma) {
                         Parser_errorUnexpectedToken(
                             parser, "unsupported use of comma");
                         // TODO: make this an error of unexpected expr instead
@@ -268,9 +264,9 @@ exitloop:
 
         if (p->kind != tkOpComma && p->kind != tkFunctionCall
             && p->kind != tkSubscript && p->kind != tkArrayOpen
-            && PtrArray_topAs(JetExpr*, &rpn)
-            && PtrArray_topAs(JetExpr*, &rpn)->kind == tkOpComma) {
-            Parser_errorUnexpectedExpr(parser, PtrArray_topAs(JetExpr*, &rpn));
+            && PtrArray_topAs(Expr*, &rpn)
+            && PtrArray_topAs(Expr*, &rpn)->kind == tkOpComma) {
+            Parser_errorUnexpectedExpr(parser, PtrArray_topAs(Expr*, &rpn));
             goto error;
         }
 
@@ -288,7 +284,7 @@ exitloop:
 
     // *** STEP 2 CONVERT RPN INTO EXPR TREE
 
-    JetExpr* arg;
+    Expr* arg;
     for (int i = 0; i < rpn.used; i++) {
         if (!(p = rpn.ref[i])) goto justpush;
         switch (p->kind) {
@@ -349,7 +345,7 @@ exitloop:
             parser, "nothing parsed"); //    (parser, p);
         goto error;
     } else if (result.used != 1) {
-        if (PtrArray_topAs(JetExpr*, &result)->kind != tkLineComment) {
+        if (PtrArray_topAs(Expr*, &result)->kind != tkLineComment) {
             Parser_errorParsingExpr(parser, p, "more than 1 result");
             goto error;
         }
@@ -371,7 +367,7 @@ error:
     if (ops.used) {
         eputs("ops: [ ");
         for (int i = 0; i < ops.used; i++)
-            eprintf("%s ", TokenKind_repr[((JetExpr*)ops.ref[i])->kind]);
+            eprintf("%s ", TokenKind_repr[((Expr*)ops.ref[i])->kind]);
         eputs("];;");
     }
 
@@ -381,7 +377,7 @@ error:
             if (!rpn.ref[i])
                 eputs("NUL ");
             else {
-                JetExpr* e = rpn.ref[i];
+                Expr* e = rpn.ref[i];
                 eprintf(
                     "%.*s ", 32, e->prec ? TokenKind_repr[e->kind] : e->string);
             }
@@ -394,7 +390,7 @@ error:
             if (!result.ref[i])
                 eputs("NUL ");
             else {
-                JetExpr* e = result.ref[i];
+                Expr* e = result.ref[i];
                 eprintf(
                     "%.*s ", 32, e->prec ? TokenKind_repr[e->kind] : e->string);
             }
@@ -414,10 +410,10 @@ error:
 }
 
 #pragma mark - PARSE TYPESPEC
-static JetTypeSpec* parseTypeSpec(Parser* parser) {
+static TypeSpec* parseTypeSpec(Parser* parser) {
     parser->token.mergeArrayDims = true;
 
-    JetTypeSpec* spec = NEW(JetTypeSpec);
+    TypeSpec* spec = NEW(TypeSpec);
     spec->line = parser->token.line;
     spec->col = parser->token.col;
 
@@ -427,12 +423,6 @@ static JetTypeSpec* parseTypeSpec(Parser* parser) {
     if (!isalpha(*parser->token.pos)) Parser_errorInvalidIdent(parser);
 
     spec->name = parseIdent(parser);
-    // parser->token.pos; //
-    // Token_advance(&parser->token);
-    // while (isalnum(parser->token.pos) || *parser->token.pos == '.')
-    //     parser->token.pos++;
-    // int len = parser->token.pos - spec->name;
-    // Token_detect(&parser->token);
 
     if (Parser_matches(parser, tkArrayDims)) {
         if (isalpha(*parser->token.pos)) {
@@ -456,8 +446,8 @@ static JetTypeSpec* parseTypeSpec(Parser* parser) {
 }
 
 #pragma mark - PARSE VAR
-static JetVar* parseVar(Parser* parser) {
-    JetVar* var = NEW(JetVar);
+static Var* parseVar(Parser* parser) {
+    Var* var = NEW(Var);
     var->isVar = (parser->token.kind == tkKeyword_var);
     var->isLet = (parser->token.kind == tkKeyword_let);
 
@@ -500,28 +490,25 @@ static JetVar* parseVar(Parser* parser) {
     {
         var->spec = parseTypeSpec(parser);
     } else {
-        var->spec = NEW(JetTypeSpec);
+        var->spec = NEW(TypeSpec);
         var->spec->line = parser->token.line;
         var->spec->col = parser->token.col;
         var->spec->name = "";
     }
-    // var->spec->dims = dims;
 
     Parser_ignore(parser, tkOneSpace);
-    if (Parser_ignore(parser, tkOpAssign)) //
-        var->init = parseExpr(parser);
+    if (Parser_ignore(parser, tkOpAssign)) var->init = parseExpr(parser);
 
     return var;
 }
 
-static List(JetVar) * parseArgs(Parser* parser) {
-    List(JetVar)* args = NULL;
+static List(Var) * parseArgs(Parser* parser) {
+    List(Var)* args = NULL;
     Parser_consume(parser, tkParenOpen);
     if (Parser_ignore(parser, tkParenClose)) return args;
 
-    JetVar* arg;
     do {
-        arg = parseVar(parser);
+        Var* arg = parseVar(parser);
         arg->isArg = true;
         PtrList_append(&args, arg);
     } while (Parser_ignore(parser, tkOpComma));
@@ -529,32 +516,19 @@ static List(JetVar) * parseArgs(Parser* parser) {
     Parser_consume(parser, tkParenClose);
     return args;
 }
-static JetScope* parseScope(Parser* parser, JetScope* parent, bool isTypeBody);
+static Scope* parseScope(Parser* parser, Scope* parent, bool isTypeBody);
 
-static JetScope* parseScopeCases(Parser* parser, JetScope* parent) {
+static Scope* parseScopeCases(Parser* parser, Scope* parent) {
 
-    JetScope* scope = NEW(JetScope);
+    Scope* scope = NEW(Scope);
     scope->parent = parent;
-    List(JetVar)** stmts = &scope->stmts;
-    JetExpr* expr;
+    List(Var)** stmts = &scope->stmts;
+    Expr* expr;
 
     while (parser->token.pos < parser->end) {
         switch (parser->token.kind) {
 
         case tkKeyword_case:
-            // if (startedCase) {
-            //     startedCase = false;
-            //     break;
-            // } // goto exitloop;
-            // startedCase = true;
-            // startedCase = !startedCase;
-            // if (!startedCase) {
-            //     stmts = PtrList_append(stmts, expr);
-            //     break;
-            // }
-            // case tkKeyword_match:
-            // if (isTypeBody) Parser_errorInvalidTypeMember(parser);
-            // tt = parser->token.kind; // either match or case
             expr = Parser_match(parser, tkKeyword_case);
             expr->left = parseExpr(parser);
             Token_advance(&parser->token); // trample null
@@ -566,11 +540,6 @@ static JetScope* parseScopeCases(Parser* parser, JetScope* parent) {
 
             // 'case' and 'else' should never consume the 'end', leave it for
             // 'match' or 'if' resp. see later for 'else' as well
-            // if (tt == tkKeyword_match) {
-            //     Parser_consume(parser, tkKeyword_end);
-            //     Parser_ignore(parser, tkOneSpace);
-            //     Parser_ignore(parser, tkKeyword_match);
-            // }
 
             stmts = PtrList_append(stmts, expr);
 
@@ -592,20 +561,20 @@ exitloop:
 }
 
 #pragma mark - PARSE SCOPE
-static JetScope* parseScope(Parser* parser, JetScope* parent, bool isTypeBody) {
-    JetScope* scope = NEW(JetScope);
+static Scope* parseScope(Parser* parser, Scope* parent, bool isTypeBody) {
+    Scope* scope = NEW(Scope);
 
-    JetVar *var = NULL, *orig = NULL;
-    JetExpr* expr = NULL;
+    Var *var = NULL, *orig = NULL;
+    Expr* expr = NULL;
     TokenKind tt = tkUnknown;
-    JetScope* forScope = NULL;
+    Scope* forScope = NULL;
 
     scope->parent = parent;
     bool startedElse = false;
     bool startedCase = false;
 
-    List(JetVar)** locals = &scope->locals;
-    List(JetVar)** stmts = &scope->stmts;
+    List(Var)** locals = &scope->locals;
+    List(Var)** stmts = &scope->stmts;
 
     while (parser->token.kind != tkKeyword_end) {
 
@@ -623,9 +592,8 @@ static JetScope* parseScope(Parser* parser, JetScope* parent, bool isTypeBody) {
                 continue;
             else
                 Token_advance(&parser->token);
-            if ((orig = JetScope_getVar(scope, var->name)))
+            if ((orig = Scope_getVar(scope, var->name)))
                 Parser_errorDuplicateVar(parser, var, orig->line, orig->col);
-            // TODO: why only idents and binops for resolveVars??
 
             // resolveType(var->spec, scope);
             // resolve BEFORE it is added to the list! in
@@ -633,13 +601,10 @@ static JetScope* parseScope(Parser* parser, JetScope* parent, bool isTypeBody) {
             // if var->spec is NULL then set the type
             // if it isn't NULL then check the types match
             locals = PtrList_append(locals, var);
-            // TODO: validation should raise issue if var->init is
-            // missing
-            expr = NEW(JetExpr);
+            expr = NEW(Expr);
             expr->kind = tkVarAssign;
             expr->line = var->init ? var->init->line : var->line;
-            // parser->token.line;
-            expr->col = col; // var->init ? var->init->col : 1;
+            expr->col = col;
             expr->prec = TokenKind_getPrecedence(tkOpAssign);
             expr->var = var;
 
@@ -649,28 +614,13 @@ static JetScope* parseScope(Parser* parser, JetScope* parent, bool isTypeBody) {
             // itself
             if (var->init) resolveVars(parser, var->init, scope, false);
 
-            // TODO: KEEP THE LJet LISTITEM AND APPEND TO THAT!!
             stmts = PtrList_append(stmts, expr);
         } break;
 
-            // case tkKeyword_match:
+        case tkKeyword_case: goto exitloop;
 
-        case tkKeyword_case:
-            //     // if (startedCase) {
-            //     //     startedCase = false;
-            //     //     break;
-            goto exitloop;
-        //     // startedCase = true;
-        //     startedCase = !startedCase;
-        //     if (!startedCase) {
-        //         stmts = PtrList_append(stmts, expr);
-        //         break;
-        //     }
         case tkKeyword_match:
-            // expr = parseScopeMatch(parser);
-
             if (isTypeBody) Parser_errorInvalidTypeMember(parser);
-            // tt = parser->token.kind; // either match or case
             expr = Parser_match(parser, tkKeyword_match);
             expr->left = parseExpr(parser);
             Token_advance(&parser->token);
@@ -706,61 +656,40 @@ static JetScope* parseScope(Parser* parser, JetScope* parent, bool isTypeBody) {
             // need to trample the newline
             Token_advance(&parser->token);
 
-            // if(parser->token.pos)
-            // TODO: for must <parse its expr as a VarDecl, because it can
-            // have 'as Type' etc. Now you parse an assignment Expr and hack
-            // an JetVar out of it.
             if (tt == tkKeyword_for) {
                 // TODO: new Parser_error
-                JetVar* fvar = NULL;
+                Var* fvar = NULL;
                 if (!expr->left)
                     unreachable("Missing for-loop condition at %d:%d\n",
                         expr->line, expr->col);
                 else {
-                    if (expr->left->kind != tkKeyword_in)
+                    if (expr->left->kind != tkOpAssign)
                         unreachable("Invalid for-loop condition: %s\n",
                             TokenKind_repr[expr->left->kind]);
 
                     resolveVars(parser, expr->left->right, scope, false);
 
-                    fvar = NEW(JetVar);
+                    fvar = NEW(Var);
                     fvar->name = expr->left->left->string;
                     fvar->line = expr->left->line;
                     fvar->col = expr->left->left->col;
                     fvar->isVar = true;
                     fvar->init = expr->left->right;
-                    fvar->spec = NEW(JetTypeSpec);
+                    fvar->spec = NEW(TypeSpec);
                     fvar->spec->typeType = TYReal64;
 
-                    if ((orig = JetScope_getVar(scope, fvar->name)))
+                    if ((orig = Scope_getVar(scope, fvar->name)))
                         Parser_errorDuplicateVar(
                             parser, fvar, orig->line, orig->col);
                 }
-                forScope = NEW(JetScope);
+                forScope = NEW(Scope);
                 if (fvar) PtrList_shift(&forScope->locals, fvar);
                 forScope->parent = scope;
 
-                // scope = forScope; // so that when parseScope is called
-                // for the child scope, it receives the for variable's scope
-                // as parent
-
             } else if (expr->left) {
                 resolveVars(parser, expr->left, scope, false);
-            } // TODO: `for` necessarily introduces a counter variable, so
-            // check if that var name doesn't already exist in scope.
-            // Also assert that the cond of a for expr has kind
-            // tkOpAssign.
-            // insert a temp scope holding the var that for declares, then
-            // later move that var to the parsed scope
+            }
             if (tt == tkKeyword_for) {
-                // TODO: here it is too late to add the variable,
-                // because parseScope will call resolveVars.
-                // var = NEW(JetVar);
-                // var->name = expr->left->left->string;
-                // var->init = expr->left->right;
-                // var->spec = NEW(JetTypeSpec);
-                // var->spec->typeType = TYUInt32;
-                // PtrList_append(&expr->body->locals, var);
                 expr->body = parseScope(parser, forScope, isTypeBody);
             } else {
                 expr->body = parseScope(parser, scope, isTypeBody);
@@ -795,7 +724,7 @@ static JetScope* parseScope(Parser* parser, JetScope* parent, bool isTypeBody) {
 
         case tkLineComment:
             if (parser->generateCommentExprs) {
-                expr = JetExpr_fromToken(&parser->token);
+                expr = Expr_fromToken(&parser->token);
                 stmts = PtrList_append(stmts, expr);
             }
             Token_advance(&parser->token);
@@ -818,13 +747,13 @@ exitloop:
     return scope;
 }
 
-static JetScope* parseEnumBody(Parser* parser, JetScope* globScope) {
-    JetScope* scope = NEW(JetScope);
+static Scope* parseEnumBody(Parser* parser, Scope* globScope) {
+    Scope* scope = NEW(Scope);
     scope->parent = globScope;
-    JetExpr* expr = NULL;
-    JetVar* var = NULL;
-    List(JetVar)** vars = &scope->locals;
-    List(JetVar)** stmts = &scope->stmts;
+    Expr* expr = NULL;
+    Var* var = NULL;
+    List(Var)** vars = &scope->locals;
+    List(Var)** stmts = &scope->stmts;
 
     while (parser->token.kind != tkKeyword_end) {
         switch (parser->token.kind) {
@@ -838,21 +767,13 @@ static JetScope* parseEnumBody(Parser* parser, JetScope* globScope) {
 
         case tkLineComment:
             if (parser->generateCommentExprs) {
-                expr = JetExpr_fromToken(&parser->token);
+                expr = Expr_fromToken(&parser->token);
                 PtrList_append(&scope->stmts, expr);
             }
             Token_advance(&parser->token);
             break;
 
         case tkIdentifier:
-
-            // if (parser->token.kind != tkIdentifier) {
-            //     Parser_errorInvalidTypeMember(parser);
-            //     while (parser->token.pos != tkNewline)
-            //         Token_advance(&parser->token);
-            //     Token_advance(&parser->token); // eat the newline
-            //     break;
-            // }
 
             expr = parseExpr(parser);
 
@@ -865,17 +786,14 @@ static JetScope* parseEnumBody(Parser* parser, JetScope* globScope) {
             stmts = PtrList_append(stmts, expr);
             Token_advance(&parser->token); // eat the newline
 
-            var = NEW(JetVar);
-            var->spec = NEW(JetTypeSpec);
+            var = NEW(Var);
+            var->spec = NEW(TypeSpec);
             var->line = expr->line;
             var->col = (expr->kind == tkOpAssign) ? expr->left->col : expr->col;
             var->name = (expr->kind == tkOpAssign) ? expr->left->string
                                                    : expr->string;
             var->init = expr->right;
             vars = PtrList_append(vars, var);
-
-            // var->spec->typeType = TYObject;
-            // var->spec->type = ;
 
             if (expr->kind == tkOpAssign)
                 resolveVars(parser, expr->right, scope, false);
@@ -892,12 +810,12 @@ exitloop:
 }
 
 #pragma mark - PARSE PARAM
-static List(JetVar) * parseParams(Parser* parser) {
+static List(Var) * parseParams(Parser* parser) {
     Parser_consume(parser, tkOpLT);
-    List(JetVar) * params;
-    JetVar* param;
+    List(Var) * params;
+    Var* param;
     do {
-        param = NEW(JetVar);
+        param = NEW(Var);
         param->name = parseIdent(parser);
         if (Parser_ignore(parser, tkKeyword_as))
             param->spec = parseTypeSpec(parser);
@@ -909,11 +827,10 @@ static List(JetVar) * parseParams(Parser* parser) {
 }
 
 #pragma mark - PARSE FUNC / STMT-FUNC
-static JetFunc* parseFunc(
-    Parser* parser, JetScope* globScope, bool shouldParseBody) {
+static Func* parseFunc(Parser* parser, Scope* globScope, bool shouldParseBody) {
     Parser_consume(parser, tkKeyword_function);
     Parser_consume(parser, tkOneSpace);
-    JetFunc* func = NEW(JetFunc);
+    Func* func = NEW(Func);
 
     func->line = parser->token.line;
     func->col = parser->token.col;
@@ -932,7 +849,7 @@ static JetFunc* parseFunc(
     func->argCount = PtrList_count(func->args);
 
     if (mutator && func->argCount) {
-        JetVar* arg1 = func->args->item;
+        Var* arg1 = func->args->item;
         arg1->isVar = true;
         func->mutator = true;
     }
@@ -946,7 +863,7 @@ static JetFunc* parseFunc(
     if (shouldParseBody) {
         Parser_consume(parser, tkNewline);
 
-        JetScope* funcScope = NEW(JetScope);
+        Scope* funcScope = NEW(Scope);
         funcScope->parent = globScope;
         funcScope->locals = func->args;
         func->body = parseScope(parser, funcScope, false);
@@ -959,8 +876,8 @@ static JetFunc* parseFunc(
     return func;
 }
 
-static JetFunc* parseStmtFunc(Parser* parser, JetScope* globScope) {
-    JetFunc* func = NEW(JetFunc);
+static Func* parseStmtFunc(Parser* parser, Scope* globScope) {
+    Func* func = NEW(Func);
 
     func->line = parser->token.line;
     func->isStmt = true;
@@ -978,19 +895,19 @@ static JetFunc* parseStmtFunc(Parser* parser, JetScope* globScope) {
     func->argCount = PtrList_count(func->args);
 
     if (mutator && func->argCount) {
-        JetVar* arg1 = func->args->item;
+        Var* arg1 = func->args->item;
         arg1->isVar = true;
         func->mutator = true;
     }
 
     Parser_ignore(parser, tkOneSpace);
 
-    func->spec = NEW(JetTypeSpec);
+    func->spec = NEW(TypeSpec);
     func->spec->line = parser->token.line;
     func->spec->col = parser->token.col;
     func->spec->name = "";
 
-    JetExpr* ret = exprFromCurrentToken(parser);
+    Expr* ret = exprFromCurrentToken(parser);
 
     // if you have toplevel code (eg func call) it tends to reach here
     if (ret->kind != tkOpColEq) return NULL;
@@ -999,10 +916,10 @@ static JetFunc* parseStmtFunc(Parser* parser, JetScope* globScope) {
     ret->unary = true;
 
     ret->right = parseExpr(parser);
-    JetScope* scope = NEW(JetScope);
+    Scope* scope = NEW(Scope);
     PtrList_append(&scope->stmts, ret);
 
-    JetScope* funcScope = NEW(JetScope);
+    Scope* funcScope = NEW(Scope);
     funcScope->locals = func->args;
     scope->parent = funcScope;
     func->body = scope;
@@ -1014,7 +931,7 @@ static JetFunc* parseStmtFunc(Parser* parser, JetScope* globScope) {
 }
 
 #pragma mark - PARSE TEST
-static JetTest* parseTest(Parser* parser, JetScope* globScope) {
+static JetTest* parseTest(Parser* parser, Scope* globScope) {
     Parser_consume(parser, tkKeyword_test);
     Parser_consume(parser, tkOneSpace);
     JetTest* test = NEW(JetTest);
@@ -1041,9 +958,8 @@ static JetTest* parseTest(Parser* parser, JetScope* globScope) {
 static JetUnits* parseUnits(Parser* parser) { return NULL; }
 
 #pragma mark - PARSE TYPE
-static JetType* parseType(
-    Parser* parser, JetScope* globScope, bool shouldParseBody) {
-    JetType* type = NEW(JetType);
+static Type* parseType(Parser* parser, Scope* globScope, bool shouldParseBody) {
+    Type* type = NEW(Type);
 
     Parser_consume(parser, tkKeyword_type);
     Parser_consume(parser, tkOneSpace);
@@ -1081,8 +997,8 @@ static JetType* parseType(
     return type;
 }
 
-static JetType* parseEnum(Parser* parser, JetScope* globScope) {
-    JetType* en = NEW(JetType);
+static Type* parseEnum(Parser* parser, Scope* globScope) {
+    Type* en = NEW(Type);
 
     Parser_consume(parser, tkKeyword_enum);
     Parser_consume(parser, tkOneSpace);
@@ -1114,8 +1030,8 @@ static JetType* parseEnum(Parser* parser, JetScope* globScope) {
     return en;
 }
 
-static JetImport* parseImport(Parser* parser, JetModule* ownerMod) {
-    JetImport* import = NEW(JetImport);
+static Import* parseImport(Parser* parser, Module* ownerMod) {
+    Import* import = NEW(Import);
     char* tmp;
     Parser_consume(parser, tkKeyword_import);
     Parser_consume(parser, tkOneSpace);
@@ -1159,9 +1075,9 @@ static JetImport* parseImport(Parser* parser, JetModule* ownerMod) {
 
     char endchar = *parser->token.pos;
     *parser->token.pos = 0;
-    if (JetModule_getImportByAlias(ownerMod, import->name + import->aliasOffset)
-        || JetModule_getFuncByName(ownerMod, import->name + import->aliasOffset)
-        || JetModule_getVar(ownerMod, import->name + import->aliasOffset)) {
+    if (Module_getImportByAlias(ownerMod, import->name + import->aliasOffset)
+        || Module_getFuncByName(ownerMod, import->name + import->aliasOffset)
+        || Module_getVar(ownerMod, import->name + import->aliasOffset)) {
         unreachable(
             "import name already used: %s", import->name + import->aliasOffset);
         import = NULL;
@@ -1183,10 +1099,10 @@ static JetImport* parseImport(Parser* parser, JetModule* ownerMod) {
     return import;
 }
 
-void analyseModule(Parser* parser, JetModule* mod);
+void analyseModule(Parser* parser, Module* mod);
 
-static JetFunc* JetType_makeDefaultCtor(JetType* type) {
-    JetFunc* ctor = NEW(JetFunc);
+static Func* Type_makeDefaultCtor(Type* type) {
+    Func* ctor = NEW(Func);
     ctor->line = type->line;
     ctor->isDefCtor = true;
     // Ctors must AlWAYS return a new object.
@@ -1196,7 +1112,7 @@ static JetFunc* JetType_makeDefaultCtor(JetType* type) {
     char buf[128];
     int l = snprintf(buf, 128, "%s_new_", type->name);
     ctor->selector = CString_pndup(buf, l);
-    JetTypeSpec* tspec = JetTypeSpec_new(TYObject, CTYNone);
+    TypeSpec* tspec = TypeSpec_new(TYObject, CTYNone);
     tspec->type = type;
     ctor->spec = tspec;
     return ctor;
@@ -1205,34 +1121,34 @@ static JetFunc* JetType_makeDefaultCtor(JetType* type) {
 // this func should just be replaced by parseScope handling function type etc
 
 //,
-//        .init = (JetExpr[]) { { .kind = tkNumber, .string = "1" } } }
+//        .init = (Expr[]) { { .kind = tkNumber, .string = "1" } } }
 //}
 //;
 
 // vno->vno->;
-// JetVar* vyes = NEW(JetVar);
+// Var* vyes = NEW(Var);
 // vyes->name = "yes";
 // vyes->typeType = TYBool;
 
-// static JetModule* Parser_lookupModuleByAlias(PtrList* existingModules, char*
+// static Module* Parser_lookupModuleByAlias(PtrList* existingModules, char*
 // name) {
-//     foreach (JetModule*, mod, existingModules) {
+//     foreach (Module*, mod, existingModules) {
 //         // eprintf("lookup %s %s\n", name, mod->name);
 //         if (!strcasecmp(name, mod->name)) return mod;
 //     }
 //     return NULL;
 // }
-static JetModule* Parser_lookupModule(PtrList* existingModules, char* name) {
-    foreach (JetModule*, mod, existingModules) {
+static Module* Parser_lookupModule(PtrList* existingModules, char* name) {
+    foreach (Module*, mod, existingModules) {
         // eprintf("lookup %s %s\n", name, mod->name);
         if (!strcasecmp(name, mod->name)) return mod;
     }
     return NULL;
 }
 
-static JetModule* parseModule(
-    Parser* parser, PtrList** existingModulesPtr, JetModule* importer) {
-    JetModule* root = NEW(JetModule);
+static Module* parseModule(
+    Parser* parser, PtrList** existingModulesPtr, Module* importer) {
+    Module* root = NEW(Module);
 
     // ret->noext = CString_noext(CString_clone(filename));
     root->name = CString_tr_ip(
@@ -1242,12 +1158,12 @@ static JetModule* parseModule(
     // The name is all that is required for this module to be found later.
     PtrList_shift(existingModulesPtr, root);
     // eprintf("Parsing %s\n", root->name);
-    // root->scope = NEW(JetScope);
+    // root->scope = NEW(Scope);
 
     // Token parser->token = { .pos = data.ref, .end = data.ref + data.len };
     Token_advance(&parser->token); // maybe put this in parser ctor
 
-    JetImport* import = NULL;
+    Import* import = NULL;
     // The take away is (for C gen):
     // Every caller who calls append(List) should keep a local List*
     // to follow the list top as items are appended. Each actual append
@@ -1256,14 +1172,14 @@ static JetModule* parseModule(
     // the first. (it will work but seek through the whole list every
     // time).
 
-    List(JetFunc)** funcs = &root->funcs;
-    List(JetImport)** imports = &root->imports;
-    List(JetType)** types = &root->types;
+    List(Func)** funcs = &root->funcs;
+    List(Import)** imports = &root->imports;
+    List(Type)** types = &root->types;
     List(JetTest)** tests = &root->tests;
     List(JetEnum)** enums = &root->enums;
-    JetScope* gscope = root->scope;
-    List(JetVar)** gvars = &gscope->locals; // globals
-    List(JetExpr)** gexprs = &gscope->stmts; // globals
+    Scope* gscope = root->scope;
+    List(Var)** gvars = &gscope->locals; // globals
+    List(Expr)** gexprs = &gscope->stmts; // globals
 
     // for_to(i, countof(vnoyes))
     // gvars = PtrList_append(gvars, expr_const_empty);
@@ -1289,12 +1205,12 @@ static JetModule* parseModule(
             Token_advance(&parser->token);
             Parser_consume(parser, tkOneSpace);
             if (parser->token.kind == tkKeyword_function) {
-                JetFunc* func = parseFunc(parser, gscope, false);
+                Func* func = parseFunc(parser, gscope, false);
                 func->isDeclare = true;
                 funcs = PtrList_append(funcs, func);
             }
             if (parser->token.kind == tkKeyword_type) {
-                JetType* type = parseType(parser, gscope, false);
+                Type* type = parseType(parser, gscope, false);
                 type->isDeclare = true;
                 types = PtrList_append(types, type);
             }
@@ -1305,16 +1221,16 @@ static JetModule* parseModule(
             break;
 
         case tkKeyword_enum: {
-            JetType* en = parseEnum(parser, gscope);
+            Type* en = parseEnum(parser, gscope);
             enums = PtrList_append(enums, en);
             // add a global of the corresponding type so that it can be used
             // to access members.
             assert(en);
-            JetVar* enumv = NEW(JetVar);
+            Var* enumv = NEW(Var);
             enumv->name = en->name;
             enumv->line = en->line;
             enumv->col = en->col;
-            enumv->spec = NEW(JetTypeSpec);
+            enumv->spec = NEW(TypeSpec);
             enumv->spec->typeType = TYObject;
             enumv->spec->type = en;
             gvars = PtrList_append(gvars, enumv);
@@ -1323,19 +1239,19 @@ static JetModule* parseModule(
         break;
 
         case tkKeyword_type: {
-            JetType* type = parseType(parser, gscope, true);
+            Type* type = parseType(parser, gscope, true);
             types = PtrList_append(types, type);
 
             // create default constructor
-            JetFunc* ctor = JetType_makeDefaultCtor(type);
+            Func* ctor = Type_makeDefaultCtor(type);
             funcs = PtrList_append(funcs, ctor);
 
             // create some extra function declares
             char* defFuncs[] = { "json", "print", "describe" };
 
             for (int i = 0; i < countof(defFuncs); i++) {
-                JetFunc* func
-                    = JetFunc_createDeclWithArg(defFuncs[i], NULL, type->name);
+                Func* func
+                    = Func_createDeclWithArg(defFuncs[i], NULL, type->name);
                 func->line = type->line;
                 func->intrinsic = true;
                 funcs = PtrList_append(funcs, func);
@@ -1384,16 +1300,16 @@ static JetModule* parseModule(
             // TODO: add these to exprs
             {
                 int col = parser->token.col + parser->token.matchlen;
-                JetVar *var = parseVar(parser), *orig;
+                Var *var = parseVar(parser), *orig;
                 if (!var) {
                     Token_advance(&parser->token);
                     continue;
                 }
-                if ((orig = JetScope_getVar(gscope, var->name)))
+                if ((orig = Scope_getVar(gscope, var->name)))
                     Parser_errorDuplicateVar(
                         parser, var, orig->line, orig->col);
-                JetImport* imp = JetModule_getImportByAlias(root, var->name);
-                JetFunc* fnc = JetModule_getFuncByName(root, var->name);
+                Import* imp = Module_getImportByAlias(root, var->name);
+                Func* fnc = Module_getFuncByName(root, var->name);
                 if (imp)
                     Parser_errorDuplicateVar(parser, var, imp->line, imp->col);
                 if (fnc) Parser_errorDuplicateVar(parser, var, fnc->line, 5);
@@ -1405,7 +1321,7 @@ static JetModule* parseModule(
 
                 // TODO: validation should raise issue if var->init is
                 // missing
-                JetExpr* expr = NEW(JetExpr);
+                Expr* expr = NEW(Expr);
                 expr->kind = tkVarAssign;
                 expr->line = var->init ? var->init->line : parser->token.line;
                 expr->col = col;
@@ -1449,14 +1365,14 @@ static JetModule* parseModule(
 
     for (int j = 0; j < countof(defTypes); j++)
         for (int i = 0; i < countof(defFuncs); i++) {
-            JetFunc* func = JetFunc_createDeclWithArg(
-                defFuncs[i], retTypes[i], defTypes[j]);
+            Func* func
+                = Func_createDeclWithArg(defFuncs[i], retTypes[i], defTypes[j]);
             func->intrinsic = true;
             funcs = PtrList_append(funcs, func);
         }
 
     // do some analysis that happens after the entire module is loaded
-    JetModule_analyse(parser, root);
+    Module_analyse(parser, root);
     // if (importer) PtrList_shift(&importer->importedBy, root);
     return root;
 }

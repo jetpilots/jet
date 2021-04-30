@@ -1,0 +1,117 @@
+enum TypeTypes
+    unknown
+    number
+    string
+    boolean
+    object
+end
+enum NumSubTypes
+    unknown
+    real64
+    real32
+    bignum
+    complex
+end
+enum StrSubTypes
+    unknown
+    literal
+    cstring
+    fixedlength
+    growable
+end
+
+type TypeInfo
+    var typeType = TypeTypes.unknown
+    var numSubType = NumSubTypes.unknown
+    var strSubType = StrSubTypes.unknown
+end
+
+type VarInfo
+    var storage StorageKinds = .refcounted
+end
+
+~ stmt funcs data types are not recognized, leads to segfault
+~ VarInfo(s String) := VarInfo()
+
+func VarInfo(s String)
+    return VarInfo()
+end
+
+enum StorageKinds
+    refcounted
+    stack
+    heap
+    stackHeap
+    static
+    staticHeap
+end
+
+func TypeInfo(v Number)
+    var t = TypeInfo()
+    t.typeType = .number
+    return t
+end
+
+func TypeInfo(s String)
+    var t = TypeInfo()
+    t.typeType = .number
+    return t
+end
+
+test "numbers of various kinds detected correctly"
+    var v = 23
+    var t = TypeInfo(v)
+    ~ A typeinfo struct will be created for each type and made available in C. Since everything is constant there's no perf penalty and TypeInfo(...) is statically resolved. Theres only more bloat, so this won't be generated in release builds.
+    ~ seeing the TypeInfo will mark the var for typeInfo generation; this will make a
+    ~ struct jet_typeInfo_t _TypeInfo_v var right here and init it using a generated
+    ~ func that fills in typeInfo for the given type. All this is for runtime.
+    ~ Probably allow this only in a cheater version of Jet.
+    check t.typeType == .number
+    check t.numSubType == .real64
+    ~ checks involving TypeInfos are compile-time checks. They don't/can't really happen
+    ~ on the generated TypeInfo struct, so they happen on the ASTVar's typeInfo. After
+    ~ all this is the same info that will go into the TypeInfo at runtime.
+    var arr = []
+    var s = arr[v]
+    check t.numSubType == .sizet ~ because you used it as an index
+    v = 0+1i
+    check t.numSubType == .complex ~ because you assigned it a complex
+    ~ ^ that's quite stupid code if you ask me. Hope no one writes like this.
+    ~ why would you assign a complex to something that is not intended to be
+    ~ complex?
+    v = 123456789012345678901234567890
+    check t.numSubType == .bignum ~ because you assigned it a bignum
+    v = 3+2i
+    check t.numSubType == .bigComplex ~ because it was already big
+end
+
+test "strings of various kinds detected correctly"
+    var s = "basic string"
+    var t = TypeInfo(s)
+    var vt = VarInfo(s)
+    check t.typeType == .string
+    check t.strSubType == .literal
+    check vt.storage == .static
+end
+
+func tsz(s Number, en TypeTypes, mks String)
+end
+
+func tsz(s Number, en TypeTypes, mk Number)
+end
+
+func tsza(en TypeTypes)
+end
+
+test "enum recognized in func arguments"
+    ~ tkFuncCall tries to analyse args before it can resolve the func
+    ~ and doesnt know what the target enum type is.
+    tsz(7, en=.object, mk= 8)
+    tsz(7, .object, mk= 8)
+    tsz(7, en=.object, 8)
+    tsz(7, .object, 8)
+end
+
+test "wrong argument labels are reported"
+    tsz(3, esd=.object, kj=4)
+end

@@ -72,7 +72,7 @@ enum TypeSubTypes_Number {
 */
 // enum TypeSubTypes_ {};
 
-// TODO: JetTypeSpecs will have a TypeTypes typeType; that can be used
+// TODO: TypeSpecs will have a TypeTypes typeType; that can be used
 // to determine quickly if it is a primitive. fits in 4bits btw
 typedef enum TypeTypes {
     // FIXME: this should fit in 4bit max!!!! or not?
@@ -82,7 +82,7 @@ typedef enum TypeTypes {
     // serialise, identify, reflect, etc.
     TYNoType, // void
     TYNilType, // passes type validation with anything. be careful!
-    TYObject, // resolved to an JetType
+    TYObject, // resolved to an Type
     // primitives that can be printed or represented with no fuss
     TYErrorType, // use this to poison an expr which has a type error
     // and the error has been reported, to avoid

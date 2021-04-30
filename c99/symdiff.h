@@ -1,4 +1,4 @@
-JetExpr* makeDerivative(JetExpr* expr, JetVar* wrt) {
+Expr* makeDerivative(Expr* expr, Var* wrt) {
     switch (expr->kind) {
     case tkOpPlus:
     case tkOpMinus:
@@ -7,7 +7,7 @@ JetExpr* makeDerivative(JetExpr* expr, JetVar* wrt) {
         else if (expr->right->isConst)
             return makeDerivative(expr->left, wrt);
         else
-            return NEWW(JetExpr, //
+            return NEWW(Expr, //
                 .left = makeDerivative(expr->left, wrt),
                 .right = makeDerivative(expr->right, wrt), //
                 .kind = expr->kind);
@@ -18,7 +18,7 @@ JetExpr* makeDerivative(JetExpr* expr, JetVar* wrt) {
         else if (expr->right->isConst)
             return makeDerivative(expr->left, wrt);
         else
-            return NEWW(JetExpr, //
+            return NEWW(Expr, //
                 .left = makeDerivative(expr->left, wrt),
                 .right = makeDerivative(expr->right, wrt), //
                 .kind = expr->kind);

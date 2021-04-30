@@ -88,10 +88,8 @@ func checkUnusedVars!(parser Parser, scope ASTScope)
 end
 
 func checkUnusedVars!(parser Parser, afunc ASTFunc)
-    for arg in func.args
-        if not arg.used then warnUnusedArg!(parser, arg)
-    end
-    checkUnusedVars!(parser, scope=func.body)
+    for arg in func.args where not arg.used do errs!.unusedArg(arg)
+    parser!.checkUnusedVars(scope=func.body)
 end
 
 
@@ -189,7 +187,7 @@ func resolveVars!(parser Parser, expr ASTExpr, scope ASTScope, inFuncCall Bool)
         end
         resolveVars!(parser, expr.right, scope, inFuncCall)
 
-        if isSelfMutOp(expr)
+        if expr.isSelfMutOp
             var v ASTVar = nil
             var varExpr ASTExpr = expr.left
             if varExpr.kind in [.identifierResolved, .subscriptResolved]

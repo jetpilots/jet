@@ -4,13 +4,21 @@ typedef struct JetLocation {
     uint32_t line : 24, col : 8;
 } JetLocation;
 
-struct JetModule;
-typedef struct JetImport {
+typedef struct Module Module;
+
+typedef struct TypeSpec TypeSpec;
+typedef struct Type Type;
+typedef struct Func Func;
+typedef struct Scope Scope;
+typedef struct Expr Expr;
+typedef struct Var Var;
+
+typedef struct Import {
     char* name; //, *alias;
-    struct JetModule* module;
+    Module* module;
     uint32_t aliasOffset, line : 16, col : 8, used : 1;
     // bool isPackage, hasAlias;
-} JetImport;
+} Import;
 
 typedef struct JetUnits {
     uint8_t powers[7], something;
@@ -23,10 +31,10 @@ typedef struct {
 } Interval;
 // TODO: replace this with the generic RealRange
 
-// TODO: somewhere in the typespec or in the JetVar need a flag refCounted
-typedef struct JetTypeSpec {
+// TODO: somewhere in the typespec or in the Var need a flag refCounted
+struct TypeSpec {
     union {
-        struct JetType* type;
+        Type* type;
         char* name;
         Interval* intv;
         // ^ e.g. var x in [1:250]
@@ -38,7 +46,7 @@ typedef struct JetTypeSpec {
         // simply a check/multiply op. in tthe Jet | is a tkDimensionedExpr, or
         // simply every expr has a JetUnits* member.
     };
-    struct { // todo: this must be named TypeInfo & reused in JetExpr not copy
+    struct { // todo: this must be named TypeInfo & reused in Expr not copy
              // pasted
         uint16_t dims; // more than 65535 dims will not be handled at compile
                        // time (size check, shape check etc) but at runtime. if
@@ -53,13 +61,13 @@ typedef struct JetTypeSpec {
     };
     JetLocation loc[0];
     uint32_t line : 24, col, : 8;
-} JetTypeSpec;
+};
 
-typedef struct JetVar {
+struct Var {
     char* name;
-    JetTypeSpec* spec;
+    TypeSpec* spec;
     union {
-        struct JetExpr* init;
+        Expr* init;
         // when you move to having return var, there wont be a spec on
         // funcs anymore, only on vars. then you can get rid of asttypespec and
         // move its stuff here. When there is an init, you take typeinfo from
@@ -77,12 +85,12 @@ typedef struct JetVar {
             };
         }; */
     };
-    // List(JetVar*) deps; // TODO: keep deps of each var so you can tell when a
+    // List(Var*) deps; // TODO: keep deps of each var so you can tell when a
     // dependency of an async var is changed before the async is awaited. First
     // you will have to figure out how to analyze array members and type members
     // (e.g. init an instance for each compound type and array for each array
     // and then set the member of that as dep...)
-    // struct JetExpr* lastUsed; //
+    // struct Expr* lastUsed; //
     // last expr in owning scope that refers to this var. Note that you should
     // dive to search for the last expr, it may be within an inner scope. The
     // drop call should go at the end of such subscope, NOT within the subscope
@@ -98,8 +106,6 @@ typedef struct JetVar {
     // for multiline exprs you should save the toplevel expr line and not the
     // line of the actual tkIdentifierResolved.
 
-    // char storage;
-    // 's': stack, 'h': heap, 'm': mixed, 'r': refcounted
     // mixed storage is for strings/arrays etc which start out with a stack
     // buffer and move to a heap buffer if grown. var x T starts out with a
     // buffer T x__buf[N*sizeof(T)] in that case where N is an initial guess.
@@ -157,7 +163,7 @@ typedef struct JetVar {
         // all args (in/out) are in the same list in func -> args.
     };
     // uint8_t col;
-} JetVar;
+};
 
 static const char* const StorageClassNames[]
     = { "refcounted", "heap", "stack", "mixed" };
@@ -168,7 +174,7 @@ static const char* const StorageClassNames[]
 // -- if it is passed to a func as an arg and the arg `escapes`
 //    analyseExpr sets `escapes` on each arg as it traverses the func
 
-typedef struct JetExpr {
+struct Expr {
     struct {
         union {
             struct {
@@ -217,9 +223,9 @@ typedef struct JetExpr {
         TokenKind kind : 8;
     };
     union {
-        struct JetExpr* left;
-        List(JetVar*) * vars; // for tkString
-        struct JetType* elementType; // for tkListLiteral, tkDictLiteral only!!
+        Expr* left;
+        List(Var*) * vars; // for tkString
+        Type* elementType; // for tkListLiteral, tkDictLiteral only!!
     };
     union {
         // JetEvalInfo eval;
@@ -230,66 +236,66 @@ typedef struct JetExpr {
         // computed hash! TO COMPUTE HASH OF EXPR TREES
     };
     union {
+        Expr* right;
         char* string;
         double real;
         int64_t integer;
         uint64_t uinteger;
         // char* name; // for idents or unresolved call or subscript
-        struct JetFunc* func; // for functioncall
-        struct JetVar* var; // for array subscript, or a tkVarAssign
-        struct JetScope* body; // for if/for/while
-        struct JetExpr* right;
-        struct JetImport* import; // for imports tkKeyword_import
+        Func* func; // for functioncall
+        Var* var; // for array subscript, or a tkVarAssign
+        Scope* body; // for if/for/while
+        Import* import; // for imports tkKeyword_import
     };
     // TODO: the code motion routine should skip over exprs with
     // promote=false this is set for exprs with func calls or array
     // filtering etc...
-} JetExpr;
+};
 
-typedef struct JetScope {
-    List(JetExpr) * stmts;
-    List(JetVar) * locals;
-    struct JetScope* parent;
+struct Scope {
+    List(Expr) * stmts;
+    List(Var) * locals;
+    Scope* parent;
     bool isLoop; // this affects drops: loop scopes cannot drop parent vars.
     // still space left
-} JetScope;
+};
 
-typedef struct JetType {
+struct Type {
     char* name;
     /// [unused] supertype. Jet does not have inheritance, perhaps for good.
-    JetTypeSpec* super;
+    TypeSpec* super;
     /// The other types that are used in this type (i.e. types of member
     /// variables)
-    List(JetType) * usedTypes;
+    List(Type) * usedTypes;
     /// The other types that use this type.
-    List(JetType) * usedByTypes;
+    List(Type) * usedByTypes;
     /// The body of the type, as a scope. In effect it can have any expressions,
     /// but most kinds are disallowed by the parsing routine. Variable
     /// declarations and invariant checks are what you should mostly expect to
     /// see inside type bodies, not much else.
-    JetScope* body;
+    Scope* body;
     uint16_t line, used;
     uint8_t col;
     bool analysed : 1, needJSON : 1, needXML : 1, needYAML : 1, visited : 1,
         isValueType : 1, isEnum : 1,
         isDeclare : 1; // all vars of this type will be stack
                        // allocated and passed around by value.
-} JetType;
+};
 
 // typedef struct JetEnum {
 //     char* name;
-//     JetScope* body;
+//     Scope* body;
 //     uint16_t line;
 //     uint8_t col;
 //     bool analysed : 1, visited : 1;
 // } JetEnum;
 
-typedef struct JetFunc {
+struct Func {
     char* name;
-    JetScope* body;
-    List(JetVar) * args;
-    List(JetFunc) * callers, *callees;
-    JetTypeSpec* spec;
+    Scope* body;
+    List(Var) * args;
+    List(Func) * callers, *callees;
+    TypeSpec* spec;
     char *selector, *prettySelector;
     struct {
         uint16_t line, used, col;
@@ -328,11 +334,11 @@ typedef struct JetFunc {
         };
         uint8_t argCount, nameLen;
     };
-} JetFunc;
+};
 
 typedef struct JetTest {
     char* name;
-    JetScope* body;
+    Scope* body;
     char* selector;
     struct {
         uint16_t line;
@@ -342,18 +348,15 @@ typedef struct JetTest {
     };
 } JetTest;
 
-typedef struct JetModule {
+struct Module {
 
-    JetScope scope[1]; // global scope contains vars + exprs
-    List(JetFunc) * funcs;
+    Scope scope[1]; // global scope contains vars + exprs
+    List(Func) * funcs;
     List(JetTest) * tests;
-    // List(JetExpr) * exprs; // global exprs
-    List(JetType) * types, *enums;
-    // List(JetVar) * vars; // global vars
-    List(JetImport) * imports;
-    // List(JetType) * enums;
-    List(JetModule) * importedBy; // for dependency graph. also use
-                                  // imports[i]->module over i
+    List(Type) * types, *enums;
+    List(Import) * imports;
+    List(Module) * importedBy; // for dependency graph. also use
+                               // imports[i]->module over i
     char *name, *fqname, *filename;
 
     // DiagnosticReporter reporter;
@@ -364,7 +367,7 @@ typedef struct JetModule {
             rational : 1, polynomial : 1, regex : 1, datetime : 1, colour : 1,
             range : 1, table : 1, gui : 1;
     } requires;
-} JetModule;
+};
 
 // better keep a set or map instead and add as you encounter in code
 // or best do nothing and let user write 'import formats' etc
@@ -385,41 +388,34 @@ typedef struct JetModule {
 
 #pragma mark - Jet UNITS IMPL.
 
-struct JetTypeSpec;
-struct JetType;
-struct JetFunc;
-struct JetScope;
-struct JetExpr;
-struct JetVar;
-
-#define List_JetExpr PtrList
-#define List_JetVar PtrList
-#define List_JetModule PtrList
-#define List_JetFunc PtrList
+#define List_Expr PtrList
+#define List_Var PtrList
+#define List_Module PtrList
+#define List_Func PtrList
 #define List_JetEnum PtrList
 #define List_JetTest PtrList
-#define List_JetType PtrList
-#define List_JetImport PtrList
-#define List_JetScope PtrList
+#define List_Type PtrList
+#define List_Import PtrList
+#define List_Scope PtrList
 
-MKSTAT(JetExpr)
-MKSTAT(JetFunc)
+MKSTAT(Expr)
+MKSTAT(Func)
 MKSTAT(JetTest)
 MKSTAT(JetEnum)
-MKSTAT(JetTypeSpec)
-MKSTAT(JetType)
-MKSTAT(JetModule)
-MKSTAT(JetScope)
-MKSTAT(JetImport)
-MKSTAT(JetVar)
+MKSTAT(TypeSpec)
+MKSTAT(Type)
+MKSTAT(Module)
+MKSTAT(Scope)
+MKSTAT(Import)
+MKSTAT(Var)
 MKSTAT(Parser)
-MKSTAT(List_JetExpr)
-MKSTAT(List_JetFunc)
+MKSTAT(List_Expr)
+MKSTAT(List_Func)
 MKSTAT(List_JetEnum)
 MKSTAT(List_JetTest)
-MKSTAT(List_JetType)
-MKSTAT(List_JetModule)
-MKSTAT(List_JetScope)
-MKSTAT(List_JetImport)
-MKSTAT(List_JetVar)
+MKSTAT(List_Type)
+MKSTAT(List_Module)
+MKSTAT(List_Scope)
+MKSTAT(List_Import)
+MKSTAT(List_Var)
 static uint32_t exprsAllocHistogram[128];

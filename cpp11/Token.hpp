@@ -114,7 +114,7 @@ struct Token {
     // Peek at the char after the current (complete) token
 
 #define compareKeywordAlt(tok, actual)                                         \
-    if (sizeof(#tok) - 1 == l && !strncasecmp(#tok, s, l)) {                   \
+    if (sizeof(#tok) - 1 == l and !strncasecmp(#tok, s, l)) {                  \
         kind = tkKeyword_##actual;                                             \
         return;                                                                \
     }
@@ -163,13 +163,13 @@ struct Token {
     compareKeyword(result)
     compareKeyword(as)
 
-    if (! strncasecmp("else if ", s, 8))
+    if (not  strncasecmp("else if ", s, 8))
     {
         kind = tkKeyword_elif;
         len = 7;
         return;
     }
-    if (!strncasecmp("not in ", s, 7)) {
+    if (not strncasecmp("not in ", s, 7)) {
         kind = tkKeyword_notin;
         len = 6;
         return;
@@ -281,12 +281,11 @@ struct Token {
                 // before
                 pos++;
                 tt = getType(0);
-                if (tt == tkNullChar || tt == tmp) {
-                    *pos = 0;
-                    pos++;
+                if (tt == tkNullChar or tt == tmp) {
+                    *pos++ = 0;
                     break;
                 }
-                if (tt == tkOpBackslash && getType(1) == tmp) pos++;
+                if (tt == tkOpBackslash and getType(1) == tmp) pos++;
                 if (tt == tkNewline) {
                     line++;
                     col = 0;
@@ -332,14 +331,14 @@ struct Token {
                 tt = getType(1);
                 pos++;
                 if (tt == tkHash) {
-                    while (*pos != '\n' && *pos != '\0') pos++;
+                    while (*pos != '\n' and *pos != '\0') pos++;
                     tt = getType(0);
                 }
                 if (tt == tkNewline) {
                     line++;
                     col = 0;
                 }
-                if (tt != tkSpaces && tt != tkNewline && tt != tkHash) break;
+                if (tt != tkSpaces and tt != tkNewline and tt != tkHash) break;
             }
             break;
 
@@ -349,16 +348,16 @@ struct Token {
             // single token
             //        self->pos++;
 
-            while (pos && *pos) {
+            while (pos and *pos) {
                 pos++;
                 if (*pos == '#')
-                    while (*pos && *pos != '\n') pos++;
+                    while (*pos and *pos != '\n') pos++;
 
                 if (*pos == '\n') {
                     line++;
                     col = 0;
                 }
-                if (*pos != ' ' && *pos != '\n' && *pos != '#') {
+                if (*pos != ' ' and *pos != '\n' and *pos != '#') {
                     pos--;
                     break;
                 }
@@ -366,7 +365,7 @@ struct Token {
             // tt_ret = tt == tkArrayOpen ? tkListLiteral : tkDictLiteral;
 
             // mergearraydims should be set only when reading func args
-            if (!mergeArrayDims) goto defaultToken;
+            if (not mergeArrayDims) goto defaultToken;
 
             // during mergeDims [:,:] is considered 1 token.
             // hopefully nobody embeds spaces and comments here, but...
@@ -374,7 +373,7 @@ struct Token {
             while (tt != tkNullChar) {
                 tt = getType(1);
                 pos++;
-                if (tt != tkOpColon && tt != tkOpComma) break;
+                if (tt != tkOpColon and tt != tkOpComma) break;
             }
             tt = getType(0);
             if (tt != tkArrayClose) {
@@ -394,8 +393,7 @@ struct Token {
             while (tt != tkNullChar) {
                 tt = getType(1);
                 pos++;
-                if (tt != tkAlphabet && tt != tkDigit && tt != tkUnderscore)
-                    // and tt != tkPeriod)
+                if (tt != tkAlphabet and tt != tkDigit and tt != tkUnderscore)
                     break; /// validate in parser not here
             }
             if (tt == tkExclamation) pos++; // include it in ident
@@ -415,8 +413,8 @@ struct Token {
             while (tt != tkNullChar) {
                 tt = getType(1);
                 pos++;
-                if (tt != tkAlphabet && tt != tkDigit && tt != tkOpSlash
-                    && tt != tkPeriod)
+                if (tt != tkAlphabet and tt != tkDigit and tt != tkOpSlash
+                    and tt != tkPeriod)
                     break;
             }
             tt_ret = tkUnits;
@@ -446,9 +444,9 @@ struct Token {
                     found_dot = true;
                     continue;
                 }
-                if (found_dot && tt == tkPeriod) tt_ret = tkMultiDotNumber;
+                if (found_dot and tt == tkPeriod) tt_ret = tkMultiDotNumber;
 
-                if (tt != tkDigit && tt != tkPeriod && *pos != 'i') break;
+                if (tt != tkDigit and tt != tkPeriod and *pos != 'i') break;
             }
             break;
 
@@ -457,9 +455,9 @@ struct Token {
             pos++;
             break;
 
-        case tkOpNotResults:
-            // 3-char tokens
-            pos++;
+        // 3-char tokens
+        case tkOpNotResults: pos++;
+        // 2-char tokens
         case tkOpEQ:
         case tkOpGE:
         case tkOpLE:
@@ -471,10 +469,7 @@ struct Token {
         case tkOpTimesEq:
         case tkOpSlashEq:
         case tkOpPowerEq:
-        case tkOpModEq:
-
-            // 2-char tokens
-            pos++;
+        case tkOpModEq: pos++;
         default:
         defaultToken:
             tt_ret = tt;
@@ -488,10 +483,10 @@ struct Token {
 
         if (is(tkIdentifier)) tryKeywordMatch();
 
-        if (is(tkSpaces) && len == 1) kind = tkOneSpace;
+        if (is(tkSpaces) and len == 1) kind = tkOneSpace;
 
         tt_last = kind;
-        if (tt_last != tkOneSpace && tt_last != tkSpaces)
+        if (tt_last != tkOneSpace and tt_last != tkSpaces)
             tt_lastNonSpace = tt_last;
     }
 
@@ -556,7 +551,7 @@ struct Token {
             col = 0; // position of the nl itself is 0
         }
         if (skipWhiteSpace
-            && (is(tkSpaces) || (strictSpacing && kind == tkOneSpace)))
+            and (is(tkSpaces) or (strictSpacing and kind == tkOneSpace)))
             advance();
     }
 };

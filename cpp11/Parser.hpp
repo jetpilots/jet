@@ -110,14 +110,6 @@ struct Parser {
 
             case tkIdentifier:
 
-                // if (lex.kind != tkIdentifier) {
-                //     errorInvalidTypeMember(parser);
-                //     while (lex.pos != tkNewline)
-                //         token.advance();
-                //     token.advance(); // eat the newline
-                //     break;
-                // }
-
                 expr = parseExpr(*scope);
 
                 if (not expr) break;
@@ -218,9 +210,6 @@ struct Parser {
                 scope->vars.push(*var);
 
                 expr = Expr::Defn(*var);
-                // new Expr(tkVarAssign, var->loc);
-                // expr->prec = getPrecedence(tkOpAssign);
-                // expr->var = var;
 
                 scope->stmts.push(*expr);
                 break;
@@ -228,7 +217,6 @@ struct Parser {
             case tkKeyword_case: goto exitloop;
 
             case tkKeyword_match:
-                // if (isTypeBody) errorInvalidTypeMember(parser);
 
                 expr = match(tkKeyword_match);
                 expr->left = parseExpr(*scope);
@@ -343,14 +331,8 @@ struct Parser {
 
             default:
                 expr = parseExpr(*scope);
-                // if (expr and isTypeBody) {
-                //     errs.invalidMember(expr);
-                //     expr = nullptr;
-                // }
                 if (not expr) break;
                 scope->stmts.push(*expr);
-                // token.advance(); // eat the newline
-                // resolveVars(expr, scope, false);
                 break;
             }
         }
@@ -395,13 +377,11 @@ struct Parser {
             case tkNewline:
             case tkOneSpace:
             case tkLineComment: token.advance(); break;
-            // case tkKeyword_end: goto exitloop;
             default:
                 errs.unexpectedToken(token, "expected 'case' or 'end'");
                 token.advance();
             }
         }
-        // exitloop:
         return scope;
     }
 

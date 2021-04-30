@@ -12,12 +12,12 @@ type DateTime extends DiskItem
     var day = 1
     var month = 1
     var year = 1970
-    always 0 <= hour < 24
-    always 0 <= minute < 60
-    always 0 <= second < 60
-    always 1 <= day <= 31
-    always 1 <= month <= 12
-    always 1 <= year <= 5000
+    hold 0 <= hour < 24
+    hold 0 <= minute < 60
+    hold 0 <= second < 60
+    hold 1 <= day <= 31
+    hold 1 <= month <= 12
+    hold 1 <= year <= 5000
 end
 
 func ASTExpr.gen()

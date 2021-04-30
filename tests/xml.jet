@@ -355,15 +355,15 @@ func start()
 
 end
 
-func stats(fileSize Number|B within <0:2^24>,
+func stats(fileSize Number|B in <0:2^24>,
       fileModified as YesOrNo,
-      fileRange as Number[3D] within <2:29>) result (ret Number[2D])
+      fileRange as Number[3D] in <2:29>) result (ret Number[2D])
 
     ~ var sret as Number[3D] = clone(inArg)
     ~ let fileSize|B
     ~ let fileModified::YesOrNo
     ~ let fileRange as Number[3D] in <2:1:29> # <2:29> is RealRange, <2:1:29> is IntRange
-    check fileRange within <2:29>
+    check fileRange in <2:29>
 
     var pctUsed = jet.gPool.usedTotal * 100 / jet.gPool.capTotal
     var nodeToFileRatio = jet.gPool.usedTotal / fileSize

@@ -22,7 +22,7 @@ static void Parser__warnHeaderWithLoc(
         col + len, ++parser->issues.warnCount);
 }
 
-static void Parser__errHeaderWithExpr(Parser* parser, JetExpr* expr) {
+static void Parser__errHeaderWithExpr(Parser* parser, Expr* expr) {
     int len;
     int col = expr->col;
     switch (expr->kind) {
@@ -178,7 +178,7 @@ bool isKeywordKind(TokenKind kind) {
     return false;
 }
 
-static void Parser_errorParsingExpr(Parser* parser, JetExpr* expr, char* what) {
+static void Parser_errorParsingExpr(Parser* parser, Expr* expr, char* what) {
 
     Parser__errHeaderWithExpr(parser, expr);
     eprintf(
@@ -203,7 +203,7 @@ static void Parser_errorInvalidTypeMember(Parser* parser) {
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorUnrecognizedVar(Parser* parser, JetExpr* expr) {
+static void Parser_errorUnrecognizedVar(Parser* parser, Expr* expr) {
     Parser__errHeaderWithExpr(parser, expr);
     eprintf("unknown variable '%.*s'\n", 64, expr->string);
 
@@ -214,13 +214,13 @@ static void Parser_errorUnrecognizedVar(Parser* parser, JetExpr* expr) {
 }
 
 static void Parser_errorUnrecognizedMember(
-    Parser* parser, JetType* type, JetExpr* expr) {
+    Parser* parser, Type* type, Expr* expr) {
     Parser__errHeaderWithExpr(parser, expr);
     eprintf("%s '%s' has no member '%s';;", type->isEnum ? "enum" : "type",
         type->name, expr->string);
 
     if (type->body) {
-        foreach (JetVar*, var, type->body->locals) {
+        foreach (Var*, var, type->body->locals) {
             unsigned l1 = strlen(var->name);
             unsigned l2 = strlen(expr->string);
 
@@ -228,27 +228,27 @@ static void Parser_errorUnrecognizedMember(
                 eprintf("did you mean: '%s'?;;", var->name);
         }
         eputs("members: ");
-        foreachn(JetVar*, var, vi, type->body->locals) if (var->name
-            && *var->name) eprintf("%s%s", var->name, vi->next ? ", " : "");
+        foreachn(Var*, var, vi, type->body->locals) if (var->name && *var->name)
+            eprintf("%s%s", var->name, vi->next ? ", " : "");
         eputs("\n");
     }
     Parser_errorIncrement(parser);
 }
 
-static void Parser_warnUnusedArg(Parser* parser, JetVar* var) {
+static void Parser_warnUnusedArg(Parser* parser, Var* var) {
     if (!parser->issues.warnUnusedArg) return;
     Parser__warnHeaderWithLoc(parser, var->line, var->col, strlen(var->name));
     eprintf("unused or unnecessary argument '%s'\n", var->name);
 }
 
-static void Parser_warnUnusedVar(Parser* parser, JetVar* var) {
+static void Parser_warnUnusedVar(Parser* parser, Var* var) {
     if (!parser->issues.warnUnusedVar) return;
     Parser__warnHeaderWithLoc(
         parser, var->line, var->col - 4, 4 + strlen(var->name));
     eprintf("unused or unnecessary variable '%s'\n", var->name);
 }
 
-static void Parser_warnUnusedFunc(Parser* parser, JetFunc* func) {
+static void Parser_warnUnusedFunc(Parser* parser, Func* func) {
     if (!parser->issues.warnUnusedFunc) return;
     Parser__warnHeaderWithLoc(
         parser, func->line, func->col - 5, 5 + strlen(func->name));
@@ -256,14 +256,14 @@ static void Parser_warnUnusedFunc(Parser* parser, JetFunc* func) {
         func->selector);
 }
 
-static void Parser_warnUnusedType(Parser* parser, JetType* type) {
+static void Parser_warnUnusedType(Parser* parser, Type* type) {
     if (!parser->issues.warnUnusedType) return;
     Parser__warnHeaderWithLoc(
         parser, type->line, type->col, strlen(type->name));
     eprintf("unused type '%s'\n", type->name);
 }
 
-static void Parser_warnSameExpr(Parser* parser, JetExpr* e1, JetExpr* e2) {
+static void Parser_warnSameExpr(Parser* parser, Expr* e1, Expr* e2) {
     Parser__warnHeaderWithLoc(parser, e1->line, e1->col, 1);
     eprintf("CSE candidate '%s' for %d:%d\n", TokenKind_repr[e1->kind],
         e2->line, e2->col);
@@ -274,15 +274,14 @@ static void Parser_warnSameExpr(Parser* parser, JetExpr* e1, JetExpr* e2) {
 }
 
 static void Parser_errorDuplicateVar(
-    Parser* parser, JetVar* var, int line, int col) {
+    Parser* parser, Var* var, int line, int col) {
     Parser__errHeaderWithLoc(parser, var->line, var->col, strlen(var->name));
     eprintf("duplicate variable '%s' already declared at %s%s:%d:%d\n",
         var->name, RELF(parser->filename), line, col);
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorDuplicateType(
-    Parser* parser, JetType* type, JetType* orig) {
+static void Parser_errorDuplicateType(Parser* parser, Type* type, Type* orig) {
     Parser__errHeaderWithLoc(parser, type->line, type->col, strlen(type->name));
     if (orig)
         eprintf("duplicate type '%s' already declared at %s%s:%d:%d\n",
@@ -293,8 +292,7 @@ static void Parser_errorDuplicateType(
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorDuplicateEnum(
-    Parser* parser, JetType* en, JetType* orig) {
+static void Parser_errorDuplicateEnum(Parser* parser, Type* en, Type* orig) {
     Parser__errHeaderWithLoc(parser, en->line, en->col, strlen(en->name));
     if (orig)
         eprintf("duplicate enum '%s' already declared at %s%s:%d:%d\n",
@@ -304,15 +302,14 @@ static void Parser_errorDuplicateEnum(
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorTypeInheritsSelf(Parser* parser, JetType* type) {
+static void Parser_errorTypeInheritsSelf(Parser* parser, Type* type) {
     Parser__errHeader(parser);
     eprintf("type inherits from self %s at %s%s:%d:%d\n", type->name,
         RELF(parser->filename), type->line, type->col);
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorCtorHasType(
-    Parser* parser, JetFunc* func, JetType* orig) {
+static void Parser_errorCtorHasType(Parser* parser, Func* func, Type* orig) {
     Parser__errHeader(parser);
     eprintf("constructor needs no return "
             "type: %s at %s%s:%d:%d\n"
@@ -323,8 +320,8 @@ static void Parser_errorCtorHasType(
     Parser_errorIncrement(parser);
 }
 
-static void Parser_warnCtorCase(Parser* parser, JetFunc* func) {
-    JetType* orig = func->spec->type;
+static void Parser_warnCtorCase(Parser* parser, Func* func) {
+    Type* orig = func->spec->type;
     Parser__errHeader(parser);
     eprintf("\n(%d) warning: wrong case "
             "%s for constructor at %s%s:%d:%d\n"
@@ -336,8 +333,7 @@ static void Parser_warnCtorCase(Parser* parser, JetFunc* func) {
         orig->name);
 }
 
-static void Parser_errorDuplicateFunc(
-    Parser* parser, JetFunc* func, JetFunc* orig) {
+static void Parser_errorDuplicateFunc(Parser* parser, Func* func, Func* orig) {
     Parser__errHeaderWithLoc(parser, func->line, 5, strlen(func->name));
     eprintf("duplicate function "
             "'%s' already declared at %s%s:%d:%d with selector %s\n",
@@ -354,7 +350,7 @@ static void Parser_errorDuplicateTest(
 }
 
 static void Parser_errorUnrecognizedFunc(
-    Parser* parser, JetExpr* expr, char* selector) {
+    Parser* parser, Expr* expr, char* selector) {
     if (noPoison && *selector == '<') return; // invalid type; already error'd
     Parser__errHeaderWithExpr(parser, expr);
 
@@ -368,7 +364,29 @@ static void Parser_errorUnrecognizedFunc(
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorStringInterp(Parser* parser, JetExpr* expr, char* pos) {
+// when a func is not exactly found based on selector, issue a warning and take
+// the closest matching func by type. Generally the linter will add labels
+// automatically so this warning will only appear on unlinted files.
+static void Parser_warnUnrecognizedSelector(
+    Parser* parser, Expr* expr, char* selector, Func* selected) {
+    if (noPoison && *selector == '<') return; // invalid type; already error'd
+    Parser__warnHeaderWithLoc(
+        parser, expr->line, expr->col, strlen(expr->string));
+
+    eprintf("no exact match for function '%s' with selector '%s', taking "
+            "closest match '%s' (at %s%s:%d:%d)\n",
+        expr->string, selector, selected->selector, RELF(parser->filename),
+        expr->line, expr->col);
+
+    Parser__printSourceLines(parser, expr->line, expr->col,
+        strlen(expr->string), "unknown function");
+
+    // eprintf("info: no function with selector '%s'\n", selector);
+
+    // Parser_errorIncrement(parser);
+}
+
+static void Parser_errorStringInterp(Parser* parser, Expr* expr, char* pos) {
     Parser__errHeader(parser);
     eprintf("\n ERROR                                    "
             "           "
@@ -388,7 +406,7 @@ static void Parser_errorStringInterp(Parser* parser, JetExpr* expr, char* pos) {
 }
 
 static void Parser_errorCallingFuncWithVoid(
-    Parser* parser, JetExpr* expr, JetExpr* arg) {
+    Parser* parser, Expr* expr, Expr* arg) {
     Parser__errHeader(parser);
     eprintf("\n ERROR                                    "
             "           "
@@ -401,14 +419,14 @@ static void Parser_errorCallingFuncWithVoid(
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorInheritanceCycle(Parser* parser, JetType* type) {
+static void Parser_errorInheritanceCycle(Parser* parser, Type* type) {
     Parser__errHeader(parser);
     eprintf("\n ERROR                                    "
             "           "
             "                       \n %s%s:%d:%d:\n Type "
             "%s has a cycle in its inheritance graph.",
         RELF(parser->filename), type->line, type->col, type->name);
-    JetType* super = type->super->type;
+    Type* super = type->super->type;
     eputs("");
     do {
         eprintf("\n extends %s (defined at %s%s:%d:%d)", super->name,
@@ -423,7 +441,7 @@ static void Parser_errorInheritanceCycle(Parser* parser, JetType* type) {
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorConstructorHasCycle(Parser* parser, JetType* type) {
+static void Parser_errorConstructorHasCycle(Parser* parser, Type* type) {
     Parser__errHeader(parser);
     eprintf("\n ERROR                                    "
             "           "
@@ -434,7 +452,7 @@ static void Parser_errorConstructorHasCycle(Parser* parser, JetType* type) {
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorArgsCountMismatch(Parser* parser, JetExpr* expr) {
+static void Parser_errorArgsCountMismatch(Parser* parser, Expr* expr) {
     assert(expr->kind == tkFunctionCallResolved);
     Parser__errHeader(parser);
     eprintf("arg count mismatch for "
@@ -442,13 +460,13 @@ static void Parser_errorArgsCountMismatch(Parser* parser, JetExpr* expr) {
             "          have %d args, need %d, func defined at "
             "%s%s:%d\n",
         expr->func->name, RELF(parser->filename), expr->line, expr->col,
-        JetExpr_countCommaList(expr->left), expr->func->argCount,
+        Expr_countCommaList(expr->left), expr->func->argCount,
         RELF(parser->filename), expr->func->line);
     Parser_errorIncrement(parser);
 }
 
 static void Parser_errorIndexDimsMismatch(
-    Parser* parser, JetExpr* expr, int nhave) {
+    Parser* parser, Expr* expr, int nhave) {
     assert(expr->kind == tkSubscriptResolved);
     if (expr->var->spec->typeType == TYErrorType
         || expr->var->spec->typeType == TYUnresolved)
@@ -470,7 +488,7 @@ static void Parser_errorIndexDimsMismatch(
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorMissingInit(Parser* parser, JetExpr* expr) {
+static void Parser_errorMissingInit(Parser* parser, Expr* expr) {
     assert(expr->kind == tkVarAssign);
     Parser__errHeaderWithExpr(parser, expr);
     eprintf("missing initializer for "
@@ -480,13 +498,13 @@ static void Parser_errorMissingInit(Parser* parser, JetExpr* expr) {
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorUnrecognizedType(Parser* parser, JetTypeSpec* spec) {
+static void Parser_errorUnrecognizedType(Parser* parser, TypeSpec* spec) {
     Parser__errHeaderWithLoc(parser, spec->line, spec->col, strlen(spec->name));
     eprintf("unknown typespec '%s'\n", spec->name);
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorUnrecognizedCtor(Parser* parser, JetFunc* func) {
+static void Parser_errorUnrecognizedCtor(Parser* parser, Func* func) {
     Parser__errHeaderWithLoc(parser, func->line, 5, strlen(func->name));
     eprintf("unknown type '%s' for constructor\n", func->name);
     Parser_errorIncrement(parser);
@@ -500,11 +518,11 @@ static void Parser_errorInvalidTestName(Parser* parser) {
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorTypeMismatchBinOp(Parser* parser, JetExpr* expr) {
+static void Parser_errorTypeMismatchBinOp(Parser* parser, Expr* expr) {
     // if one of the types is "<invalid>", an error has already been
     // reported for it; so don't bother
-    const char* leftTypeName = JetExpr_typeName(expr->left);
-    const char* rightTypeName = JetExpr_typeName(expr->right);
+    const char* leftTypeName = Expr_typeName(expr->left);
+    const char* rightTypeName = Expr_typeName(expr->right);
     if (noPoison && (*leftTypeName == '<' || *rightTypeName == '<')) return;
     Parser__errHeaderWithExpr(parser, expr);
     eprintf("type mismatch; can't apply '%s' to '%s' and '%s'\n",
@@ -512,9 +530,9 @@ static void Parser_errorTypeMismatchBinOp(Parser* parser, JetExpr* expr) {
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorTypeMismatch(Parser* parser, JetExpr* e1, JetExpr* e2) {
-    const char* leftTypeName = JetExpr_typeName(e1);
-    const char* rightTypeName = JetExpr_typeName(e2);
+static void Parser_errorTypeMismatch(Parser* parser, Expr* e1, Expr* e2) {
+    const char* leftTypeName = Expr_typeName(e1);
+    const char* rightTypeName = Expr_typeName(e2);
     if (noPoison && (*leftTypeName == '<' || *rightTypeName == '<')) return;
     Parser__errHeaderWithExpr(parser, e2);
     eprintf("type mismatch: '%s' here must be '%s' instead (from %s%s:%d:%d)\n",
@@ -522,9 +540,9 @@ static void Parser_errorTypeMismatch(Parser* parser, JetExpr* e1, JetExpr* e2) {
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorInitMismatch(Parser* parser, JetExpr* expr) {
-    const char* leftTypeName = JetTypeSpec_name(expr->var->spec);
-    const char* rightTypeName = JetExpr_typeName(expr->var->init);
+static void Parser_errorInitMismatch(Parser* parser, Expr* expr) {
+    const char* leftTypeName = TypeSpec_name(expr->var->spec);
+    const char* rightTypeName = Expr_typeName(expr->var->init);
     //    if (*leftTypeName == '<' or *rightTypeName == '<') return;
 
     // for collections, RHS is allowed to be an empty [] or {} to
@@ -545,8 +563,7 @@ static void Parser_errorInitMismatch(Parser* parser, JetExpr* expr) {
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorInitDimsMismatch(
-    Parser* parser, JetExpr* expr, int dims) {
+static void Parser_errorInitDimsMismatch(Parser* parser, Expr* expr, int dims) {
 
     Parser__errHeaderWithExpr(parser, expr);
     eprintf("can't init %dD array '%s' with a %dD literal. "
@@ -555,7 +572,7 @@ static void Parser_errorInitDimsMismatch(
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorBinOpDimsMismatch(Parser* parser, JetExpr* expr) {
+static void Parser_errorBinOpDimsMismatch(Parser* parser, Expr* expr) {
     Parser__errHeaderWithExpr(parser, expr);
 
     eprintf("can't apply '%s' to %dD array and %dD array\n",
@@ -563,19 +580,19 @@ static void Parser_errorBinOpDimsMismatch(Parser* parser, JetExpr* expr) {
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorReadOnlyVar(Parser* parser, JetExpr* expr) {
+static void Parser_errorReadOnlyVar(Parser* parser, Expr* expr) {
     Parser__errHeaderWithExpr(parser, expr);
     eprintf("can't mutate read-only variable '%s'\n", expr->var->name);
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorNoEnumInferred(Parser* parser, JetExpr* expr) {
+static void Parser_errorNoEnumInferred(Parser* parser, Expr* expr) {
     Parser__errHeaderWithExpr(parser, expr);
     eprintf("could not infer enum type for '.%s'\n", expr->string);
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorInvalidTypeForOp(Parser* parser, JetExpr* expr) {
+static void Parser_errorInvalidTypeForOp(Parser* parser, Expr* expr) {
     if (expr->left->typeType == TYErrorType
         || expr->right->typeType == TYErrorType)
         return;
@@ -585,15 +602,23 @@ static void Parser_errorInvalidTypeForOp(Parser* parser, JetExpr* expr) {
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorArgTypeMismatch(
-    Parser* parser, JetExpr* expr, JetVar* var) {
+static void Parser_errorArgTypeMismatch(Parser* parser, Expr* expr, Var* var) {
     Parser__errHeaderWithExpr(parser, expr);
 
     eprintf("type '%s' for argument '%s' should be '%s' instead (from "
             "%s%s:%d:%d)\n",
-        JetExpr_typeName(expr), var->name, JetTypeSpec_name(var->spec),
+        Expr_typeName(expr), var->name, TypeSpec_name(var->spec),
         RELF(parser->filename), var->line, var->col);
-    parser->issues.hasParseErrors = 1;
+    // parser->issues.hasParseErrors = 1;
+    Parser_errorIncrement(parser);
+}
+
+static void Parser_errorArgLabelMismatch(Parser* parser, Expr* expr, Var* var) {
+    Parser__errHeaderWithExpr(parser, expr);
+
+    eprintf("label '%s' should be '%s' instead (from %s%s:%d:%d)\n",
+        expr->string, var->name, RELF(parser->filename), var->line, var->col);
+
     Parser_errorIncrement(parser);
 }
 
@@ -616,7 +641,7 @@ static void Parser_errorUnexpectedToken(Parser* parser, char* msg) {
     Parser_errorIncrement(parser);
 }
 
-static void Parser_errorUnexpectedExpr(Parser* parser, JetExpr* expr) {
+static void Parser_errorUnexpectedExpr(Parser* parser, Expr* expr) {
     Parser__errHeaderWithExpr(parser, expr);
     eprintf("unexpected expr '%s' (%s)\n",
         expr->prec ? TokenKind_repr[expr->kind] : expr->string,

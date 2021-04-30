@@ -1,16 +1,4 @@
-
-// #include <assert.h>
-// #include <ctype.h>
-// #include <limits.h>
-// #include <stdio.h>
-// #include <stdint.h>
-// #include <stdlib.h>
-// #include <string.h>
-// #include <math.h>
-
-// #include "cycle.h"
 #include "jet/base.h"
-// #include "jet/os/clock.h"
 
 #define STEP 4
 
@@ -26,14 +14,14 @@ static const char* const spaces = //
 
 #include "ast.h"
 
-static JetTypeSpec* JetTypeSpec_new(TypeTypes tt, CollectionTypes ct) {
-    JetTypeSpec* ret = NEW(JetTypeSpec);
+static TypeSpec* TypeSpec_new(TypeTypes tt, CollectionTypes ct) {
+    TypeSpec* ret = NEW(TypeSpec);
     ret->typeType = tt;
     ret->collectionType = ct;
     return ret;
 }
 
-static const char* JetTypeSpec_name(JetTypeSpec* self) {
+static const char* TypeSpec_name(TypeSpec* self) {
     switch (self->typeType) {
     case TYUnresolved: return self->name;
     case TYObject: return self->type->name;
@@ -43,7 +31,7 @@ static const char* JetTypeSpec_name(JetTypeSpec* self) {
 }
 
 // The name of this type spec as it will appear in the generated C code.
-static const char* JetTypeSpec_cname(JetTypeSpec* self) {
+static const char* TypeSpec_cname(TypeSpec* self) {
     switch (self->typeType) {
     case TYUnresolved: return self->name;
     case TYObject: return self->type->name;
@@ -52,7 +40,7 @@ static const char* JetTypeSpec_cname(JetTypeSpec* self) {
     // what about collectiontype???
 }
 
-static const char* getDefaultValueForType(JetTypeSpec* type) {
+static const char* getDefaultValueForType(TypeSpec* type) {
     if (!type) return "";
     switch (type->typeType) {
     case TYUnresolved:
@@ -64,8 +52,8 @@ static const char* getDefaultValueForType(JetTypeSpec* type) {
     }
 }
 
-static JetExpr* JetExpr_fromToken(const Token* self) {
-    JetExpr* ret = NEW(JetExpr);
+static Expr* Expr_fromToken(const Token* self) {
+    Expr* ret = NEW(Expr);
     ret->kind = self->kind;
     ret->line = self->line;
     ret->col = self->col;
@@ -137,8 +125,8 @@ static JetExpr* JetExpr_fromToken(const Token* self) {
     return ret;
 }
 
-static bool JetExpr_throws(JetExpr* self) { // NOOO REMOVE This func and set the
-                                            // throws flag recursively like the
+static bool Expr_throws(Expr* self) { // NOOO REMOVE This func and set the
+                                      // throws flag recursively like the
     // other flags (during e.g. the type resolution dive)
     if (!self) return false;
     switch (self->kind) {
@@ -155,34 +143,34 @@ static bool JetExpr_throws(JetExpr* self) { // NOOO REMOVE This func and set the
         return true; // self->func->throws;
         // actually  only if the func really throws
     case tkSubscript:
-    case tkSubscriptResolved: return JetExpr_throws(self->left);
-    case tkVarAssign: return self->var->used && JetExpr_throws(self->var->init);
+    case tkSubscriptResolved: return Expr_throws(self->left);
+    case tkVarAssign: return self->var->used && Expr_throws(self->var->init);
     case tkKeyword_for:
     case tkKeyword_if:
     case tkKeyword_while: return false; // actually the condition could throw.
     default:
         if (!self->prec) return false;
-        return JetExpr_throws(self->left) || JetExpr_throws(self->right);
+        return Expr_throws(self->left) || Expr_throws(self->right);
     }
 }
 
-static size_t JetScope_calcSizeUsage(JetScope* self) {
+static size_t Scope_calcSizeUsage(Scope* self) {
     size_t size = 0, sum = 0, subsize = 0, maxsubsize = 0;
     // all variables must be resolved before calling this
-    foreach (JetExpr*, stmt, self->stmts) {
+    foreach (Expr*, stmt, self->stmts) {
         switch (stmt->kind) {
         case tkKeyword_if:
         case tkKeyword_else:
         case tkKeyword_for:
         case tkKeyword_while:
-            subsize = JetScope_calcSizeUsage(stmt->body);
+            subsize = Scope_calcSizeUsage(stmt->body);
             if (subsize > maxsubsize) maxsubsize = subsize;
             break;
         default:;
         }
     }
     // some vars are not assigned, esp. temporaries _1 _2 etc.
-    foreach (JetVar*, var, self->locals) {
+    foreach (Var*, var, self->locals) {
         size = TypeType_size(var->spec->typeType);
         if (!size)
             eprintf("warning: cannot find size for '%s' at %d:%d\n", var->name,
@@ -194,43 +182,42 @@ static size_t JetScope_calcSizeUsage(JetScope* self) {
     return sum;
 }
 
-static JetVar* JetScope_getVar(JetScope* self, const char* name) {
+static Var* Scope_getVar(Scope* self, const char* name) {
     // stupid linear search, no dictionary yet
-    foreach (JetVar*, local, self->locals) //
+    foreach (Var*, local, self->locals) //
         if (!strcasecmp(name, local->name)) return local;
-    if (self->parent) return JetScope_getVar(self->parent, name);
+    if (self->parent) return Scope_getVar(self->parent, name);
     return NULL;
 }
 
-static JetVar* JetType_getVar(JetType* self, const char* name) {
+static Var* Type_getVar(Type* self, const char* name) {
     // stupid linear search, no dictionary yet
-    foreach (JetVar*, var, self->body->locals) //
+    foreach (Var*, var, self->body->locals) //
         if (!strcasecmp(name, var->name)) return var;
 
     if (self->super && self->super->typeType == TYObject)
-        return JetType_getVar(self->super->type, name);
+        return Type_getVar(self->super->type, name);
     return NULL;
 }
 
 #pragma mark - Jet FUNC IMPL.
 
-/// This creates a new JetFunc marked as declare and having one
+/// This creates a new Func marked as declare and having one
 /// argument. The name of the function and the type of the argument can be
 /// specified. This way you can create declared functions such as `print`,
 /// `json`, etc. of each new type defined in source code.
-static JetFunc* JetFunc_createDeclWithArg(
-    char* name, char* retType, char* arg1Type) {
-    JetFunc* func = NEW(JetFunc);
+static Func* Func_createDeclWithArg(char* name, char* retType, char* arg1Type) {
+    Func* func = NEW(Func);
     func->name = name;
     func->isDeclare = true;
     if (retType) {
-        func->spec = NEW(JetTypeSpec);
+        func->spec = NEW(TypeSpec);
         func->spec->name = retType;
     }
     if (arg1Type) {
-        JetVar* arg = NEW(JetVar);
+        Var* arg = NEW(Var);
         arg->name = "arg1";
-        arg->spec = NEW(JetTypeSpec);
+        arg->spec = NEW(TypeSpec);
         arg->spec->name = arg1Type;
         PtrList_append(&func->args, arg);
         func->argCount = 1;
@@ -238,21 +225,21 @@ static JetFunc* JetFunc_createDeclWithArg(
     return func;
 }
 
-static size_t JetFunc_calcSizeUsage(JetFunc* self) {
+static size_t Func_calcSizeUsage(Func* self) {
     size_t size = 0, sum = 0;
-    foreach (JetVar*, arg, self->args) {
+    foreach (Var*, arg, self->args) {
         // all variables must be resolved before calling this
         size = TypeType_size(arg->spec->typeType);
         assert(size);
         // if (arg->used)
         sum += size;
     }
-    if (self->body) sum += JetScope_calcSizeUsage(self->body);
+    if (self->body) sum += Scope_calcSizeUsage(self->body);
     return sum;
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static bool isCmpOp(JetExpr* expr) {
+static bool isCmpOp(Expr* expr) {
     return expr->kind == tkOpLE //
         || expr->kind == tkOpLT //
         || expr->kind == tkOpGT //
@@ -262,7 +249,7 @@ static bool isCmpOp(JetExpr* expr) {
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static bool isBoolOp(JetExpr* expr) {
+static bool isBoolOp(Expr* expr) {
     return expr->kind == tkKeyword_and //
         || expr->kind == tkKeyword_or //
         || expr->kind == tkKeyword_in //
@@ -270,9 +257,9 @@ static bool isBoolOp(JetExpr* expr) {
         || expr->kind == tkKeyword_not;
 }
 
-static size_t JetType_calcSizeUsage(JetType* self) {
+static size_t Type_calcSizeUsage(Type* self) {
     size_t size = 0, sum = 0;
-    foreach (JetVar*, var, self->body->locals) {
+    foreach (Var*, var, self->body->locals) {
         // all variables must be resolved before calling this
         size = TypeType_size(var->spec->typeType);
         assert(size);
@@ -282,18 +269,17 @@ static size_t JetType_calcSizeUsage(JetType* self) {
 }
 
 #pragma mark - Jet EXPR IMPL.
-static JetTypeSpec* JetExpr_getObjectTypeSpec(const JetExpr* const self) {
+static TypeSpec* Expr_getObjectTypeSpec(const Expr* const self) {
     if (!self) return NULL;
 
     // all that is left is object
     switch (self->kind) {
     case tkFunctionCallResolved:
-        // case tkFunctionCall:
         return self->func->spec;
-    case tkIdentifierResolved:
-    case tkSubscriptResolved:
         // case tkIdentifier:
         // case tkSubscript:
+    case tkIdentifierResolved:
+    case tkSubscriptResolved:
         return self->var->spec;
         //        }
         // TODO: tkOpColon should be handled separately in the semantic
@@ -303,14 +289,14 @@ static JetTypeSpec* JetExpr_getObjectTypeSpec(const JetExpr* const self) {
         //        return "Range";
         // TODO: what else???
     case tkPeriod:
-    case tkOpComma: return JetExpr_getObjectTypeSpec(self->right);
+    case tkOpComma: return Expr_getObjectTypeSpec(self->right);
     default: break;
     }
     return NULL;
 }
 
-static JetType* JetExpr_getEnumType(const JetExpr* const self) {
-    JetType* ret = NULL;
+static Type* Expr_getEnumType(const Expr* const self) {
+    Type* ret = NULL;
     if (!self || self->typeType != TYObject) return ret;
     // all that is left is object
     switch (self->kind) {
@@ -318,22 +304,23 @@ static JetType* JetExpr_getEnumType(const JetExpr* const self) {
     case tkIdentifierResolved:
     case tkSubscriptResolved:
         ret = self->var->spec->type;
-        break; //        }
-               // TODO: tkOpColon should be handled separately in the semantic
-               // pass, and should be assigned either TYObject or make a
-               // dedicated TYRange
-               //     case tkOpColon:
-               //        return "Range";
-               // TODO: what else???
+        break;
+        //        }
+        // TODO: tkOpColon should be handled separately in the semantic
+        // pass, and should be assigned either TYObject or make a
+        // dedicated TYRange
+        //     case tkOpColon:
+        //        return "Range";
+        // TODO: what else???
     case tkPeriod:
-    case tkOpComma: ret = JetExpr_getEnumType(self->left);
+    case tkOpComma: ret = Expr_getEnumType(self->left);
     default: break;
     }
     if (ret && !ret->isEnum) ret = NULL;
     return ret;
 }
 
-static JetType* JetExpr_getObjectType(const JetExpr* const self) {
+static Type* Expr_getObjectType(const Expr* const self) {
     if (!self || self->typeType != TYObject) return NULL;
 
     // all that is left is object
@@ -350,13 +337,13 @@ static JetType* JetExpr_getObjectType(const JetExpr* const self) {
         //        return "Range";
         // TODO: what else???
     case tkPeriod:
-    case tkOpComma: return JetExpr_getObjectType(self->right);
+    case tkOpComma: return Expr_getObjectType(self->right);
     default: break;
     }
     return NULL;
 }
 
-static JetType* JetExpr_getTypeOrEnum(const JetExpr* const self) {
+static Type* Expr_getTypeOrEnum(const Expr* const self) {
     if (!self || self->typeType != TYObject) return NULL;
 
     // all that is left is object
@@ -373,21 +360,21 @@ static JetType* JetExpr_getTypeOrEnum(const JetExpr* const self) {
         //        return "Range";
         // TODO: what else???
     case tkPeriod: {
-        JetType* type = JetExpr_getObjectType(self->left);
-        if (!type->isEnum) type = JetExpr_getObjectType(self->right);
+        Type* type = Expr_getObjectType(self->left);
+        if (!type->isEnum) type = Expr_getObjectType(self->right);
         return type;
     }
-    case tkOpComma: return JetExpr_getTypeOrEnum(self->left);
+    case tkOpComma: return Expr_getTypeOrEnum(self->left);
     default: break;
     }
     return NULL;
 }
-// static CString* JetExpr_getTypeOrEnumName(const JetExpr* const self) {
-//     JetType* type = JetExpr_getTypeOrEnum(self);
+// static CString* Expr_getTypeOrEnumName(const Expr* const self) {
+//     Type* type = Expr_getTypeOrEnum(self);
 //     return type ? type->name : "";
 // }
 
-static const char* JetExpr_typeName(const JetExpr* const self) {
+static const char* Expr_typeName(const Expr* const self) {
     if (!self) return "";
     const char* ret = TypeType_name(self->typeType);
     if (!ret) return "<unknown>"; // unresolved
@@ -407,34 +394,34 @@ static const char* JetExpr_typeName(const JetExpr* const self) {
         //        return "Range";
         // TODO: what else???
     // case tkPeriod:
-    //     return JetExpr_typeName(self->right);
+    //     return Expr_typeName(self->right);
     case tkPeriod: {
-        JetType* type = JetExpr_getObjectType(self->left);
-        return (type->isEnum) ? type->name : JetExpr_typeName(self->right);
+        Type* type = Expr_getObjectType(self->left);
+        return (type->isEnum) ? type->name : Expr_typeName(self->right);
     }
-    case tkOpComma: return JetExpr_typeName(self->left);
+    case tkOpComma: return Expr_typeName(self->left);
     default: break;
     }
     return "<invalid>";
 }
 
-static void JetExpr_catarglabels(JetExpr* self) {
+static void Expr_catarglabels(Expr* self) {
     switch (self->kind) {
     case tkOpComma:
-        JetExpr_catarglabels(self->left);
-        JetExpr_catarglabels(self->right);
+        Expr_catarglabels(self->left);
+        Expr_catarglabels(self->right);
         break;
     case tkOpAssign: printf("_%s", self->left->string); break;
     default: break;
     }
 }
 
-static int JetExpr_strarglabels(JetExpr* self, char* buf, int bufsize) {
+static int Expr_strarglabels(Expr* self, char* buf, int bufsize) {
     int ret = 0;
     switch (self->kind) {
     case tkOpComma:
-        ret += JetExpr_strarglabels(self->left, buf, bufsize);
-        ret += JetExpr_strarglabels(self->right, buf + ret, bufsize - ret);
+        ret += Expr_strarglabels(self->left, buf, bufsize);
+        ret += Expr_strarglabels(self->right, buf + ret, bufsize - ret);
         break;
     case tkOpAssign:
         ret += snprintf(buf, bufsize, "_%s", self->left->string);
@@ -445,7 +432,7 @@ static int JetExpr_strarglabels(JetExpr* self, char* buf, int bufsize) {
 }
 
 // TODO: see if this is still correct
-static int JetExpr_countCommaList(JetExpr* expr) {
+static int Expr_countCommaList(Expr* expr) {
     int i = 0;
     if (expr)
         for (i = 1; expr->right && expr->kind == tkOpComma; i++)
@@ -455,27 +442,26 @@ static int JetExpr_countCommaList(JetExpr* expr) {
 
 #pragma mark - Jet MODULE IMPL.
 
-static JetType* JetModule_getType(JetModule* module, const char* name) {
+static Type* Module_getType(Module* module, const char* name) {
     // the type may be "mm.XYZType" in which case you should look in
     // module mm instead. actually the caller should have bothered about
     // that.
-    foreach (JetType*, type, module->types) //
+    foreach (Type*, type, module->types) //
         if (!strcasecmp(type->name, name)) return type;
     // type specs must be fully qualified, so there's no need to look in
     // other modules.
-    foreach (JetType*, enu, module->enums) //
+    foreach (Type*, enu, module->enums) //
         if (!strcasecmp(enu->name, name)) return enu;
     return NULL;
 }
 
 // i like this pattern, getType, getFunc, getVar, etc.
 // even the module should have getVar.
-// you don't need the actual JetImport object, so this one is just a
+// you don't need the actual Import object, so this one is just a
 // bool. imports just turn into a #define for the alias and an #include
 // for the actual file.
-monostatic JetImport* JetModule_getImportByAlias(
-    JetModule* module, const char* alias) {
-    foreach (JetImport*, imp, module->imports) //
+monostatic Import* Module_getImportByAlias(Module* module, const char* alias) {
+    foreach (Import*, imp, module->imports) //
     {
         eprintf("import: %s %s\n", imp->name + imp->aliasOffset, alias);
         if (!strcmp(imp->name + imp->aliasOffset, alias)) return imp;
@@ -483,17 +469,16 @@ monostatic JetImport* JetModule_getImportByAlias(
     return NULL;
 }
 
-monostatic JetFunc* JetModule_getFuncByName(
-    JetModule* module, const char* name) {
-    foreach (JetFunc*, func, module->funcs) //
+monostatic Func* Module_getFuncByName(Module* module, const char* name) {
+    foreach (Func*, func, module->funcs) //
         if (!strcasecmp(func->name, name)) return func;
     // This returns the first matching func only
     //  no looking anywhere else. If the name is of the form
     // "mm.func" you should have bothered to look in mm instead.
     return NULL;
 }
-monostatic JetFunc* JetModule_getFunc(JetModule* module, const char* selector) {
-    foreach (JetFunc*, func, module->funcs) //
+monostatic Func* Module_getFunc(Module* module, const char* selector) {
+    foreach (Func*, func, module->funcs) //
         if (!strcasecmp(func->selector, selector)) return func;
     //  no looking anywhere else. If the name is of the form
     // "mm.func" you should have bothered to look in mm instead.
@@ -501,39 +486,40 @@ monostatic JetFunc* JetModule_getFunc(JetModule* module, const char* selector) {
 }
 
 // only call this func if you have failed to resolve a func by getFunc(...).
-monostatic JetFunc* JetModule_getFuncByTypeMatch(
-    JetModule* module, JetExpr* funcCallExpr) {
-    foreach (JetFunc*, func, module->funcs) {
-        if (!strcasecmp(funcCallExpr->string, func->name)
-            && JetExpr_countCommaList(funcCallExpr->left) == func->argCount) {
-            // check all argument types to see if they match.
-            JetExpr* carg = funcCallExpr->left;
-            foreach (JetVar*, farg, func->args) {
-                if (!carg) break;
-                JetExpr* arg = (carg->kind == tkOpComma) ? carg->left : carg;
-                // __ this is why you need typeType and typeSubType so that
-                // compatible types can be checked by equality ignoring subType.
-                // The way it is now, CString and String wont match because they
-                // arent strictly equal, although they are perfectly compatible
-                // for argument passing.
-                if (arg->typeType == farg->spec->typeType
-                    && arg->collectionType == farg->spec->collectionType) {
-                    if (arg->typeType == TYObject
-                        && JetExpr_getTypeOrEnum(arg) != farg->spec->type)
-                        goto nextfunc;
-                }
-
-                carg = (carg->kind == tkOpComma) ? carg->right : NULL;
+monostatic Func* Module_getFuncByTypeMatch(Module* module, Expr* funcCallExpr) {
+    foreach (Func*, func, module->funcs) {
+        if (strcasecmp(funcCallExpr->string, func->name)) continue;
+        if (Expr_countCommaList(funcCallExpr->left) != func->argCount) continue;
+        // check all argument types to see if they match.
+        Expr* currArg = funcCallExpr->left;
+        foreach (Var*, arg, func->args) {
+            if (!currArg) break;
+            Expr* cArg = (currArg->kind == tkOpComma) ? currArg->left : currArg;
+            if (cArg->kind == tkOpAssign) cArg = cArg->right;
+            // __ this is why you need typeType and typeSubType so that
+            // compatible types can be checked by equality ignoring subType.
+            // The way it is now, CString and String wont match because they
+            // arent strictly equal, although they are perfectly compatible
+            // for argument passing.
+            if (cArg->typeType == arg->spec->typeType
+                && cArg->collectionType == arg->spec->collectionType) {
+                if (cArg->typeType == TYObject
+                    && Expr_getTypeOrEnum(cArg) != arg->spec->type)
+                    goto nextfunc;
+            } else {
+                // an arg type has failed to match. Wait: if it is unresolved,
+                // you can still consider this func. Otherwise you skip to next.
+                if (cArg->typeType != TYUnresolved) goto nextfunc;
             }
-
-            return func;
+            currArg = (currArg->kind == tkOpComma) ? currArg->right : NULL;
         }
+        return func;
     nextfunc:;
     }
     return NULL;
 }
-monostatic JetVar* JetModule_getVar(JetModule* module, const char* name) {
-    foreach (JetVar*, var, module->scope->locals) //
+monostatic Var* Module_getVar(Module* module, const char* name) {
+    foreach (Var*, var, module->scope->locals) //
         if (!strcasecmp(var->name, name)) return var;
     //  no looking anywhere else. If the name is of the form
     // "mm.func" you should have bothered to look in mm instead.
@@ -578,10 +564,10 @@ static const char* CompilerMode__str[] = { //
 //     // DiagnosticKind kind : 8;
 //     // DiagnosticEntity entity : 8;
 //     union {
-//         JetType* type;
-//         JetFunc* func;
-//         JetVar* var;
-//         JetExpr* expr;
+//         Type* type;
+//         Func* func;
+//         Var* var;
+//         Expr* expr;
 //     };
 // } Diagnostic;
 
@@ -603,7 +589,7 @@ typedef struct Parser {
 
     Token token; // current
     IssueMgr issues;
-    List(JetModule) * modules;
+    List(Module) * modules;
 
     CompilerMode mode;
     // JetOpts opts;
@@ -776,13 +762,13 @@ static bool Parser_matches(Parser* parser, TokenKind expected);
 
 #pragma mark - PARSING BASICS
 
-static JetExpr* exprFromCurrentToken(Parser* parser) {
-    JetExpr* expr = JetExpr_fromToken(&parser->token);
+static Expr* exprFromCurrentToken(Parser* parser) {
+    Expr* expr = Expr_fromToken(&parser->token);
     Token_advance(&parser->token);
     return expr;
 }
 
-static JetExpr* next_token_node(
+static Expr* next_token_node(
     Parser* parser, TokenKind expected, const bool ignore_error) {
     if (parser->token.kind == expected) {
         return exprFromCurrentToken(parser);
@@ -793,12 +779,12 @@ static JetExpr* next_token_node(
 }
 // these should all be part of Token_ when converted back to C
 // in the match case, self->token should be advanced on error
-static JetExpr* Parser_match(Parser* parser, TokenKind expected) {
+static Expr* Parser_match(Parser* parser, TokenKind expected) {
     return next_token_node(parser, expected, false);
 }
 
 // this returns the match node or null
-static JetExpr* Parser_trymatch(Parser* parser, TokenKind expected) {
+static Expr* Parser_trymatch(Parser* parser, TokenKind expected) {
     return next_token_node(parser, expected, true);
 }
 
@@ -827,7 +813,7 @@ static char* parseIdent(Parser* parser) {
     return p;
 }
 
-static void getSelector(JetFunc* func) {
+static void getSelector(Func* func) {
     if (func->argCount) {
         size_t selLen = 0;
         int remain = 128, wrote = 0;
@@ -835,8 +821,8 @@ static void getSelector(JetFunc* func) {
         buf[127] = 0;
         char* bufp = buf;
 
-        JetVar* arg1 = (JetVar*)func->args->item;
-        wrote = snprintf(bufp, remain, "%s_", JetTypeSpec_name(arg1->spec));
+        Var* arg1 = (Var*)func->args->item;
+        wrote = snprintf(bufp, remain, "%s_", TypeSpec_name(arg1->spec));
         selLen += wrote;
         bufp += wrote;
         remain -= wrote;
@@ -846,7 +832,7 @@ static void getSelector(JetFunc* func) {
         bufp += wrote;
         remain -= wrote;
 
-        foreach (JetVar*, arg, func->args->next) {
+        foreach (Var*, arg, func->args->next) {
             wrote = snprintf(bufp, remain, "_%s", arg->name);
             selLen += wrote;
             bufp += wrote;
@@ -864,13 +850,13 @@ static void getSelector(JetFunc* func) {
         bufp += wrote;
         remain -= wrote;
 
-        //  arg1 = (JetVar*)func->args->item;
-        wrote = snprintf(bufp, remain, "%s", JetTypeSpec_name(arg1->spec));
+        //  arg1 = (Var*)func->args->item;
+        wrote = snprintf(bufp, remain, "%s", TypeSpec_name(arg1->spec));
         selLen += wrote;
         bufp += wrote;
         remain -= wrote;
 
-        foreach (JetVar*, arg, func->args->next) {
+        foreach (Var*, arg, func->args->next) {
             wrote = snprintf(bufp, remain, ", %s", arg->name);
             selLen += wrote;
             bufp += wrote;
@@ -893,18 +879,18 @@ static void getSelector(JetFunc* func) {
 
 // this is a global astexpr representing 0. it will be used when parsing e.g.
 // the colon op with nothing on either side. : -> 0:0 means the same as 1:end
-static JetExpr lparen[] = { { .kind = tkParenOpen } };
-static JetExpr rparen[] = { { .kind = tkParenClose } };
-static JetExpr expr_const_0[] = { { .kind = tkNumber, .string = "0" } };
-static JetExpr expr_const_yes[] = { { .kind = tkKeyword_yes } };
-static JetExpr expr_const_no[] = { { .kind = tkKeyword_no } };
-static JetExpr expr_const_nil[] = { { .kind = tkKeyword_nil } };
-static JetExpr expr_const_empty[] = { { .kind = tkString, .string = "" } };
+static Expr lparen[] = { { .kind = tkParenOpen } };
+static Expr rparen[] = { { .kind = tkParenClose } };
+static Expr expr_const_0[] = { { .kind = tkNumber, .string = "0" } };
+static Expr expr_const_yes[] = { { .kind = tkKeyword_yes } };
+static Expr expr_const_no[] = { { .kind = tkKeyword_no } };
+static Expr expr_const_nil[] = { { .kind = tkKeyword_nil } };
+static Expr expr_const_empty[] = { { .kind = tkString, .string = "" } };
 
 #include "analyse.h"
 #include "parse.h"
 
-// TODO: this should be in JetModule open/close
+// TODO: this should be in Module open/close
 static void Parser_emit_open(Parser* parser) {
     // printf("#ifndef HAVE_%s\n#define HAVE_%s\n\n", parser->capsMangledName,
     //     parser->capsMangledName);
@@ -972,19 +958,19 @@ int main(int argc, char* argv[]) {
         parser->issues.warnUnusedType = //
         parser->issues.warnUnusedVar = 1;
 
-    List(JetModule) * modules;
+    List(Module) * modules;
 
     // com lives for the duration of main. it appears in parseModule
-    JetModule* root = parseModule(parser, &modules, NULL);
+    Module* root = parseModule(parser, &modules, NULL);
 
     if (parser->mode == PMLint) {
         if (parser->issues.hasParseErrors) {
             /* TODO: fallback to token-based linter (formatter)*/
         } else {
-            foreach (JetModule*, mod, modules)
-                JetModule_write(mod);
-            foreach (JetModule*, mod, modules)
-                JetModule_dumpc(mod);
+            foreach (Module*, mod, modules)
+                Module_write(mod);
+            foreach (Module*, mod, modules)
+                Module_dumpc(mod);
         }
     } else if (!(parser->issues.errCount)) {
         switch (parser->mode) {
@@ -995,8 +981,8 @@ int main(int argc, char* argv[]) {
             // ^ This is called before including the runtime, so that the
             // runtime can know THISFILE NUMLINES etc.
             printf("#include \"jet/runtime.h\"\n");
-            foreach (JetModule*, mod, modules)
-                JetModule_emit(mod);
+            foreach (Module*, mod, modules)
+                Module_emit(mod);
             Parser_emit_close(parser);
 
         } break;
@@ -1008,8 +994,8 @@ int main(int argc, char* argv[]) {
             // Besides, THISFILE should be the actual module's file not the
             // test file
 
-            foreach (JetModule*, mod, modules)
-                JetModule_genTests(mod);
+            foreach (Module*, mod, modules)
+                Module_genTests(mod);
         } break;
 
         default: break;

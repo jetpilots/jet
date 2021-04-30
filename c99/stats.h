@@ -4,7 +4,7 @@ static void expralloc_stat() {
     for (int i = 0; i < 128; i++) sum += exprsAllocHistogram[i];
     thres = sum / 20;
 
-    eputs("JetExpr allocation by kind (those above 5% of total)\n"
+    eputs("Expr allocation by kind (those above 5% of total)\n"
           "  Kind        #      %%\n");
     for_to_where(i, 128, (iexpr = exprsAllocHistogram[i]) > thres) //
         eprintf("  %-8s %4d %7.2f\n", TokenKind_repr[i], iexpr,
@@ -18,22 +18,22 @@ static void printstats(Parser* const parser, double tms) {
     eputs("-------------------------------------------------------\n");
 
     eputs("Node allocations:\n");
-    allocstat(JetImport);
-    allocstat(JetExpr);
-    allocstat(JetVar);
-    allocstat(JetType);
-    allocstat(JetScope);
-    allocstat(JetTypeSpec);
-    allocstat(JetFunc);
-    allocstat(JetModule);
+    allocstat(Import);
+    allocstat(Expr);
+    allocstat(Var);
+    allocstat(Type);
+    allocstat(Scope);
+    allocstat(TypeSpec);
+    allocstat(Func);
+    allocstat(Module);
     allocstat(PtrList);
-    // allocstat(List_JetExpr);
-    // allocstat(List_JetVar);
-    // allocstat(List_JetModule);
-    // allocstat(List_JetFunc);
-    // allocstat(List_JetType);
-    // allocstat(List_JetImport);
-    // allocstat(List_JetScope);
+    // allocstat(List_Expr);
+    // allocstat(List_Var);
+    // allocstat(List_Module);
+    // allocstat(List_Func);
+    // allocstat(List_Type);
+    // allocstat(List_Import);
+    // allocstat(List_Scope);
     allocstat(Parser);
     eputs("-------------------------------------------------------\n");
     eprintf("*** Total size of nodes                     = %7d B\n",

@@ -1,0 +1,79 @@
+enum ExprKinds
+    unknown
+    plus
+end
+
+type SourceLoc
+    var line = 0
+    var col = 0
+    var len = 0
+end
+
+type Module
+end
+
+type Scope
+    var loc = SourceLoc()
+end
+
+type Expr
+    var loc = SourceLoc()
+    var kind = ExprKinds.unknown
+end
+
+type Expr.BinOp
+    var left Expr._?
+    var right Expr._?
+end
+
+type Expr.UnOp
+    var arg Expr._? ~ some exprs may take no arg, e.g. empty return?
+end
+
+type Expr.Call
+    union fun Func, name String
+    var args Expr._?
+end
+
+~ you still have expr.kind to see if it is resolved or not. Use that to
+~ decide what to get from the union
+type Expr.Index
+    union ref Var, name String ~ non-null
+    var index Expr._? ~ nullable, any derived type of Expr (incl. Expr)
+end
+
+
+~ this is a normal function (static dispatch)
+func write(expr Expr, scope Scope, mod Module)
+
+end
+
+~ this is a polymorphic func (runtime dispatch). (multimethods NO!)
+func write(expr Expr._, scope Scope, mod Module)
+
+end
+
+~ specialization for the above poly func
+func write(expr Expr.Call, scope Scope.Basic, mod Module)
+
+end
+
+~ this will be dynamic dispatch
+var ec Expr._ = Expr.Call { ... }
+write(ec, scope=s, mod=m)
+ec.write(scope=s, mod=m) ~ NO
+
+~ this will be static dispatch even if write is not defined on Expr.Call
+var ec = Expr.Call { ... }
+write(ec, scope=s, mod=m)
+ec.write(scope=s, mod=m) ~ NO
+
+~ ~ this is a normal function (static dispatch)
+~ func Expr write(_ scope Scope, mod Module)
+
+~ end
+
+~ ~ this is a polymorphic func (runtime dispatch). (multimethods btw!)
+~ func Expr._ write(_ scope Scope._, mod Module)
+
+~ end

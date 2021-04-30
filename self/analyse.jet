@@ -36,7 +36,7 @@ end
 ~ 3. keep a stack of vars that are in the string in the right order
 func prepareInterp(parser Parser, expr JetExpr, scope JetScope)
     static Ptr.Array() vars
-    assert(expr.kind == #string or expr.kind == #rawString)
+    check expr.kind in [#string, #rawString]
     PtrList** exprvars = &expr.vars
     ~ at some point you should make it so that only strings with a preceding
     ~ $ get scanned for vars.
@@ -549,8 +549,7 @@ func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFu
             parser.analyse(cond, scope, mod, ownerFunc, no)
             var tsp JetTypeSpec = cond.getObjectTypeSpec()
             if (expr.body and tsp and tsp.type
-                and tsp.type
-                       .isEnum)  ~ left.typeType == #objectand.isEnum)
+                and tsp.type.isEnum)  ~ left.typeType == #objectand.isEnum)
                 for cas = expr.body.stmts
                     if (cas.left)
                         parser.setEnumBase(cas.left, tsp, mod)

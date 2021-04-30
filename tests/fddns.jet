@@ -60,13 +60,13 @@ declare function fwddiff(u Number[:,:,:,:], at Number[], dim Number) as Number
 func update!(u Number[:,:,:,:], dt Number, dx Number[])
     var limit = shape(u) - 1
     var dudx = zeros2d([3, 3])
-    for i in 1:limit[1]
-        for j in 1:limit[2]
-            for k in 1:limit[3]
+    for i = 1:limit[1]
+        for j = 1:limit[2]
+            for k = 1:limit[3]
                 var dudt = zeros1d(3)
-                for iu in 1:3
-                    for ix in 1:3
-                        dudx[iu, ix] = Fwddiff(u, at=[i, j, k, iu], dim=ix) / dx[ix]
+                for iu = 1:3
+                    for ix = 1:3
+                        dudx[iu, ix] = fwddiff(u, at=[i, j, k, iu], dim=ix) / dx[ix]
                         dudt[iu] += u[i, j, k, ix] * dudx[iu, ix]
                     end
                     u[i, j, k, iu] += dudt[iu] * dt

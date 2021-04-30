@@ -10,7 +10,7 @@ Don't forget to read the [Jet Engine 5 Manual](engine.md) after this document, t
 
 Code structure
 
-All executable code is contained within **function**s in Jet. A **variable** is a piece of data of a certain type. Jet has several basic and compound **type**s to help organize and structure your data. A **module** is the fundamental unit of Jet source code, containing definitions of functions, types, and variables. Each module corresponds uniquely to a source file with the extension `.jet`. Modules may **import** other modules to use code defned within them.
+All executable code is contained within **function**s in Jet. A **variable** is a piece of data of a certain type. Jet has several basic and compound **type**s to help organize and structure your data. A **module** is the fundamental unit of Jet source code, containing definitions of functions, types, and variables. Each module corresponds uniquely to a source file with the extension `.jet`. Modules may **import** other modules to use code defined within them.
 
 Project structure
 

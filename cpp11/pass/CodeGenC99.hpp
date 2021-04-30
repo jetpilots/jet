@@ -699,7 +699,7 @@ struct CodeGenC99 {
             printf("void");
         }
         printf(" %s(", func->selector);
-        for (Var &arg, args, func->args) {
+        for (Var& arg : func->args) {
             emit(arg, level, true);
             printf(args->next ? ", " : "");
         }
@@ -755,36 +755,15 @@ struct CodeGenC99 {
 
     ///////////////////////////////////////////////////////////////////////////
     void genh(Var& var, int level) {
-        // if (not  func->body or not func->analysed) return;
-        // if (not func->isExported) printf("  ");
-        // if (var.typeInfo) {
         if (not var.init) return;
 
         emit(var.typeInfo, level, false);
-        // }
 
         printf(" %s = ", var.name);
         emit(var.init, 0);
 
         puts("");
     }
-
-    // #define MKEMB(T, ...)                                                          \
-//     (T[]) {                                                                    \
-//         { __VA_ARGS__ }                                                        \
-//     }
-
-    // Func& decld = (ASTFunc[]) { { .name = "Oiunko",
-    //     .selector = "Oinko_uio_uyt",
-    //     .line = 21,
-    //     .args = (PtrList[]) { { .item = (ASTVar[1]) { { .name = "arg1" } } }
-    //     }, .isDeclare = 1, .isRecursive = 1 } };
-
-    // Func& declc = MKEMB(ASTFunc, .name = "Oiunko", .selector =
-    // "Oinko_uio_uyt",
-    //     .line = 21,
-    //     .args = MKEMB(PtrList, .item = MKEMB(ASTVar, .name = "arg1", .line =
-    //     6)));
 
     ////////////////////////////////////////////////////
     void emit(Test& test) // TODO: should tests not return BOOL?
