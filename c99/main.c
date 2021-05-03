@@ -501,6 +501,8 @@ monostatic Func* Module_getFuncByTypeMatch(Module* module, Expr* funcCallExpr) {
             // The way it is now, CString and String wont match because they
             // arent strictly equal, although they are perfectly compatible
             // for argument passing.
+            if (ISIN(3, cArg->typeType, TYUnresolved, TYErrorType, TYNoType))
+                return NULL;
             if (cArg->typeType == arg->spec->typeType
                 && cArg->collectionType == arg->spec->collectionType) {
                 if (cArg->typeType == TYObject

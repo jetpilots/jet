@@ -286,303 +286,408 @@ static void Func_checkRecursion(Func* func) {
     if (!func->recursivity) func->recursivity = 1 + Func_calls(func, func);
 }
 
-static void Expr_analyse(Parser* parser, Expr* expr, Scope* scope, Module* mod,
-    Func* ownerFunc, bool inFuncArgs) {
-    switch (expr->kind) {
-    case tkFunctionCallResolved: {
-        if (ownerFunc) { // TODO: ownerFunc should not be NULL, even top-level
-                         // and type implicit ctors should have a func created
-            PtrList_shift(&ownerFunc->callees, expr->func);
-            PtrList_shift(&expr->func->callers, ownerFunc);
-        }
-        if (Expr_countCommaList(expr->left) != expr->func->argCount)
-            Parser_errorArgsCountMismatch(parser, expr);
-        expr->typeType = expr->func->spec
-            ? expr->func->spec->typeType
-            : TYNoType; // should actually be TYVoid
-        expr->collectionType = expr->func->spec
-            ? expr->func->spec->collectionType
-            : CTYNone; // should actually be TYVoid
-        expr->elemental = expr->func->elemental;
-        if (expr->func->spec) expr->dims = expr->func->spec->dims;
-        // isElementalFunc means the func is only defined for (all)
-        // Number arguments and another definition for vector args
-        // doesn't exist. Basically during typecheck this should see
-        // if a type mismatch is only in terms of collectionType.
-        if (!expr->left) break;
-        expr->elemental = expr->elemental && expr->left->elemental;
-        expr->throws = expr->left->throws || expr->func->throws;
-        Expr* currArg = expr->left;
-        foreach (Var*, arg, expr->func->args) {
-            Expr* cArg = (currArg->kind == tkOpComma) ? currArg->left : currArg;
-            if (cArg->kind == tkOpAssign) {
-                if (strcasecmp(cArg->left->string, arg->name))
-                    Parser_errorArgLabelMismatch(parser, cArg->left, arg);
-                cArg->left->string = arg->name;
-                cArg = cArg->right;
-            }
-            if (cArg->typeType == TYUnresolved
-                && arg->spec->typeType == TYObject && arg->spec->type->isEnum) {
-                Expr_setEnumBase(parser, cArg, arg->spec, mod);
-                Expr_analyse(parser, cArg, scope, mod, ownerFunc, false);
-            }
-            if (cArg->typeType != arg->spec->typeType)
-                Parser_errorArgTypeMismatch(parser, cArg, arg);
-            // TODO: check dims mismatch
-            // TODO: check units mismatch
-            // TODO: set enum base
-            if (!(currArg = currArg->right)) break;
-        }
+#define FN_ANALYSE(name)                                                       \
+    void Expr_analyse##name(Parser* parser, Expr* expr, Scope* scope,          \
+        Module* mod, Func* ownerFunc, bool inFuncArgs)
+#define SFN_ANALYSE(name) static FN_ANALYSE(name)
+#define ANALYSE_(name, expr, scope, inFuncArgs)                                \
+    Expr_analyse##name(parser, expr, scope, mod, ownerFunc, inFuncArgs)
+#define ANALYSE(expr, scope, inFuncArgs) ANALYSE_(, expr, scope, inFuncArgs)
 
-        currArg = expr->left;
-        while (currArg) {
-            Expr* cArg = (currArg->kind == tkOpComma) ? currArg->left : currArg;
-            if (cArg->kind == tkOpAssign) {
-                // LHS will be a tkIdentifier. You should resolve it to one
-                // of the function's arguments and set it to tkArgumentLabel.
-                assert(cArg->left->kind == tkIdentifier);
-                Var* theArg = NULL;
-                foreach (Var*, arg, expr->func->args) {
-                    if (!strcasecmp(cArg->left->string, arg->name))
-                        theArg = arg;
+monostatic FN_ANALYSE();
+
+// static void Expr_analyse_keyword_match(Parser* parser, Expr* expr, Scope*
+// scope,
+//     Module* mod, Func* ownerFunc, bool inFuncArgs)
+SFN_ANALYSE(_keyword_match) {
+    Expr* cond = expr->left;
+    if (cond) {
+        // Expr_analyse(parser, cond, scope, mod, ownerFunc, false);
+        ANALYSE(cond, scope, false);
+        TypeSpec* tsp = Expr_getObjectTypeSpec(cond);
+        if (expr->body && tsp && tsp->type
+            && tsp->type->isEnum) { // left->typeType == TYObject&&->isEnum) {
+            foreach (Expr*, cas, expr->body->stmts)
+                if (cas->left) Expr_setEnumBase(parser, cas->left, tsp, mod);
+        }
+    }
+    foreach (Expr*, stmt, expr->body->stmts) {
+        // Expr_analyse(parser, stmt, expr->body, mod, ownerFunc, false);
+        ANALYSE(stmt, expr->body, false);
+        if (cond && stmt->kind == tkKeyword_case && stmt->left
+            && (stmt->left->typeType != cond->typeType
+                || (cond->typeType == TYObject
+                    && Expr_getTypeOrEnum(stmt->left)
+                        != Expr_getTypeOrEnum(cond))))
+            Parser_errorTypeMismatch(parser, cond, stmt->left);
+    }
+}
+static void Expr_analyse_functionCall(Parser* parser, Expr* expr, Scope* scope,
+    Module* mod, Func* ownerFunc, bool inFuncArgs) {
+    char buf[128] = {};
+    char* bufp = buf;
+    if (expr->left)
+        Expr_analyse(parser, expr->left, scope, mod, ownerFunc, true);
+
+    // TODO: need a function to make and return selector
+    Expr* arg1 = expr->left;
+    if (arg1 && arg1->kind == tkOpComma) arg1 = arg1->left;
+    const char* typeName = Expr_typeName(arg1);
+    //        const char* collName = "";
+    //        if (arg1)
+    //        collName=CollectionType_nativeName(arg1->collectionType);
+    if (arg1) bufp += sprintf(bufp, "%s_", typeName);
+    bufp += sprintf(bufp, "%s", expr->string);
+    if (expr->left)
+        Expr_strarglabels(expr->left, bufp, 128 - ((int)(bufp - buf)));
+
+    Func* found = Module_getFunc(mod, buf);
+    if (!found && (found = Module_getFuncByTypeMatch(mod, expr))) {
+        // take the closest function by type match instead, for now. tell
+        // the user this may not be what they expected
+        Parser_warnUnrecognizedSelector(parser, expr, buf, found);
+    }
+    if (found) {
+        expr->kind = tkFunctionCallResolved;
+        expr->func = found;
+        expr->func->used++;
+        Func_analyse(parser, found, mod);
+        Expr_analyse(parser, expr, scope, mod, ownerFunc, false);
+        return;
+    }
+    if (!strncmp(buf, "Void_", 5))
+        Parser_errorCallingFuncWithVoid(parser, expr, arg1);
+    else {
+        Parser_errorUnrecognizedFunc(parser, expr, buf);
+
+        if (*buf != '<') // not invalid type
+        {
+            int sugg = 0;
+            foreach (Func*, func, mod->funcs) {
+                if (!strcasecmp(expr->string, func->name)) {
+                    eprintf("\e[36;1minfo:\e[0;2m   not viable: %s with %d "
+                            "arguments at %s:%d\e[0m\n",
+                        func->prettySelector, func->argCount, mod->filename,
+                        func->line);
+                    sugg++;
                 }
-                if (!theArg) {
-                    unreachable("unresolved argument %s!", cArg->left->string);
-                    // cArg->left->kind = tkIdentifier;
-                    // change it back to identifier
-                } // TODO: change this to parser error
-                else {
-                    cArg->left->var = theArg;
-                    cArg->left->kind = tkIdentifierResolved;
+                if (!func->intrinsic && strcasecmp(expr->string, func->name)
+                    && leven(
+                           expr->string, func->name, expr->slen, func->nameLen)
+                        < 3
+                    && func->argCount == PtrList_count(func->args)) {
+                    eprintf("\e[36;1minfo:\e[0m did you mean: "
+                            "\e[34m%s\e[0m (%s at "
+                            "./%s:%d)\n",
+                        func->name, func->prettySelector, mod->filename,
+                        func->line);
+                    sugg++;
                 }
             }
-
-            currArg = currArg->kind == tkOpComma ? currArg->right : NULL;
+            if (sugg) eputs("-----x\n");
         }
-
-    } break;
-
-        // -------------------------------------------------- //
-    case tkFunctionCall: {
-        char buf[128] = {};
-        char* bufp = buf;
-        if (expr->left)
-            Expr_analyse(parser, expr->left, scope, mod, ownerFunc, true);
-
-        // TODO: need a function to make and return selector
-        Expr* arg1 = expr->left;
-        if (arg1 && arg1->kind == tkOpComma) arg1 = arg1->left;
-        const char* typeName = Expr_typeName(arg1);
-        //        const char* collName = "";
-        //        if (arg1)
-        //        collName=CollectionType_nativeName(arg1->collectionType);
-        if (arg1) bufp += sprintf(bufp, "%s_", typeName);
-        bufp += sprintf(bufp, "%s", expr->string);
-        if (expr->left)
-            Expr_strarglabels(expr->left, bufp, 128 - ((int)(bufp - buf)));
-
-        Func* found = Module_getFunc(mod, buf);
-        if (!found && (found = Module_getFuncByTypeMatch(mod, expr))) {
-            // take the closest function by type match instead, for now. tell
-            // the user this may not be what they expected
-            Parser_warnUnrecognizedSelector(parser, expr, buf, found);
+    }
+}
+static void Expr_analyse_functionCallResolved(Parser* parser, Expr* expr,
+    Scope* scope, Module* mod, Func* ownerFunc, bool inFuncArgs) {
+    // TODO: ownerFunc should not be NULL, even top-level and type implicit
+    // ctors should have a func created
+    if (ownerFunc) {
+        PtrList_shift(&ownerFunc->callees, expr->func);
+        PtrList_shift(&expr->func->callers, ownerFunc);
+    }
+    if (Expr_countCommaList(expr->left) != expr->func->argCount)
+        Parser_errorArgsCountMismatch(parser, expr);
+    expr->typeType = expr->func->spec ? expr->func->spec->typeType
+                                      : TYNoType; // should actually be TYVoid
+    expr->collectionType = expr->func->spec
+        ? expr->func->spec->collectionType
+        : CTYNone; // should actually be TYVoid
+    expr->elemental = expr->func->elemental;
+    if (expr->func->spec) expr->dims = expr->func->spec->dims;
+    // isElementalFunc means the func is only defined for (all)
+    // Number arguments and another definition for vector args
+    // doesn't exist. Basically during typecheck this should see
+    // if a type mismatch is only in terms of collectionType.
+    if (!expr->left) return;
+    expr->elemental = expr->elemental && expr->left->elemental;
+    expr->throws = expr->left->throws || expr->func->throws;
+    Expr* currArg = expr->left;
+    foreach (Var*, arg, expr->func->args) {
+        Expr* cArg = (currArg->kind == tkOpComma) ? currArg->left : currArg;
+        if (cArg->kind == tkOpAssign) {
+            if (strcasecmp(cArg->left->string, arg->name))
+                Parser_errorArgLabelMismatch(parser, cArg->left, arg);
+            cArg->left->string = arg->name;
+            cArg = cArg->right;
         }
-        if (found) {
-            expr->kind = tkFunctionCallResolved;
-            expr->func = found;
-            expr->func->used++;
-            Func_analyse(parser, found, mod);
-            Expr_analyse(parser, expr, scope, mod, ownerFunc, false);
-            return;
+        if (cArg->typeType == TYUnresolved //
+            && arg->spec->typeType == TYObject && arg->spec->type->isEnum) {
+            Expr_setEnumBase(parser, cArg, arg->spec, mod);
+            Expr_analyse(parser, cArg, scope, mod, ownerFunc, false);
         }
-        if (!strncmp(buf, "Void_", 5))
-            Parser_errorCallingFuncWithVoid(parser, expr, arg1);
-        else {
-            Parser_errorUnrecognizedFunc(parser, expr, buf);
+        if (cArg->typeType != arg->spec->typeType)
+            Parser_errorArgTypeMismatch(parser, cArg, arg);
+        // TODO: check dims mismatch
+        // TODO: check units mismatch
+        // TODO: set enum base
+        if (!(currArg = currArg->right)) break;
+    }
 
-            if (*buf != '<') // not invalid type
-            {
-                int sugg = 0;
-                foreach (Func*, func, mod->funcs) {
-                    if (!strcasecmp(expr->string, func->name)) {
-                        eprintf("\e[36;1minfo:\e[0;2m   not viable: %s with %d "
-                                "arguments at %s:%d\e[0m\n",
-                            func->prettySelector, func->argCount, mod->filename,
-                            func->line);
-                        sugg++;
-                    }
-                    if (!func->intrinsic && strcasecmp(expr->string, func->name)
-                        && leven(expr->string, func->name, expr->slen,
-                               func->nameLen)
-                            < 3
-                        && func->argCount == PtrList_count(func->args)) {
-                        eprintf("\e[36;1minfo:\e[0m did you mean: "
-                                "\e[34m%s\e[0m (%s at "
-                                "./%s:%d)\n",
-                            func->name, func->prettySelector, mod->filename,
-                            func->line);
-                        sugg++;
-                    }
-                }
-                if (sugg) eputs("-----x\n");
+    currArg = expr->left;
+    while (currArg) {
+        Expr* cArg = (currArg->kind == tkOpComma) ? currArg->left : currArg;
+        if (cArg->kind == tkOpAssign) {
+            // LHS will be a tkIdentifier. You should resolve it to one
+            // of the function's arguments and set it to tkArgumentLabel.
+            assert(cArg->left->kind == tkIdentifier);
+            Var* theArg = NULL;
+            foreach (Var*, arg, expr->func->args) {
+                if (!strcasecmp(cArg->left->string, arg->name)) theArg = arg;
+            }
+            if (!theArg) {
+                unreachable("unresolved argument %s!", cArg->left->string);
+                // cArg->left->kind = tkIdentifier;
+                // change it back to identifier
+            } // TODO: change this to parser error
+            else {
+                cArg->left->var = theArg;
+                cArg->left->kind = tkIdentifierResolved;
             }
         }
-    } break;
 
-        // -------------------------------------------------- //
-    case tkVarAssign: {
-        Expr* const init = expr->var->init;
-        TypeSpec* const spec = expr->var->spec;
+        currArg = currArg->kind == tkOpComma ? currArg->right : NULL;
+    }
+}
+static void Expr_analyse_arrayOpen(Parser* parser, Expr* expr, Scope* scope,
+    Module* mod, Func* ownerFunc, bool inFuncArgs) {
+    expr->collectionType = CTYArray;
+    if (expr->right) {
+        Expr_analyse(parser, expr->right, scope, mod, ownerFunc, false);
+        expr->typeType = expr->right->typeType;
+        expr->collectionType
+            = expr->right->kind == tkOpSemiColon ? CTYTensor : CTYArray;
+        expr->dims = expr->right->kind == tkOpSemiColon ? 2 : 1;
+        // using array literals you can only init 1D or 2D
+        if (expr->typeType == TYObject) {
+            // you need to save the exact type of the elements, it's not a
+            // primitive type. You'll find it in the first element.
+            Expr* first = expr->right;
+            while (first->kind == tkOpComma || first->kind == tkOpSemiColon)
+                first = first->left;
+            switch (first->kind) {
+            case tkIdentifierResolved:
+                expr->elementType = first->var->spec->type;
+                if (first->var->spec->dims
+                    || first->var->spec->collectionType != CTYNone)
+                    unreachable(
+                        "trying to make array of arrays %d", expr->line);
+                break;
+            case tkFunctionCallResolved:
+                expr->elementType = first->func->spec->type;
+                if (first->func->spec->dims
+                    || first->var->spec->collectionType != CTYNone)
+                    unreachable(
+                        "trying to make array of arrays line %d", expr->line);
+                break;
+            default:
+                break;
+                // TODO: object init literals
+                // case tkObjectInitResolved:
+                // expr->elementType = first->var->spec->type;break;
+            }
+            // expr->elementType =
+        }
+    }
+}
+static void Expr_analyse_braceOpen(Parser* parser, Expr* expr, Scope* scope,
+    Module* mod, Func* ownerFunc, bool inFuncArgs) {
+    Expr_analyse(parser, expr->right, scope, mod, ownerFunc, true);
+    // TODO: you told Expr_analyse to not care about what's on the
+    // LHS of tkOpAssign exprs. Now you handle it yourself. Ensure that
+    // they're all of the same type and set that type to the expr
+    // somehow.
+    analyseDictLiteral(parser, expr->right, mod);
+    expr->typeType = expr->right->typeType;
+    if (expr->typeType == TYObject) {
+        // you need to save the exact type of the elements, it's not a
+        // primitive type. You'll find it in the first element.
+        Expr* first = expr->right;
+        while (first->kind == tkOpComma) first = first->left;
+        if (first->kind == tkOpAssign) first = first->right;
+        // we care about the value in the key-value pair. We'll figure
+        // out the key type later or not, whatever.
+        switch (first->kind) {
+        case tkIdentifierResolved:
+            expr->elementType = first->var->spec->type;
+            break;
+        case tkFunctionCallResolved:
+            expr->elementType = first->func->spec->type;
+            break;
+        default:
+            break;
+            // TODO: object init literals
+            // case tkObjectInitResolved:
+            // expr->elementType = first->var->spec->type;break;
+        }
+    }
+    expr->collectionType = CTYDictS;
+    // these are only Dicts! Sets are normal [] when you detect they are
+    // only used for querying membership.
+    // TODO: what were the gazillion Dict subtypes for?
+}
+static void Expr_analyse_varAssign(Parser* parser, Expr* expr, Scope* scope,
+    Module* mod, Func* ownerFunc, bool inFuncArgs) {
 
-        if (spec->typeType == TYUnresolved) resolveTypeSpec(parser, spec, mod);
+    Expr* const init = expr->var->init;
+    TypeSpec* const spec = expr->var->spec;
 
-        if (!init) {
-            // if the typespec is given, generate the init expr yourself
-            // this is only for basic types like primitives.
-            // and arrays of anything can be left without an init.
-            if (!spec->dims) // goto errorMissingInit;
-                switch (spec->typeType) {
-                case TYReal64: expr->var->init = expr_const_0; break;
-                case TYString: expr->var->init = expr_const_empty; break;
-                case TYBool: expr->var->init = expr_const_no; break;
-                case TYObject:
-                    if (!spec->type->isEnum) {
-                        expr->var->init = expr_const_nil;
-                        break;
-                    }
-                default:
-                errorMissingInit:
-                    // this is an error, no way to find out what you want
-                    Parser_errorMissingInit(parser, expr);
+    if (spec->typeType == TYUnresolved) resolveTypeSpec(parser, spec, mod);
+
+    if (!init) {
+        // if the typespec is given, generate the init expr yourself
+        // this is only for basic types like primitives.
+        // and arrays of anything can be left without an init.
+        if (!spec->dims) // goto errorMissingInit;
+            switch (spec->typeType) {
+            case TYReal64: expr->var->init = expr_const_0; break;
+            case TYString: expr->var->init = expr_const_empty; break;
+            case TYBool: expr->var->init = expr_const_no; break;
+            case TYObject:
+                if (!spec->type->isEnum) {
+                    expr->var->init = expr_const_nil;
+                    break;
                 }
+            default:
+            errorMissingInit:
+                // this is an error, no way to find out what you want
+                Parser_errorMissingInit(parser, expr);
+            }
+    } else {
+        // if (spec->typeType == TYUnresolved)
+        //     resolveTypeSpec(parser, spec, mod);
+        // first try to set enum base if applicable.
+        if (spec->typeType == TYObject && spec->type->isEnum)
+            Expr_setEnumBase(parser, init, spec, mod);
+
+        Expr_analyse(parser, init, scope, mod, ownerFunc, false);
+
+        if (!expr->var->used) {
+            // assigning to an unused var on the left of =. Decrement the
+            // usage counts of all vars referenced on the RHS because well
+            // being used for an unused var is not actually being used.
+            // TODO: this should also be done for += -= *= etc.
+            Expr_reduceVarUsage(init);
+        }
+
+        if (init->typeType != TYNilType) {
+            // if not nil, get type info from init expr.
+            expr->typeType = init->typeType;
+            expr->collectionType = init->collectionType;
+            expr->nullable = init->nullable;
+            expr->elemental = init->elemental;
+            expr->throws = init->throws;
+            expr->impure = init->impure;
+            expr->dims = init->dims;
+        } else if (spec->typeType == TYObject) {
+            // if nil, and typespec given and resolved, set type info from
+            // typespec.
+            expr->typeType = spec->typeType;
+
+        } else if (spec->typeType == TYUnresolved) {
+            // this will already have caused an error while resolution.
+            // since specified type is unresolved and init is nil, there
+            // is nothing to do except to mark it an error type.
+            spec->typeType = expr->typeType = TYErrorType;
+
         } else {
-            // if (spec->typeType == TYUnresolved)
-            //     resolveTypeSpec(parser, spec, mod);
-            // first try to set enum base if applicable.
-            if (spec->typeType == TYObject && spec->type->isEnum)
-                Expr_setEnumBase(parser, init, spec, mod);
+            // this would be something like init'ing primitives with nil.
+            Parser_errorInitMismatch(parser, expr);
+            spec->typeType = expr->typeType = TYErrorType;
+        }
 
-            Expr_analyse(parser, init, scope, mod, ownerFunc, false);
-
-            if (!expr->var->used) {
-                // assigning to an unused var on the left of =. Decrement the
-                // usage counts of all vars referenced on the RHS because well
-                // being used for an unused var is not actually being used.
-                // TODO: this should also be done for += -= *= etc.
-                Expr_reduceVarUsage(init);
-            }
-
-            if (init->typeType != TYNilType) {
-                // if not nil, get type info from init expr.
-                expr->typeType = init->typeType;
-                expr->collectionType = init->collectionType;
-                expr->nullable = init->nullable;
-                expr->elemental = init->elemental;
-                expr->throws = init->throws;
-                expr->impure = init->impure;
-                expr->dims = init->dims;
-            } else if (spec->typeType == TYObject) {
-                // if nil, and typespec given and resolved, set type info from
-                // typespec.
-                expr->typeType = spec->typeType;
-
-            } else if (spec->typeType == TYUnresolved) {
-                // this will already have caused an error while resolution.
-                // since specified type is unresolved and init is nil, there
-                // is nothing to do except to mark it an error type.
-                spec->typeType = expr->typeType = TYErrorType;
-
-            } else {
-                // this would be something like init'ing primitives with nil.
-                Parser_errorInitMismatch(parser, expr);
-                spec->typeType = expr->typeType = TYErrorType;
-            }
-
-            if (spec->typeType == TYUnresolved) {
-                spec->typeType = init->typeType;
-                if (init->typeType == TYObject) {
-                    if (init->kind == tkFunctionCallResolved) {
-                        expr->var->spec = init->func->spec;
-                        // ^ TODO: DROP old expr->var->spec!!
-                        spec->type = init->func->spec->type;
-                        spec->dims = init->func->spec->dims;
-                    } else if (init->kind == tkIdentifierResolved) {
-                        expr->var->spec = init->var->spec;
-                        spec->type = init->var->spec->type;
-                        spec->dims = init->var->spec->dims;
-                    } else if (init->kind == tkArrayOpen)
-                        spec->type = init->elementType;
-                    else if (init->kind == tkBraceOpen)
-                        spec->type = init->elementType;
-                    else if (init->kind == tkPeriod) {
-                        Expr* e = init;
-                        if (init->left->var->spec->type->isEnum) {
-                            spec->type = init->left->var->spec->type;
-                        } else {
-                            while (e->kind == tkPeriod) e = e->right;
-                            // at this point, it must be a resolved ident or
-                            // subscript
-                            spec->type = e->var->spec->type;
-                            spec->dims = e->var->spec->dims;
-                        }
-
+        if (spec->typeType == TYUnresolved) {
+            spec->typeType = init->typeType;
+            if (init->typeType == TYObject) {
+                if (init->kind == tkFunctionCallResolved) {
+                    expr->var->spec = init->func->spec;
+                    // ^ TODO: DROP old expr->var->spec!!
+                    spec->type = init->func->spec->type;
+                    spec->dims = init->func->spec->dims;
+                } else if (init->kind == tkIdentifierResolved) {
+                    expr->var->spec = init->var->spec;
+                    spec->type = init->var->spec->type;
+                    spec->dims = init->var->spec->dims;
+                } else if (init->kind == tkArrayOpen)
+                    spec->type = init->elementType;
+                else if (init->kind == tkBraceOpen)
+                    spec->type = init->elementType;
+                else if (init->kind == tkPeriod) {
+                    Expr* e = init;
+                    if (init->left->var->spec->type->isEnum) {
+                        spec->type = init->left->var->spec->type;
                     } else {
-                        unreachable("%s", "var type inference failed");
+                        while (e->kind == tkPeriod) e = e->right;
+                        // at this point, it must be a resolved ident or
+                        // subscript
+                        spec->type = e->var->spec->type;
+                        spec->dims = e->var->spec->dims;
                     }
-                    Type_analyse(parser, spec->type, mod);
+
+                } else {
+                    unreachable("%s", "var type inference failed");
                 }
-            } else if (spec->typeType != init->typeType
-                // && init->typeType != TYNilType
-            ) {
-                // init can be nil, which is a TYNilType
-                Parser_errorInitMismatch(parser, expr);
-                expr->typeType = TYErrorType;
+                Type_analyse(parser, spec->type, mod);
             }
-
-            if (spec->dims == 0) {
-                spec->collectionType = init->collectionType;
-                spec->dims = init->collectionType == CTYTensor ? init->dims
-                    : init->collectionType == CTYArray         ? 1
-                                                               : 0;
-            } else if (spec->dims != 1 && init->collectionType == CTYArray) {
-                Parser_errorInitDimsMismatch(parser, expr, 1);
-                expr->typeType = TYErrorType;
-            } else if (spec->dims != 2 && init->collectionType == CTYTensor) {
-                Parser_errorInitDimsMismatch(parser, expr, 2);
-                expr->typeType = TYErrorType;
-
-            } else if (spec->dims != 0 && init->collectionType == CTYNone) {
-                Parser_errorInitDimsMismatch(parser, expr, 0);
-                expr->typeType = TYErrorType;
-            }
-        }
-    } break;
-
-        // -------------------------------------------------- //
-    case tkKeyword_match: {
-        Expr* cond = expr->left;
-        if (cond) {
-            Expr_analyse(parser, cond, scope, mod, ownerFunc, false);
-            TypeSpec* tsp = Expr_getObjectTypeSpec(cond);
-            if (expr->body && tsp && tsp->type
-                && tsp->type
-                       ->isEnum) { // left->typeType == TYObject&&->isEnum) {
-                foreach (Expr*, cas, expr->body->stmts)
-                    if (cas->left)
-                        Expr_setEnumBase(parser, cas->left, tsp, mod);
-            }
+        } else if (spec->typeType != init->typeType
+            // && init->typeType != TYNilType
+        ) {
+            // init can be nil, which is a TYNilType
+            Parser_errorInitMismatch(parser, expr);
+            expr->typeType = TYErrorType;
         }
 
-        foreach (Expr*, stmt, expr->body->stmts) {
-            Expr_analyse(parser, stmt, expr->body, mod, ownerFunc, false);
-            if (cond && stmt->kind == tkKeyword_case && stmt->left
-                && (stmt->left->typeType != cond->typeType
-                    || (cond->typeType == TYObject
-                        && Expr_getTypeOrEnum(stmt->left)
-                            != Expr_getTypeOrEnum(cond))))
-                Parser_errorTypeMismatch(parser, cond, stmt->left);
+        if (spec->dims == 0) {
+            spec->collectionType = init->collectionType;
+            spec->dims = init->collectionType == CTYTensor ? init->dims
+                : init->collectionType == CTYArray         ? 1
+                                                           : 0;
+        } else if (spec->dims != 1 && init->collectionType == CTYArray) {
+            Parser_errorInitDimsMismatch(parser, expr, 1);
+            expr->typeType = TYErrorType;
+        } else if (spec->dims != 2 && init->collectionType == CTYTensor) {
+            Parser_errorInitDimsMismatch(parser, expr, 2);
+            expr->typeType = TYErrorType;
+
+        } else if (spec->dims != 0 && init->collectionType == CTYNone) {
+            Parser_errorInitDimsMismatch(parser, expr, 0);
+            expr->typeType = TYErrorType;
         }
-    } break;
+    }
+}
+
+monostatic void Expr_analyse(Parser* parser, Expr* expr, Scope* scope,
+    Module* mod, Func* ownerFunc, bool inFuncArgs) {
+    switch (expr->kind) {
+    case tkFunctionCallResolved:
+        Expr_analyse_functionCallResolved(
+            parser, expr, scope, mod, ownerFunc, inFuncArgs);
+        break;
+
+    case tkFunctionCall:
+        Expr_analyse_functionCall(
+            parser, expr, scope, mod, ownerFunc, inFuncArgs);
+        break;
+
+    case tkVarAssign:
+        Expr_analyse_varAssign(parser, expr, scope, mod, ownerFunc, inFuncArgs);
+        break;
+
+    case tkKeyword_match:
+        Expr_analyse_keyword_match(
+            parser, expr, scope, mod, ownerFunc, inFuncArgs);
+        break;
+
     case tkKeyword_else:
     case tkKeyword_if:
     case tkKeyword_for:
@@ -664,83 +769,16 @@ static void Expr_analyse(Parser* parser, Expr* expr, Scope* scope, Module* mod,
         break;
 
     case tkArrayOpen:
-        expr->collectionType = CTYArray;
-        if (expr->right) {
-            Expr_analyse(parser, expr->right, scope, mod, ownerFunc, false);
-            expr->typeType = expr->right->typeType;
-            expr->collectionType
-                = expr->right->kind == tkOpSemiColon ? CTYTensor : CTYArray;
-            expr->dims = expr->right->kind == tkOpSemiColon ? 2 : 1;
-            // using array literals you can only init 1D or 2D
-            if (expr->typeType == TYObject) {
-                // you need to save the exact type of the elements, it's not a
-                // primitive type. You'll find it in the first element.
-                Expr* first = expr->right;
-                while (first->kind == tkOpComma || first->kind == tkOpSemiColon)
-                    first = first->left;
-                switch (first->kind) {
-                case tkIdentifierResolved:
-                    expr->elementType = first->var->spec->type;
-                    if (first->var->spec->dims
-                        || first->var->spec->collectionType != CTYNone)
-                        unreachable(
-                            "trying to make array of arrays %d", expr->line);
-                    break;
-                case tkFunctionCallResolved:
-                    expr->elementType = first->func->spec->type;
-                    if (first->func->spec->dims
-                        || first->var->spec->collectionType != CTYNone)
-                        unreachable("trying to make array of arrays line %d",
-                            expr->line);
-                    break;
-                default:
-                    break;
-                    // TODO: object init literals
-                    // case tkObjectInitResolved:
-                    // expr->elementType = first->var->spec->type;break;
-                }
-                // expr->elementType =
-            }
-        }
+        Expr_analyse_arrayOpen(parser, expr, scope, mod, ownerFunc, inFuncArgs);
+
         break;
 
     case tkBraceOpen:
-        if (expr->right) {
-            Expr_analyse(parser, expr->right, scope, mod, ownerFunc, true);
-            // TODO: you told Expr_analyse to not care about what's on the
-            // LHS of tkOpAssign exprs. Now you handle it yourself. Ensure that
-            // they're all of the same type and set that type to the expr
-            // somehow.
-            analyseDictLiteral(parser, expr->right, mod);
-            expr->typeType = expr->right->typeType;
-            if (expr->typeType == TYObject) {
-                // you need to save the exact type of the elements, it's not a
-                // primitive type. You'll find it in the first element.
-                Expr* first = expr->right;
-                while (first->kind == tkOpComma) first = first->left;
-                if (first->kind == tkOpAssign) first = first->right;
-                // we care about the value in the key-value pair. We'll figure
-                // out the key type later or not, whatever.
-                switch (first->kind) {
-                case tkIdentifierResolved:
-                    expr->elementType = first->var->spec->type;
-                    break;
-                case tkFunctionCallResolved:
-                    expr->elementType = first->func->spec->type;
-                    break;
-                default:
-                    break;
-                    // TODO: object init literals
-                    // case tkObjectInitResolved:
-                    // expr->elementType = first->var->spec->type;break;
-                }
-            }
-            expr->collectionType = CTYDictS;
-            // these are only Dicts! Sets are normal [] when you detect they are
-            // only used for querying membership.
-            // TODO: what were the gazillion Dict subtypes for?
-        }
+        if (expr->right)
+            Expr_analyse_braceOpen(
+                parser, expr, scope, mod, ownerFunc, inFuncArgs);
         break;
+
     case tkPeriod: {
 
         if (!expr->left && !inFuncArgs) {
@@ -964,6 +1002,12 @@ static void Expr_analyse(Parser* parser, Expr* expr, Scope* scope, Module* mod,
                     // Special case: chained LE/LT operators: e.g. 0 <= yCH4
                     // <= 1.
                     ;
+                } else if (expr->kind == tkOpAssign || expr->kind == tkOpEQ
+                    || expr->kind == tkOpNE
+                        && ((leftType == TYObject && rightType == TYNilType)
+                            || (leftType == TYNilType
+                                && rightType == TYObject))) {
+                    // a == nil or nil !=a etc.
                 } else if (leftType != rightType) {
                     // Type mismatch for left and right operands is always
                     // an error.

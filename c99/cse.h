@@ -8,6 +8,7 @@ static void Expr_hash(Parser* parser, Expr* expr, Dict(UInt32, Ptr) * cseDict) {
     }
     switch (expr->kind) {
     case tkString:
+    case tkIdentifier:
     case tkRawString: expr->hash = CString_hash(expr->string); break;
     case tkNumber: {
         char* c = strpbrk(expr->string, "e.");
@@ -67,7 +68,8 @@ static void Expr_hash(Parser* parser, Expr* expr, Dict(UInt32, Ptr) * cseDict) {
             // the typeinfo as well
         }
     }
-    if (!ISIN(3, expr->kind, tkNumber, tkIdentifierResolved, tkVarAssign)) {
+    if (!ISIN(4, expr->kind, tkNumber, tkIdentifierResolved, tkVarAssign,
+            tkLineComment)) {
         // Don't put really simple things like literals into the CSE dict.
         int status = 0;
         UInt32 idx = Dict_put(UInt32, Ptr)(cseDict, expr->hash, &status);

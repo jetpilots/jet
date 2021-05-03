@@ -861,6 +861,7 @@ static Func* parseFunc(Parser* parser, Scope* globScope, bool shouldParseBody) {
     }
 
     if (shouldParseBody) {
+        Parser_ignore(parser, tkLineComment);
         Parser_consume(parser, tkNewline);
 
         Scope* funcScope = NEW(Scope);

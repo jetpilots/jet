@@ -102,7 +102,10 @@ static void JetTest_checkUnusedVars(Parser* parser, JetTest* test) {
 // comments). That will be the root scope which has parent==NULL.
 
 static void resolveMember(Parser* parser, Expr* expr, Type* type) {
-    assert(expr->kind == tkIdentifier || expr->kind == tkSubscript);
+    if (expr->kind != tkIdentifier && expr->kind != tkSubscript) {
+        Parser_errorParsingExpr(parser, expr, "invalid member");
+        return;
+    }
     TokenKind ret = (expr->kind == tkIdentifier) ? tkIdentifierResolved
                                                  : tkSubscriptResolved;
     Var* found = NULL;

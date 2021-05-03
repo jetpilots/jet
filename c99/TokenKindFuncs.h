@@ -44,6 +44,14 @@ static bool TokenKind_isRightAssociative(TokenKind kind) {
         [tkOpSemiColon] = 1
     };
     return rassoc[kind];
+    // switch (kind) {
+    // case tkPeriod:
+    // case tkOpPower:
+    // case tkOpComma:
+    // case tkOpSemiColon: return 1;
+    // default: return 0;
+    // }
+    // return 0;
 }
 
 static uint8_t TokenKind_getPrecedence(TokenKind kind) {

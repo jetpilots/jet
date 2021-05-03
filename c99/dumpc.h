@@ -6,23 +6,27 @@ static void Import_dumpc(Import* import, int level) {
 }
 
 static void TypeSpec_dumpc(TypeSpec* spec, int level) {
-    // char* name = spec->typeType==TYObject?spec->type->name:spec->name;
-    printf("(TypeSpec[]) {{ .typeType=%d, "
-           ".collectionType = %d, ",
-        spec->typeType, spec->collectionType);
+    printf("&(TypeSpec) { .typeType=%d, .collectionType = %d, ", spec->typeType,
+        spec->collectionType);
     if (spec->typeType == TYObject)
-        printf(".type = type_%s, ", spec->type->name);
+        printf(".type = &%s_%s, ", spec->type->isEnum ? "enum" : "type",
+            spec->type->name);
     else
         printf(".name = \"%s\", ", spec->name);
-    printf(".dims = %d, .nullable = %d }}", spec->dims, spec->nullable);
+    printf(".dims = %d, .nullable = %d }", spec->dims, spec->nullable);
 }
 
 static void Expr_dumpc(Expr* expr, int level, bool spacing, bool escapeStrings);
 
+static void Var_dumpc(Var* var, int level);
 static void Var_dumpc(Var* var, int level) {
-    printf("(Var[]) {{ .name = \"%s\", .spec = ", var->name);
+    printf("{ .name = \"%s\", .spec = ", var->name);
     TypeSpec_dumpc(var->spec, 0);
-    printf("}}");
+    if (var->init) {
+        printf(", .init = ");
+        Expr_dumpc(var->init, 0, yes, no);
+    }
+    printf("}");
 }
 
 static void Scope_dumpc(Scope* scope, int level) {
@@ -77,62 +81,33 @@ static void Scope_dumpc(Scope* scope, int level) {
 }
 
 static void Type_dumpc(Type* type, int level) {
-
-    printf("static Type* type_%s = (Type[]){{ .name =\"%s\" }};\n", type->name,
+    printf("static const Type type_%s = { .name =\"%s\" };\n", type->name,
         type->name);
-    // return;
-    //     if (type->isDeclare) printf("declare ");
-    //     printf("type %s", type->name);
-    //     if (type->super) {
-    //         printf(" extends ");
-    //         TypeSpec_dumpc(type->super, level);
-    //     }
-    //     puts("");
-    //     if (!type->body) return;
-
-    //     foreach (Expr*, stmt, type->body->stmts) {
-    //         if (!stmt) continue;
-    //         Expr_dumpc(stmt, level + STEP, true, false);
-    //         puts("");
-    //     }
-    //     puts("end\n");
+    foreach (Var*, var, type->body->locals)
+        Var_dumpc(var, 0), puts("");
 }
 
 static void JetEnum_dumpc(Type* type, int level) {
-    // if (!type->body) printf("declare ");
-    printf("enum %s\n", type->name);
-    // if (type->super) {
-    //     printf(" extends ");
-    //     TypeSpec_dumpc(type->super, level);
-    // }
-    // puts("");
-    if (type->body) foreach (Expr*, stmt, type->body->stmts) {
-            if (!stmt) continue;
-            Expr_dumpc(stmt, level + STEP, true, false);
-            puts("");
-        }
-    puts("end\n");
+    printf("static const Type enum_%s = { .name =\"%s\" , .isEnum = true };\n",
+        type->name, type->name);
 }
 
 static void Func_dumpc(Func* func, int level) {
-    printf("static Func* func_%s = (Func[]){{ .name = \"%s\", .selector = "
+    printf("static const Func func_%s = { .name = \"%s\", .selector = "
            "\"%s\", ",
         func->selector, func->name, func->selector);
     if (func->argCount) {
         printf(".args = ");
         PtrList* args = func->args;
         do {
-            printf("(PtrList[]) {{ .item = ");
+            printf("&(PtrList) { .item = &(Var)");
             Var_dumpc(args->item, 0);
-            if ((args = args->next)) {
-                printf(", .next = ");
-                // printf("}} ");
-            }
+            if ((args = args->next)) { printf(", .next = "); }
         } while (args);
-        for_to(i, func->argCount - 1) printf("}} ");
-        printf("}}, ");
+        for_to(i, func->argCount - 1) printf("} ");
+        printf("}, ");
     }
-    printf(".intrinsic = %d }};\n", func->intrinsic);
+    printf(".intrinsic = %d };\n", func->intrinsic);
     // if (func->isDefCtor || func->intrinsic) return;
 
     // printf("~ [ ");
@@ -177,43 +152,49 @@ static void JetTest_dumpc(JetTest* test, int level) {
     // Scope_dumpc(test->body, level + STEP);
     // puts("end\n");
 }
+#define PRFIELD(ex, fi, fmt)                                                   \
+    if (ex->fi) printf("." #fi " = " fmt ",\n", ex->fi)
 
 static void Expr_dumpc(
     Expr* expr, int level, bool spacing, bool escapeStrings) {
     // generally an expr is not split over several lines (but maybe in
     // rare cases). so level is not passed on to recursive calls.
 
-    printf("CT_EXPR(.kind = %s)", TokenKind_names[expr->kind]);
-
-    return;
-    printf("%.*s", level, spaces);
+    printf("&(Expr) { .kind = %s,\n", TokenKind_names[expr->kind]);
+    PRFIELD(expr, line, "%d");
+    PRFIELD(expr, col, "%d");
 
     switch (expr->kind) {
     case tkNumber:
-    case tkMultiDotNumber: printf("%s", expr->string); break;
-    case tkRawString: printf("'%s'", expr->string + 1); break;
-    case tkRegexp: printf("`%s`", expr->string + 1); break;
-
+    case tkMultiDotNumber:
+    case tkRawString:
+    case tkRegexp:
     case tkIdentifier:
     case tkArgumentLabel:
-    case tkIdentifierResolved: {
-        char* tmp = (expr->kind != tkIdentifierResolved) ? expr->string
-                                                         : expr->var->name;
-        printf("%s", tmp);
-    } break;
+    case tkString: printf(".string = \"%s\",\n", expr->string); break;
 
-    case tkString:
-        printf(escapeStrings ? "\\%s\\\"" : "%s\"", expr->string);
+    case tkIdentifierResolved:
+        printf(".var = &var_%d_%s, ", expr->var->line, expr->var->name);
         break;
-    case tkKeyword_no: printf("no"); break;
-    case tkKeyword_yes: printf("yes"); break;
-    case tkKeyword_nil: printf("nil"); break;
+
+    case tkSubscript:
+    case tkFunctionCall:
+        printf(".string = \"%s\",\n", expr->string);
+        if (expr->left) {
+            printf(".left = ");
+            Expr_dumpc(expr->left, 0, 0, 0);
+            printf(",\n");
+        }
+        break;
+
+    case tkKeyword_no: break;
+    case tkKeyword_yes: break;
+    case tkKeyword_nil: break;
 
     case tkLineComment:
         printf("%s%s", TokenKind_repr[tkLineComment], expr->string);
         break;
 
-    case tkFunctionCall:
         printf("%s(", expr->string);
         if (expr->left) Expr_dumpc(expr->left, 0, false, escapeStrings);
         printf(")");
@@ -221,23 +202,15 @@ static void Expr_dumpc(
     case tkFunctionCallResolved:
         // char* tmp = (expr->kind == tkFunctionCallResolved) ?
         //                                                    : expr->string;
-        printf("%s(", expr->func->name);
+        printf(".func = &func_%s, \n", expr->func->selector);
         if (expr->left) {
-            Expr* carg = expr->left;
-            foreachn(Var*, var, listp, expr->func->args) {
-                if (!carg) break;
-                Expr* arg = (carg->kind == tkOpComma) ? carg->left : carg;
-                if (arg->kind != tkOpAssign && listp != expr->func->args)
-                    printf("%s=", var->name);
-                Expr_dumpc(arg, 0, false, escapeStrings);
-                if (listp->next) printf(", ");
-                carg = (carg->kind == tkOpComma) ? carg->right : NULL;
-            }
+            printf(".left = ");
+            Expr_dumpc(expr->left, 0, 0, 0);
+            printf(",\n");
         }
-        printf(")");
+
         break;
 
-    case tkSubscript:
     case tkSubscriptResolved: {
         char* tmp = (expr->kind == tkSubscriptResolved) ? expr->var->name
                                                         : expr->string;
@@ -247,15 +220,16 @@ static void Expr_dumpc(
     } break;
 
     case tkObjectInit:
-    case tkObjectInitResolved: break;
-
-    case tkPeriod:
-        if (expr->left && expr->left->typeType == TYObject
-            && !expr->left->var->spec->type->isEnum)
-            Expr_dumpc(expr->left, 0, spacing, escapeStrings);
-        printf(".");
-        Expr_dumpc(expr->right, 0, spacing, escapeStrings);
+    case tkObjectInitResolved:
         break;
+
+        // case tkPeriod:
+        //     if (expr->left && expr->left->typeType == TYObject
+        //         && !expr->left->var->spec->type->isEnum)
+        //         Expr_dumpc(expr->left, 0, spacing, escapeStrings);
+        //     printf(".");
+        //     Expr_dumpc(expr->right, 0, spacing, escapeStrings);
+        //     break;
 
     case tkVarAssign:
         // var x as XYZ = abc... -> becomes an Var and an Expr
@@ -264,92 +238,54 @@ static void Expr_dumpc(
         Var_dumpc(expr->var, 0);
         break;
 
-    case tkArrayOpen:
-    case tkBraceOpen:
-        printf("%s", TokenKind_repr[expr->kind]);
-        if (expr->right)
-            Expr_dumpc(
-                expr->right, level, expr->kind != tkArrayOpen, escapeStrings);
-        printf("%s", TokenKind_repr[TokenKind_reverseBracket(expr->kind)]);
-        break;
+        // case tkArrayOpen:
+        // case tkBraceOpen:
+        //     printf("%s", TokenKind_repr[expr->kind]);
+        //     if (expr->right)
+        //         Expr_dumpc(
+        //             expr->right, level, expr->kind != tkArrayOpen,
+        //             escapeStrings);
+        //     printf("%s",
+        //     TokenKind_repr[TokenKind_reverseBracket(expr->kind)]); break;
 
-    case tkKeyword_in:
-    case tkKeyword_notin:
-        // these seem to add precedence parens aruns expr->right if done as
-        // normal binops. so ill do them separately here.
-        Expr_dumpc(expr->left, 0, spacing, escapeStrings);
-        printf("%s", TokenKind_repr[expr->kind]);
-        Expr_dumpc(expr->right, 0, spacing, escapeStrings);
-        break;
+        // case tkKeyword_in:
+        // case tkKeyword_notin:
+        //     // these seem to add precedence parens aruns expr->right if done
+        //     as
+        //     // normal binops. so ill do them separately here.
+        //     Expr_dumpc(expr->left, 0, spacing, escapeStrings);
+        //     printf("%s", TokenKind_repr[expr->kind]);
+        //     Expr_dumpc(expr->right, 0, spacing, escapeStrings);
+        //     break;
 
     default:
         if (!expr->prec) break;
-        // not an operator, but this should be error if you reach here
-        bool leftBr
-            = expr->left && expr->left->prec && expr->left->prec < expr->prec;
-        bool rightBr = expr->right && expr->right->prec
-            && expr->right->kind != tkKeyword_return // found in 'or return'
-            && expr->right->prec < expr->prec;
-
-        if (expr->kind == tkOpColon) {
-            // expressions like arr[a:x-3:2] should become
-            // arr[a:(x-3):2]
-            // or list literals [8, 9, 6, 77, sin(c)]
-            if (expr->left) switch (expr->left->kind) {
-                case tkNumber:
-                case tkIdentifier:
-                case tkString:
-                case tkOpColon:
-                case tkMultiDotNumber:
-                case tkOpUnaryMinus: break;
-                default: leftBr = true;
-                }
-            if (expr->right) switch (expr->right->kind) {
-                case tkNumber:
-                case tkIdentifier:
-                case tkString:
-                case tkOpColon:
-                case tkMultiDotNumber:
-                case tkOpUnaryMinus: break;
-                default: rightBr = true;
-                }
+        if (!expr->unary && expr->left) {
+            printf(".left = ");
+            Expr_dumpc(expr->left, 0, 0, 0);
+            printf(",\n");
         }
-
-        if (expr->kind == tkOpPower && !spacing) putc('(', stdout);
-
-        char lpo = leftBr && expr->left->kind == tkOpColon ? '[' : '(';
-        char lpc = leftBr && expr->left->kind == tkOpColon ? ']' : ')';
-        if (leftBr) putc(lpo, stdout);
-        if (expr->left)
-            Expr_dumpc(expr->left, 0,
-                spacing && !leftBr && expr->kind != tkOpColon, escapeStrings);
-        if (leftBr) putc(lpc, stdout);
-
-        printf("%s",
-            spacing ? TokenKind_srepr[expr->kind] : TokenKind_repr[expr->kind]);
-
-        char rpo = rightBr && expr->right->kind == tkOpColon ? '[' : '(';
-        char rpc = rightBr && expr->right->kind == tkOpColon ? ']' : ')';
-        if (rightBr) putc(rpo, stdout);
-        if (expr->right)
-            Expr_dumpc(expr->right, 0,
-                spacing && !rightBr && expr->kind != tkOpColon, escapeStrings);
-        if (rightBr) putc(rpc, stdout);
-
-        if (expr->kind == tkOpPower && !spacing) putc(')', stdout);
+        if (expr->right) {
+            printf(".right = ");
+            Expr_dumpc(expr->right, 0, 0, 0);
+            printf(",\n");
+        }
     }
+
+    PRFIELD(expr, throws, "%d");
+    PRFIELD(expr, prec, "%d");
+    PRFIELD(expr, unary, "%d");
+    PRFIELD(expr, rassoc, "%d");
+    // printf(".throws = %d,\n", expr->throws);
+    printf("}");
 }
 
 static void Module_dumpc(Module* module) {
-    printf("// module %s\n", module->name);
 
     foreach (Import*, import, module->imports)
         Import_dumpc(import, 0);
 
     puts("");
-
-    foreach (Var*, var, module->scope->locals)
-        Var_dumpc(var, 0), puts("");
 
     puts("");
 
@@ -364,4 +300,7 @@ static void Module_dumpc(Module* module) {
 
     foreach (JetTest*, test, module->tests)
         JetTest_dumpc(test, 0);
+
+    foreach (Var*, var, module->scope->locals)
+        Var_dumpc(var, 0), puts("");
 }
