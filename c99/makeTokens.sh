@@ -6,7 +6,7 @@ start() {
     echo "static const char* const TokenKind_repr[] = {" > TokenKind_repr.h
     echo "static const char* const TokenKind_srepr[] = {" > TokenKind_srepr.h
     echo "static const char* const TokenKind_names[] = {" > TokenKind_names.h
-    echo " local tk = {" > TokenKind.lua
+    echo " local tk = {" > ../lua/TokenKind.lua
 }
 
 finish() {
@@ -14,7 +14,7 @@ finish() {
     echo "};\n" >> TokenKind_srepr.h
     echo "};\n" >> TokenKind_names.h
 
-    echo "}\nreturn tk\n" >> TokenKind.lua
+    echo "}\nreturn tk\n" >> ../lua/TokenKind.lua
 
     echo "} TokenKind;\n" >> TokenKind.h
     cat TokenKind_names.h TokenKind_repr.h TokenKind_srepr.h >> TokenKind.h
@@ -31,7 +31,7 @@ add() {
         echo "    [$1] = \"$repr\"," >> TokenKind_repr.h
     fi
     count=$((count+1))
-    echo "    ${1##tk} = {id=$count, name=\"${1##tk}\", repr=\"$srepr\"}, " >> TokenKind.lua
+    echo "    ${1##tk} = {id=$count, name=\"${1##tk}\", repr=\"$srepr\"}, " >> ../lua/TokenKind.lua
 }
 
 start
