@@ -3,7 +3,7 @@ struct Type {
     Scope* body;
     // List<Func&> funcs;
     SourceLoc loc;
-    bool used, isEnum, external;
+    bool used, _enum, external, analysed;
     Var* getVar(const char* name) {
         return body ? body->getVar(name) : nullptr;
     }
@@ -17,5 +17,6 @@ struct Type {
         }
         return sum;
     }
+    bool isEnum() { return _enum; }
 };
 static_assert(sizeof(Type) == 24);

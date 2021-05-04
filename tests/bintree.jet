@@ -1,0 +1,62 @@
+type BTreeT ~BTree is a generic type with generic param ``T``
+    var le BTreeT ~left and right subtrees; may be nil
+    var ri BTreeT ~left and right subtrees; may be nil
+    var data Number ~the data stored in a node
+end
+
+func BTreeT(data Number) ~constructor for a node
+    return BTreeT(le=nil, ri=nil, data=data)
+end
+
+func add!(root BTreeT, n BTreeT)     ~insert a node into the tree
+    if root == nil
+        root = n
+    else
+        var it = root
+        while it != nil
+            ~compare the data items; uses the generic ``cmp`` func
+            ~that works for any type that has a ``==`` and ``<`` operator
+            var c = cmp(it.data, n.data)
+            if c < 0
+                if it.le == nil
+                    it.le = n
+                    return
+                end
+                it = it.le
+            else
+                if it.ri == nil
+                    it.ri = n
+                    return
+                end
+                it = it.ri
+            end
+        end
+    end
+end
+
+add(root BTreeT, data Number) := add!(root, BTreeT(data))
+
+with Number
+func preorder(root BTreeT) as Number
+    ~Preorder traversal of a binary tree.
+    ~This uses an explicit stack (which is more efficient than
+    ~a recursive iterator factory).
+    var stack BTreeT[] = [root]
+    while not stack.empty()
+        var n = pop!(stack)
+        while n != nil
+            yield n.data
+            push!(stack, n.ri)    ~push right subtree onto the stack
+            n = n.le                    ~and follow the left pointer
+        end
+    end
+end
+
+func start()
+    var root BTreeT ~instantiate a BTree with ``string``
+    add!(root, BTreeT("hello")) ~instantiates ``newNode`` and ``add``
+    add!(root, "world")                    ~instantiates the second ``add`` func
+    for str = preorder(root)
+        write(str)
+    end
+end

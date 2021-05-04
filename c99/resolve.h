@@ -103,7 +103,10 @@ static void JetTest_checkUnusedVars(Parser* parser, JetTest* test) {
 
 static void resolveMember(Parser* parser, Expr* expr, Type* type) {
     if (expr->kind != tkIdentifier && expr->kind != tkSubscript) {
+        // if (expr->kind != tkFunctionCall) {
         Parser_errorParsingExpr(parser, expr, "invalid member");
+        eputs("NYI\n");
+        // }
         return;
     }
     TokenKind ret = (expr->kind == tkIdentifier) ? tkIdentifierResolved
@@ -243,6 +246,7 @@ static void resolveVars(Parser* parser, Expr* expr, Scope* scope,
                         // var, just lint the name here so it is in the correct
                         // case
                         memcpy(pos + 1, var->name, len);
+                        var->used++;
                     }
 
                 } else {

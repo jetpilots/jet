@@ -2,8 +2,8 @@
 #define genCoverage 1
 #define genLineProfile 1
 
-#define outln(s) fwrite(s "\n", sizeof(s), 1, stdout)
-#define outl(s) fwrite(s "", sizeof(s) - 1, 1, stdout)
+#define outln(s) fwrite(s "\n", sizeof(s ""), 1, stdout)
+#define outl(s) fwrite(s "", sizeof(s "") - 1, 1, stdout)
 #define iprintf(nspc, fmt, ...)                                                \
     printf("%.*s", nspc, spaces), printf(fmt, __VA_ARGS__)
 
@@ -403,7 +403,7 @@ static void Scope_emit(Scope* scope, int level) {
         }
 
         Expr_emit(stmt, level);
-        outln(!(isCtrlExpr(stmt) || stmt->kind == tkKeyword_return) ? "" : ";");
+        puts(!(isCtrlExpr(stmt) || stmt->kind == tkKeyword_return) ? ";" : "");
         // convert this into a flag which is set in the resolution pass
 
         // here you see if any vars are to be dropped at this point (because
@@ -555,6 +555,10 @@ static void Type_emit(Type* type, int level) {
         name, name, name, name);
     outln("");
 
+    foreach (Var*, var, type->body->locals)
+        printf("%s* %s_addrof_%s(%s* selfp) {return &((*selfp)->%s);}\n",
+            TypeSpec_name(var->spec), name, var->name, name, var->name);
+
     Type_genJson(type);
     Type_genJsonReader(type);
 }
@@ -572,6 +576,12 @@ static void Type_genh(Type* type, int level) {
            "%s_json_wrap_(x); }\n\n",
         name, name);
     printf("static void %s_json_(const %s self, int nspc);\n", name, name);
+
+    foreach (Var*, var, type->body->locals)
+        printf("%s* %s_addrof_%s(%s* selfp);\n", TypeSpec_name(var->spec), name,
+            var->name, name);
+    //^ note that for objects the accessor func returns T**. genc for the . oper
+    // adds a leading * in any case.
 }
 
 static void JetEnum_genh(Type* type, int level) {
@@ -1369,16 +1379,17 @@ static void Expr_emit(Expr* expr, int level) {
 
     case tkKeyword_check: Expr_emit_tkCheck(expr, 0); break;
 
-    case tkPeriod:
+    case tkPeriod: {
+        // printf("*%s_addrof_%s(",Expr_typeName(expr->left),);
         Expr_emit(expr->left, 0);
         if (expr->left->typeType == TYObject
             && Expr_getObjectType(expr->left)->isEnum)
             outl("_");
         else
-            outl("->"); // may be . if right is embedded and not a
-                        // reference
+            outl("->");
         Expr_emit(expr->right, 0);
-        break;
+        // outl(")");
+    } break;
 
     case tkKeyword_notin: outl("!"); fallthrough;
     case tkKeyword_in:
@@ -1632,7 +1643,7 @@ void Type_genTypeInfoDecls(Type* type) {
     printf("static const char* const %s__memberNames[] = {\n    ", type->name);
     if (type->body) //
         foreachn(Var*, var, varn, type->body->locals) {
-            if (!var || !var->used) continue;
+            if (!var /*|| !var->used*/) continue;
             printf("\"%s\", ", var->name);
             // Var_emit(var, level + STEP, false);
         }

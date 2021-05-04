@@ -224,7 +224,7 @@ struct Expr {
     };
     union {
         Expr* left;
-        List(Var*) * vars; // for tkString
+        List(Expr) * vars; // for tkString
         Type* elementType; // for tkListLiteral, tkDictLiteral only!!
     };
     union {
@@ -266,9 +266,8 @@ struct Type {
     TypeSpec* super;
     /// The other types that are used in this type (i.e. types of member
     /// variables)
-    List(Type) * usedTypes;
+    List(Type) * usedTypes, *usedByTypes;
     /// The other types that use this type.
-    List(Type) * usedByTypes;
     /// The body of the type, as a scope. In effect it can have any expressions,
     /// but most kinds are disallowed by the parsing routine. Variable
     /// declarations and invariant checks are what you should mostly expect to

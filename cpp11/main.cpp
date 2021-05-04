@@ -3,6 +3,9 @@
 #define unreachable(...) fprintf(stderr, __VA_ARGS__)
 
 #include "List.hpp"
+struct Expr;
+
+#include "Token.hpp"
 
 #include "ast/Var.hpp"
 #include "ast/Expr.hpp"

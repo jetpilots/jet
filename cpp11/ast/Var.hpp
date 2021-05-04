@@ -55,12 +55,13 @@ union TypeInfo {
         CollectionType collectionType;
         unsigned char dims;
     };
-    int32_t val;
+    int val;
     bool operator!=(TypeInfo& t2) { return not(*this == t2); }
     bool operator==(TypeInfo& t2) { return val == t2.val; }
     int size() {
         switch (typeType) { }
     }
+    bool is(TypeType ty) { return typeType == ty; }
 };
 static_assert(sizeof(TypeInfo) == 4, "");
 
@@ -105,5 +106,5 @@ struct Var {
     bool is(TypeType ty) { return ty == typeInfo.typeType; }
     bool is(CollectionType cty) { return cty == typeInfo.collectionType; }
     // bool isNumeric() { return typeInfo.typeType == TYNumber; }
-    bool isEnum() { return is(TYObject) and type->isEnum; }
+    bool isEnum() { return is(TYObject) and type->isEnum(); }
 };

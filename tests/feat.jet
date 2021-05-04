@@ -50,5 +50,6 @@ func start()
     print("The name is: $name") ~ string interpolation
     ~ print("The name is $(name).") ~ string interpolation
     var s = Structure() ~ default constructor
+    print(s.memb1)
     json(s) ~ serialize built-in
 end

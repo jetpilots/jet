@@ -1,5 +1,5 @@
 declare type Strings
-
+end
 func main(args Strings) as Number
     ~ check 0 < proc < 65536
     var strTable = [ "first" = 4, "second" = 5, "third" = 42 ]

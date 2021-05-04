@@ -1,4 +1,3 @@
-#include "Token.hpp"
 
 static Expr expr_const_yes(tkKeyword_yes);
 static Expr expr_const_no(tkKeyword_no);

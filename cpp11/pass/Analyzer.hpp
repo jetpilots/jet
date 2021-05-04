@@ -76,7 +76,7 @@ private:
                     // of the function's arguments and set it to
                     // tkArgumentLabel.
                     assert(cArg->left->is(tkIdentifier));
-                    Var* theArg = NULL;
+                    Var* theArg = nullptr;
                     for (Var& arg : expr.func->args) {
                         if (!strcasecmp(cArg->left->string, arg.name))
                             theArg = &arg;
@@ -93,7 +93,7 @@ private:
                     }
                 }
 
-                currArg = currArg->is(tkOpComma) ? currArg->right : NULL;
+                currArg = currArg->is(tkOpComma) ? currArg->right : nullptr;
             }
 
         } break;

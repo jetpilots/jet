@@ -1,0 +1,102 @@
+Kinds := #unknown, #ident, #call, #index
+
+Expr
+    kind := Kinds.unknown, line := 1, col := 1, _prv := 9
+    new := () -> pass
+    newFrom := (other Expr) -> pass
+    emit := (ownerScope Scope, ownerFunc Function, ownerMod Module) ->
+        obj.cbload = (fg Iop, ki Op) -> fg + ki + oyuyi/8
+        print("($kind@$line:$col)")
+    loc := () -> SrcLoc { .line = line, .col = col }
+    isCtrlExpr := () -> isCtrlKind(kind)
+    UnOp
+        right := Expr._.nil
+        _prv = 6
+        emit = (ownerScope Scope, ownerFunc Function, ownerMod Module) ->
+            pass
+    BinOp
+        left := Expr._.nil, right := Expr._.nil
+        emit = (ownerScope Scope, ownerFunc Function, ownerMod Module) ->
+            pass
+
+Expr.BinOp
+    Plus
+        new(be super) := be {.kind = #plus}
+        emit = (ownerScope Scope, ownerFunc Function, ownerMod Module) ->
+            pass
+    Minus
+        emit = (ownerScope Scope, ownerFunc Function, ownerMod Module) ->
+            pass
+
+
+
+@Expr
+    analyse()
+    UnOp
+        analyse()
+    BinOp
+        analyse()
+        Plus
+            analyse()
+        Minus
+            analyse()
+
+Kinds := #unknown, #ident, #call, #index
+
+type Expr Object
+    kind := Kinds.unknown, line := 1, col := 1, _prv := 9
+    func new() pass
+    func new(other Expr) pass
+    func emit(ownerScope Scope, ownerFunc Function, ownerMod Module)
+        print("($kind@$line:$col)")
+    end
+    func loc() := SrcLoc { .line = line, .col = col }
+    func isCtrlExpr() := isCtrlKind(kind)
+end
+type UnOp Expr
+    right := Expr._.nil
+    redef emit(ownerScope Scope, ownerFunc Function, ownerMod Module)
+        pass
+    end
+end
+type BinOp Expr
+    left := Expr._.nil, right := Expr._.nil
+    redef emit(ownerScope Scope, ownerFunc Function, ownerMod Module)
+        pass
+    end
+end
+
+
+type Expr.BinOp.Plus
+type ExprBinOpPlus ExprBinOp
+    func new(be super) := be {.kind = #plus}
+    redef emit(ownerScope Scope, ownerFunc Function, ownerMod Module)
+        pass
+    end
+end
+type Minus BinOp
+    redef emit(ownerScope Scope, ownerFunc Function, ownerMod Module)
+        pass
+    end
+end
+
+
+
+extend type Expr
+    func analyse()
+    derived type UnOp
+        redef analyse()
+        end
+    end
+    derived type BinOp
+        redef analyse()
+        derived type Plus
+            redef analyse()
+            end
+        end
+        derived type Minus
+            redef analyse()
+            end
+        end
+    end
+end

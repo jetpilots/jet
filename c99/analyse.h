@@ -102,7 +102,7 @@ static void Expr_prepareInterp(Parser* parser, Expr* expr, Scope* scope) {
         ex->kind = tkIdentifierResolved;
         ex->line = line, ex->col = col;
         ex->var = var;
-        var->used = true;
+        // var->used++;
 
         exdot = ex;
         if (!wasbracket)
@@ -130,7 +130,7 @@ static void Expr_prepareInterp(Parser* parser, Expr* expr, Scope* scope) {
                             .col = col,
                             .kind = tkIdentifier });
                 } else {
-                    var->used = true;
+                    // var->used++;
                     strcpy(varname, var->name); // fix case
                     exdot = NEW(Expr);
                     exdot->kind = tkPeriod;
@@ -236,7 +236,13 @@ static void Expr_reduceVarUsage(Expr* expr) {
     // reduced when being involved in an expr that inits a known unused
     // variable.
     switch (expr->kind) {
-    case tkString: break; // TODO: vars within string intrp
+    case tkString:
+        foreach (Expr*, ex, expr->vars)
+            Expr_reduceVarUsage(ex);
+        // if (!--var->used) {
+        //     if (expr->var->init) Expr_reduceVarUsage(expr->var->init);
+        // };
+        break;
     case tkSubscript:
     case tkFunctionCall:
         if (expr->left) Expr_reduceVarUsage(expr->left);
@@ -818,7 +824,9 @@ monostatic void Expr_analyse(Parser* parser, Expr* expr, Scope* scope,
             expr->typeType = TYErrorType;
             break;
         }
-        assert(expr->left->var->spec->typeType == TYObject); //!= TYNilType);
+        assert(expr->left->var->spec->typeType == TYObject
+            || expr->right->kind == tkFunctionCall
+            || expr->right->kind == tkFunctionCallResolved); //!= TYNilType);
 
         Type* type = expr->left->var->spec->type;
         if (!type) {
@@ -1054,20 +1062,25 @@ monostatic void Expr_analyse(Parser* parser, Expr* expr, Scope* scope,
 
 static void Type_analyse(Parser* parser, Type* type, Module* mod) {
     if (type->analysed) return;
-    // eprintf(
-    //     "Expr_analyse: %s at ./%s:%d\n", type->name, parser->filename,
-    //     type->line);
     if (type->super) {
         resolveTypeSpec(parser, type->super, mod);
-        if (type->super->type == type)
-            Parser_errorTypeInheritsSelf(parser, type);
+        // if (type->super->type == type)
+        //     Parser_errorTypeInheritsSelf(parser, type);
+        // Cycle dependency will catch it. Don't bother with the trivial case
     }
     // TODO: this should be replaced by a dict query
     foreach (Type*, type2, mod->types) {
         if (type2 == type) break;
         if (!strcasecmp(type->name, type2->name))
-            Parser_errorDuplicateType(parser, type, type2);
+            if (type->isEnum)
+                Parser_errorDuplicateEnum(parser, type, type2);
+            else
+                Parser_errorDuplicateType(parser, type, type2);
     }
+    if (strchr(type->name, '_')) Parser_errorInvalidTypeName(parser, type);
+    if (*type->name < 'A' || *type->name > 'Z')
+        Parser_errorInvalidTypeName(parser, type);
+
     // Mark the semantic pass as done for this type, so that recursive
     // paths through calls found in initializers will not cause the compiler
     // to recur. This might be a problem if e.g. the type has a, b, c and
@@ -1183,13 +1196,12 @@ static void JetTest_analyse(Parser* parser, JetTest* test, Module* mod) {
             Parser_errorDuplicateTest(parser, test, test2);
     }
 
-    // Check unused variables in the function and report warnings.
-    JetTest_checkUnusedVars(parser, test);
-
     // Run the statement-level semantic pass on the function body.
     foreach (Expr*, stmt, test->body->stmts)
         Expr_analyse(parser, stmt, test->body, mod, NULL, false);
 
+    // Check unused variables in the function and report warnings.
+    JetTest_checkUnusedVars(parser, test);
     // Do optimisations or ANY lowering only if there are no errors
     if (!parser->issues.errCount && parser->mode != PMLint) {
         Scope_lowerElementalOps(test->body);
@@ -1220,7 +1232,7 @@ void Module_analyse(Parser* parser, Module* mod) {
     foreach (Func*, func, mod->funcs) {
         if (!strcmp(func->name, "start")) {
             fstart = func;
-            fstart->used = 1;
+            fstart->used++;
         }
     }
 

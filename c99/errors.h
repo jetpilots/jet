@@ -197,6 +197,13 @@ static void Parser_errorInvalidIdent(Parser* parser) {
     Parser_errorIncrement(parser);
 }
 
+static void Parser_errorInvalidTypeName(Parser* parser, Type* type) {
+    Parser__errHeader(parser);
+    eprintf("invalid type name '%s';;"
+            "must be capitalized and without underscores\n",
+        type->name);
+    Parser_errorIncrement(parser);
+}
 static void Parser_errorInvalidTypeMember(Parser* parser) {
     Parser__errHeader(parser);
     eputs("invalid member\n");

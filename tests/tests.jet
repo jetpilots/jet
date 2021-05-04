@@ -29,9 +29,10 @@ test "chstr"
     check m == "The bhingora brown dox"
     ~free m
     var t = replace(s, map = ["wuick" = "quick", "dox" = "fox"])
-    check t == "The quick brown fox" #1322
+    check t == "The quick brown fox" ~ 1322
     ~free t
     ~free s
+    s +=* g
 end
 
 test "chstrint"
@@ -40,20 +41,25 @@ test "chstrint"
     var u = "jumps over"
     var ret = "$m $j $u the lazy dog."
     print(ret)
+    var a = 7
+    var b = 8
+    var c = 4
+    var d = a + b + c
+    print(d)
+    ~ d.print()
 end
 
 test "chtermcolor"
     print("The {r}quick{-} brown fox {u}jumps{-} over the {g}lazy{-} dog.")
 end
-
+random() := 7
 test "matliteral"
     var m = [
         1, 2, 3;
         4, 5, 6;
-        7, 8, 9
-    ]
+        7, 8, 9 ]
     var c = [1, 2, 3; 4, 5, 6; 7, 8, 9]
     check all(m == c)
-    m[:] = random()
+    m[:,:] = random()
     describe(m)
 end

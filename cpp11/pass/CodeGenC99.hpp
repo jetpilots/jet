@@ -9,6 +9,10 @@ const char* functionEntryStuff_UNESCAPED
 #define genLineNumbers 0
 #define genCoverage 1
 #define genLineProfile 1
+
+#include <cstdio>
+#include <cstring>
+
 struct CodeGenC99 {
 
     ///////////////////////////////////////////////////////////////////////////
@@ -181,7 +185,7 @@ struct CodeGenC99 {
             // promote innermost first, so check args
             if (expr.left and (ret = findPromotionCandidate(expr.left)))
                 return ret;
-            else if (mustPromote(expr.func->selector))
+            else if (mustPromote(expr.func.selector))
                 return expr;
             break;
 
@@ -541,12 +545,12 @@ struct CodeGenC99 {
 
     ///////////////////////////////////////////////////////////////////////////
     void emit(Type& type, int level) {
-        if (not type.body or !type.analysed or type.isDeclare) return;
+        if (not type.body or not type.analysed or type.isDeclare) return;
         // if (not  type.body or not type.analysed) return;
         const char* const name = type.name;
         printf("#define FIELDS_%s \\\n", name);
         for (Var &var, type.body->vars) {
-            if (not var /*or not var.used*/) continue;
+            // if (not var /*or not var.used*/) continue;
             // It's not so easy to just skip 'unused' type members.
             // what if I just construct an object and print it?
             // I expect to see the default members. But if they
@@ -573,13 +577,12 @@ struct CodeGenC99 {
             printf("#define %s self->%s\n", var.name, var.name);
 
         for (Expr& stmt : type.body->stmts) {
-            if (not stmt or stmt.kind != tkVarAssign or !stmt.var.init)
-                //            or not stmt.var.used)
-                continue;
+            if (stmt.kind != tkVarAssign or not stmt.var->init) continue;
+            // or not stmt.var.used)
             printf("%.*s%s = ", level + STEP, spaces, stmt.var.name);
-            emit(stmt.var.init, 0);
+            emit(stmt.var->init, 0);
             puts(";");
-            if (throws(stmt.var.init))
+            if (throws(stmt.var->init))
                 puts("    if (_err_ == ERROR_TRACE) return NULL;");
         }
         for (Var& var : type.body->vars) // if (var.used)
@@ -613,7 +616,7 @@ struct CodeGenC99 {
 
     ///////////////////////////////////////////////////////////////////////////
     void genh(Type& type, int level) {
-        if (not type.body or !type.analysed or type.isDeclare) return;
+        if (not type.body or not type.analysed or type.external) return;
 
         const char* const name = type.name;
         printf("typedef struct %s* %s;\nstruct %s;\n", name, name, name);
@@ -628,13 +631,13 @@ struct CodeGenC99 {
     }
     ///////////////////////////////////////////////////////////////////////////
     void genh(Type& type, int level) {
-        if (not type.body or !type.analysed) return;
+        if (not type.body or not type.analysed) return;
         const char* const name = type.name;
         puts("typedef enum {");
 
-        for (Var &var, type.body->vars) printf("    %s_%s,\n", name, var.name);
+        for (Var& var : type.body->vars) printf("    %s_%s,\n", name, var.name);
         printf("} %s;\n", name);
-        Expr& ex1 = type.body->stmts->item;
+        Expr& ex1 = *(type.body->stmts); //->item;
         const char* datType
             = ex1->kind == tkOpAssign ? typeName(ex1->right) : NULL;
         if (datType)
@@ -657,10 +660,10 @@ struct CodeGenC99 {
         //         name, var.name, name, name, var.name, strlen(name));
         //     // puts("};");
         // }
-        for (Expr &stmt, type.body->stmts) {
-            if (not stmt or stmt.kind != tkOpAssign) // or !stmt.var.init)
-                // //     //            or not stmt.var.used)
-                continue;
+        for (Expr& stmt : type.body->stmts) {
+            if (stmt.kind != tkOpAssign) continue;
+            // or not stmt.var->init)
+            // //     //            or not stmt.var.used)
             printf("%.*s%s__data[%s_%s] = ", level + STEP, spaces, name, name,
                 stmt.left->string);
             emit(stmt.right, 0);
@@ -681,7 +684,7 @@ struct CodeGenC99 {
     }
     ///////////////////////////////////////////////////////////////////////////
     void emit(Func& func, int level) {
-        if (not func->body or !func->analysed or func->isDeclare)
+        if (not func.body or not func.analysed or func.isDeclare)
             return; // declares, default ctors
 
         // actual stack usage is higher due to stack protection, frame
@@ -691,15 +694,15 @@ struct CodeGenC99 {
         printStackUsageDef(stackUsage);
 
         printf("#define DEFAULT_VALUE %s\n",
-            getDefaultValueForType(func->returnSpec));
-        if (not func->isExported) printf("  ");
-        if (func->returnSpec) {
-            emit(func->returnSpec, level, false);
+            getDefaultValueForType(func.returnSpec));
+        if (not func.isExported) printf("  ");
+        if (func.returnSpec) {
+            emit(func.returnSpec, level, false);
         } else {
             printf("void");
         }
-        printf(" %s(", func->selector);
-        for (Var& arg : func->args) {
+        printf(" %s(", func.selector);
+        for (Var& arg : func.args) {
             emit(arg, level, true);
             printf(args->next ? ", " : "");
         }
@@ -707,27 +710,27 @@ struct CodeGenC99 {
         printf("\n#ifdef DEBUG\n"
                "    %c const char* callsite_ "
                "\n#endif\n",
-            ((func->args and func->args->item ? ',' : ' ')));
+            ((func.args and func.args->item ? ',' : ' ')));
 
         // TODO: if (flags.throws) printf("const char** _err_");
         puts(") {");
         printf("    IFDEBUG(  const char* sig_ = \"");
-        printf("%s%s(", func->isStmt ? "" : "function ", func->name);
+        printf("%s%s(", func.isStmt ? "" : "function ", func.name);
 
-        for (Var &arg, args, func->args) {
+        for (Var &arg, args, func.args) {
             lint(arg, level);
             printf(args->next ? ", " : "");
         }
         printf(")");
-        if (func->returnSpec) {
+        if (func.returnSpec) {
             printf(" as ");
-            lint(func->returnSpec, level);
+            lint(func.returnSpec, level);
         }
         puts("\");");
 
         puts(functionEntryStuff_UNESCAPED);
 
-        emit(func->body, level + STEP);
+        emit(func.body, level + STEP);
 
         puts(functionExitStuff_UNESCAPED);
         puts("}\n#undef DEFAULT_VALUE");
@@ -736,20 +739,20 @@ struct CodeGenC99 {
 
     ///////////////////////////////////////////////////////////////////////////
     void genh(Func& func, int level) {
-        if (not func->body or !func->analysed or func->isDeclare) return;
-        if (not func->isExported) printf("  ");
-        if (func->returnSpec) {
-            emit(func->returnSpec, level, false);
+        if (not func.body or not func.analysed or func.external) return;
+        if (not func.exported) printf("  ");
+        if (func.returnSpec) {
+            emit(func.returnSpec, level, false);
         } else {
             printf("void");
         }
-        printf(" %s(", func->selector);
-        for (Var &arg, args, func->args) {
+        printf(" %s(", func.selector);
+        for (Var& arg : func.args) {
             emit(arg, level, true);
             printf(args->next ? ", " : "");
         }
         printf("\n#ifdef DEBUG\n    %c const char* callsite_\n#endif\n",
-            ((func->args and func->args->item) ? ',' : ' '));
+            ((func.args and func.args->item) ? ',' : ' '));
         puts(");\n");
     }
 
@@ -779,21 +782,21 @@ struct CodeGenC99 {
     /// its corresponding `ASTVariable`). This function does all of the heavy
     /// lifting to decide what the subscript actually does, based on the kind of
     /// the subscript expression, number of dimensions and the context.
-    void emit_tkSubscriptResolved(Expr& expr, int level) {
-        char* name = expr.var->name;
-        Expr& index = expr.left;
-        assert(index);
+    void emit_subscriptResolved(Expr& expr, int level) {
+        const char* name = expr.var->name;
+        Expr& index = *expr.left;
+        // assert(index);
         // index = index->right;
-        switch (index->kind) {
+        switch (index.kind) {
         case tkNumber: // indexing with a single number, can be a -ve number
             printf("Array_get_%s(%s, %s)", cname(expr.var->typeInfo), name,
-                index->string);
+                index.string);
             break;
 
         case tkString:
         case tkRawString: // indexing with single string or regex
             printf("Dict_get_CString_%s(%s, %s)", cname(expr.var->typeInfo),
-                name, index->string);
+                name, index.string);
             break;
 
         case tkOpComma: // higher dims. validation etc. has been done by this
@@ -871,10 +874,10 @@ struct CodeGenC99 {
     /// that has `_new` appended to the type name. This function passes a
     /// constructed string as the extra argument `callsite_` that is used to
     /// generate accurate backtraces.
-    void emit_tkFunctionCallResolved(Expr& expr, int level) {
-        char* tmp = expr.func->selector;
+    void emit_functionCallResolved(Expr& expr, int level) {
+        char* tmp = expr.func.selector;
 
-        Expr& arg1 = expr.left;
+        Expr* arg1 = expr.left;
         const char* tmpc = "";
         if (arg1) {
             if (arg1->kind == tkOpComma) arg1 = arg1->left;
@@ -884,12 +887,12 @@ struct CodeGenC99 {
         if (*tmp >= 'A' and *tmp <= 'Z' and !strchr(tmp, '_')) printf("_new_");
         printf("(");
 
-        if (expr.left) emit(expr.left, 0);
+        if (expr.left) emit(*expr.left, 0);
 
-        if (not expr.func->isDeclare) {
+        if (not expr.func->external) {
             printf("\n#ifdef DEBUG\n"
                    "      %c \"./\" THISFILE \":%d:%d:\\e[0m ",
-                expr.left ? ',' : ' ', expr.line, expr.col);
+                expr.left ? ',' : ' ', expr.loc.line, expr.loc.col);
             lint(expr, 0, false, true);
             printf("\"\n"
                    "#endif\n        ");
@@ -919,7 +922,7 @@ struct CodeGenC99 {
         } while (*pos);
     }
 
-    void emit_tkString(Expr& expr, int level) {
+    void emit_string(Expr& expr, int level) {
         lineupmultilinestring(expr, level + STEP);
         if (not expr.vars) {
             printmultilstr(expr.string + 1);
@@ -962,7 +965,7 @@ struct CodeGenC99 {
     /// Emits the equivalent C code for a (literal) numeric expression.
     /// Complex numbers follow C99 literal syntax, e.g. 1i generates
     /// `_Complex_I * 1`.
-    void emit_tkNumber(Expr& expr, int level) {
+    void emit_number(Expr& expr, int level) {
         size_t ls = CString_length(expr.string);
         if (expr.string[ls - 1] == 'i') {
             printf("_Complex_I*");
@@ -971,7 +974,7 @@ struct CodeGenC99 {
         printf("%s", expr.string);
     }
 
-    void emit_tkCheck(Expr& expr, int level) {
+    void emit_check(Expr& expr, int level) {
         // TODO: need llhs and lrhs in case all 3 in 3way are exprs
         // e.g. check a+b < c+d < e+f
         Expr* checkExpr = expr.right; // now use checkExpr below
@@ -1016,14 +1019,9 @@ struct CodeGenC99 {
         if (not checkExpr.unary) {
             // dont print literals or arrays
             if (lhsExpr.collectionType == CTYNone //
-                and lhsExpr.kind != tkString //
-                and lhsExpr.kind != tkNumber //
-                and lhsExpr.kind != tkRawString //
-                and lhsExpr.kind != tkOpLE //
-                and lhsExpr.kind != tkOpLT) {
-
+                and not lhsExpr.is(tkString, tkNumber, tkRawString, tkOpLE, tkOpLT) {
                 if (lhsExpr.kind != tkIdentifierResolved
-                    or !lhsExpr.var->visited) {
+                    or not lhsExpr.var->visited) {
                     printf(
                         "%.*s%s", level + STEP, spaces, "printf(\"    %s = ");
                     printf("%s", TypeType_format(lhsExpr.typeType, true));
@@ -1037,10 +1035,9 @@ struct CodeGenC99 {
             }
         }
         if (rhsExpr.collectionType == CTYNone //
-            and rhsExpr.kind != tkString //
-            and rhsExpr.kind != tkNumber //
-            and rhsExpr.kind != tkRawString) {
-            if (rhsExpr.kind != tkIdentifierResolved or !rhsExpr.var->visited) {
+            and not rhsExpr.is(tkString, tkNumber, tkRawString)) {
+            if (rhsExpr.kind != tkIdentifierResolved
+                or not rhsExpr.var->visited) {
                 printf("%.*s%s", level + STEP, spaces, "printf(\"    %s = ");
                 printf("%s", TypeType_format(rhsExpr.typeType, true));
                 printf("%s", "\\n\", \"");
@@ -1074,7 +1071,7 @@ struct CodeGenC99 {
         case tkMultiDotNumber:
         case tkIdentifier: printf("%s", expr.string); break;
 
-        case tkString: emit_tkString(expr, level); break;
+        case tkString: emit_string(expr, level); break;
 
         case tkIdentifierResolved: printf("%s", expr.var->name); break;
 
@@ -1095,7 +1092,7 @@ struct CodeGenC99 {
             break;
 
         case tkFunctionCallResolved:
-            emit_tkFunctionCallResolved(expr, level);
+            emit_functionCallResolved(expr, level);
             break;
 
         case tkSubscript:
@@ -1353,11 +1350,11 @@ struct CodeGenC99 {
                     printf(")");
                     while (cond->right->kind == tkOpComma) {
                         cond = cond->right;
-                        printf(" or !strcmp(__match_cond, ");
+                        printf(" or not strcmp(__match_cond, ");
                         emit(cond->left, 0);
                         printf(")");
                     }
-                    printf(" or !strcmp(__match_cond, ");
+                    printf(" or not strcmp(__match_cond, ");
                     emit(cond->right, 0);
                     puts(")) do {");
                 } else {
@@ -1595,7 +1592,7 @@ struct CodeGenC99 {
                 genh(type, 0), genTypeInfoDecls(type);
 
         for (Func& func : module.funcs)
-            if (func->body and func->analysed) { genh(func, 0); }
+            if (func.body and func.analysed) { genh(func, 0); }
 
         for (Type& type : module.types) {
             if (type.body and type.analysed) {
@@ -1605,7 +1602,7 @@ struct CodeGenC99 {
             }
         }
         for (Func& func : module.funcs)
-            if (func->body and func->analysed) emit(func, 0);
+            if (func.body and func.analysed) emit(func, 0);
 
         for (Import& import : module.imports) undefc(import);
 
@@ -1665,7 +1662,7 @@ struct CodeGenC99 {
         printf("  const char* const %s__memberNames[] = {\n    ", type.name);
         if (type.body) //
             for (Var &var, varn, type.body->vars) {
-                if (not var or !var.used) continue;
+                if (not var or not var.used) continue;
                 printf("\"%s\", ", var.name);
                 // emit(var, level + STEP, false);
             }

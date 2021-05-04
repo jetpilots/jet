@@ -968,10 +968,10 @@ static Type* parseType(Parser* parser, Scope* globScope, bool shouldParseBody) {
     type->line = parser->token.line;
     type->col = parser->token.col;
 
-    if (memchr(parser->token.pos, '_', parser->token.matchlen))
-        Parser_errorInvalidIdent(parser);
-    if (*parser->token.pos < 'A' || *parser->token.pos > 'Z')
-        Parser_errorInvalidIdent(parser);
+    // if (memchr(parser->token.pos, '_', parser->token.matchlen))
+    //     Parser_errorInvalidIdent(parser);
+    // if (*parser->token.pos < 'A' || *parser->token.pos > 'Z')
+    //     Parser_errorInvalidIdent(parser);
     type->name = parseIdent(parser);
 
     if (Parser_ignore(parser, tkOneSpace)
@@ -981,13 +981,11 @@ static Type* parseType(Parser* parser, Scope* globScope, bool shouldParseBody) {
     }
     Parser_ignore(parser, tkNewline);
 
-    type->body = NULL; // this means type is declare
-    if (TypeType_byName(type->name) != TYUnresolved) {
-        Parser_errorDuplicateType(parser, type, NULL);
-        return type;
-    }
-
-    // if (!shouldParseBody) return type;
+    type->body = NULL;
+    // if (TypeType_byName(type->name) != TYUnresolved) {
+    //     Parser_errorDuplicateType(parser, type, NULL);
+    //     return type;
+    // }
 
     type->body = parseScope(parser, globScope, true);
 
@@ -1008,19 +1006,19 @@ static Type* parseEnum(Parser* parser, Scope* globScope) {
     en->col = parser->token.col;
     en->isEnum = true;
 
-    if (memchr(parser->token.pos, '_', parser->token.matchlen))
-        Parser_errorInvalidIdent(parser);
-    if (*parser->token.pos < 'A' || *parser->token.pos > 'Z')
-        Parser_errorInvalidIdent(parser);
+    // if (memchr(parser->token.pos, '_', parser->token.matchlen))
+    //     Parser_errorInvalidIdent(parser);
+    // if (*parser->token.pos < 'A' || *parser->token.pos > 'Z')
+    //     Parser_errorInvalidIdent(parser);
     en->name = parseIdent(parser);
 
     Parser_consume(parser, tkNewline);
 
-    if (TypeType_byName(en->name) != TYUnresolved) {
-        // conflicts with a primitive type name
-        Parser_errorDuplicateEnum(parser, en, NULL);
-        return en;
-    }
+    // if (TypeType_byName(en->name) != TYUnresolved) {
+    //     // conflicts with a primitive type name
+    //     Parser_errorDuplicateEnum(parser, en, NULL);
+    //     return en;
+    // }
 
     en->body = parseEnumBody(parser, globScope);
 

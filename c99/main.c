@@ -505,9 +505,11 @@ monostatic Func* Module_getFuncByTypeMatch(Module* module, Expr* funcCallExpr) {
                 return NULL;
             if (cArg->typeType == arg->spec->typeType
                 && cArg->collectionType == arg->spec->collectionType) {
+
                 if (cArg->typeType == TYObject
                     && Expr_getTypeOrEnum(cArg) != arg->spec->type)
                     goto nextfunc;
+
             } else {
                 // an arg type has failed to match. Wait: if it is unresolved,
                 // you can still consider this func. Otherwise you skip to next.

@@ -5,6 +5,10 @@ enum TypeTypes
     boolean
     object
 end
+func tszf(n Number) as Number
+    return 4
+end
+var c = - 4 + tszf(34)
 enum NumSubTypes
     unknown
     real64
@@ -106,7 +110,7 @@ end
 test "enum recognized in func arguments"
     ~ tkFuncCall tries to analyse args before it can resolve the func
     ~ and doesnt know what the target enum type is.
-    tsz(7, en=.object, mk= 8)
+    tsz(7, eN=.object, mk= 8)
     tsz(7, .object, mk= 8)
     tsz(7, en=.object, 8)
     tsz(7, .object, 8)
