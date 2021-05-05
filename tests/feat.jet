@@ -11,6 +11,7 @@ var name String = ask() ~ They can be defined using runtime evaluated exprs.
 type Structure
     var memb1 = 0
     var memb2 = ""
+    var st Structure
 end
 
 ~ initializer
@@ -50,6 +51,6 @@ func start()
     print("The name is: $name") ~ string interpolation
     ~ print("The name is $(name).") ~ string interpolation
     var s = Structure() ~ default constructor
-    print(s.memb1)
-    json(s) ~ serialize built-in
+    s.st.memb1.print()
+    s.json() ~ serialize built-in
 end

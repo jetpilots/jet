@@ -377,6 +377,9 @@ static void Expr_write(
     }
 }
 
+// #define SR(x) #x
+// SR("func arty(yu Int, hj Num) String[:,:]")
+
 static void Module_write(Module* module) {
     printf("~ module %s\n", module->name);
 

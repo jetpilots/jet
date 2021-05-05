@@ -90,7 +90,7 @@ typedef enum {
     JET_PIPE_READERR = 4
 } PipedProcessCapture;
 
-PipedProcess pipe(char* args[], int capture) {
+PipedProcess ppipe(char* args[], int capture) {
     int p_from[2] = { -1, -1 };
     int p_to[2] = { -1, -1 };
     int p_errfrom[2] = { -1, -1 }; // from parent to child
@@ -166,11 +166,11 @@ void close(PipedProcess* proc) {
 }
 
 PipedProcess shpipe(char* cmd, int capture) {
-    return pipe((char*[]) { "/bin/sh", "-c", cmd }, capture);
+    return ppipe((char*[]) { "/bin/sh", "-c", cmd, NULL }, capture);
 }
 
 Process shlaunch(char* cmd) {
-    return launch((char*[]) { "/bin/sh", "-c", cmd });
+    return launch((char*[]) { "/bin/sh", "-c", cmd, NULL });
 }
 
 void await(Process* proc) {
@@ -244,10 +244,10 @@ int main(void) {
     // test_fork_exec();
     // test_posix_spawn();
 
-    char* cmds[] = { "cat", NULL };
+    char* cmds[] = { "/usr/bin/gcc", "-o", "outf", "--", "-", NULL };
     // Process p = launch(cmds);
-    PipedProcess p = pipe(cmds, JET_PIPE_WRITE);
-    pwrite(p, "jimbalego", 9);
+    PipedProcess p = ppipe(cmds, JET_PIPE_WRITE);
+    pwrite(p, "int main() {return 58;}", 23);
     close(&p);
     awaitAll();
     return EXIT_SUCCESS;

@@ -330,7 +330,7 @@ SFN_ANALYSE(_keyword_match) {
 }
 static void Expr_analyse_functionCall(Parser* parser, Expr* expr, Scope* scope,
     Module* mod, Func* ownerFunc, bool inFuncArgs) {
-    char buf[128] = {};
+    char buf[256] = {}, sbuf[256] = {};
     char* bufp = buf;
     if (expr->left)
         Expr_analyse(parser, expr->left, scope, mod, ownerFunc, true);
@@ -338,16 +338,26 @@ static void Expr_analyse_functionCall(Parser* parser, Expr* expr, Scope* scope,
     // TODO: need a function to make and return selector
     Expr* arg1 = expr->left;
     if (arg1 && arg1->kind == tkOpComma) arg1 = arg1->left;
-    const char* typeName = Expr_typeName(arg1);
+    Type* type = Expr_getObjectType(arg1);
+    // const char* typeName = Expr_typeName(arg1);
     //        const char* collName = "";
     //        if (arg1)
     //        collName=CollectionType_nativeName(arg1->collectionType);
-    if (arg1) bufp += sprintf(bufp, "%s_", typeName);
+    if (arg1) *bufp++ = '_'; // += sprintf(bufp, "_", typeName);
+
     bufp += sprintf(bufp, "%s", expr->string);
     if (expr->left)
-        Expr_strarglabels(expr->left, bufp, 128 - ((int)(bufp - buf)));
-
-    Func* found = Module_getFunc(mod, buf);
+        Expr_strarglabels(expr->left, bufp, 256 - ((int)(bufp - buf)));
+    Func* found = NULL;
+    // if (arg1->typeType == TYObject) {
+    do { // fast path when arg labels given
+        sprintf(sbuf, "%s%s", Expr_typeName(arg1), buf);
+        sbuf[255] = 0;
+        found = Module_getFunc(mod, sbuf);
+        if (type) type = type->super ? type->super->type : NULL;
+        // arg1->upcast++;//TODO
+    } while (type && !found);
+    // }
     if (!found && (found = Module_getFuncByTypeMatch(mod, expr))) {
         // take the closest function by type match instead, for now. tell
         // the user this may not be what they expected
@@ -712,31 +722,30 @@ monostatic void Expr_analyse(Parser* parser, Expr* expr, Scope* scope,
         int nhave = Expr_countCommaList(expr->left);
         if (nhave != expr->var->spec->dims)
             Parser_errorIndexDimsMismatch(parser, expr, nhave);
-    }
-        // fallthru
+        // }   if (expr->kind == tkSubscriptResolved) {
+        expr->typeType = expr->var->spec->typeType;
+        expr->collectionType = expr->var->spec->collectionType;
+        // TODO: since it is a subscript, if it has no left (i.e. arr[])
+        // i'm guessing it is a full array, and therefore can be an
+        // elemental op
+        expr->elemental = expr->left ? expr->left->elemental : true;
+        // TODO: check args in the same way as for funcs below, not
+        // directly checking expr->left.}
+        // TODO: dims is actually a bit complicated here. For each dim
+        // indexed with a scalar (not a range), you reduce the dim of the
+        // subscript result by 1. For now the default is to keep the dims at
+        // 0, which is what it would be if you indexed something with a
+        // scalar index in each dimension.
+        // Expr_analyse for a : op should set dims to 1. Then you just
+        // walk the comma op in expr->right here and check which index exprs
+        // have dims=0. Special case is when the index expr is a logical,
+        // meaning you are filtering the array, in this case the result's
+        // dims is always 1.
+    } break; // index expr has already been analyzed before resolution
+             // fallthru
     case tkSubscript:
         if (expr->left)
             Expr_analyse(parser, expr->left, scope, mod, ownerFunc, false);
-        if (expr->kind == tkSubscriptResolved) {
-            expr->typeType = expr->var->spec->typeType;
-            expr->collectionType = expr->var->spec->collectionType;
-            // TODO: since it is a subscript, if it has no left (i.e. arr[])
-            // i'm guessing it is a full array, and therefore can be an
-            // elemental op
-            expr->elemental = expr->left ? expr->left->elemental : true;
-            // TODO: check args in the same way as for funcs below, not
-            // directly checking expr->left.}
-            // TODO: dims is actually a bit complicated here. For each dim
-            // indexed with a scalar (not a range), you reduce the dim of the
-            // subscript result by 1. For now the default is to keep the dims at
-            // 0, which is what it would be if you indexed something with a
-            // scalar index in each dimension.
-            // Expr_analyse for a : op should set dims to 1. Then you just
-            // walk the comma op in expr->right here and check which index exprs
-            // have dims=0. Special case is when the index expr is a logical,
-            // meaning you are filtering the array, in this case the result's
-            // dims is always 1.
-        }
         break;
 
     case tkString:
@@ -793,58 +802,109 @@ monostatic void Expr_analyse(Parser* parser, Expr* expr, Scope* scope,
         }
         if (!expr->left) break;
 
-        assert(expr->left->kind == tkIdentifierResolved
+        if (expr->left->kind == tkPeriod)
+            Expr_analyse(parser, expr->left, scope, mod, ownerFunc, false);
+
+        assert(expr->left->kind == tkPeriod
+            || expr->left->kind == tkIdentifierResolved
             || expr->left->kind == tkIdentifier);
-        Expr_analyse(parser, expr->left, scope, mod, ownerFunc, false);
+        if (expr->left->kind == tkIdentifierResolved
+            || expr->left->kind == tkIdentifier)
+            Expr_analyse(parser, expr->left, scope, mod, ownerFunc, false);
 
         // The name/type resolution of expr->left may have failed.
         if (!expr->left->typeType) break;
 
         Expr* member = expr->right;
-        if (member->kind == tkPeriod) {
-            member = member->left;
-            if (member->kind != tkIdentifier) {
-                Parser_errorUnexpectedExpr(parser, member);
-                break;
-            }
-        }
+        Expr* base = expr->left;
+        if (base->kind == tkPeriod) { base = base->right; }
 
         if (!ISIN(3, member->kind, tkIdentifier, tkSubscript, tkFunctionCall)) {
             Parser_errorUnexpectedExpr(parser, member);
             break;
         }
-        //  or member->kind == tkFunctionCall);
-        if (member->kind != tkIdentifier && member->left)
+
+        if (ISIN(2, member->kind, tkSubscript, tkFunctionCall) && member->left)
             Expr_analyse(parser, member->left, scope, mod, ownerFunc, false);
 
-        // the left must be a resolved ident
-        if (expr->left->kind != tkIdentifierResolved) break;
+        if (base->kind != tkIdentifierResolved) {
+            // error will have been shown for it already
+            // Parser_errorUnexpectedExpr(parser, member);
+            break;
+        }
 
-        if (expr->left->var->spec->typeType == TYErrorType) {
+        if (base->var->spec->typeType == TYErrorType) {
             expr->typeType = TYErrorType;
             break;
         }
-        assert(expr->left->var->spec->typeType == TYObject
-            || expr->right->kind == tkFunctionCall
-            || expr->right->kind == tkFunctionCallResolved); //!= TYNilType);
+        assert(base->var->spec->typeType == TYObject
+            || member->kind == tkFunctionCall
+            || member->kind == tkFunctionCallResolved); //!= TYNilType);
 
-        Type* type = expr->left->var->spec->type;
+        Type* type = base->var->spec->type;
         if (!type) {
             expr->typeType = TYErrorType;
             break;
         }
 
         // Resolve the member in the scope of the type definition.
-        resolveMember(parser, member, type);
-        // Name resolution may fail...
-        if (member->kind != tkIdentifierResolved) {
-            expr->typeType = TYErrorType;
-            break;
-        }
-        Expr_analyse(parser, member, scope, mod, ownerFunc, false);
+        //
+        // static void resolveMember(Parser* parser, Expr* expr, Type* type) {
+        // if (expr->kind != tkIdentifier && expr->kind != tkSubscript) {
+        //     // if (expr->kind != tkFunctionCall) {
 
-        if (expr->right->kind == tkPeriod)
-            Expr_analyse(parser, expr->right, scope, mod, ownerFunc, false);
+        //     // }
+        //     return;
+        // }
+        switch (member->kind) {
+        case tkIdentifier:
+        case tkSubscript: {
+            TokenKind ret = (member->kind == tkIdentifier)
+                ? tkIdentifierResolved
+                : tkSubscriptResolved;
+            Var* found = NULL;
+            if (type->body) found = Scope_getVar(type->body, member->string);
+            if (found) {
+                member->kind = ret;
+                member->var = found;
+                member->var->used++;
+                Expr_analyse(parser, member, scope, mod, ownerFunc, false);
+            } else {
+                Parser_errorUnrecognizedMember(parser, type, member);
+                expr->typeType = TYErrorType;
+            }
+        } break;
+        case tkFunctionCall: {
+            Expr* args = member->left;
+            Expr* dummy = base;
+            if (args) {
+                dummy = &(Expr) { //
+                    .kind = tkOpComma,
+                    .left = base,
+                    .right = args
+                };
+            }
+            member->left = dummy;
+            Expr_analyse(parser, member, scope, mod, ownerFunc, inFuncArgs);
+            member->left = args;
+        } break;
+        default:
+            Parser_errorParsingExpr(parser, member, "invalid member");
+            eputs("NYI\n");
+            expr->typeType = TYErrorType;
+        }
+        // }resolveMember(parser, member, type);
+
+        // Name resolution may fail...
+        if (expr->typeType == TYErrorType) break;
+        // !ISIN(3, member->kind, tkIdentifierResolved, tkSubscriptResolved,
+        //         tkFunctionCallResolved)) {
+        //     expr->typeType = TYErrorType;
+        //     break;
+        // }
+
+        // if (expr->right->kind == tkPeriod)
+        //     Expr_analyse(parser, expr->right, scope, mod, ownerFunc, false);
 
         expr->typeType = type->isEnum ? TYObject : expr->right->typeType;
         expr->collectionType = expr->right->collectionType;
@@ -1010,11 +1070,10 @@ monostatic void Expr_analyse(Parser* parser, Expr* expr, Scope* scope,
                     // Special case: chained LE/LT operators: e.g. 0 <= yCH4
                     // <= 1.
                     ;
-                } else if (expr->kind == tkOpAssign || expr->kind == tkOpEQ
-                    || expr->kind == tkOpNE
-                        && ((leftType == TYObject && rightType == TYNilType)
-                            || (leftType == TYNilType
-                                && rightType == TYObject))) {
+                } else if ((expr->kind == tkOpAssign || expr->kind == tkOpEQ
+                               || expr->kind == tkOpNE)
+                    && ((leftType == TYObject && rightType == TYNilType)
+                        || (leftType == TYNilType && rightType == TYObject))) {
                     // a == nil or nil !=a etc.
                 } else if (leftType != rightType) {
                     // Type mismatch for left and right operands is always
@@ -1071,11 +1130,13 @@ static void Type_analyse(Parser* parser, Type* type, Module* mod) {
     // TODO: this should be replaced by a dict query
     foreach (Type*, type2, mod->types) {
         if (type2 == type) break;
-        if (!strcasecmp(type->name, type2->name))
-            if (type->isEnum)
+        if (!strcasecmp(type->name, type2->name)) {
+            if (type->isEnum) {
                 Parser_errorDuplicateEnum(parser, type, type2);
-            else
+            } else {
                 Parser_errorDuplicateType(parser, type, type2);
+            }
+        }
     }
     if (strchr(type->name, '_')) Parser_errorInvalidTypeName(parser, type);
     if (*type->name < 'A' || *type->name > 'Z')

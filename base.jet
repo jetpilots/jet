@@ -1,0 +1,111 @@
+~ Basic types
+declare type String extends Regex
+end
+declare type Regex
+end
+declare type Boolean extends Number
+end
+declare type Number
+end
+declare type Range
+end
+declare type Size
+end
+declare type Point
+end
+declare type Rect
+end
+
+~ pseudo type for templates
+~ T does not include collections. For that use T[].
+declare type T
+end
+
+json(s String) := '\"$s\"'
+json(n Number) := '$n'
+func json(b Boolean) String
+    var s = ['no','yes']
+    ans = s[b+1]
+end
+
+func json(obj T) String
+    ans = "{"
+    for (k, v) = obj
+        ans += '"$k": $1' % json(v)
+    end
+    ans += "}"
+end
+
+func json(arr T[]) String
+    ans = "["
+    for v = arr
+        ans += "$1" % json(v)
+    end
+    ans += "]"
+end
+
+~ Operators. this is how the compiler knows if ops have valid operands etc:
+~ if an op is defined, it works, else compiler throws type error.
+
+~ usual rules of upcasting/downcasting apply; can be used on poly vars
+func += (a Number, b Number) Number
+end
+
+func [] (a T[], idx Number) T
+end
+
+~ Collection types. basically they have 1 implicit template param
+~ and on jet level they are all represented by [].
+declare type Array
+end
+declare type List
+end
+declare type DList
+end
+declare type LazyArray ~ in contrast to generator, caches its values
+end
+declare type Generator
+end
+declare type Filter
+end
+declare type Slice
+end
+declare type Selection
+end
+declare type Set
+end
+declare type Dict
+end
+declare type Vector extends Array
+end
+declare type SparseVector extends Vector
+end
+declare type Tensor2D
+end
+declare type Matrix extends Tensor2D
+end
+declare type DiagMatrix extends Matrix
+end
+declare type TriDiagMatrix extends Matrix
+end
+declare type PentaDiagMatrix extends Matrix
+end
+declare type BandedMatrix extends Matrix
+end
+declare type SymmMatrix extends Matrix
+end
+declare type SkewSymmMatrix extends Matrix
+end
+declare type SparseMatrix extends Matrix
+end
+declare type Tensor3D
+end
+declare type Tensor4D
+end
+declare type Tensor5D
+end
+declare type Tensor6D
+end
+declare type Tensor7D
+end
+

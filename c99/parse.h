@@ -596,11 +596,11 @@ static Scope* parseScope(Parser* parser, Scope* parent, bool isTypeBody) {
                 Parser_errorDuplicateVar(parser, var, orig->line, orig->col);
 
             // resolveType(var->spec, scope);
+            if (var->init) resolveVars(parser, var->init, scope, false);
             // resolve BEFORE it is added to the list! in
             // `var x = x + 1` x should not resolve
             // if var->spec is NULL then set the type
             // if it isn't NULL then check the types match
-            locals = PtrList_append(locals, var);
             expr = NEW(Expr);
             expr->kind = tkVarAssign;
             expr->line = var->init ? var->init->line : var->line;
@@ -612,8 +612,8 @@ static Scope* parseScope(Parser* parser, Scope* parent, bool isTypeBody) {
             // TODO: you actually need to send the PtrList item which is
             // generated in the next line as the topExpr, not the expr
             // itself
-            if (var->init) resolveVars(parser, var->init, scope, false);
 
+            locals = PtrList_append(locals, var);
             stmts = PtrList_append(stmts, expr);
         } break;
 
@@ -855,9 +855,21 @@ static Func* parseFunc(Parser* parser, Scope* globScope, bool shouldParseBody) {
     }
 
     if (Parser_ignore(parser, tkOneSpace)
-        && Parser_ignore(parser, tkKeyword_as)) {
-        Parser_consume(parser, tkOneSpace);
+        && Parser_matches(parser, tkIdentifier)) {
+        // Parser_consume(parser, tkOneSpace);
         func->spec = parseTypeSpec(parser);
+    }
+
+    Var* ans;
+    if (func->spec) {
+        ans = NEW(Var);
+        ans->name = "ans";
+        ans->line = func->line;
+        ans->col = func->col;
+        ans->isVar = true;
+        ans->init = NULL; // FIXME
+        ans->spec = func->spec; // NEW(TypeSpec);
+        //        fvar->spec->typeType = TYReal64;
     }
 
     if (shouldParseBody) {
@@ -867,6 +879,7 @@ static Func* parseFunc(Parser* parser, Scope* globScope, bool shouldParseBody) {
         Scope* funcScope = NEW(Scope);
         funcScope->parent = globScope;
         funcScope->locals = func->args;
+        if (ans) PtrList_shift(&funcScope->locals, ans);
         func->body = parseScope(parser, funcScope, false);
 
         Parser_consume(parser, tkKeyword_end);

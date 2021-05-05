@@ -528,8 +528,7 @@ static void Type_emit(Type* type, int level) {
         printf("%.*s%s = ", level + STEP, spaces, stmt->var->name);
         Expr_emit(stmt->var->init, 0);
         outln(";");
-        if (Expr_throws(stmt->var->init))
-            outln("    if (_err_ == ERROR_TRACE) return NULL;");
+        if (stmt->var->init->throws) outln("    TRACE_IF_ERROR;");
     }
     foreach (Var*, var, type->body->locals)
         printf("#undef %s \n", var->name);
@@ -556,7 +555,7 @@ static void Type_emit(Type* type, int level) {
     outln("");
 
     foreach (Var*, var, type->body->locals)
-        printf("%s* %s_addrof_%s(%s* selfp) {return &((*selfp)->%s);}\n",
+        printf("%s* %s_addrof_%s(%s selfp) {return &(selfp->%s);}\n",
             TypeSpec_name(var->spec), name, var->name, name, var->name);
 
     Type_genJson(type);
@@ -578,7 +577,7 @@ static void Type_genh(Type* type, int level) {
     printf("static void %s_json_(const %s self, int nspc);\n", name, name);
 
     foreach (Var*, var, type->body->locals)
-        printf("%s* %s_addrof_%s(%s* selfp);\n", TypeSpec_name(var->spec), name,
+        printf("%s* %s_addrof_%s(%s selfp);\n", TypeSpec_name(var->spec), name,
             var->name, name);
     //^ note that for objects the accessor func returns T**. genc for the . oper
     // adds a leading * in any case.
@@ -647,7 +646,6 @@ static void Func_emit(Func* func, int level) {
            "\n#endif\n",
         ((func->args && func->args->item ? ',' : ' ')));
 
-    // TODO: if (flags.throws) outl("const char** _err_");
     outln(") {");
     printf("    IFDEBUG(static const char* sig_ = \"");
     printf("%s%s(", func->isStmt ? "" : "function ", func->name);
@@ -691,36 +689,12 @@ static void Func_genh(Func* func, int level) {
 }
 
 static void Var_genh(Var* var, int level) {
-    // if (! func->body or not func->analysed) return;
-    // if (!func->isExported) outl("static ");
-    // if (var->spec) {
     if (!var->init) return;
-
     TypeSpec_emit(var->spec, level, false);
-
     printf(" %s = ", var->name);
     Expr_emit(var->init, 0);
-
     outln("");
 }
-
-// #define MKEMB(T, ...)                                                          \
-//     (T[]) {                                                                    \
-//         { __VA_ARGS__ }                                                        \
-//     }
-
-// Func* decld = (Func[]) { { .name = "Oiunko",
-//     .selector = "Oinko_uio_uyt",
-//     .line = 21,
-//     .args = (PtrList[]) { { .item = (Var[1]) { { .name = "arg1" } } } },
-//     .isDeclare = 1,
-//     .isRecursive = 1 } };
-
-// Func* declc = MKEMB(Func, .name = "Oiunko", .selector =
-// "Oinko_uio_uyt",
-//     .line = 21,
-//     .args = MKEMB(PtrList, .item = MKEMB(Var, .name = "arg1", .line =
-//     6)));
 
 static void JetTest_emit(JetTest* test) // TODO: should tests not return BOOL?
 {
@@ -878,9 +852,7 @@ static void Expr_emit_tkString(Expr* expr, int level) {
     if (!expr->vars) {
         printmultilstr(expr->string + 1);
     } else {
-        char* pos = expr->string;
-        // putc('"', stdout);
-        char* last = pos;
+        char *pos = expr->string, *last = pos;
         Var* v;
         PtrList* p = expr->vars;
         Expr* e = p->item;
@@ -888,14 +860,10 @@ static void Expr_emit_tkString(Expr* expr, int level) {
         while (*pos) {
             while (*pos && *pos != '$') pos++;
             *pos++ = 0;
-            // int l = pos - last - 1;
             printf("%s", last);
-            // printmultilstr(last + 1);
             pos[-1] = '$';
             last = pos;
             while (*pos && isalnum(*pos) || *pos == '.') pos++;
-            // l = pos - last;
-            // eprintf("%.*s\n", l, last);
             if (e) {
                 while (e->kind == tkPeriod) e = e->right;
                 assert(e->kind == tkIdentifierResolved);
@@ -971,13 +939,9 @@ static void Expr_emit_tkCheck(Expr* expr, int level) {
     // genPrintVars.
     if (!checkExpr->unary) {
         // dont print literals or arrays
-        if (lhsExpr->collectionType == CTYNone //
-            && lhsExpr->kind != tkString //
-            && lhsExpr->kind != tkNumber //
-            && lhsExpr->kind != tkRawString //
-            && lhsExpr->kind != tkOpLE //
-            && lhsExpr->kind != tkOpLT) {
-
+        if (lhsExpr->collectionType == CTYNone
+            && !ISIN(5, lhsExpr->kind, tkString, tkNumber, tkRawString, tkOpLE,
+                tkOpLT)) {
             if (lhsExpr->kind != tkIdentifierResolved
                 || !lhsExpr->var->visited) {
                 printf("%.*s%s", level + STEP, spaces, "printf(\"    %s = ");
@@ -992,9 +956,7 @@ static void Expr_emit_tkCheck(Expr* expr, int level) {
         }
     }
     if (rhsExpr->collectionType == CTYNone //
-        && rhsExpr->kind != tkString //
-        && rhsExpr->kind != tkNumber //
-        && rhsExpr->kind != tkRawString) {
+        && !ISIN(3, rhsExpr->kind, tkString, tkNumber, tkRawString)) {
         if (rhsExpr->kind != tkIdentifierResolved || !rhsExpr->var->visited) {
             printf("%.*s%s", level + STEP, spaces, "printf(\"    %s = ");
             printf("%s", TypeType_format(rhsExpr->typeType, true));
@@ -1029,15 +991,17 @@ static void Expr_emit(Expr* expr, int level) {
     case tkIdentifier: printf("%s", expr->string); break;
 
     case tkString: // TODO: parse vars inside, escape stuff, etc.
+    case tkRawString: // 'raw strings' or 'regexes'
         Expr_emit_tkString(expr, level);
         // printf(escStrings ? "\\%s\\\"" : "%s\"", expr->string);
         break;
 
-    case tkIdentifierResolved: printf("%s", expr->var->name); break;
-
-    case tkRawString: // 'raw strings' or 'regexes'
-        printf("\"%s\"", expr->string + 1);
+    case tkIdentifierResolved:
+        printf("%s", expr->var->name);
         break;
+
+        // printf("\"%s\"", expr->string + 1);
+        // break;
 
     case tkRegexp: // inline C code?
         printf("%s", expr->string + 1);
@@ -1380,15 +1344,31 @@ static void Expr_emit(Expr* expr, int level) {
     case tkKeyword_check: Expr_emit_tkCheck(expr, 0); break;
 
     case tkPeriod: {
-        // printf("*%s_addrof_%s(",Expr_typeName(expr->left),);
-        Expr_emit(expr->left, 0);
-        if (expr->left->typeType == TYObject
-            && Expr_getObjectType(expr->left)->isEnum)
+        if (expr->right->kind == tkFunctionCallResolved) {
+            Expr* args = expr->right->left;
+            Expr* dummy = expr->left;
+            if (args) {
+                dummy = &(Expr) { //
+                    .kind = tkOpComma,
+                    .left = dummy,
+                    .right = args
+                };
+            }
+            expr->right->left = dummy;
+            Expr_emit(expr->right, 0);
+            expr->right->left = args;
+
+        } else if (expr->left->typeType == TYObject
+            && Expr_getObjectType(expr->left)->isEnum) {
+            Expr_emit(expr->left, 0);
             outl("_");
-        else
-            outl("->");
-        Expr_emit(expr->right, 0);
-        // outl(")");
+            Expr_emit(expr->right, 0);
+        } else {
+            printf("*%s_addrof_%s(", Expr_typeName(expr->left),
+                expr->right->var->name);
+            Expr_emit(expr->left, 0);
+            outl(")");
+        }
     } break;
 
     case tkKeyword_notin: outl("!"); fallthrough;

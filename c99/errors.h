@@ -90,7 +90,8 @@ static const char* const carets
       "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^";
 #define _PRLINE(line)                                                          \
     if (line > 0 && line <= parser->orig.used)                                 \
-        eprintf("%4d | %s\n", line + offs, parser->orig.ref[line + offs - 1]);
+        eprintf("%4d | %s\n", line + offs,                                     \
+            (char*)parser->orig.ref[line + offs - 1]);
 void _PRREDLINE(
     Parser* parser, int line, int col, int len, int offs, char* msg) {
     char* c = parser->orig.ref[line + offs - 1];
@@ -543,7 +544,7 @@ static void Parser_errorTypeMismatch(Parser* parser, Expr* e1, Expr* e2) {
     if (noPoison && (*leftTypeName == '<' || *rightTypeName == '<')) return;
     Parser__errHeaderWithExpr(parser, e2);
     eprintf("type mismatch: '%s' here must be '%s' instead (from %s%s:%d:%d)\n",
-        leftTypeName, rightTypeName, RELF(parser->filename), e1->line, e1->col);
+        rightTypeName, leftTypeName, RELF(parser->filename), e1->line, e1->col);
     Parser_errorIncrement(parser);
 }
 

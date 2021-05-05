@@ -88,13 +88,13 @@ typedef enum TypeTypes {
     // and the error has been reported, to avoid
     // reporting the same error for all parents, as the
     // error-checking routine unwinds.
-    TYDateTime, // this should have subtypes TYDateTimeSeconds and
+    // TYDateTime, // this should have subtypes TYDateTimeSeconds and
     // TYDateTimeStructTM; based on usage patterns the right one
     // is applied (for just > >= etc. seconds from epoch is enough)
     TYSize, // this is actually uintptr_t, since actual ptrs are
     // TYObjects. maybe rename it
-    TY2DPoint, // 200x200
-    TYRect, // 0x0:150x150. A range of 2 2D points is a... rect!
+    // TY2DPoint, // 200x200
+    // TYRect, // 0x0:150x150. A range of 2 2D points is a... rect!
     TYString, // need to distinguish String and char*?
     TYBool,
     // above this, ie. > 4 or >= TYInt8, all may have units |kg.m/s etc.
@@ -117,7 +117,7 @@ static bool TypeType_isnum(TypeTypes tyty) { return tyty >= TYInt8; }
 static const char* TypeType_name(TypeTypes tyty) {
     switch (tyty) {
     case TYUnresolved: return NULL;
-    case TYNilType: return "Anything";
+    case TYNilType: return "Nil";
     case TYNoType: return "Void";
     case TYErrorType: return "<invalid>";
     case TYString: return "CString";
@@ -140,7 +140,7 @@ static const char* TypeType_name(TypeTypes tyty) {
 static const char* TypeType_c_name[] = {
     [TYUnresolved] = "<unresolved>",
     [TYNoType] = "void",
-    [TYNilType] = "(any)",
+    [TYNilType] = "(nil)",
     [TYErrorType] = "<invalid>",
     [TYString] = "CString",
     [TYBool] = "bool",

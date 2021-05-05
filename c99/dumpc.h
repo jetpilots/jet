@@ -1,4 +1,9 @@
 
+
+_Thread_local static FILE* dumpcfile = NULL;
+#define printf(...) fprintf(dumpcfile, __VA_ARGS__)
+#define puts(s) fputs(s, dumpcfile)
+
 static void Import_dumpc(Import* import, int level) {
     printf("(Import[]) {{.name = \"%s\", .aliasOffset = "
            "%d}}",
@@ -24,14 +29,14 @@ static void Var_dumpc(Var* var, int level) {
     TypeSpec_dumpc(var->spec, 0);
     if (var->init) {
         printf(", .init = ");
-        Expr_dumpc(var->init, 0, yes, no);
+        Expr_dumpc(var->init, 0, yes, yes);
     }
     printf("}");
 }
 
 static void Scope_dumpc(Scope* scope, int level) {
     foreachn(Expr*, expr, exprList, scope->stmts) {
-        Expr_dumpc(expr, 0, true, false);
+        Expr_dumpc(expr, 0, yes, yes);
         if (exprList->next) printf(", ");
         continue;
 
@@ -40,9 +45,9 @@ static void Scope_dumpc(Scope* scope, int level) {
         case tkKeyword_match:
             printf("%.*s", level, spaces);
             printf("%s ", TokenKind_repr[expr->kind]);
-            if (expr->left) Expr_dumpc(expr->left, 0, true, false);
+            if (expr->left) Expr_dumpc(expr->left, 0, yes, yes);
             puts("");
-            //, true, escapeStrings);
+            //, yes, escapeStrings);
             if (expr->kind == tkKeyword_match) {
                 if (expr->body) Scope_dumpc(expr->body, level);
                 printf("%.*send %s\n", level, spaces, ""); // "match");
@@ -58,10 +63,10 @@ static void Scope_dumpc(Scope* scope, int level) {
         case tkKeyword_while: {
             printf("%.*s", level, spaces);
             printf("%s ", TokenKind_repr[expr->kind]);
-            if (expr->left) Expr_dumpc(expr->left, 0, true, false);
+            if (expr->left) Expr_dumpc(expr->left, 0, yes, yes);
             puts("");
             if (expr->body)
-                Scope_dumpc(expr->body, level + STEP); //, true, escapeStrings);
+                Scope_dumpc(expr->body, level + STEP); //, yes, escapeStrings);
             //            const char* tok = TokenKind_repr[expr->kind];
             //            if (expr->kind == tkKeyword_else || expr->kind ==
             //            tkKeyword_elif)
@@ -75,7 +80,7 @@ static void Scope_dumpc(Scope* scope, int level) {
                 }
             printf("%.*send %s\n", level, spaces, ""); // tok);
         } break;
-        default: Expr_dumpc(expr, level, true, false); puts("");
+        default: Expr_dumpc(expr, level, yes, yes); puts("");
         }
     }
 }
@@ -88,7 +93,7 @@ static void Type_dumpc(Type* type, int level) {
 }
 
 static void JetEnum_dumpc(Type* type, int level) {
-    printf("static const Type enum_%s = { .name =\"%s\" , .isEnum = true };\n",
+    printf("static const Type enum_%s = { .name =\"%s\" , .isEnum = yes };\n",
         type->name, type->name);
 }
 
@@ -142,7 +147,7 @@ static void Func_dumpc(Func* func, int level) {
     //     Expr* def = func->body->stmts->item;
     //     def = def->right; // its a return expr
     //     printf(" := ");
-    //     Expr_dumpc(def, 0, true, false);
+    //     Expr_dumpc(def, 0, yes, no);
     //     puts("\n");
     // }
 }
@@ -167,11 +172,12 @@ static void Expr_dumpc(
     switch (expr->kind) {
     case tkNumber:
     case tkMultiDotNumber:
-    case tkRawString:
-    case tkRegexp:
     case tkIdentifier:
-    case tkArgumentLabel:
-    case tkString: printf(".string = \"%s\",\n", expr->string); break;
+    case tkArgumentLabel: printf(".string = \"%s\",\n", expr->string); break;
+
+    case tkRegexp:
+    case tkRawString:
+    case tkString: printf(".string = \"%s\",\n", expr->string + 1); break;
 
     case tkIdentifierResolved:
         printf(".var = &var_%d_%s, ", expr->var->line, expr->var->name);
@@ -182,7 +188,7 @@ static void Expr_dumpc(
         printf(".string = \"%s\",\n", expr->string);
         if (expr->left) {
             printf(".left = ");
-            Expr_dumpc(expr->left, 0, 0, 0);
+            Expr_dumpc(expr->left, 0, 0, escapeStrings);
             printf(",\n");
         }
         break;
@@ -196,7 +202,7 @@ static void Expr_dumpc(
         break;
 
         printf("%s(", expr->string);
-        if (expr->left) Expr_dumpc(expr->left, 0, false, escapeStrings);
+        if (expr->left) Expr_dumpc(expr->left, 0, no, escapeStrings);
         printf(")");
         break;
     case tkFunctionCallResolved:
@@ -215,7 +221,7 @@ static void Expr_dumpc(
         char* tmp = (expr->kind == tkSubscriptResolved) ? expr->var->name
                                                         : expr->string;
         printf("%s[", tmp);
-        if (expr->left) Expr_dumpc(expr->left, 0, false, escapeStrings);
+        if (expr->left) Expr_dumpc(expr->left, 0, no, escapeStrings);
         printf("]");
     } break;
 
@@ -262,12 +268,12 @@ static void Expr_dumpc(
         if (!expr->prec) break;
         if (!expr->unary && expr->left) {
             printf(".left = ");
-            Expr_dumpc(expr->left, 0, 0, 0);
+            Expr_dumpc(expr->left, 0, 0, escapeStrings);
             printf(",\n");
         }
         if (expr->right) {
             printf(".right = ");
-            Expr_dumpc(expr->right, 0, 0, 0);
+            Expr_dumpc(expr->right, 0, 0, escapeStrings);
             printf(",\n");
         }
     }
@@ -282,6 +288,7 @@ static void Expr_dumpc(
 
 static void Module_dumpc(Module* module) {
 
+    dumpcfile = fopen("dumpc_out.c", "w");
     foreach (Import*, import, module->imports)
         Import_dumpc(import, 0);
 
@@ -303,4 +310,9 @@ static void Module_dumpc(Module* module) {
 
     foreach (Var*, var, module->scope->locals)
         Var_dumpc(var, 0), puts("");
+
+    fclose(dumpcfile);
 }
+
+#undef puts
+#undef printf

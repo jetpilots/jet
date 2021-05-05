@@ -38,20 +38,12 @@ static bool TokenKind_isUnary(TokenKind kind) {
 
 static bool TokenKind_isRightAssociative(TokenKind kind) {
     static const uint8_t rassoc[sizeof(TokenKind_names)] = { //
-        [tkPeriod] = 1,
+        // [tkPeriod] = 1,
         [tkOpPower] = 1,
         [tkOpComma] = 1,
         [tkOpSemiColon] = 1
     };
     return rassoc[kind];
-    // switch (kind) {
-    // case tkPeriod:
-    // case tkOpPower:
-    // case tkOpComma:
-    // case tkOpSemiColon: return 1;
-    // default: return 0;
-    // }
-    // return 0;
 }
 
 static uint8_t TokenKind_getPrecedence(TokenKind kind) {

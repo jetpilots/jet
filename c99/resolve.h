@@ -101,27 +101,6 @@ static void JetTest_checkUnusedVars(Parser* parser, JetTest* test) {
 // TODO: Btw there should be a module level scope to hold lets (and
 // comments). That will be the root scope which has parent==NULL.
 
-static void resolveMember(Parser* parser, Expr* expr, Type* type) {
-    if (expr->kind != tkIdentifier && expr->kind != tkSubscript) {
-        // if (expr->kind != tkFunctionCall) {
-        Parser_errorParsingExpr(parser, expr, "invalid member");
-        eputs("NYI\n");
-        // }
-        return;
-    }
-    TokenKind ret = (expr->kind == tkIdentifier) ? tkIdentifierResolved
-                                                 : tkSubscriptResolved;
-    Var* found = NULL;
-    if (type->body) found = Scope_getVar(type->body, expr->string);
-    if (found) {
-        expr->kind = ret;
-        expr->var = found;
-        expr->var->used++;
-    } else {
-        Parser_errorUnrecognizedMember(parser, type, expr);
-    }
-}
-
 // This function is called in one pass, during the line-by-line parsing.
 // (since variables cannot be "forward-declared").
 static void resolveVars(Parser* parser, Expr* expr, Scope* scope,
@@ -214,6 +193,7 @@ static void resolveVars(Parser* parser, Expr* expr, Scope* scope,
 
         break;
 
+    case tkRawString:
     case tkString: {
         // strings may have embedded variable names of the form $name or
         // $(name), so resolve them. by the time this func is called, the string

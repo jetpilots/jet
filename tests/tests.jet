@@ -28,11 +28,17 @@ test "chstr"
     var m = replace(s, this = "wuick", with = "bhingora")
     check m == "The bhingora brown dox"
     ~free m
-    var t = replace(s, map = ["wuick" = "quick", "dox" = "fox"])
+    var t = replace(s, map = {"wuick" = "quick", "dox" = "fox"})
     check t == "The quick brown fox" ~ 1322
     ~free t
     ~free s
     s +=* g
+end
+
+type Base
+    var x = 5
+    var g = 2
+    var m Base
 end
 
 test "chstrint"
@@ -46,7 +52,9 @@ test "chstrint"
     var c = 4
     var d = a + b + c
     print(d)
-    ~ d.print()
+    var s = Base()
+    print(s.m.m.m.x)
+    d.print()
 end
 
 test "chtermcolor"
