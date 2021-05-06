@@ -88,6 +88,7 @@ struct Parser {
 
         return en;
     }
+
     Scope* parseEnum_body(Scope* parent) {
         Scope* scope = new Scope;
         scope->parent = parent;
@@ -134,6 +135,7 @@ struct Parser {
     exitloop:
         return scope;
     }
+
     Module* parseModule() { // read file and parse
         if (not loadFile()) {
             eprintf("%s: no such file", filename);
@@ -142,8 +144,10 @@ struct Parser {
         mod = new Module();
         mod->scope = parseScope(nullptr, nullptr);
     }
+
     Func* parseFunc() { }
     Func* parseStmtFunc() { }
+
     Var* parseVar(Scope& scope) {
         Var *v = new Var, &var = *v;
         var.isMutable = token.is(tkKeyword_var);
@@ -152,7 +156,7 @@ struct Parser {
         var.loc = token.loc();
         var.name = parseIdent();
         // if (contains(var.name, '_') or isCapitalized(var.name))
-        //     errs.invalidName(var);
+        //   errs.invalidName(var);
         if (ignore(tkOneSpace) and token.is(tkIdentifier)) {
             var._typename = parseIdent();
 
@@ -180,6 +184,7 @@ struct Parser {
         if (ignore(tkOpAssign)) var.init = parseExpr(scope);
         return v;
     }
+
     Scope* parseScope(Scope* parent, Func* ownerFunc) {
         Scope* scope = new Scope;
 
@@ -205,11 +210,8 @@ struct Parser {
 
                 if ((orig = scope->getVar(var->name)))
                     errs.duplicateVar(*var, orig->loc);
-
                 scope->vars.push(*var);
-
                 expr = Expr::Defn(*var);
-
                 scope->stmts.push(*expr);
                 break;
 
@@ -342,11 +344,11 @@ struct Parser {
     Type* parseType() { }
     Import* parseImport() { }
     // TypeInfo parseTypeSpec() {
-    //     token.mergeArrayDims = true;
-    //     TypeInfo typeSpec;
-    //     // typeSpec.loc = { token.line, token.col, token.len };
+    //   token.mergeArrayDims = true;
+    //   TypeInfo typeSpec;
+    //   // typeSpec.loc = { token.line, token.col, token.len };
 
-    //     return typeSpec;
+    //   return typeSpec;
     // }
 
     List<Var&>* parseArgs(Scope& scope) {
@@ -408,13 +410,10 @@ struct Parser {
 
             ignore(tkOneSpace);
 
-            Expr* expr;
-            if (token.is(tkParenOpen))
-                expr = &expr_const_lparen;
-            else if (token.is(tkParenClose))
-                expr = &expr_const_rparen;
-            else
-                expr = token.expr(); // dont advance yet
+            Expr* expr //
+                = token.is(tkParenOpen)  ? &expr_const_lparen
+                : token.is(tkParenClose) ? &expr_const_rparen
+                                         : token.expr();
 
             int prec = expr->prec;
             bool rassoc = prec ? expr->rassoc : false;
@@ -426,7 +425,7 @@ struct Parser {
                 switch (lookAhead) {
                 // TODO: need a general lookahead that skips whitespace.
                 // case '!':
-                //     if (token.pos[2] != '(') goto defaultCase;
+                //   if (token.pos[2] != '(') goto defaultCase;
                 case '(':
                     expr->kind = tkFunctionCall;
                     expr->prec = 60;
@@ -438,8 +437,8 @@ struct Parser {
                     ops.push(expr);
                     break;
                 case ' ':
-                    if (token.pos[2] != '{') goto defaultCase;
-                    // otherwise fall through
+                    if (token.pos[2] != '{')
+                        goto defaultCase; // otherwise fall through
                 case '{':
                     expr->kind = tkObjectInit;
                     expr->prec = 60;
@@ -505,7 +504,7 @@ struct Parser {
                 // a dict literal (another unary op).
                 if ((p and p->is(tkBraceOpen))
                     and (ops.empty()
-                        or (rpn.top() and ops.top()->kind != tkObjectInit)))
+                        or (rpn.top() and not ops.top()->is(tkObjectInit))))
                     // not if it is an object init
                     rpn.push(p);
                 // Object { member1 = 3, member3 = "train" }
@@ -570,13 +569,11 @@ struct Parser {
                             errs.unexpectedExpr(*p, "need 2 operands to binop");
                             goto error;
                         }
-
                         rpn.push(p);
                     }
 
                     if (rpn.empty() and not expr->unary) {
-                        errs.unexpectedExpr(
-                            *p, "binary op with no left operand");
+                        errs.unexpectedExpr(*p, "binop with no left");
                         goto error;
                     }
                     if (expr->is(tkOpColon) and isin(lookAhead, ",:])"))
@@ -608,9 +605,6 @@ struct Parser {
                 // TODO: even if you have more than two, neither of the top
                 // two should be a comma
             }
-
-            // if (p->is(tkIdentifier, tkSubscript)) resolve(p, nullptr, scope);
-
             rpn.push(p);
         }
 

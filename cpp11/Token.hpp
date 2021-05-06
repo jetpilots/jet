@@ -21,8 +21,7 @@ struct Token {
     }
     SourceLoc loc() { return (SourceLoc) { line, col, len }; }
     void skipLine() {
-        while (pos < end and not in(tkNewline, tkLineComment, tkNullChar))
-            advance();
+        while (pos < end and not in(tkNewline, tkLineComment)) advance();
     }
     int count(char c) {
         int count = 0;
@@ -132,7 +131,6 @@ struct Token {
         const int l = len;
 
     compareKeyword(and)
-    // compareKeyword(cheater)
     compareKeyword(for)
     compareKeyword(do)
     compareKeyword(while)
@@ -142,17 +140,14 @@ struct Token {
     compareKeyword(enum)
     compareKeyword(match)
     compareKeyword(case)
-    // compareKeyword(function)
     compareKeywordAlt(func, function)
     compareKeyword(declare)
     compareKeyword(test)
-    compareKeyword(and)
     compareKeyword(yes)
     compareKeyword(no)
     compareKeyword(nil)
     compareKeyword(or)
     compareKeyword(in)
-    // compareKeyword(elif)
     compareKeyword(type)
     compareKeyword(check)
     compareKeyword(extends)
@@ -163,8 +158,7 @@ struct Token {
     compareKeyword(result)
     compareKeyword(as)
 
-    if (not  strncasecmp("else if ", s, 8))
-    {
+    if (not strncasecmp("else if ", s, 8)) {
         kind = tkKeyword_elif;
         len = 7;
         return;
@@ -261,13 +255,12 @@ struct Token {
         TokenKind tt = getType(0);
         TokenKind tt_ret = tkUnknown; // = tt;
         static TokenKind tt_last = tkUnknown;
-        // the previous self->token that was found
+        // the previous token that was found
         static TokenKind tt_lastNonSpace = tkUnknown;
-        // the last non-space self->token found
+        // the last non-space token found
         TokenKind tmp;
         char* start = pos;
-        bool found_e = false, found_dot = false; //, found_cmt = false;
-        //    uint8_t found_spc = 0;
+        bool found_e = false, found_dot = false;
 
         switch (tt) {
         case tkStringBoundary:
@@ -394,7 +387,8 @@ struct Token {
                 tt = getType(1);
                 pos++;
                 if (tt != tkAlphabet and tt != tkDigit and tt != tkUnderscore)
-                    break; /// validate in parser not here
+                    break;
+                /// validate in parser not here
             }
             if (tt == tkExclamation) pos++; // include it in ident
             tt_ret = tkIdentifier;

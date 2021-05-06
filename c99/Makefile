@@ -1,5 +1,5 @@
 
-CCFLAGS=-std=c99 -I../engine
+CCFLAGS=-std=c99 -I../engine -O3
 CCLIBS=-lc -lm
 CC=gcc
 

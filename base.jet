@@ -1,25 +1,19 @@
 ~ Basic types
-declare type String extends Regex
-end
-declare type Regex
-end
-declare type Boolean extends Number
-end
-declare type Number
-end
-declare type Range
-end
-declare type Size
-end
-declare type Point
-end
-declare type Rect
-end
+declare type Any end
+declare type String extends Regex end
+declare type Regex extends Any end
+declare type Boolean extends Number end
+declare type Number extends Any end
+declare type Range extends Any end
+declare type Size extends Any end
+declare type Point extends Any end
+declare type Rect extends Any end
 
 ~ pseudo type for templates
 ~ T does not include collections. For that use T[].
-declare type T
-end
+declare type T end
+
+func empty(x Any) end
 
 json(s String) := '\"$s\"'
 json(n Number) := '$n'
@@ -44,68 +38,83 @@ func json(arr T[]) String
     ans += "]"
 end
 
+~ Collection types. basically they have 1 implicit template param
+~ and on jet level they are all represented by [].
+declare type Collection end
+declare type Array extends Collection end
+declare type List extends Collection end
+declare type DList extends Collection end
+declare type LazyArray extends Collection end ~ in contrast to generator, caches its values end
+declare type Generator extends Collection end
+declare type Filter extends Collection end
+declare type Slice extends Collection end
+declare type Selection extends Collection end
+declare type Set extends Collection end
+declare type Dict extends Collection end
+declare type Vector extends Array end
+declare type SparseVector extends Vector end
+declare type Tensor2D extends Collection end
+declare type Matrix extends Tensor2D end
+declare type DiagMatrix extends Matrix end
+declare type TriDiagMatrix extends Matrix end
+declare type PentaDiagMatrix extends Matrix end
+declare type BandedMatrix extends Matrix end
+declare type SymmMatrix extends Matrix end
+declare type SkewSymmMatrix extends Matrix end
+declare type SparseMatrix extends Matrix end
+declare type Tensor3D extends Collection end
+declare type Tensor4D extends Collection end
+declare type Tensor5D extends Collection end
+declare type Tensor6D extends Collection end
+declare type Tensor7D extends Collection end
+
+
+func argcheck(ex Expr._, fns Funct[])
+    for fn = fns
+        for (fnArg, arg) = zip(fn.args, ex)
+            if arg.kind == .assign
+                if arg.left.string != fnArg.name
+                    continue fn
+                end
+                arg = arg.right
+            end
+            if arg.type != fnArg.type
+                continue fn
+            end
+        end
+        ans = fn
+        return
+    end
+end
+
+func zip(l List, e Expr)
+    var li = begin(l)
+    var ex = ref(e) ~ new ref, this is const T*, not const T* const
+    while yes
+        a = each!(li) or break ~ copy li implicitly since each is mutating arg1
+        ~ actualluy you just want to mutate the ptr which is local!...
+        b = each!(ex) or break
+        yield a, b
+    end
+end
+~ this is how you can write each for a list & for an expr
+func each!(li List) Expr
+    ~ if you just mut the arg you dont need extra caller var. but you should implicitly copy the ptr .
+    ~ caller var lii = li ~ the caller has to init this! caller vars
+    ~ can only be initd with const or one of the other args
+    yield li[1] or nil
+    li=next(li) ~ this next is cdr basically
+end
+func each!(ex Expr) Expr ~ walk right-associtive comma expr
+    ~ caller var pos = ex
+    yield (ex.kind == .comma ? ex.left : ex) or nil
+    ex = ex.right
+end
+
 ~ Operators. this is how the compiler knows if ops have valid operands etc:
 ~ if an op is defined, it works, else compiler throws type error.
 
 ~ usual rules of upcasting/downcasting apply; can be used on poly vars
-func += (a Number, b Number) Number
-end
+func +=(a Number, b Number) Number end
 
-func [] (a T[], idx Number) T
-end
-
-~ Collection types. basically they have 1 implicit template param
-~ and on jet level they are all represented by [].
-declare type Array
-end
-declare type List
-end
-declare type DList
-end
-declare type LazyArray ~ in contrast to generator, caches its values
-end
-declare type Generator
-end
-declare type Filter
-end
-declare type Slice
-end
-declare type Selection
-end
-declare type Set
-end
-declare type Dict
-end
-declare type Vector extends Array
-end
-declare type SparseVector extends Vector
-end
-declare type Tensor2D
-end
-declare type Matrix extends Tensor2D
-end
-declare type DiagMatrix extends Matrix
-end
-declare type TriDiagMatrix extends Matrix
-end
-declare type PentaDiagMatrix extends Matrix
-end
-declare type BandedMatrix extends Matrix
-end
-declare type SymmMatrix extends Matrix
-end
-declare type SkewSymmMatrix extends Matrix
-end
-declare type SparseMatrix extends Matrix
-end
-declare type Tensor3D
-end
-declare type Tensor4D
-end
-declare type Tensor5D
-end
-declare type Tensor6D
-end
-declare type Tensor7D
-end
-
+func [](a T[], idx Number) T end

@@ -874,7 +874,7 @@ static Func* parseFunc(Parser* parser, Scope* globScope, bool shouldParseBody) {
 
     if (shouldParseBody) {
         Parser_ignore(parser, tkLineComment);
-        Parser_consume(parser, tkNewline);
+        Parser_ignore(parser, tkNewline);
 
         Scope* funcScope = NEW(Scope);
         funcScope->parent = globScope;
@@ -1337,7 +1337,6 @@ static Module* parseModule(
                 expr->kind = tkVarAssign;
                 expr->line = var->init ? var->init->line : parser->token.line;
                 expr->col = col;
-                // printf("%d\n", col);
                 expr->prec = TokenKind_getPrecedence(tkOpAssign);
                 expr->var = var;
 
@@ -1388,5 +1387,3 @@ static Module* parseModule(
     // if (importer) PtrList_shift(&importer->importedBy, root);
     return root;
 }
-
-// TODO: move this to separate file or to analysis.c [sempass.c]

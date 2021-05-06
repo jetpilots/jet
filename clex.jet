@@ -3,6 +3,8 @@ enum Kinds
     eof
     newline
     space
+    binops
+    unops
     plus
     minus
     times
@@ -22,6 +24,7 @@ enum Kinds
     cmpLE
     cmpEQ
     cmpNE
+    mutops
 end
 
 type Byte
@@ -38,25 +41,30 @@ type Token
     var kind = Kinds.unknown
 end
 
-func slurp(file String) as Byte[]
+func slurp(file String) Byte[]
 
 end
 
-func detect(tok Token) as Kinds
+func detect(tok Token[]) Kinds
     match tok.data
     case '+=', '-=', '*=', '/=', '^=', '%=', '.='
-        ans = .binops
+        ans = .mutops
     case '+','-','/','*','^','%','.',':','~','#',',',';'
+        ans = .binops
     case `\d+\.?\d*([eEdD][+-]\d+)?`
     case `\w+`
     case `".*"`, `'.*'`, `\`.*\``
     end
 end
 
-func advance!(tok Token)
+func many(a Number, b Number, c Number, d Number)
 end
 
-func args(idx Number) as String
+func advance!(tok Token)
+    many(2, 3, 4, 5)
+end
+
+func args(idx Number) String
 end
 
 func start()

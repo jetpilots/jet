@@ -12,8 +12,7 @@ class File {
         : _path(path) { }
     ~File() { _drop(); }
 
-    const char* _path;
-    const char* _basename;
+    const char *_path, *_basename;
     bool _isopen, // is the file open? ...
         _oread, _owrite, _oappend; // ... for these specific modes?
     bool _lastread, _lastwrote; // used to decide when to call rewind()

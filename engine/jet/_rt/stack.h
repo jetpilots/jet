@@ -54,6 +54,22 @@ static size_t _scPrintAbove_ = 0; // used for truncating long backtraces
 #define DO_STACK_CHECK
 #endif
 
+// #define C_RED "\e[31m"
+// #define C_GRN "\e[32m"
+// #define C_BLU "\e[33m"
+// #define C_CYN "\e[34m"
+// #define C_MGN "\e[35m"
+// #define C_YLW "\e[36m"
+// #define C_GRE "\e[37m"
+// #define C_BRED "\e[41m"
+// #define C_BGRN "\e[42m"
+// #define C_BBLU "\e[43m"
+// #define C_BCYN "\e[44m"
+// #define C_BMGN "\e[45m"
+// #define C_BYLW "\e[46m"
+// #define C_BGRE "\e[47m"
+// #define C_RSET "\e[0m"
+
 #ifdef DEBUG
 #define SHOW_BACKTRACE_LINE                                                    \
     if (_scDepth_ <= _btLimit_ || _scDepth_ > _scPrintAbove_)                  \

@@ -228,28 +228,18 @@ struct Expr {
         Type* elementType; // for tkListLiteral, tkDictLiteral only!!
     };
     union {
-        // JetEvalInfo eval;
         struct {
             uint32_t hash, slen;
-        }; // str len for strings, idents, unresolved funcs/vars etc.
-        // why do you need the hash in the expr? just add to the dict using the
-        // computed hash! TO COMPUTE HASH OF EXPR TREES
+        };
     };
     union {
         Expr* right;
         char* string;
-        double real;
-        int64_t integer;
-        uint64_t uinteger;
-        // char* name; // for idents or unresolved call or subscript
         Func* func; // for functioncall
         Var* var; // for array subscript, or a tkVarAssign
         Scope* body; // for if/for/while
         Import* import; // for imports tkKeyword_import
     };
-    // TODO: the code motion routine should skip over exprs with
-    // promote=false this is set for exprs with func calls or array
-    // filtering etc...
 };
 
 struct Scope {
@@ -901,38 +891,139 @@ monostatic bool downcastable(Type* type, Type* target) {
     return upcastable(target, type);
 }
 
-// only call this func if you have failed to resolve a func by getFunc(...).
+// #define List_Expr_zip(list, expr, yield)                                       \
+//     while (1) {                                                                \
+//         if (!(list = List_next(list))) break;                                  \
+//         if (!(expr = Expr_next(expr))) break;                                  \
+//         yield(List_get(list), Expr_get(expr));                                 \
+//     }
+
+// zip is basically each over two parallel collections.
+// use it as zip(a, Var*, b, Var*, mod1->vars, List*, mod2->vars, Array*)
+// { ... code using a, b }
+
+// (a!=b&&c!=d)
+#define BOTHOK(a, b, c, d)                                                     \
+    ~(~((uint64_t)a ^ (uint64_t)b) | ~((uint64_t)c ^ (uint64_t)d))
+#define zipn(item1, nxt1, E1, item2, nxt2, E2, coll1, T1, coll2, T2)           \
+    for (bool _ = 1; _;)                                                       \
+        for (T1##_Iter _it1 = begin(T1, coll1), _en1 = end(T1, coll1); _;)     \
+            for (T2##_Iter _it2 = begin(T2, coll2), _en2 = end(T2, coll2); _;) \
+                for (E1 item1, nxt1; _;)                                       \
+                    for (E2 item2, nxt2; _; _ = 0)                             \
+                        for (; BOTHOK(_it1, _en1, _it2, _en2);                 \
+                             movenext(T1, _it1), movenext(T2, _it2))           \
+                            if (item1 = get(T1, _it1),                         \
+                                nxt1 = get(T1, next(T1, _it1)),                \
+                                item2 = get(T2, _it2),                         \
+                                nxt2 = get(T2, next(T2, _it2)), 1)
+
+#define zip(item1, E1, item2, E2, coll1, T1, coll2, T2)                        \
+    zipn(item1, __nxt1__, E1, item2, __nxt2__, E2, coll1, T1, coll2, T2)
+
+// each is actually a template that just wraps other actions
+// use it as each(var, Var*, mod->vars, List*) { ... code using var }
+// use it as each(var, Var*, mod->vars, Array*)  so on
+// E is element type, T is collection type
+#define eachn(item, nxt, E, coll, T)                                           \
+    for (bool _ = 1; _;)                                                       \
+        for (T##_Iter _it = begin(T, coll), _end = end(T, coll); _;)           \
+            for (E item, nxt; _; _ = 0)                                        \
+                for (; _it != _end; movenext(T, _it))                          \
+                    if (item = get(T, _it), nxt = get(T, next(T, _it)), 1)
+
+#define each(item, E, coll, T) eachn(item, __next__, E, coll, T)
+
+#define next(T, it) T##_next(it)
+#define begin(T, it) T##_begin(it)
+#define end(T, it) T##_end(it)
+#define get(T, it) T##_get(it)
+
+// begin:
+#define ExprP_begin(expr) (expr)
+#define PtrListP_begin(list) (list)
+
+// end:
+#define ExprP_end(expr) (NULL)
+#define PtrListP_end(list) (NULL)
+
+// get: get item T from iterator<T>. in C++ this is operator *
+#define ExprP_get(expr) (expr->kind == tkOpComma ? expr->left : expr)
+#define PtrListP_get(list) (list->item)
+
+// next: iterator to next item. in C++ this is operator ++, (here not in-place)
+#define PtrListP_next(list) (list->next)
+#define ExprP_next(expr) (expr->right)
+// #define Array_next(ptr) (ptr + 1)
+// #define Slice_next(slice) (slice->ptr + slice->step)
+#define movenext(T, l) l = T##_next(l)
+
+// only call this func if you have failed to resolve a func by
+// getFunc(...).
+typedef Expr* ExprP;
+typedef ExprP ExprP_Iter;
+typedef PtrList* PtrListP;
+typedef PtrListP PtrListP_Iter;
+typedef Var* VarP;
+
 monostatic Func* Module_getFuncByTypeMatch(Module* module, Expr* funcCallExpr) {
     foreach (Func*, func, module->funcs) {
         if (strcasecmp(funcCallExpr->string, func->name)) continue;
         if (Expr_countCommaList(funcCallExpr->left) != func->argCount) continue;
         // check all argument types to see if they match.
-        Expr* currArg = funcCallExpr->left;
-        foreach (Var*, arg, func->args) {
-            if (!currArg) break;
-            Expr* cArg = (currArg->kind == tkOpComma) ? currArg->left : currArg;
-            if (cArg->kind == tkOpAssign) cArg = cArg->right;
-            // __ this is why you need typeType and typeSubType so that
-            // compatible types can be checked by equality ignoring subType.
-            // The way it is now, CString and String wont match because they
-            // arent strictly equal, although they are perfectly compatible
-            // for argument passing.
+        // Expr* currArg = funcCallExpr->left;
+        // zip(cArg, ExprP, arg, VarP, funcCallExpr->left, ExprP, func->args,
+        //     PtrListP) {
+        //     printf("%s at %d:%d / %s at %d:%d\n", arg->name, arg->line,
+        //         arg->col, TokenKind_names[cArg->kind], cArg->line,
+        //         cArg->col);
+        // }
+        // each(arg, VarP, func->args, PtrListP) { printf("%s\n", arg->name); }
+
+        zip(cArg, ExprP, arg, VarP, funcCallExpr->left, ExprP, func->args,
+            PtrListP) {
+            if (cArg->kind == tkOpAssign) {
+                if (strcasecmp(arg->name, cArg->left->string)) goto nextfunc;
+                cArg = cArg->right;
+            }
             if (ISIN(3, cArg->typeType, TYUnresolved, TYErrorType, TYNoType))
                 return NULL;
             if (cArg->typeType == arg->spec->typeType
                 && cArg->collectionType == arg->spec->collectionType) {
-
                 if (cArg->typeType == TYObject
                     && !upcastable(Expr_getTypeOrEnum(cArg), arg->spec->type))
                     goto nextfunc;
-
             } else {
-                // an arg type has failed to match. Wait: if it is unresolved,
-                // you can still consider this func. Otherwise you skip to next.
                 if (cArg->typeType != TYUnresolved) goto nextfunc;
             }
-            currArg = (currArg->kind == tkOpComma) ? currArg->right : NULL;
         }
+
+        // foreach (Var*, arg, func->args) {
+        //     if (!currArg) break;
+        //     Expr* cArg = (currArg->kind == tkOpComma) ? currArg->left :
+        //     currArg; if (cArg->kind == tkOpAssign) cArg = cArg->right;
+        //     // __ this is why you need typeType and typeSubType so that
+        //     // compatible types can be checked by equality ignoring subType.
+        //     // The way it is now, CString and String wont match because they
+        //     // arent strictly equal, although they are perfectly compatible
+        //     // for argument passing.
+        //     if (ISIN(3, cArg->typeType, TYUnresolved, TYErrorType, TYNoType))
+        //         return NULL;
+        //     if (cArg->typeType == arg->spec->typeType
+        //         && cArg->collectionType == arg->spec->collectionType) {
+
+        //         if (cArg->typeType == TYObject
+        //             && !upcastable(Expr_getTypeOrEnum(cArg),
+        //             arg->spec->type)) goto nextfunc;
+
+        //     } else {
+        //         // an arg type has failed to match. Wait: if it is
+        //         unresolved,
+        //         // you can still consider this func. Otherwise you skip to
+        //         next. if (cArg->typeType != TYUnresolved) goto nextfunc;
+        //     }
+        //     currArg = (currArg->kind == tkOpComma) ? currArg->right : NULL;
+        // }
         return func;
     nextfunc:;
     }

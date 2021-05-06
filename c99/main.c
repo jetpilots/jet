@@ -10,6 +10,7 @@ static const char* const spaces = //
 #include "types.h"
 #include "token.h"
 #include "ast.h"
+#include "clone.h"
 #include "write.h"
 #include "emit.h"
 #include "dumpc.h"

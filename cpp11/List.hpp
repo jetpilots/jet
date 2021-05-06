@@ -41,6 +41,27 @@ T min(T v1, T v2) {
 //     iterator operator++() { return --ptr, *this; }
 // };
 
+template <class T1, class T2, class E1, class E2>
+class Zip {
+    E1& e1;
+    E2& e2;
+    class iterator {
+        T1<E1>::iterator& i1;
+        T2<E2>::iterator& i2;
+        bool operator!=(const ZipIterator& other) {
+            return i1 != other.i1 and i2 != other.i2;
+        }
+        iterator operator++() {
+            ++i1;
+            ++i2;
+            return this;
+        }
+        const Zip<E1, E2>& operator*() const { return Zip(*i1, *i2); }
+    };
+    iterator begin() const { return iterator(ref); }
+    iterator second() const { return iterator(ref + 1); }
+};
+
 template <class T>
 class Array : public Collection {
 public:

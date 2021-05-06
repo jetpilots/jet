@@ -332,6 +332,7 @@ static void Expr_analyse_functionCall(Parser* parser, Expr* expr, Scope* scope,
     Module* mod, Func* ownerFunc, bool inFuncArgs) {
     char buf[256] = {}, sbuf[256] = {};
     char* bufp = buf;
+    const char* collName = "";
     if (expr->left)
         Expr_analyse(parser, expr->left, scope, mod, ownerFunc, true);
 
@@ -339,10 +340,7 @@ static void Expr_analyse_functionCall(Parser* parser, Expr* expr, Scope* scope,
     Expr* arg1 = expr->left;
     if (arg1 && arg1->kind == tkOpComma) arg1 = arg1->left;
     Type* type = Expr_getObjectType(arg1);
-    // const char* typeName = Expr_typeName(arg1);
-    //        const char* collName = "";
-    //        if (arg1)
-    //        collName=CollectionType_nativeName(arg1->collectionType);
+    if (arg1) collName = CollectionType_nativeName(arg1->collectionType);
     if (arg1) *bufp++ = '_'; // += sprintf(bufp, "_", typeName);
 
     bufp += sprintf(bufp, "%s", expr->string);
@@ -361,7 +359,7 @@ static void Expr_analyse_functionCall(Parser* parser, Expr* expr, Scope* scope,
     if (!found && (found = Module_getFuncByTypeMatch(mod, expr))) {
         // take the closest function by type match instead, for now. tell
         // the user this may not be what they expected
-        Parser_warnUnrecognizedSelector(parser, expr, buf, found);
+        Parser_warnUnrecognizedSelector(parser, expr, sbuf, found);
     }
     if (found) {
         expr->kind = tkFunctionCallResolved;
@@ -580,21 +578,15 @@ static void Expr_analyse_varAssign(Parser* parser, Expr* expr, Scope* scope,
                 Parser_errorMissingInit(parser, expr);
             }
     } else {
-        // if (spec->typeType == TYUnresolved)
-        //     resolveTypeSpec(parser, spec, mod);
+
         // first try to set enum base if applicable.
         if (spec->typeType == TYObject && spec->type->isEnum)
             Expr_setEnumBase(parser, init, spec, mod);
 
         Expr_analyse(parser, init, scope, mod, ownerFunc, false);
 
-        if (!expr->var->used) {
-            // assigning to an unused var on the left of =. Decrement the
-            // usage counts of all vars referenced on the RHS because well
-            // being used for an unused var is not actually being used.
-            // TODO: this should also be done for += -= *= etc.
-            Expr_reduceVarUsage(init);
-        }
+        if (!expr->var->used) { Expr_reduceVarUsage(init); }
+        // TODO: this should also be done for += -= *= etc.
 
         if (init->typeType != TYNilType) {
             // if not nil, get type info from init expr.
@@ -754,6 +746,8 @@ monostatic void Expr_analyse(Parser* parser, Expr* expr, Scope* scope,
         Expr_prepareInterp(parser, expr, scope);
         break;
 
+    case tkRegexp: expr->typeType = TYRegex; break;
+
     case tkNumber: expr->typeType = TYReal64; break;
 
     case tkKeyword_yes:
@@ -827,11 +821,9 @@ monostatic void Expr_analyse(Parser* parser, Expr* expr, Scope* scope,
         if (ISIN(2, member->kind, tkSubscript, tkFunctionCall) && member->left)
             Expr_analyse(parser, member->left, scope, mod, ownerFunc, false);
 
-        if (base->kind != tkIdentifierResolved) {
-            // error will have been shown for it already
-            // Parser_errorUnexpectedExpr(parser, member);
-            break;
-        }
+        if (base->kind != tkIdentifierResolved) { break; }
+        // error will have been shown for it already
+        // Parser_errorUnexpectedExpr(parser, member);
 
         if (base->var->spec->typeType == TYErrorType) {
             expr->typeType = TYErrorType;
@@ -839,7 +831,7 @@ monostatic void Expr_analyse(Parser* parser, Expr* expr, Scope* scope,
         }
         assert(base->var->spec->typeType == TYObject
             || member->kind == tkFunctionCall
-            || member->kind == tkFunctionCallResolved); //!= TYNilType);
+            || member->kind == tkFunctionCallResolved);
 
         Type* type = base->var->spec->type;
         if (!type) {
@@ -848,14 +840,6 @@ monostatic void Expr_analyse(Parser* parser, Expr* expr, Scope* scope,
         }
 
         // Resolve the member in the scope of the type definition.
-        //
-        // static void resolveMember(Parser* parser, Expr* expr, Type* type) {
-        // if (expr->kind != tkIdentifier && expr->kind != tkSubscript) {
-        //     // if (expr->kind != tkFunctionCall) {
-
-        //     // }
-        //     return;
-        // }
         switch (member->kind) {
         case tkIdentifier:
         case tkSubscript: {
@@ -893,18 +877,9 @@ monostatic void Expr_analyse(Parser* parser, Expr* expr, Scope* scope,
             eputs("NYI\n");
             expr->typeType = TYErrorType;
         }
-        // }resolveMember(parser, member, type);
 
         // Name resolution may fail...
         if (expr->typeType == TYErrorType) break;
-        // !ISIN(3, member->kind, tkIdentifierResolved, tkSubscriptResolved,
-        //         tkFunctionCallResolved)) {
-        //     expr->typeType = TYErrorType;
-        //     break;
-        // }
-
-        // if (expr->right->kind == tkPeriod)
-        //     Expr_analyse(parser, expr->right, scope, mod, ownerFunc, false);
 
         expr->typeType = type->isEnum ? TYObject : expr->right->typeType;
         expr->collectionType = expr->right->collectionType;
@@ -914,31 +889,8 @@ monostatic void Expr_analyse(Parser* parser, Expr* expr, Scope* scope,
 
     case tkLineComment: break;
 
-    case tkArgumentLabel:
-        break;
+    case tkArgumentLabel: break;
 
-        //    case tkRawString:
-        // TODO: analyse regex, compile it already, whatever
-        //        break;
-        // -------------------------------------------------- //
-        // case tkKeyword_in:
-        // case tkKeyword_notin:
-        // these ops may take an array of enums, so set their base type.
-        // if (expr->left->kind==tkIdentifierResolved)
-
-        // there's some work being done on these as standard binops, so
-        // fallthrough;
-        //     case tkOpAssign:
-        //         if (inFuncArgs) {
-        //             //  if an argument is an enum to be inferred, do it now
-        //             otherwise it
-        //             //  will analyze expr->right and find an unknown enum and
-        //             error out.
-        // if (expr->right && expr->right->kind==tkPeriod) {
-
-        // }
-        //         }
-        // fallthrough
     default:
         if (expr->prec) {
             if (!expr->unary && expr->left)
@@ -1315,17 +1267,6 @@ void Module_analyse(Parser* parser, Module* mod) {
     foreach (Type*, en, mod->enums)
         Type_analyse(parser, en, mod);
 
-    // } else if (fstart) {
-    /* TODO: what if you have tests and a start()? Now you will have to
-     analyse the tests anyway */
-    // foreach (Expr*, stmt, mod->scope->stmts)
-    // Expr_analyse(parser, stmt, mod->scope, mod, NULL, false);
-    // foreach (Var*, var, mod->scope->locals)
-    //     if (var->init)
-    //         Expr_analyse(parser, var->init, mod->scope, mod, false);
-
-    // Func_analyse(parser, fstart, mod);
-
     // Check dead code -- unused funcs and types, and report warnings.
 
     if (!fstart) { // TODO: new error, unless you want to get rid of start
@@ -1345,36 +1286,6 @@ void Module_analyse(Parser* parser, Module* mod) {
     // now that funcs are marked recursive you can do a second pass analysis,
     // which deals with var storage decisions, inlining,  etc. or perhaps this
     // pass can be called 'optimising'.
-
-    // Check each type for cycles in inheritance graph.
-    // Actually if there is no inheritance and composition is favoured, you
-    // have to check each statement in the type body instead of just walking
-    // up the super chain. If any statements are initialized by
-    // constructors, mark the type of that statement as visited and recur
-    // into that type to check its statements to see if you ever revisit
-    // anything. Unfortunately it does not seem that this would be easy to
-    // do iteratively (not recursively), as it can be done for just checking
-    // supers. foreach (Type*, type, mod->types) {
-    //     if (! type->analysed or not type->super) continue;
-    //     assert(type->super->typeType == TYObject);
-
-    //     // traverse the type hierarchy for this type and see if you
-    //     revisit any Type* superType = type->super->type; while
-    //     (superType) {
-    //         if (superType->visited) {
-    //             Parser_errorInheritanceCycle(self, type);
-    //             break;
-    //         }
-    //         superType->visited = true;
-    //         if (! superType->super) break;
-    //         assert(superType->super->typeType == TYObject);
-    //         superType = superType->super->type;
-    //     }
-
-    //     // reset the cycle check flag on all types
-    //     foreach (Type*, etype, mod->types)
-    //         if (type->analysed) etype->visited = false;
-    // }
 
     // check each stmt in each type to find cycles.
     foreach (Type*, type, mod->types)
@@ -1416,19 +1327,12 @@ static int Expr_markTypesVisited(Parser* parser, Expr* expr) {
     case tkFunctionCall: return Expr_markTypesVisited(parser, expr->left);
     case tkFunctionCallResolved:
         if (Expr_markTypesVisited(parser, expr->left)) return -1;
-        // if (expr->func->isDefCtor) type =
-        // expr->func->spec->type;
         if (expr->func->spec->typeType == TYObject
             && expr->func->returnsNewObjectAlways)
             type = expr->func->spec->type;
         break;
     case tkSubscript:
-    case tkSubscriptResolved:
-        return Expr_markTypesVisited(parser, expr->left);
-        // case tkKeyword_if:
-        // case tkKeyword_elif:
-        // case tkKeyword_case:
-        // case tkKeyword_match:
+    case tkSubscriptResolved: return Expr_markTypesVisited(parser, expr->left);
 
     case tkIdentifierResolved:
     case tkString:

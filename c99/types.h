@@ -95,6 +95,7 @@ typedef enum TypeTypes {
     // TYObjects. maybe rename it
     // TY2DPoint, // 200x200
     // TYRect, // 0x0:150x150. A range of 2 2D points is a... rect!
+    TYRegex,
     TYString, // need to distinguish String and char*?
     TYBool,
     // above this, ie. > 4 or >= TYInt8, all may have units |kg.m/s etc.
@@ -120,8 +121,9 @@ static const char* TypeType_name(TypeTypes tyty) {
     case TYNilType: return "Nil";
     case TYNoType: return "Void";
     case TYErrorType: return "<invalid>";
-    case TYString: return "CString";
+    case TYString: return "String";
     case TYBool: return "Boolean";
+    case TYRegex: return "Regex";
     case TYObject: return "";
     case TYSize:
     case TYInt8:
@@ -142,8 +144,9 @@ static const char* TypeType_c_name[] = {
     [TYNoType] = "void",
     [TYNilType] = "(nil)",
     [TYErrorType] = "<invalid>",
-    [TYString] = "CString",
+    [TYString] = "String",
     [TYBool] = "bool",
+    [TYRegex] = "Regex",
     [TYObject] = "<object>",
     [TYSize] = "SizeT",
     [TYInt8] = "Int8",
@@ -170,6 +173,7 @@ static const char* TypeType_format(TypeTypes tyty, bool quoted) {
                  // TYObjects. maybe rename it
         return "%lu";
     case TYString: return quoted ? "\\\"%s\\\"" : "%s";
+    case TYRegex: return "%s";
     case TYBool:
         return "%d";
         // above this, ie. > 4 or >= TYInt8, all may have units |kg.m/s etc.
@@ -199,6 +203,7 @@ static unsigned int TypeType_size(TypeTypes tyty) {
     case TYErrorType: return 0;
     case TYObject: return sizeof(void*);
     case TYSize: return sizeof(size_t);
+    case TYRegex: return sizeof(char*);
     case TYString: return sizeof(char*); // what about length
     case TYBool: return sizeof(int);
     case TYInt8: return 1;

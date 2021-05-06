@@ -1,0 +1,153 @@
+~class Window
+~method show()
+~end
+~method close()
+~end
+~event closing()
+~event closed()
+~event draw(img Image)
+~end
+
+~func start()
+~   w = Window()
+
+~   ~these are all capturing lambdas!
+~   func w closed()
+~   end
+~   w.closed = func ()
+~      ...
+~   end
+~   w.closed() := someOtherFunc
+
+~   ~or how about just
+~   event w closed() := someOtherFunc()
+~   event w closed()
+~      someOtherFunc()
+~   end
+
+   Window:
+      size: 1024x768
+      pos: 100x100
+      title: "Untitled"
+      closed():
+      closing():
+      draw(img Image):
+      drawbg(img Image) Boolean:
+      new():
+~the defined funcs are going to be overridden.
+~if they are not overridden gen them as normal funcs, else func ptrs inside
+~the instance. whether self is passed or not depends on whether it is used.
+~unused members shouldnt be generated.
+~subclassing and overriding DOES NOT mean the func should be a pointer in
+~the instance, but rather in the static table. Only when an INSTANCE overrides
+~its func, that should be marked for generation as instance funcptr.
+~here : is first assignment (or definition), = is reassignment
+   w Window =
+      .size = 480x640
+      .range = [435->499, 512->800, 1026->inf]
+      .arr[78->99..3] 0
+      .arr[nm..nm+12] 0
+      .arr[2..end] 0
+      .view EffectView
+         .resizing = #width + #height
+         .subviews =
+            - View .draw(img) := img.drawRect(0x0, size=[320,img.width-1])
+            - View
+               .pos = 300x300
+               .size = 450x450
+               .draw(img) := img.drawRect(0x0, size=[40,img.width-1], round=6)
+      arr[nm..12]: 0
+      arr[]
+         [..] 0
+         [nx->nx+z] 8
+         [7->11] [7, 8, 9, 10, 11]
+      closed()
+         for x = 1->nx
+      closing()
+         ...
+      draw(img) ~dont repeat type annotation, it is known. arglabel must match
+         ...
+      title: "Black Sphinx"
+
+Field
+   .mesh Mesh
+   .internal[] Real
+   .boundary[] Real
+   .init(v Real, m Mesh)
+      .internal[] = v
+      .boundary[] = v
+      .mesh = m
+
+Turb =
+   .mesh Mesh
+   .mut Field = 0
+   .correct() := pass
+   .init(m Mesh) := mesh = m
+
+Turb.KEps =
+   .init(m Mesh) := super.init(m) ~self or super both necessitate passing self making it an instance method.
+   .cMu = 0.09
+   .k Field =
+      .internal[] = 0
+      .boundary[] = wall.stdKE(0.41)
+   .eps Field =
+      .internal[] = 1
+   .correct() := mut[] = cMu * k[]^2 / eps[]
+
+~extend type
+~ Turb.relax(f Fraction) := pass
+Turb +=
+   .relax(f Fraction) := pass
+
+Turb.KEps +=
+   .relax(f Fraction) := self.relaxf: f
+~can define new member vars when extending
+
+main() ~plain old func
+   kind: cfg["turb.kind"] or "(unknown)"
+   model: cfg["turb.model"] or "(unknown)"
+   turbModel: "Turb.$kind.$model"
+   ~ its known that this won't open a scope, so you can let it flow on the next line
+      ~ if you had something here, it would be an indent error
+   ~ having something here is OK
+   sc: Turb.subclasses()
+   if turbModel not in sc
+      panic("Turbulence model '$1' invalid. Pick from [$2]",
+            turbModel, sc.join(', '))
+         ~types as values for this purpose is easy: each type has a default var
+         ~with its name. The value of that could even be NULL, or it could be
+         ~an instance of TypeInfo. 'Turb' then resolves like any normal var.
+         ~ class(T) returns the typeinfo (basically returns T) or nil if no
+         ~ such type found. classes(T) -> a list of T and its derived types.
+         ~ subclasses(T) -> a list without T itself in it. Both are empty if
+         ~ the type name is invalid. You DID NOTICE that class(), classes() etc.
+         ~ can take a runtime string right! Lookup is in an MPH or generated
+         ~ radix switch tree. There is no runtime manipulation of classes.
+         ~ subclass(T, S) boolean -> whether S is an ancestor of T, yes/no.
+         ~ answer is NO if turbModel is a nonexistent type. -- NOPE use in/notin.
+         ~ subclasses() and classes() return array of TypeInfo, but join is a
+         ~ func that implicitly calls toString and the toString of TypeInfo
+         ~ returns its name (not qualified name).
+
+   ~ check turbModel in Turb.subclasses()
+   turb Turb._ new(turbModel) ~polymorphic. nilable would be Turb._?
+   ~ must be provable that turbModel is indeed in classes(Turb). Here its true
+   ~ because there is a panic in the inverse condition.
+   ~ otherwise a check would help.
+   ~new(str) -> classByName. its not a runtime dict for classbyname but an MPH or similar
+   turb.correct()
+
+   ...
+
+end
+
+
+
+extend type Expr
+   var analysed Boolean
+   var visited Boolean
+   ~ all its derived types are going to see the change!
+end
+
+func analyse(Expr)
+
