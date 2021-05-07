@@ -10,19 +10,19 @@
 
 size_t sys_pageSize() {
 #ifdef WINDOWS
-    SYSTEM_INFO si;
-    GetSystemInfo(&si);
-    return si.dwPageSize;
+  SYSTEM_INFO si;
+  GetSystemInfo(&si);
+  return si.dwPageSize;
 #else
-    return sysconf(_SC_PAGESIZE);
+  return sysconf(_SC_PAGESIZE);
 #endif
 }
 
 #include <sys/resource.h>
 static size_t sys_stackSize() {
-    struct rlimit limit;
-    getrlimit(RLIMIT_STACK, &limit);
-    return limit.rlim_cur; //, limit.rlim_max);
+  struct rlimit limit;
+  getrlimit(RLIMIT_STACK, &limit);
+  return limit.rlim_cur; //, limit.rlim_max);
 }
 
 // #include "jet/os/cycle.h"
@@ -54,24 +54,26 @@ static Ticks _lprof_[NUMLINES] = {};
 // ---------
 //         // If something causes an error and the handler is not installed,
 //         insert
-//         // a goto to the catch-all error handler for the function, labeled by
+//         // a goto to the catch-all error handler for the function,
+//         labeled by
 //         // uncaught:.
 //         uncaught : // error:
 //                    HANDLE_UNCAUGHT;
-// // If something has set _err_=ERROR_TRACE it has initiated a backtrace and
-// the
+// // If something has set _err_=ERROR_TRACE it has initiated a backtrace
+// and the
 // // unwrap must continue, so insert a goto to backtrace:.
 // backtrace : SHOW_BACKTRACE_LINE;
 // // The function that initates a backtrace does not go to backtrace:, but
-// // prints the initial site description, sets _err_=ERROR_TRACE, and starts
+// // prints the initial site description, sets _err_=ERROR_TRACE, and
+// starts
 // // an unwind, going to unwind1:
 // unwind : // one:
 //          STACKDEPTH_DOWN;
 // return DEFAULT_VALUE;
 // }
 // -----------
-/// This allows a single statement or subexpression to be included only in debug
-/// mode.
+/// This allows a single statement or subexpression to be included only in
+/// debug mode.
 #ifdef DEBUG
 #define IFDEBUG(s) s
 #define IFDEBUGELSE(s, e) s
@@ -105,7 +107,8 @@ static const char* const _fp_bools_yn_[2] = { "no", "yes" };
 
 #define Boolean_json(x) printf("\"%s\": %s\n", #x, _fp_bools_tf_[x])
 #define Number_json(x) printf("\"%s\": %g\n", #x, x)
-#define CString_json(x) printf("\"%s\": \"%s\"\n", #x, x) // should be escape(x)
+#define CString_json(x)                                                    \
+  printf("\"%s\": \"%s\"\n", #x, x) // should be escape(x)
 
 // void Array_Number_print(Array(Number) * arr) {
 //     putc(']', stdout);
@@ -118,25 +121,25 @@ static const char* _spaces_ = //
 
 #define DECL_json_wrap_(T) static void T##_json_wrap_(const T this);
 
-#define MAKE_json_wrap_(T)                                                     \
-    static void T##_json_wrap_(const T this) {                                 \
-        T##_json_(this, 0);                                                    \
-        puts("");                                                              \
-    }
+#define MAKE_json_wrap_(T)                                                 \
+  static void T##_json_wrap_(const T this) {                               \
+    T##_json_(this, 0);                                                    \
+    puts("");                                                              \
+  }
 
-#define MAKE_json_file(T)                                                      \
-    static void T##_json_file(const T* const this, const char* file) {         \
-        FILE* fd = fopen(file, "w");                                           \
-        if (!fd) ERR;                                                          \
-        T##_json(this, fd);                                                    \
-        fclose(fd);                                                            \
-    }
+#define MAKE_json_file(T)                                                  \
+  static void T##_json_file(const T* const this, const char* file) {       \
+    FILE* fd = fopen(file, "w");                                           \
+    if (!fd) ERR;                                                          \
+    T##_json(this, fd);                                                    \
+    fclose(fd);                                                            \
+  }
 
-#define MAKE_cmp3way(T)                                                        \
-    static bool T##_cmp3way_LT_LT(T a, T b, T c) { return a < b && b < c; }    \
-    static bool T##_cmp3way_LT_LE(T a, T b, T c) { return a < b && b <= c; }   \
-    static bool T##_cmp3way_LE_LT(T a, T b, T c) { return a <= b && b < c; }   \
-    static bool T##_cmp3way_LE_LE(T a, T b, T c) { return a <= b && b <= c; }
+#define MAKE_cmp3way(T)                                                    \
+  static bool T##_cmp3way_LT_LT(T a, T b, T c) { return a < b && b < c; }  \
+  static bool T##_cmp3way_LT_LE(T a, T b, T c) { return a < b && b <= c; } \
+  static bool T##_cmp3way_LE_LT(T a, T b, T c) { return a <= b && b < c; } \
+  static bool T##_cmp3way_LE_LE(T a, T b, T c) { return a <= b && b <= c; }
 
 MAKE_cmp3way(Number)
 
@@ -153,8 +156,8 @@ MAKE_cmp3way(Number)
 #define Number_print(x) printf("%g\n", x)
 #define CString_describe(x) printf("%s as String =\n    \"%s\"\n", #x, x)
 #define Number_describe(x) printf("%s as Number =\n    %g\n", #x, x)
-#define Boolean_describe(x)                                                    \
-    printf("%s as Boolean =\n    %s\n", #x, _fp_bools_yn_[x])
+#define Boolean_describe(x)                                                \
+  printf("%s as Boolean =\n    %s\n", #x, _fp_bools_yn_[x])
 
     static void start(
 #ifdef DEBUG
@@ -176,40 +179,40 @@ static const char* _undersc72_ = "------------------------"
 #include "_rt/profiler.h"
 
 int main(int argc, char* argv[]) {
-    srand(time(0));
-    Ticks t0 = Ticks_get();
+  srand(time(0));
+  Ticks t0 = Ticks_get();
 
-    // _scStart_ = (char*)&argc;
-    _scSize_ = sys_stackSize() - 1024; //- 8192;
-    // the difference is because you don't know what the stack size of
-    // the last called function is going to be. the stack overflows *when*
-    // you call a function that needs more than the available space, not
-    // AFTER the func has been entered into. But you check only after the
-    // function has been entered into. So the stack check is effectively
-    // in the *penultimate* function called before the stack blows.
-    // Along these lines, the difference above should be the maximum func
-    // stack size allowed, excess vars should go on the heap.
-    // OR -----
-    // just minimise use of stack and don't bother checking, esp. if
-    // you can statically disallow unrestrained recursive or mutually
-    // recursive funcs.
-    lineprofile_begin();
-    start(
+  // _scStart_ = (char*)&argc;
+  _scSize_ = sys_stackSize() - 1024; //- 8192;
+  // the difference is because you don't know what the stack size of
+  // the last called function is going to be. the stack overflows *when*
+  // you call a function that needs more than the available space, not
+  // AFTER the func has been entered into. But you check only after the
+  // function has been entered into. So the stack check is effectively
+  // in the *penultimate* function called before the stack blows.
+  // Along these lines, the difference above should be the maximum func
+  // stack size allowed, excess vars should go on the heap.
+  // OR -----
+  // just minimise use of stack and don't bother checking, esp. if
+  // you can statically disallow unrestrained recursive or mutually
+  // recursive funcs.
+  lineprofile_begin();
+  start(
 #ifdef DEBUG
-        "\e[0mmain\n"
+      "\e[0mmain\n"
 #endif
-    );
+  );
 
-    double dt = Ticks_elapsed(Ticks_get(), t0) / 1e9;
-    if (_err_ == ERROR_TRACE) {
-        printf("[%.3fs] Terminated due to an unhandled error.\n", dt);
+  double dt = Ticks_elapsed(Ticks_get(), t0) / 1e9;
+  if (_err_ == ERROR_TRACE) {
+    printf("[%.3fs] Terminated due to an unhandled error.\n", dt);
 #ifndef DEBUG
-        printf("(run in debug mode to see a backtrace)\n");
+    printf("(run in debug mode to see a backtrace)\n");
 #endif
-    } else if (_err_ == NULL) {
-        ; //   printf("[%.3fs] Completed successfully.\n", dt);
-    }
-    coverage_report();
-    lineprofile_report();
-    return _err_ ? 1 : 0;
+  } else if (_err_ == NULL) {
+    ; //   printf("[%.3fs] Completed successfully.\n", dt);
+  }
+  coverage_report();
+  lineprofile_report();
+  return _err_ ? 1 : 0;
 }

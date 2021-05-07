@@ -472,14 +472,17 @@ struct var {
 private:
     enum { // 0 is never used, that will make it inf not nan.
         _kinds_O = 1, // obj
-        _kinds_A, // array
+        _kinds_A, // array - NYI -> uses linked list
+        _kinds_L, // linked list
         _kinds_T, // true
         _kinds_F, // false
         _kinds_N, // number
         _kinds_NS, // number as string
         _kinds_C, // cstring
         _kinds_S, // string
-        _kinds_X // null
+        _kinds_X, // null
+        _kinds_D, // unix datetime
+        _kinds_B // base64 data
     };
     enum { // 0 is never used, that will make it inf not nan.
         _masks_O = 0x7ffUL << 52 | ((u64)_kinds_O) << 48, // obj

@@ -5,7 +5,7 @@ enum TypeTypes
     boolean
     object
 end
-func tszf(n Number) as Number
+func tszf(n Number) Number
     return 4
 end
 var c = - 4 + tszf(34)

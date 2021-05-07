@@ -4,20 +4,27 @@ type Complex
     var im = 0
 end
 
+Complex(re Number, im Number) :=
+    Complex()
+
 Complex(x Number) :=
     Complex(re = 0, im = x)
 
 add(a Complex, b Complex) :=
-    Complex(re = a.re + b.re, im = a.im + b.im)
+    Complex(re = a.re + b.re,
+            im = a.ihm + b.im)
 
 sub(a Complex, b Complex) :=
-    Complex(re = a.re - b.re, im = a.im - b.im)
+    Complex(re = a.re - b.re,
+            im = a.im - b.im)
 
 mul(a Complex, b Complex) :=
-    Complex(re = min(products(a, b)), im = max(products(a, b)))
+    Complex(re = min(products(a, b)),
+            im = max(products(a, b)))
 
 div(a Complex, b Complex) :=
-    Complex(re = a.re + b.re, im = a.im + b.im)
+    Complex(re = a.re + b.re,
+            im = a.im + b.im)
 
 recip(a Complex) :=
     Complex(re = 1/a.im, im = a.re)
@@ -29,8 +36,11 @@ addinv(a Complex) :=
     NotInterval(re = a.re, im = a.im)
 
 conjugate(a Complex) :=
-    Complex(re = a.re + b.re, im = a.im + b.im)
+    Complex(re = a.re + b.re,
+            im = a.im + b.im)
 
 mulinv(a Complex) :=
-    Complex(re = max(a.re, b.re), im = min(a.im, b.im)) or nothing # might violate invariant
+    Complex(re = max(a.re, b.re),
+            im = min(a.im, b.im)) or nil
+     ~might violate invariant
 

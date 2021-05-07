@@ -107,7 +107,11 @@ function dump(t, indent, done)
 Token = class ({
    newWith = function (self, data)
       local tok = self:new()
-      tok.kind = tk.unknown tok.line = 1 tok.data = data tok.col = 1 tok.pos = 1
+      tok.kind = tk.unknown
+      tok.line = 1
+      tok.data = data
+      tok.col = 1
+      tok.pos = 1
       return tok end,
    matches = function (tok, str)
       return startswith(tok.data, str, tok.pos) end,
@@ -149,10 +153,7 @@ Token = class ({
 })
 
 function collect(it)
-   local ret = {}
-   for l in it do ret[#ret+1] = l end
-   return ret
-end
+   local ret = {} for l in it do ret[#ret+1] = l end return ret end
 
 Parser = class ({
    fromFile = function (self, filename)
@@ -172,14 +173,14 @@ Parser = class ({
 
 Module = class ({
    genH = function (mod)
-      if mod.types then for k,ty in pairs(mod.types) do ty:genH(mod) end end
-      if mod.funcs then for k,fn in pairs(mod.funcs) do fn:genH(mod) end end end,
+      for k,ty in pairs(mod.types) do ty:genH(mod) end
+      for k,fn in pairs(mod.funcs) do fn:genH(mod) end end ,
    genC = function (mod)
-      if mod.types then for k,ty in pairs(mod.types) do ty:genC(mod) end end
-      if mod.funcs then for k,fn in pairs(mod.funcs) do fn:genC(mod) end end end,
+      for k,ty in pairs(mod.types) do ty:genC(mod) end
+      for k,fn in pairs(mod.funcs) do fn:genC(mod) end  end,
    analyse = function (mod)
-      if mod.types then for k,ty in pairs(mod.types) do ty:analyse(mod) end end
-      if mod.funcs then for k,fn in pairs(mod.funcs) do fn:analyse(mod) end end end
+      for k,ty in pairs(mod.types) do ty:analyse(mod) end
+      for k,fn in pairs(mod.funcs) do fn:analyse(mod) end end
 })
 
 local e = Expr:new(tk.plus)

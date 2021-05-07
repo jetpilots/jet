@@ -1,658 +1,656 @@
 #define RELF(s) (*s == '/' ? "" : "./"), s
 
-#define fatal(str, ...)                                                        \
-    {                                                                          \
-        eprintf(str, __VA_ARGS__);                                             \
-        exit(1);                                                               \
-    }
+#define fatal(str, ...)                                                    \
+  {                                                                        \
+    eprintf(str, __VA_ARGS__);                                             \
+    exit(1);                                                               \
+  }
 
 #define noPoison 0
-static void Parser__errHeaderWithLoc(
+static void par__errHeaderWithLoc(
     Parser* parser, int line, int col, int len) {
-    eprintf("%s%s:%d:%d-%d: error: #%d;;", RELF(parser->filename), line, col,
-        col + len, parser->issues.errCount + 1);
+  eprintf("%s%s:%d:%d-%d: error: #%d;;", RELF(parser->filename), line, col,
+      col + len, parser->issues.errCount + 1);
 }
-static void Parser__errHeader(Parser* parser) {
-    Parser__errHeaderWithLoc(parser, parser->token.line, parser->token.col,
-        parser->token.col + parser->token.matchlen);
+static void par__errHeader(Parser* parser) {
+  par__errHeaderWithLoc(parser, parser->token.line, parser->token.col,
+      parser->token.col + parser->token.matchlen);
 }
-static void Parser__warnHeaderWithLoc(
+static void par__warnHeaderWithLoc(
     Parser* parser, int line, int col, int len) {
-    eprintf("%s%s:%d:%d-%d: warning: #%d;;", RELF(parser->filename), line, col,
-        col + len, ++parser->issues.warnCount);
+  eprintf("%s%s:%d:%d-%d: warning: #%d;;", RELF(parser->filename), line,
+      col, col + len, ++parser->issues.warnCount);
 }
 
-static void Parser__errHeaderWithExpr(Parser* parser, Expr* expr) {
-    int len;
-    int col = expr->col;
-    switch (expr->kind) {
-    case tkKeyword_for:
-    case tkKeyword_while:
-    case tkKeyword_if:
-    case tkKeyword_end:
-    case tkKeyword_enum:
-    case tkKeyword_match:
-    case tkKeyword_case:
-    case tkKeyword_function:
-    case tkKeyword_declare:
-    case tkKeyword_test:
-    case tkKeyword_check:
-    case tkKeyword_not:
-    case tkKeyword_notin:
-    case tkKeyword_and:
-    case tkKeyword_yes:
-    case tkKeyword_no:
-    case tkKeyword_nil:
-    case tkKeyword_or:
-    case tkKeyword_in:
-    case tkKeyword_do:
-    case tkKeyword_then:
-    case tkKeyword_as:
-    case tkKeyword_else:
-    case tkKeyword_elif:
-    case tkKeyword_type:
-    case tkKeyword_return:
-    case tkKeyword_result:
-    case tkKeyword_extends:
-    case tkKeyword_var:
-    case tkKeyword_let:
-    case tkKeyword_import: len = strlen(TokenKind_repr[expr->kind]); break;
-    case tkIdentifier:
-    case tkArgumentLabel:
-    case tkFunctionCall:
-    case tkSubscript:
-    case tkObjectInit:
-    case tkNumber:
-    case tkString: len = strlen(expr->string); break;
-    case tkIdentifierResolved:
-    case tkSubscriptResolved: len = strlen(expr->var->name); break;
-    case tkFunctionCallResolved: len = strlen(expr->func->name); break;
-    case tkVarAssign:
-        len = 4 + strlen(expr->var->name);
-        col -= 3;
-        break;
-    default: len = 1;
-    }
-    Parser__errHeaderWithLoc(
-        parser, expr->line ? expr->line : parser->token.line, col, len);
+static void par__errHeaderWithExpr(Parser* parser, Expr* expr) {
+  int len;
+  int col = expr->col;
+  switch (expr->kind) {
+  case tkFor:
+  case tkWhile:
+  case tkIf:
+  case tkEnd:
+  case tkEnum:
+  case tkMatch:
+  case tkCase:
+  case tkFunc:
+  case tkDecl:
+  case tkTest:
+  case tkCheck:
+  case tkNot:
+  case tkNotin:
+  case tkAnd:
+  case tkYes:
+  case tkNo:
+  case tkNil:
+  case tkOr:
+  case tkIn:
+  case tkDo:
+  case tkThen:
+  case tkAs:
+  case tkElse:
+  case tkElif:
+  case tkType:
+  case tkReturn:
+  case tkResult:
+  case tkExtends:
+  case tkVar:
+  case tkLet:
+  case tkImport: len = strlen(TokenKind_repr[expr->kind]); break;
+  case tkIdent:
+  // case tkArgumentLabel:
+  case tkFuncCall:
+  case tkSubscript:
+  case tkObjInit:
+  case tkNumber:
+  case tkString: len = strlen(expr->str); break;
+  case tkIdentR:
+  case tkSubscriptR: len = strlen(expr->var->name); break;
+  case tkFuncCallR: len = strlen(expr->func->name); break;
+  case tkVarDefn:
+    len = 4 + strlen(expr->var->name);
+    col -= 3;
+    break;
+  default: len = 1;
+  }
+  par__errHeaderWithLoc(
+      parser, expr->line ? expr->line : parser->token.line, col, len);
 }
-static void Parser_errorIncrement(Parser* parser) {
-    if (++parser->issues.errCount < parser->issues.errLimit) return;
-    if (parser->mode == PMLint) {
-        fatal(
-            "\n*** too many errors (%d), quitting\n", parser->issues.errLimit);
-    } else {
-        fatal("\n*** %s has errors, please lint it first.\n", parser->filename);
-    }
+static void err_increment(Parser* parser) {
+  if (++parser->issues.errCount < parser->issues.errLimit) return;
+  if (parser->mode == PMLint) {
+    fatal(
+        "\n*** too many errors (%d), quitting\n", parser->issues.errLimit);
+  } else {
+    fatal("\n*** %s has errors, please lint it first.\n", parser->filename);
+  }
 }
 static const char* const carets
-    = "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
+    = "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
+      "^^^^"
       "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^";
-#define _PRLINE(line)                                                          \
-    if (line > 0 && line <= parser->orig.used)                                 \
-        eprintf("%4d | %s\n", line + offs,                                     \
-            (char*)parser->orig.ref[line + offs - 1]);
+#define _PRLINE(line)                                                      \
+  if (line > 0 && line <= parser->orig.used)                               \
+    eprintf("%4d | %s\n", line + offs,                                     \
+        (char*)parser->orig.ref[line + offs - 1]);
 void _PRREDLINE(
     Parser* parser, int line, int col, int len, int offs, char* msg) {
-    char* c = parser->orig.ref[line + offs - 1];
-    if (!col) len = strlen(c), col = 1;
-    eprintf("%4d | %.*s", line + offs, col - 1, c);
-    eprintf("%.*s", len, c + col - 1);
-    eprintf("%s\n", c + col + len - 1);
-    eprintf("       %.*s%.*s %s\n", col - 1, spaces, len, carets, msg);
+  char* c = parser->orig.ref[line + offs - 1];
+  if (!col) len = strlen(c), col = 1;
+  eprintf("%4d | %.*s", line + offs, col - 1, c);
+  eprintf("%.*s", len, c + col - 1);
+  eprintf("%s\n", c + col + len - 1);
+  eprintf("       %.*s%.*s %s\n", col - 1, spaces, len, carets, msg);
 }
 
-void Parser__printSourceLinesWithOffset(
+void par__printSourceLinesWithOffset(
     Parser* parser, int line, int col, int len, int offs, char* msg) {
-    _PRLINE(line - 2)
-    _PRLINE(line - 1)
-    _PRREDLINE(parser, line, col, len, offs, msg);
-    _PRLINE(line + 1)
-    _PRLINE(line + 2)
+  _PRLINE(line - 2)
+  _PRLINE(line - 1)
+  _PRREDLINE(parser, line, col, len, offs, msg);
+  _PRLINE(line + 1)
+  _PRLINE(line + 2)
 
-    eputs("\n\n");
+  eputs("\n\n");
 }
 
-void Parser__printSourceLines(
+void par__printSourceLines(
     Parser* parser, int line, int col, int len, char* msg) {
-    Parser__printSourceLinesWithOffset(parser, line, col, len, 0, msg);
+  par__printSourceLinesWithOffset(parser, line, col, len, 0, msg);
 }
 
-static void Parser_errorExpectedToken(Parser* parser, TokenKind expected) {
-    Parser__errHeader(parser);
+static void err_expectedToken(Parser* parser, TokenKind expected) {
+  par__errHeader(parser);
 
-    eprintf("expected '%s' (%s) but found '%s'\n", TokenKind_repr[expected],
-        TokenKind_names[expected] + 2, TokenKind_repr[parser->token.kind]);
+  eprintf("expected '%s' (%s) but found '%s'\n", TokenKind_repr[expected],
+      TokenKind_names[expected] + 2, TokenKind_repr[parser->token.kind]);
 
-    char msg[128];
-    msg[127] = 0;
-    snprintf(msg, 127, "expected '%s' here", TokenKind_repr[expected]);
+  char msg[128];
+  msg[127] = 0;
+  snprintf(msg, 127, "expected '%s' here", TokenKind_repr[expected]);
 
-    Parser__printSourceLines(parser, parser->token.line, parser->token.col,
-        parser->token.matchlen, msg);
+  par__printSourceLines(parser, parser->token.line, parser->token.col,
+      parser->token.matchlen, msg);
 
-    // when you have an unexpected token on one line, the rest are also
-    // going to be unexpected. so skip to the next newline.
-    while (!Parser_matches(parser, tkNewline)
-        && !Parser_matches(parser, tkNullChar))
-        Token_advance(&parser->token);
+  // when you have an unexpected token on one line, the rest are also
+  // going to be unexpected. so skip to the next newline.
+  while (!par_matches(parser, tkEOL) && !par_matches(parser, tkEOF))
+    tok_advance(&parser->token);
 
-    parser->issues.hasParseErrors = 1;
-    Parser_errorIncrement(parser);
+  parser->issues.hasParseErrors = 1;
+  err_increment(parser);
 }
 
 bool isKeywordKind(TokenKind kind) {
-    switch (kind) {
-    case tkKeyword_for:
-    case tkKeyword_while:
-    case tkKeyword_if:
-    case tkKeyword_end:
-    case tkKeyword_enum:
-    case tkKeyword_match:
-    case tkKeyword_case:
-    case tkKeyword_function:
-    case tkKeyword_declare:
-    case tkKeyword_test:
-    case tkKeyword_check:
-    case tkKeyword_not:
-    case tkKeyword_notin:
-    case tkKeyword_and:
-    case tkKeyword_yes:
-    case tkKeyword_no:
-    case tkKeyword_nil:
-    case tkKeyword_or:
-    case tkKeyword_in:
-    case tkKeyword_do:
-    case tkKeyword_then:
-    case tkKeyword_as:
-    case tkKeyword_else:
-    case tkKeyword_elif:
-    case tkKeyword_type:
-    case tkKeyword_return:
-    case tkKeyword_result:
-    case tkKeyword_extends:
-    case tkKeyword_var:
-    case tkKeyword_let:
-    case tkKeyword_import: return true;
-    default:;
-    }
-    return false;
+  return __tk__keywords__begin < kind && kind < __tk__keywords__end;
+  // switch (kind) {
+  // case tkFor:
+  // case tkWhile:
+  // case tkIf:
+  // case tkEnd:
+  // case tkEnum:
+  // case tkMatch:
+  // case tkCase:
+  // case tkFunc:
+  // case tkDecl:
+  // case tkTest:
+  // case tkCheck:
+  // case tkNot:
+  // case tkNotin:
+  // case tkAnd:
+  // case tkYes:
+  // case tkNo:
+  // case tkNil:
+  // case tkOr:
+  // case tkIn:
+  // case tkDo:
+  // case tkThen:
+  // case tkAs:
+  // case tkElse:
+  // case tkElif:
+  // case tkType:
+  // case tkReturn:
+  // case tkResult:
+  // case tkExtends:
+  // case tkVar:
+  // case tkLet:
+  // case tkImport: return true;
+  // default:;
+  // }
+  // return false;
 }
 
-static void Parser_errorParsingExpr(Parser* parser, Expr* expr, char* what) {
+static void err_syntax(Parser* parser, Expr* expr, char* what) {
 
-    Parser__errHeaderWithExpr(parser, expr);
+  par__errHeaderWithExpr(parser, expr);
+  eprintf("invalid syntax at '%s' (%s);;", TokenKind_repr[expr->kind],
+      what); //,
+
+  if (isKeywordKind(expr->kind))
+    eputs("info: keywords cannot be used as identifiers;;");
+
+  parser->issues.hasParseErrors = 1;
+  err_increment(parser);
+}
+
+static void err_invalidIdent(Parser* parser) {
+  par__errHeader(parser);
+  eprintf(
+      "invalid name '%.*s'\n", parser->token.matchlen, parser->token.pos);
+  err_increment(parser);
+}
+
+static void err_invalidTypeName(Parser* parser, Type* type) {
+  par__errHeader(parser);
+  eprintf("invalid type name '%s';;"
+          "must be capitalized and without underscores\n",
+      type->name);
+  err_increment(parser);
+}
+static void err_invalidTypeMember(Parser* parser) {
+  par__errHeader(parser);
+  eputs("invalid member\n");
+  err_increment(parser);
+}
+
+static void err_unrecognizedVar(Parser* parser, Expr* expr) {
+  par__errHeaderWithExpr(parser, expr);
+  eprintf("unknown variable '%.*s'\n", 64, expr->str);
+
+  par__printSourceLines(
+      parser, expr->line, expr->col, strlen(expr->str), "unknown variable");
+
+  err_increment(parser);
+}
+
+static void err_unrecognizedMember(Parser* parser, Type* type, Expr* expr) {
+  par__errHeaderWithExpr(parser, expr);
+  eprintf("%s '%s' has no member '%s';;", type->isEnum ? "enum" : "type",
+      type->name, expr->str);
+
+  if (type->body) {
+    foreach (Var*, var, type->body->locals) {
+      unsigned l1 = strlen(var->name);
+      unsigned l2 = strlen(expr->str);
+
+      if (leven(var->name, expr->str, l1, l2) <= 3)
+        eprintf("did you mean: '%s'?;;", var->name);
+    }
+    eputs("members: ");
+    foreachn(Var*, var, vi, type->body->locals) if (var->name && *var->name)
+        eprintf("%s%s", var->name, vi->next ? ", " : "");
+    eputs("\n");
+  }
+  err_increment(parser);
+}
+
+static void par_warnUnusedArg(Parser* parser, Var* var) {
+  if (!parser->issues.warnUnusedArg) return;
+  par__warnHeaderWithLoc(parser, var->line, var->col, strlen(var->name));
+  eprintf("unused or unnecessary argument '%s'\n", var->name);
+}
+
+static void par_warnUnusedVar(Parser* parser, Var* var) {
+  if (!parser->issues.warnUnusedVar) return;
+  par__warnHeaderWithLoc(
+      parser, var->line, var->col - 4, 4 + strlen(var->name));
+  eprintf("unused or unnecessary variable '%s'\n", var->name);
+}
+
+static void par_warnUnusedFunc(Parser* parser, Func* func) {
+  if (!parser->issues.warnUnusedFunc) return;
+  par__warnHeaderWithLoc(
+      parser, func->line, func->col - 5, 5 + strlen(func->name));
+  eprintf("unused or unnecessary function '%s';;selector: '%s'\n",
+      func->name, func->sel);
+}
+
+static void par_warnUnusedType(Parser* parser, Type* type) {
+  if (!parser->issues.warnUnusedType) return;
+  par__warnHeaderWithLoc(parser, type->line, type->col, strlen(type->name));
+  eprintf("unused type '%s'\n", type->name);
+}
+
+static void par_warnSameExpr(Parser* parser, Expr* e1, Expr* e2) {
+  par__warnHeaderWithLoc(parser, e1->line, e1->col, 1);
+  eprintf("CSE candidate '%s' for %d:%d\n", TokenKind_repr[e1->kind],
+      e2->line, e2->col);
+
+  par__warnHeaderWithLoc(parser, e2->line, e2->col, 1);
+  eprintf("CSE candidate '%s' for %d:%d\n", TokenKind_repr[e2->kind],
+      e1->line, e2->col);
+}
+
+static void err_duplicateVar(Parser* parser, Var* var, int line, int col) {
+  par__errHeaderWithLoc(parser, var->line, var->col, strlen(var->name));
+  eprintf("duplicate variable '%s' already declared at %s%s:%d:%d\n",
+      var->name, RELF(parser->filename), line, col);
+  err_increment(parser);
+}
+
+static void err_duplicateType(Parser* parser, Type* type, Type* orig) {
+  par__errHeaderWithLoc(parser, type->line, type->col, strlen(type->name));
+  if (orig)
+    eprintf("duplicate type '%s' already declared at %s%s:%d:%d\n",
+        type->name, RELF(parser->filename), orig->line, orig->col);
+  else
     eprintf(
-        "invalid syntax at '%s' (%s);;", TokenKind_repr[expr->kind], what); //,
-
-    if (isKeywordKind(expr->kind))
-        eputs("info: keywords cannot be used as identifiers;;");
-
-    parser->issues.hasParseErrors = 1;
-    Parser_errorIncrement(parser);
+        "invalid type name '%s' refers to a built-in type\n", type->name);
+  err_increment(parser);
 }
 
-static void Parser_errorInvalidIdent(Parser* parser) {
-    Parser__errHeader(parser);
-    eprintf("invalid name '%.*s'\n", parser->token.matchlen, parser->token.pos);
-    Parser_errorIncrement(parser);
+static void err_duplicateEnum(Parser* parser, Type* en, Type* orig) {
+  par__errHeaderWithLoc(parser, en->line, en->col, strlen(en->name));
+  if (orig)
+    eprintf("duplicate enum '%s' already declared at %s%s:%d:%d\n",
+        en->name, RELF(parser->filename), orig->line, orig->col);
+  else
+    eprintf("invalid enum name '%s' refers to a built-in type\n", en->name);
+  err_increment(parser);
 }
 
-static void Parser_errorInvalidTypeName(Parser* parser, Type* type) {
-    Parser__errHeader(parser);
-    eprintf("invalid type name '%s';;"
-            "must be capitalized and without underscores\n",
-        type->name);
-    Parser_errorIncrement(parser);
-}
-static void Parser_errorInvalidTypeMember(Parser* parser) {
-    Parser__errHeader(parser);
-    eputs("invalid member\n");
-    Parser_errorIncrement(parser);
+static void err_typeInheritsSelf(Parser* parser, Type* type) {
+  par__errHeader(parser);
+  eprintf("type inherits from self %s at %s%s:%d:%d\n", type->name,
+      RELF(parser->filename), type->line, type->col);
+  err_increment(parser);
 }
 
-static void Parser_errorUnrecognizedVar(Parser* parser, Expr* expr) {
-    Parser__errHeaderWithExpr(parser, expr);
-    eprintf("unknown variable '%.*s'\n", 64, expr->string);
-
-    Parser__printSourceLines(parser, expr->line, expr->col,
-        strlen(expr->string), "unknown variable");
-
-    Parser_errorIncrement(parser);
+static void err_ctorHasType(Parser* parser, Func* func, Type* orig) {
+  par__errHeader(parser);
+  eprintf("constructor needs no return "
+          "type: %s at %s%s:%d:%d\n"
+          "             type declared at %s%s:%d:%d\n"
+          "             remove the return type specification\n",
+      func->name, RELF(parser->filename), func->line, 1,
+      RELF(parser->filename), orig->line, orig->col);
+  err_increment(parser);
 }
 
-static void Parser_errorUnrecognizedMember(
-    Parser* parser, Type* type, Expr* expr) {
-    Parser__errHeaderWithExpr(parser, expr);
-    eprintf("%s '%s' has no member '%s';;", type->isEnum ? "enum" : "type",
-        type->name, expr->string);
-
-    if (type->body) {
-        foreach (Var*, var, type->body->locals) {
-            unsigned l1 = strlen(var->name);
-            unsigned l2 = strlen(expr->string);
-
-            if (leven(var->name, expr->string, l1, l2) <= 3)
-                eprintf("did you mean: '%s'?;;", var->name);
-        }
-        eputs("members: ");
-        foreachn(Var*, var, vi, type->body->locals) if (var->name && *var->name)
-            eprintf("%s%s", var->name, vi->next ? ", " : "");
-        eputs("\n");
-    }
-    Parser_errorIncrement(parser);
+static void par_warnCtorCase(Parser* parser, Func* func) {
+  Type* orig = func->spec->type;
+  par__errHeader(parser);
+  eprintf("\n(%d) warning: wrong case "
+          "%s for constructor at %s%s:%d:%d\n"
+          "             type declared at %s%s:%d:%d\n"
+          "             change it to %s or lint the "
+          "file\n",
+      ++parser->issues.warnCount, func->name, RELF(parser->filename),
+      func->line, 1, RELF(parser->filename), orig->line, orig->col,
+      orig->name);
 }
 
-static void Parser_warnUnusedArg(Parser* parser, Var* var) {
-    if (!parser->issues.warnUnusedArg) return;
-    Parser__warnHeaderWithLoc(parser, var->line, var->col, strlen(var->name));
-    eprintf("unused or unnecessary argument '%s'\n", var->name);
+static void err_duplicateFunc(Parser* parser, Func* func, Func* orig) {
+  par__errHeaderWithLoc(parser, func->line, 5, strlen(func->name));
+  eprintf("duplicate function "
+          "'%s' already declared at %s%s:%d:%d with selector %s\n",
+      func->name, RELF(parser->filename), orig->line, 5, func->sel);
+  err_increment(parser);
 }
 
-static void Parser_warnUnusedVar(Parser* parser, Var* var) {
-    if (!parser->issues.warnUnusedVar) return;
-    Parser__warnHeaderWithLoc(
-        parser, var->line, var->col - 4, 4 + strlen(var->name));
-    eprintf("unused or unnecessary variable '%s'\n", var->name);
-}
-
-static void Parser_warnUnusedFunc(Parser* parser, Func* func) {
-    if (!parser->issues.warnUnusedFunc) return;
-    Parser__warnHeaderWithLoc(
-        parser, func->line, func->col - 5, 5 + strlen(func->name));
-    eprintf("unused or unnecessary function '%s';;selector: '%s'\n", func->name,
-        func->selector);
-}
-
-static void Parser_warnUnusedType(Parser* parser, Type* type) {
-    if (!parser->issues.warnUnusedType) return;
-    Parser__warnHeaderWithLoc(
-        parser, type->line, type->col, strlen(type->name));
-    eprintf("unused type '%s'\n", type->name);
-}
-
-static void Parser_warnSameExpr(Parser* parser, Expr* e1, Expr* e2) {
-    Parser__warnHeaderWithLoc(parser, e1->line, e1->col, 1);
-    eprintf("CSE candidate '%s' for %d:%d\n", TokenKind_repr[e1->kind],
-        e2->line, e2->col);
-
-    Parser__warnHeaderWithLoc(parser, e2->line, e2->col, 1);
-    eprintf("CSE candidate '%s' for %d:%d\n", TokenKind_repr[e2->kind],
-        e1->line, e2->col);
-}
-
-static void Parser_errorDuplicateVar(
-    Parser* parser, Var* var, int line, int col) {
-    Parser__errHeaderWithLoc(parser, var->line, var->col, strlen(var->name));
-    eprintf("duplicate variable '%s' already declared at %s%s:%d:%d\n",
-        var->name, RELF(parser->filename), line, col);
-    Parser_errorIncrement(parser);
-}
-
-static void Parser_errorDuplicateType(Parser* parser, Type* type, Type* orig) {
-    Parser__errHeaderWithLoc(parser, type->line, type->col, strlen(type->name));
-    if (orig)
-        eprintf("duplicate type '%s' already declared at %s%s:%d:%d\n",
-            type->name, RELF(parser->filename), orig->line, orig->col);
-    else
-        eprintf(
-            "invalid type name '%s' refers to a built-in type\n", type->name);
-    Parser_errorIncrement(parser);
-}
-
-static void Parser_errorDuplicateEnum(Parser* parser, Type* en, Type* orig) {
-    Parser__errHeaderWithLoc(parser, en->line, en->col, strlen(en->name));
-    if (orig)
-        eprintf("duplicate enum '%s' already declared at %s%s:%d:%d\n",
-            en->name, RELF(parser->filename), orig->line, orig->col);
-    else
-        eprintf("invalid enum name '%s' refers to a built-in type\n", en->name);
-    Parser_errorIncrement(parser);
-}
-
-static void Parser_errorTypeInheritsSelf(Parser* parser, Type* type) {
-    Parser__errHeader(parser);
-    eprintf("type inherits from self %s at %s%s:%d:%d\n", type->name,
-        RELF(parser->filename), type->line, type->col);
-    Parser_errorIncrement(parser);
-}
-
-static void Parser_errorCtorHasType(Parser* parser, Func* func, Type* orig) {
-    Parser__errHeader(parser);
-    eprintf("constructor needs no return "
-            "type: %s at %s%s:%d:%d\n"
-            "             type declared at %s%s:%d:%d\n"
-            "             remove the return type specification\n",
-        func->name, RELF(parser->filename), func->line, 1,
-        RELF(parser->filename), orig->line, orig->col);
-    Parser_errorIncrement(parser);
-}
-
-static void Parser_warnCtorCase(Parser* parser, Func* func) {
-    Type* orig = func->spec->type;
-    Parser__errHeader(parser);
-    eprintf("\n(%d) warning: wrong case "
-            "%s for constructor at %s%s:%d:%d\n"
-            "             type declared at %s%s:%d:%d\n"
-            "             change it to %s or lint the "
-            "file\n",
-        ++parser->issues.warnCount, func->name, RELF(parser->filename),
-        func->line, 1, RELF(parser->filename), orig->line, orig->col,
-        orig->name);
-}
-
-static void Parser_errorDuplicateFunc(Parser* parser, Func* func, Func* orig) {
-    Parser__errHeaderWithLoc(parser, func->line, 5, strlen(func->name));
-    eprintf("duplicate function "
-            "'%s' already declared at %s%s:%d:%d with selector %s\n",
-        func->name, RELF(parser->filename), orig->line, 5, func->selector);
-    Parser_errorIncrement(parser);
-}
-
-static void Parser_errorDuplicateTest(
+static void err_duplicateTest(
     Parser* parser, JetTest* test, JetTest* orig) {
-    Parser__errHeaderWithLoc(parser, test->line, 5, strlen(test->name));
-    eprintf("duplicate test \"%s\" already declared at %s%s:%d:%d\n",
-        test->name, RELF(parser->filename), orig->line, 1);
-    Parser_errorIncrement(parser);
+  par__errHeaderWithLoc(parser, test->line, 5, strlen(test->name));
+  eprintf("duplicate test \"%s\" already declared at %s%s:%d:%d\n",
+      test->name, RELF(parser->filename), orig->line, 1);
+  err_increment(parser);
 }
 
-static void Parser_errorUnrecognizedFunc(
+static void err_unrecognizedFunc(
     Parser* parser, Expr* expr, char* selector) {
-    if (noPoison && *selector == '<') return; // invalid type; already error'd
-    Parser__errHeaderWithExpr(parser, expr);
+  if (noPoison && *selector == '<') return; // invalid type; already error'd
+  par__errHeaderWithExpr(parser, expr);
 
-    eprintf("cannot resolve call to '%s'\n", expr->string);
+  eprintf("cannot resolve call to '%s'\n", expr->str);
 
-    Parser__printSourceLines(parser, expr->line, expr->col,
-        strlen(expr->string), "unknown function");
+  par__printSourceLines(
+      parser, expr->line, expr->col, strlen(expr->str), "unknown function");
 
-    eprintf("info: no function with selector '%s'\n", selector);
+  eprintf("info: no function with selector '%s'\n", selector);
 
-    Parser_errorIncrement(parser);
+  err_increment(parser);
 }
 
-// when a func is not exactly found based on selector, issue a warning and take
-// the closest matching func by type. Generally the linter will add labels
-// automatically so this warning will only appear on unlinted files.
-static void Parser_warnUnrecognizedSelector(
+// when a func is not exactly found based on selector, issue a warning and
+// take the closest matching func by type. Generally the linter will add
+// labels automatically so this warning will only appear on unlinted files.
+static void par_warnUnrecognizedSelector(
     Parser* parser, Expr* expr, char* selector, Func* selected) {
-    if (noPoison && *selector == '<') return; // invalid type; already error'd
-    Parser__warnHeaderWithLoc(
-        parser, expr->line, expr->col, strlen(expr->string));
+  if (noPoison && *selector == '<') return; // invalid type; already error'd
+  par__warnHeaderWithLoc(parser, expr->line, expr->col, strlen(expr->str));
 
-    eprintf("no exact match for function '%s' with selector '%s', taking "
-            "closest match '%s' (at %s%s:%d:%d)\n",
-        expr->string, selector, selected->selector, RELF(parser->filename),
-        expr->line, expr->col);
+  eprintf("no exact match for function '%s' with selector '%s', taking "
+          "closest match '%s' (at %s%s:%d:%d)\n",
+      expr->str, selector, selected->sel, RELF(parser->filename),
+      expr->line, expr->col);
 
-    Parser__printSourceLines(parser, expr->line, expr->col,
-        strlen(expr->string), "unknown function");
+  par__printSourceLines(
+      parser, expr->line, expr->col, strlen(expr->str), "unknown function");
 
-    // eprintf("info: no function with selector '%s'\n", selector);
+  // eprintf("info: no function with selector '%s'\n", selector);
 
-    // Parser_errorIncrement(parser);
+  // err_increment(parser);
 }
 
-static void Parser_errorStringInterp(Parser* parser, Expr* expr, char* pos) {
-    Parser__errHeader(parser);
-    eprintf("\n ERROR                                    "
-            "           "
-            "                       \n %s%s:%d:%d:\n There is "
-            "a syntax "
-            "error within"
-            " this string:\n"
-            "     %s\"\n"
-            " $ is used to specify a variable whose value is to be "
-            "interpolated into the\n"
-            " string. If you want a literal $ sign in the string, "
-            "write it as "
-            "\\$.\n",
-        RELF(parser->filename), expr->line,
-        expr->col + (int)(pos - expr->string), expr->string);
-    Parser_errorIncrement(parser);
+static void err_stringInterp(Parser* parser, Expr* expr, char* pos) {
+  par__errHeader(parser);
+  eprintf("\n ERROR                                    "
+          "           "
+          "                       \n %s%s:%d:%d:\n There is "
+          "a syntax "
+          "error within"
+          " this string:\n"
+          "     %s\"\n"
+          " $ is used to specify a variable whose value is to be "
+          "interpolated into the\n"
+          " string. If you want a literal $ sign in the string, "
+          "write it as "
+          "\\$.\n",
+      RELF(parser->filename), expr->line,
+      expr->col + (int)(pos - expr->str), expr->str);
+  err_increment(parser);
 }
 
-static void Parser_errorCallingFuncWithVoid(
-    Parser* parser, Expr* expr, Expr* arg) {
-    Parser__errHeader(parser);
-    eprintf("\n ERROR                                    "
-            "           "
-            "                       \n %s%s:%d:%d:\n The "
-            "%s function does not return a value.\n"
-            " You cannot use it as an argument in the call to "
-            "%s.\n",
-        RELF(parser->filename), expr->line, expr->col, arg->func->name,
-        expr->string);
-    Parser_errorIncrement(parser);
+static void err_callingFuncWithVoid(Parser* parser, Expr* expr, Expr* arg) {
+  par__errHeader(parser);
+  eprintf("\n ERROR                                    "
+          "           "
+          "                       \n %s%s:%d:%d:\n The "
+          "%s function does not return a value.\n"
+          " You cannot use it as an argument in the call to "
+          "%s.\n",
+      RELF(parser->filename), expr->line, expr->col, arg->func->name,
+      expr->str);
+  err_increment(parser);
 }
 
-static void Parser_errorInheritanceCycle(Parser* parser, Type* type) {
-    Parser__errHeader(parser);
-    eprintf("\n ERROR                                    "
-            "           "
-            "                       \n %s%s:%d:%d:\n Type "
-            "%s has a cycle in its inheritance graph.",
-        RELF(parser->filename), type->line, type->col, type->name);
-    Type* super = type->super->type;
-    eputs("");
-    do {
-        eprintf("\n extends %s (defined at %s%s:%d:%d)", super->name,
-            RELF(parser->filename), super->line, super->col);
-        if (super == super->super->type || super == type) {
-            if (type != super) eprintf("\n extends %s", super->name);
-            break;
-        }
-        super = super->super->type;
-    } while (1);
-    eputs("\n ...\n");
-    Parser_errorIncrement(parser);
-}
-
-static void Parser_errorConstructorHasCycle(Parser* parser, Type* type) {
-    Parser__errHeader(parser);
-    eprintf("\n ERROR                                    "
-            "           "
-            "                       \n %s%s:%d:%d:\n Type "
-            "%s has an endless cycle in its "
-            "initialization.\n",
-        RELF(parser->filename), type->line, type->col, type->name);
-    Parser_errorIncrement(parser);
-}
-
-static void Parser_errorArgsCountMismatch(Parser* parser, Expr* expr) {
-    assert(expr->kind == tkFunctionCallResolved);
-    Parser__errHeader(parser);
-    eprintf("arg count mismatch for "
-            "%s at %s%s:%d:%d\n"
-            "          have %d args, need %d, func defined at "
-            "%s%s:%d\n",
-        expr->func->name, RELF(parser->filename), expr->line, expr->col,
-        Expr_countCommaList(expr->left), expr->func->argCount,
-        RELF(parser->filename), expr->func->line);
-    Parser_errorIncrement(parser);
-}
-
-static void Parser_errorIndexDimsMismatch(
-    Parser* parser, Expr* expr, int nhave) {
-    assert(expr->kind == tkSubscriptResolved);
-    if (expr->var->spec->typeType == TYErrorType
-        || expr->var->spec->typeType == TYUnresolved)
-        return;
-    // ^ type resolution failed (and must have raised error) so
-    // don't process further
-    int reqdDims = expr->var->spec->dims;
-    Parser__errHeaderWithExpr(parser, expr);
-    if (!reqdDims)
-        eprintf("can't index a scalar '%s' with %d dims (defined at %s%s:%d)\n",
-            expr->var->name, nhave, RELF(parser->filename),
-            expr->var->spec->line);
-    else {
-        eprintf("dims mismatch for '%s': have %d indexes, need %d (defined "
-                "at %s%s:%d)\n",
-            expr->var->name, nhave, reqdDims, RELF(parser->filename),
-            expr->var->spec->line);
+static void err_inheritanceCycle(Parser* parser, Type* type) {
+  par__errHeader(parser);
+  eprintf("\n ERROR                                    "
+          "           "
+          "                       \n %s%s:%d:%d:\n Type "
+          "%s has a cycle in its inheritance graph.",
+      RELF(parser->filename), type->line, type->col, type->name);
+  Type* super = type->super->type;
+  eputs("");
+  do {
+    eprintf("\n extends %s (defined at %s%s:%d:%d)", super->name,
+        RELF(parser->filename), super->line, super->col);
+    if (super == super->super->type || super == type) {
+      if (type != super) eprintf("\n extends %s", super->name);
+      break;
     }
-    Parser_errorIncrement(parser);
+    super = super->super->type;
+  } while (1);
+  eputs("\n ...\n");
+  err_increment(parser);
 }
 
-static void Parser_errorMissingInit(Parser* parser, Expr* expr) {
-    assert(expr->kind == tkVarAssign);
-    Parser__errHeaderWithExpr(parser, expr);
-    eprintf("missing initializer for "
-            "%s\n",
-        expr->var->name);
-    parser->issues.hasParseErrors = 1;
-    Parser_errorIncrement(parser);
+static void err_constructorHasCycle(Parser* parser, Type* type) {
+  par__errHeader(parser);
+  eprintf("\n ERROR                                    "
+          "           "
+          "                       \n %s%s:%d:%d:\n Type "
+          "%s has an endless cycle in its "
+          "initialization.\n",
+      RELF(parser->filename), type->line, type->col, type->name);
+  err_increment(parser);
 }
 
-static void Parser_errorUnrecognizedType(Parser* parser, TypeSpec* spec) {
-    Parser__errHeaderWithLoc(parser, spec->line, spec->col, strlen(spec->name));
-    eprintf("unknown typespec '%s'\n", spec->name);
-    Parser_errorIncrement(parser);
+static void err_argsCountMismatch(Parser* parser, Expr* expr) {
+  assert(expr->kind == tkFuncCallR);
+  par__errHeader(parser);
+  eprintf("arg count mismatch for "
+          "%s at %s%s:%d:%d\n"
+          "          have %d args, need %d, func defined at "
+          "%s%s:%d\n",
+      expr->func->name, RELF(parser->filename), expr->line, expr->col,
+      expr_countCommaList(expr->left), expr->func->argCount,
+      RELF(parser->filename), expr->func->line);
+  err_increment(parser);
 }
 
-static void Parser_errorUnrecognizedCtor(Parser* parser, Func* func) {
-    Parser__errHeaderWithLoc(parser, func->line, 5, strlen(func->name));
-    eprintf("unknown type '%s' for constructor\n", func->name);
-    Parser_errorIncrement(parser);
+static void err_indexDimsMismatch(Parser* parser, Expr* expr, int nhave) {
+  assert(expr->kind == tkSubscriptR);
+  if (expr->var->spec->typeType == TYErrorType
+      || expr->var->spec->typeType == TYUnresolved)
+    return;
+  // ^ type resolution failed (and must have raised error) so
+  // don't process further
+  int reqdDims = expr->var->spec->dims;
+  par__errHeaderWithExpr(parser, expr);
+  if (!reqdDims)
+    eprintf("can't index a scalar '%s' with %d dims (defined at %s%s:%d)\n",
+        expr->var->name, nhave, RELF(parser->filename),
+        expr->var->spec->line);
+  else {
+    eprintf("dims mismatch for '%s': have %d indexes, need %d (defined "
+            "at %s%s:%d)\n",
+        expr->var->name, nhave, reqdDims, RELF(parser->filename),
+        expr->var->spec->line);
+  }
+  err_increment(parser);
 }
 
-static void Parser_errorInvalidTestName(Parser* parser) {
-    Parser__errHeader(parser);
-    eprintf("invalid test name "
-            "'%.*s'; must be a string\n",
-        parser->token.matchlen, parser->token.pos);
-    Parser_errorIncrement(parser);
+static void err_missingInit(Parser* parser, Expr* expr) {
+  assert(expr->kind == tkVarDefn);
+  par__errHeaderWithExpr(parser, expr);
+  eprintf("missing initializer for "
+          "%s\n",
+      expr->var->name);
+  parser->issues.hasParseErrors = 1;
+  err_increment(parser);
 }
 
-static void Parser_errorTypeMismatchBinOp(Parser* parser, Expr* expr) {
-    // if one of the types is "<invalid>", an error has already been
-    // reported for it; so don't bother
-    const char* leftTypeName = Expr_typeName(expr->left);
-    const char* rightTypeName = Expr_typeName(expr->right);
-    if (noPoison && (*leftTypeName == '<' || *rightTypeName == '<')) return;
-    Parser__errHeaderWithExpr(parser, expr);
-    eprintf("type mismatch; can't apply '%s' to '%s' and '%s'\n",
-        TokenKind_repr[expr->kind], leftTypeName, rightTypeName);
-    Parser_errorIncrement(parser);
+static void err_unrecognizedType(Parser* parser, TypeSpec* spec) {
+  par__errHeaderWithLoc(parser, spec->line, spec->col, strlen(spec->name));
+  eprintf("unknown typespec '%s'\n", spec->name);
+  err_increment(parser);
 }
 
-static void Parser_errorTypeMismatch(Parser* parser, Expr* e1, Expr* e2) {
-    const char* leftTypeName = Expr_typeName(e1);
-    const char* rightTypeName = Expr_typeName(e2);
-    if (noPoison && (*leftTypeName == '<' || *rightTypeName == '<')) return;
-    Parser__errHeaderWithExpr(parser, e2);
-    eprintf("type mismatch: '%s' here must be '%s' instead (from %s%s:%d:%d)\n",
-        rightTypeName, leftTypeName, RELF(parser->filename), e1->line, e1->col);
-    Parser_errorIncrement(parser);
+static void err_unrecognizedCtor(Parser* parser, Func* func) {
+  par__errHeaderWithLoc(parser, func->line, 5, strlen(func->name));
+  eprintf("unknown type '%s' for constructor\n", func->name);
+  err_increment(parser);
 }
 
-static void Parser_errorInitMismatch(Parser* parser, Expr* expr) {
-    const char* leftTypeName = TypeSpec_name(expr->var->spec);
-    const char* rightTypeName = Expr_typeName(expr->var->init);
-    //    if (*leftTypeName == '<' or *rightTypeName == '<') return;
-
-    // for collections, RHS is allowed to be an empty [] or {} to
-    // indicate that the array starts out empty. Any-dim arrays can
-    // be initialized with []. e.g. var arr[:,:,:] as Number = [] of
-    // course, the LHS must have a type, you cannot have e.g. var
-    // arr[:,:,:] = [] that would be an error.
-    if ((expr->var->init->kind == tkArrayOpen
-            || expr->var->init->kind == tkBraceOpen)
-        && expr->var->spec->collectionType != CTYNone && !expr->var->init->right
-        && expr->var->spec->typeType != TYUnresolved)
-        return;
-    Parser__errHeaderWithExpr(parser, expr);
-
-    eprintf("can't init '%s' with an expression of type '%s' (hint: just "
-            "remove the type annotation.)\n",
-        leftTypeName, rightTypeName);
-    Parser_errorIncrement(parser);
+static void err_invalidTestName(Parser* parser) {
+  par__errHeader(parser);
+  eprintf("invalid test name "
+          "'%.*s'; must be a string\n",
+      parser->token.matchlen, parser->token.pos);
+  err_increment(parser);
 }
 
-static void Parser_errorInitDimsMismatch(Parser* parser, Expr* expr, int dims) {
-
-    Parser__errHeaderWithExpr(parser, expr);
-    eprintf("can't init %dD array '%s' with a %dD literal. "
-            "(hint: just remove the dimension specification.)\n",
-        expr->var->spec->dims, expr->var->name, dims);
-    Parser_errorIncrement(parser);
+static void err_typeMismatchBinOp(Parser* parser, Expr* expr) {
+  // if one of the types is "<invalid>", an error has already been
+  // reported for it; so don't bother
+  const char* leftTypeName = expr_typeName(expr->left);
+  const char* rightTypeName = expr_typeName(expr->right);
+  if (noPoison && (*leftTypeName == '<' || *rightTypeName == '<')) return;
+  par__errHeaderWithExpr(parser, expr);
+  eprintf("type mismatch; can't apply '%s' to '%s' and '%s'\n",
+      TokenKind_repr[expr->kind], leftTypeName, rightTypeName);
+  err_increment(parser);
 }
 
-static void Parser_errorBinOpDimsMismatch(Parser* parser, Expr* expr) {
-    Parser__errHeaderWithExpr(parser, expr);
-
-    eprintf("can't apply '%s' to %dD array and %dD array\n",
-        TokenKind_repr[expr->kind], expr->left->dims, expr->right->dims);
-    Parser_errorIncrement(parser);
+static void err_typeMismatch(Parser* parser, Expr* e1, Expr* e2) {
+  const char* leftTypeName = expr_typeName(e1);
+  const char* rightTypeName = expr_typeName(e2);
+  if (noPoison && (*leftTypeName == '<' || *rightTypeName == '<')) return;
+  par__errHeaderWithExpr(parser, e2);
+  eprintf(
+      "type mismatch: '%s' here must be '%s' instead (from %s%s:%d:%d)\n",
+      rightTypeName, leftTypeName, RELF(parser->filename), e1->line,
+      e1->col);
+  err_increment(parser);
 }
 
-static void Parser_errorReadOnlyVar(Parser* parser, Expr* expr) {
-    Parser__errHeaderWithExpr(parser, expr);
-    eprintf("can't mutate read-only variable '%s'\n", expr->var->name);
-    Parser_errorIncrement(parser);
+static void err_initMismatch(Parser* parser, Expr* expr) {
+  const char* leftTypeName = spec_name(expr->var->spec);
+  const char* rightTypeName = expr_typeName(expr->var->init);
+  //    if (*leftTypeName == '<' or *rightTypeName == '<') return;
+
+  // for collections, RHS is allowed to be an empty [] or {} to
+  // indicate that the array starts out empty. Any-dim arrays can
+  // be initialized with []. e.g. var arr[:,:,:] as Number = [] of
+  // course, the LHS must have a type, you cannot have e.g. var
+  // arr[:,:,:] = [] that would be an error.
+  if ((expr->var->init->kind == tkArrayOpen
+          || expr->var->init->kind == tkBraceOpen)
+      && expr->var->spec->collectionType != CTYNone
+      && !expr->var->init->right
+      && expr->var->spec->typeType != TYUnresolved)
+    return;
+  par__errHeaderWithExpr(parser, expr);
+
+  eprintf("can't init '%s' with an expression of type '%s' (hint: just "
+          "remove the type annotation.)\n",
+      leftTypeName, rightTypeName);
+  err_increment(parser);
 }
 
-static void Parser_errorNoEnumInferred(Parser* parser, Expr* expr) {
-    Parser__errHeaderWithExpr(parser, expr);
-    eprintf("could not infer enum type for '.%s'\n", expr->string);
-    Parser_errorIncrement(parser);
+static void err_initDimsMismatch(Parser* parser, Expr* expr, int dims) {
+
+  par__errHeaderWithExpr(parser, expr);
+  eprintf("can't init %dD array '%s' with a %dD literal. "
+          "(hint: just remove the dimension specification.)\n",
+      expr->var->spec->dims, expr->var->name, dims);
+  err_increment(parser);
 }
 
-static void Parser_errorInvalidTypeForOp(Parser* parser, Expr* expr) {
-    if (expr->left->typeType == TYErrorType
-        || expr->right->typeType == TYErrorType)
-        return;
-    Parser__errHeaderWithExpr(parser, expr);
+static void err_binOpDimsMismatch(Parser* parser, Expr* expr) {
+  par__errHeaderWithExpr(parser, expr);
 
-    eprintf("invalid types for '%s'\n", TokenKind_repr[expr->kind]);
-    Parser_errorIncrement(parser);
+  eprintf("can't apply '%s' to %dD array and %dD array\n",
+      TokenKind_repr[expr->kind], expr->left->dims, expr->right->dims);
+  err_increment(parser);
 }
 
-static void Parser_errorArgTypeMismatch(Parser* parser, Expr* expr, Var* var) {
-    Parser__errHeaderWithExpr(parser, expr);
-
-    eprintf("type '%s' for argument '%s' should be '%s' instead (from "
-            "%s%s:%d:%d)\n",
-        Expr_typeName(expr), var->name, TypeSpec_name(var->spec),
-        RELF(parser->filename), var->line, var->col);
-    // parser->issues.hasParseErrors = 1;
-    Parser_errorIncrement(parser);
+static void err_readOnlyVar(Parser* parser, Expr* expr) {
+  par__errHeaderWithExpr(parser, expr);
+  eprintf("can't mutate read-only variable '%s'\n", expr->var->name);
+  err_increment(parser);
 }
 
-static void Parser_errorArgLabelMismatch(Parser* parser, Expr* expr, Var* var) {
-    Parser__errHeaderWithExpr(parser, expr);
-
-    eprintf("label '%s' should be '%s' instead (from %s%s:%d:%d)\n",
-        expr->string, var->name, RELF(parser->filename), var->line, var->col);
-
-    Parser_errorIncrement(parser);
+static void err_noEnumInferred(Parser* parser, Expr* expr) {
+  par__errHeaderWithExpr(parser, expr);
+  eprintf("could not infer enum type for '.%s'\n", expr->str);
+  err_increment(parser);
 }
 
-static void Parser_errorUnexpectedToken(Parser* parser, char* msg) {
-    Parser__errHeader(parser);
+static void err_invalidTypeForOp(Parser* parser, Expr* expr) {
+  if (expr->left->typeType == TYErrorType
+      || expr->right->typeType == TYErrorType)
+    return;
+  par__errHeaderWithExpr(parser, expr);
 
-    eprintf(
-        "unexpected token '%.*s'\n", parser->token.matchlen, parser->token.pos);
-
-    Parser__printSourceLines(parser, parser->token.line, parser->token.col,
-        parser->token.matchlen, msg);
-
-    // when you have an unexpected token on one line, the rest are also going to
-    // be unexpected. so skip to the next newline.
-    while (!Parser_matches(parser, tkNewline)
-        && !Parser_matches(parser, tkNullChar))
-        Token_advance(&parser->token);
-
-    parser->issues.hasParseErrors = 1;
-    Parser_errorIncrement(parser);
+  eprintf("invalid types for '%s'\n", TokenKind_repr[expr->kind]);
+  err_increment(parser);
 }
 
-static void Parser_errorUnexpectedExpr(Parser* parser, Expr* expr) {
-    Parser__errHeaderWithExpr(parser, expr);
-    eprintf("unexpected expr '%s' (%s)\n",
-        expr->prec ? TokenKind_repr[expr->kind] : expr->string,
-        TokenKind_names[expr->kind] + 2);
-    Parser_errorIncrement(parser);
+static void err_argTypeMismatch(Parser* parser, Expr* expr, Var* var) {
+  par__errHeaderWithExpr(parser, expr);
+
+  eprintf("type '%s' for argument '%s' should be '%s' instead (from "
+          "%s%s:%d:%d)\n",
+      expr_typeName(expr), var->name, spec_name(var->spec),
+      RELF(parser->filename), var->line, var->col);
+  // parser->issues.hasParseErrors = 1;
+  err_increment(parser);
+}
+
+static void err_argLabelMismatch(Parser* parser, Expr* expr, Var* var) {
+  par__errHeaderWithExpr(parser, expr);
+
+  eprintf("label '%s' should be '%s' instead (from %s%s:%d:%d)\n",
+      expr->str, var->name, RELF(parser->filename), var->line, var->col);
+
+  err_increment(parser);
+}
+
+static void err_unexpectedToken(Parser* parser, char* msg) {
+  par__errHeader(parser);
+
+  eprintf("unexpected token '%.*s'\n", parser->token.matchlen,
+      parser->token.pos);
+
+  par__printSourceLines(parser, parser->token.line, parser->token.col,
+      parser->token.matchlen, msg);
+
+  // when you have an unexpected token on one line, the rest are also going
+  // to be unexpected. so skip to the next newline.
+  while (!par_matches(parser, tkEOL) && !par_matches(parser, tkEOF))
+    tok_advance(&parser->token);
+
+  parser->issues.hasParseErrors = 1;
+  err_increment(parser);
+}
+
+static void err_unexpectedExpr(Parser* parser, Expr* expr) {
+  par__errHeaderWithExpr(parser, expr);
+  eprintf("unexpected expr '%s' (%s)\n",
+      expr->prec ? TokenKind_repr[expr->kind] : expr->str,
+      TokenKind_names[expr->kind] + 2);
+  err_increment(parser);
 }

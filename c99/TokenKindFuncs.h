@@ -12,107 +12,106 @@
 // TODO: get rid of this func
 
 static const char* TokenKind_ascrepr(const TokenKind kind, bool spacing) {
-    switch (kind) {
-    case tkOpGT: return "GT";
-    case tkOpLT: return "LT";
-    case tkOpGE: return "GE";
-    case tkOpLE: return "LE";
-    case tkOpNE: return "NE";
-    case tkOpEQ: return "EQ";
-    default: return TokenKind_repr[kind];
-    }
+  switch (kind) {
+  case tkGT: return "GT";
+  case tkLT: return "LT";
+  case tkGE: return "GE";
+  case tkLE: return "LE";
+  case tkNE: return "NE";
+  case tkEQ: return "EQ";
+  default: return TokenKind_repr[kind];
+  }
 }
 
 static bool TokenKind_isUnary(TokenKind kind) {
-    static const uint8_t unop[sizeof(TokenKind_names)] = { //
-        [tkKeyword_not] = 1,
-        [tkOpUnaryMinus] = 1,
-        [tkUnaryDot] = 1,
-        [tkKeyword_return] = 1,
-        [tkArrayOpen] = 1,
-        [tkKeyword_check] = 1,
-        [tkBraceOpen] = 1
-    };
-    return unop[kind];
+  static const uint8_t unop[sizeof(TokenKind_names)] = { //
+    [tkNot] = 1,
+    [tkUnaryMinus] = 1,
+    [tkUnaryDot] = 1,
+    [tkReturn] = 1,
+    [tkArrayOpen] = 1,
+    [tkCheck] = 1,
+    [tkBraceOpen] = 1
+  };
+  return unop[kind];
 }
 
 static bool TokenKind_isRightAssociative(TokenKind kind) {
-    static const uint8_t rassoc[sizeof(TokenKind_names)] = { //
-        // [tkPeriod] = 1,
-        [tkOpPower] = 1,
-        [tkOpComma] = 1,
-        [tkOpSemiColon] = 1
-    };
-    return rassoc[kind];
+  static const uint8_t rassoc[sizeof(TokenKind_names)] = { //
+    [tkPower] = 1,
+    [tkComma] = 1,
+    [tkSemiColon] = 1
+  };
+  return rassoc[kind];
 }
 
 static uint8_t TokenKind_getPrecedence(TokenKind kind) {
-    static const uint8_t prec[sizeof(TokenKind_names)] = { //
-        [tkPeriod] = 57,
-        [tkUnaryDot] = 57,
-        [tkOpUnaryMinus] = 55,
-        [tkPipe] = 53,
-        [tkOpPower] = 51,
+  static const uint8_t prec[sizeof(TokenKind_names)] = { //
+    [tkPeriod] = 57,
+    [tkUnaryDot] = 57,
+    [tkUnaryMinus] = 55,
+    [tkPipe] = 53,
+    [tkPower] = 51,
 
-        [tkOpTimes] = 49,
-        [tkOpSlash] = 49,
-        [tkOpMod] = 49,
+    [tkTimes] = 49,
+    [tkSlash] = 49,
+    [tkMod] = 49,
 
-        [tkOpPlus] = 47,
-        [tkOpMinus] = 47,
+    [tkPlus] = 47,
+    [tkMinus] = 47,
 
-        [tkOpColon] = 45,
+    [tkColon] = 45,
 
-        [tkOpLE] = 41,
-        [tkOpLT] = 41,
-        [tkOpGT] = 41,
-        [tkOpGE] = 41,
-        [tkKeyword_in] = 41,
-        [tkKeyword_notin] = 41,
+    [tkLE] = 41,
+    [tkLT] = 41,
+    [tkGT] = 41,
+    [tkGE] = 41,
+    [tkIn] = 41,
+    [tkNotin] = 41,
 
-        [tkOpEQ] = 40,
-        // [tkTilde] = 40,
-        // regex match op e.g. sIdent ~ '[a-zA-Z_][a-zA-Z0-9_]'
-        [tkOpNE] = 40,
+    [tkEQ] = 40,
+    // [tkTilde] = 40,
+    // regex match op e.g. sIdent ~ '[a-zA-Z_][a-zA-Z0-9_]'
+    [tkNE] = 40,
 
-        [tkKeyword_not] = 32,
-        [tkKeyword_and] = 31,
-        [tkKeyword_or] = 30,
+    [tkNot] = 32,
+    [tkAnd] = 31,
+    [tkOr] = 30,
 
-        [tkKeyword_check] = 25,
-        [tkKeyword_return] = 25,
+    [tkCheck] = 25,
+    [tkReturn] = 25,
 
-        [tkOpAssign] = 22,
+    [tkAssign] = 22,
 
-        [tkOpPlusEq] = 20,
-        [tkOpColEq] = 20,
-        [tkOpMinusEq] = 20,
-        [tkOpTimesEq] = 20,
-        [tkOpSlashEq] = 20,
+    [tkPlusEq] = 20,
+    [tkColEq] = 20,
+    [tkMinusEq] = 20,
+    [tkTimesEq] = 20,
+    [tkSlashEq] = 20,
 
-        [tkOpComma] = 10, // list separator
-        [tkOpSemiColon] = 9, // 2-D array / matrix row separator
+    [tkComma] = 10, // list separator
+    [tkSemiColon] = 9, // 2-D array / matrix row separator
 
-        [tkKeyword_do] = 5, // for i in arr do ...
-        // [tkKeyword_then] = 5, // if i == x then ...
+    [tkDo] = 5, // for i in arr do ...
+    // [tkThen] = 5, // if i == x then ...
 
-        [tkArrayOpen] = 1,
-        [tkBraceOpen] = 1
-    };
+    [tkArrayOpen] = 1,
+    [tkBraceOpen] = 1
+  };
 
-    return prec[kind];
+  return prec[kind];
 }
 
 static TokenKind TokenKind_reverseBracket(TokenKind kind) {
-    switch (kind) {
-    case tkArrayOpen: return tkArrayClose;
-    case tkParenOpen: return tkParenClose;
-    case tkBraceOpen: return tkBraceClose;
-    case tkArrayClose: return tkArrayOpen;
-    case tkBraceClose: return tkBraceOpen;
-    case tkParenClose: return tkParenOpen;
-    default:
-        printf("unexpected at %s:%d\n", __FILE__, __LINE__);
-        return tkUnknown;
-    }
+  switch (kind) {
+  case tkArrayOpen: return tkArrayClose;
+  case tkParenOpen: return tkParenClose;
+  case tkBraceOpen: return tkBraceClose;
+  case tkArrayClose: return tkArrayOpen;
+  case tkBraceClose: return tkBraceOpen;
+  case tkParenClose: return tkParenOpen;
+  default:
+    printf("unexpected at %s:%d\n", __FILE__, __LINE__);
+    return tkUnknown;
+  }
 }

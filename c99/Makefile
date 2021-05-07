@@ -1,14 +1,20 @@
 
-CCFLAGS=-std=c99 -I../engine -O3
+CCFLAGS=-std=c99 -I../engine -O3 -ferror-limit=999
 CCLIBS=-lc -lm
 CC=gcc
 
 
-install: cjet
-	cp cjet /usr/local/bin
+install: cjet cjetd tokcnt
+	cp cjet cjetd /usr/local/bin
 
-cjet: *.[ch] TokenKind.h
+cjet: main.c *.h TokenKind.h
 	$(CC)  $(CCFLAGS) main.c $(CCLIBS) -o $@
+
+cjetd: serv.c *.h TokenKind.h
+	$(CC)  $(CCFLAGS) serv.c $(CCLIBS) -o $@
+
+tokcnt: tokcnt.c *.h TokenKind.h
+	$(CC)  $(CCFLAGS) tokcnt.c $(CCLIBS) -o $@
 
 TokenKind.h: makeTokens.sh
 	./makeTokens.sh

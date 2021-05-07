@@ -71,35 +71,35 @@ func Array_resize_UInt32                         1         0%         0%        
 func Array_top_Ptr
 func Array_top_Real64                            1         0%         0%         0%
 func Array_top_UInt32                            1         0%         0%         0%
-func CString__test                               6         0%
-func CString_base                                9         0%         0%         0%
-func CString_clone
-func CString_countFields                         1         0%
-func CString_dir                                 7         0%         0%         0%
-func CString_findChars                           2         0%
-func CString_findString                          2         0%
-func CString_getAllOccurences                    2         0%
-func CString_getSomeOccurences                   2         0%
-func CString_indexOf                             2         0%
-func CString_indexOfAny                          2         0%
-func CString_length
-func CString_malloc
-func CString_matchAny                            2         0%
-func CString_ndup
-func CString_noext_ip                                                           67%
-func CString_nthField                            2         0%
-func CString_palloc
-func CString_pclone                              2         0%
-func CString_pndup
-func CString_toDouble                            1         0%
-func CString_toLong                              1         0%
-func CString_toLongDouble                        2         0%
-func CString_toLongLong                          2         0%
-func CString_toULongLong                         2         0%
-func CString_tr_ip
-func CString_tr_ip_len                                                          88%
-func CString_upper                               6         0%         0%         0%
-func CollectionType_nativeName                  25        14%                    4%
+func cstr__test                               6         0%
+func cstr_base                                9         0%         0%         0%
+func cstr_clone
+func cstr_countFields                         1         0%
+func cstr_dir                                 7         0%         0%         0%
+func cstr_findChars                           2         0%
+func cstr_findString                          2         0%
+func cstr_getAllOccurences                    2         0%
+func cstr_getSomeOccurences                   2         0%
+func cstr_indexOf                             2         0%
+func cstr_indexOfAny                          2         0%
+func cstr_length
+func cstr_malloc
+func cstr_matchAny                            2         0%
+func cstr_ndup
+func cstr_noext_ip                                                           67%
+func cstr_nthField                            2         0%
+func cstr_palloc
+func cstr_pclone                              2         0%
+func cstr_pndup
+func cstr_toDouble                            1         0%
+func cstr_toLong                              1         0%
+func cstr_toLongDouble                        2         0%
+func cstr_toLongLong                          2         0%
+func cstr_toULongLong                         2         0%
+func cstr_tr_ip
+func cstr_tr_ip_len                                                          88%
+func cstr_upper                               6         0%         0%         0%
+func Collectiontype_nativeName                  25        14%                    4%
 func Dict_clear_UInt32_Ptr                                                      83%
 func Dict_get_UInt32_Ptr                                                        83%
 func Dict_init_UInt32_Ptr
@@ -108,164 +108,164 @@ func Dict_resize_UInt32_Ptr                                                     
 func JetEnum_dumpc                                                              80%
 func JetEnum_genh                                7        78%        95%        79%
 func JetEnum_write                                                              80%
-func Expr_analyse                            43        89%        95%        82%
-func Expr_checkHashes                                                        88%
-func Expr_countCommaList                                                     83%
-func Expr_dumpc
-func Expr_emit                              163        39%        69%        37%
-func Expr_emit_tkCheck                       56         0%         0%         0%
-func Expr_emit_tkFunctionCallResolved         5        75%                   50%
-func Expr_emit_tkNumber                       3        62%                   50%
-func Expr_emit_tkString                      26        19%         7%         3%
-func Expr_emit_tkSubscriptResolved           28         0%         0%         0%
-func Expr_findExtractionCandidate            10        64%        94%        57%
-func Expr_fromToken                                                          16%
-func Expr_genPrintVars                       17         0%         0%         0%
-func Expr_getEnumType                         1        92%                   43%
-func Expr_getObjectType                       4        56%                   30%
-func Expr_getObjectTypeSpec                                                  62%
-func Expr_getTypeOrEnum                       3        75%                   58%
-func Expr_hash                                                               84%
-func Expr_markTypesVisited                    5        83%                   55%
-func Expr_prepareInterp                       6        92%                   90%
-func Expr_reduceVarUsage                                                     89%
-func Expr_setEnumBase                                                        58%
-func Expr_strarglabels
-func Expr_throws                              1        91%                   44%
-func Expr_typeName                            4        71%                   64%
-func Expr_unmarkVisited                      10         0%         0%         0%
-func Expr_write                               5        95%                   71%
-func Func_analyse                             1        97%                   94%
-func Func_calcSizeUsage                       4        56%        40%        20%
-func Func_calls
-func Func_checkRecursion                                                     50%
-func Func_checkUnusedVars
-func Func_createDeclWithArg                   3        82%                   50%
-func Func_dumpc
-func Func_emit                               12        68%        69%        35%
-func Func_genh                                5        69%        78%        39%
-func Func_hashExprs
-func Func_printStackUsageDef
-func Func_write                                                              89%
-func Import_dumpc
-func Import_emit                              7         0%         0%         0%
-func Import_undefc                            2         0%
-func Import_write                                                            50%
-func Module_analyse                           2        95%        98%        92%
-func Module_dumpc                             1        94%        89%        86%
-func Module_emit                             13        67%        66%        53%
-func Module_genTests                          2        78%        33%        17%
-func Module_getFunc
-func Module_getFuncByName                                                    88%
-func Module_getFuncByTypeMatch                                               97%
-func Module_getImportByAlias                                                 88%
-func Module_getType
-func Module_getVar                            1        80%        25%        12%
-func Module_unmarkTypesVisited
-func Module_write                             1        94%        89%        86%
-func Scope_calcSizeUsage                      1        94%                   83%
-func Scope_checkUnusedVars                                                   94%
-func Scope_emit                                                              91%
-func Scope_getVar
-func Scope_lowerElementalOps                  5        58%                   83%
-func Scope_promoteCandidates                 40        23%        50%        42%
-func Scope_write                                                             75%
+func expr_analyse                            43        89%        95%        82%
+func expr_checkHashes                                                        88%
+func expr_countCommaList                                                     83%
+func expr_dumpc
+func expr_emit                              163        39%        69%        37%
+func expr_emit_tkCheck                       56         0%         0%         0%
+func expr_emit_tkFuncCallR         5        75%                   50%
+func expr_emit_tkNumber                       3        62%                   50%
+func expr_emit_tkString                      26        19%         7%         3%
+func expr_emit_tkSubscriptR           28         0%         0%         0%
+func expr_findExtractionCandidate            10        64%        94%        57%
+func expr_fromToken                                                          16%
+func expr_genPrintVars                       17         0%         0%         0%
+func expr_getEnumType                         1        92%                   43%
+func expr_getObjectType                       4        56%                   30%
+func expr_getObjectTypeSpec                                                  62%
+func expr_getTypeOrEnum                       3        75%                   58%
+func expr_hash                                                               84%
+func expr_markTypesVisited                    5        83%                   55%
+func expr_prepareInterp                       6        92%                   90%
+func expr_reduceVarUsage                                                     89%
+func expr_setEnumBase                                                        58%
+func expr_strarglabels
+func expr_throws                              1        91%                   44%
+func expr_typeName                            4        71%                   64%
+func expr_unmarkVisited                      10         0%         0%         0%
+func expr_write                               5        95%                   71%
+func func_analyse                             1        97%                   94%
+func func_calcSizeUsage                       4        56%        40%        20%
+func func_calls
+func func_checkRecursion                                                     50%
+func func_checkUnusedVars
+func func_createDeclWithArg                   3        82%                   50%
+func func_dumpc
+func func_emit                               12        68%        69%        35%
+func func_genh                                5        69%        78%        39%
+func func_hashExprs
+func func_printStackUsageDef
+func func_write                                                              89%
+func imp_dumpc
+func imp_emit                              7         0%         0%         0%
+func imp_undefc                            2         0%
+func imp_write                                                            50%
+func mod_analyse                           2        95%        98%        92%
+func mod_dumpc                             1        94%        89%        86%
+func mod_emit                             13        67%        66%        53%
+func mod_genTests                          2        78%        33%        17%
+func mod_getFunc
+func mod_getFuncByName                                                    88%
+func mod_getFuncByTypeMatch                                               97%
+func mod_getImportByAlias                                                 88%
+func mod_getType
+func mod_getVar                            1        80%        25%        12%
+func mod_unmarkTypesVisited
+func mod_write                             1        94%        89%        86%
+func scope_calcSizeUsage                      1        94%                   83%
+func scope_checkUnusedVars                                                   94%
+func scope_emit                                                              91%
+func scope_getVar
+func scope_lowerElementalOps                  5        58%                   83%
+func scope_promoteCandidates                 40        23%        50%        42%
+func scope_write                                                             75%
 func JetTest_analyse                             4        73%        91%        68%
 func JetTest_checkUnusedVars
 func JetTest_dumpc                               2         0%
 func JetTest_emit                                6         0%         0%         0%
 func JetTest_write                               5         0%
-func TypeSpec_cname                           6         0%         0%         0%
-func TypeSpec_dumpc
-func TypeSpec_emit                            7        56%        69%        46%
-func TypeSpec_name
-func TypeSpec_new
-func TypeSpec_write                           2        87%                   78%
-func Type_analyse                                                            96%
-func Type_checkCycles                         2        75%                   88%
-func Type_dumpc
-func Type_emit                               51         0%         0%         0%
-func Type_genJson                            18         0%         0%         0%
-func Type_genJsonReader                       1         0%
-func Type_genNameAccessors                   16         0%         0%         0%
-func Type_genTypeInfoDecls                   10         0%         0%         0%
-func Type_genTypeInfoDefs                     2         0%
-func Type_genh                               12         0%         0%         0%
-func Type_getVar                              3        57%        67%        42%
-func Type_makeDefaultCtor
-func Type_write                               3        81%                   79%
-func Var_dumpc
-func Var_emit                                                                50%
-func Var_genh                                 4        43%                   50%
-func Var_insertDrop
-func Var_write                                2        94%        91%        77%
-func Parser__errHeader
-func Parser__errHeaderWithExpr                                                  18%
-func Parser__errHeaderWithLoc
-func Parser__printSourceLines
-func Parser__printSourceLinesWithOffset                                         75%
-func Parser__warnHeaderWithLoc
-func Parser_consume
-func Parser_emit_close
-func Parser_emit_open
-func Parser_errorArgTypeMismatch
-func Parser_errorArgsCountMismatch                                              50%
-func Parser_errorBinOpDimsMismatch
-func Parser_errorCallingFuncWithVoid
-func Parser_errorConstructorHasCycle             5         0%
-func Parser_errorCtorHasType                     5         0%
-func Parser_errorDuplicateEnum                   7         0%         0%         0%
-func Parser_errorDuplicateFunc
-func Parser_errorDuplicateTest                   5         0%
-func Parser_errorDuplicateType                   1        86%                   50%
-func Parser_errorDuplicateVar
-func Parser_errorExpectedToken
-func Parser_errorIncrement                       1        80%                   75%
-func Parser_errorIndexDimsMismatch               1        92%                   75%
-func Parser_errorInitDimsMismatch
-func Parser_errorInitMismatch                                                   80%
-func Parser_errorInvalidIdent
-func Parser_errorInvalidTestName
-func Parser_errorInvalidTypeForOp                                               75%
-func Parser_errorInvalidTypeMember
-func Parser_errorMissingInit                                                    50%
-func Parser_errorNoEnumInferred
-func Parser_errorParsingExpr
-func Parser_errorReadOnlyVar
-func Parser_errorStringInterp
-func Parser_errorTypeInheritsSelf
-func Parser_errorTypeMismatch
-func Parser_errorTypeMismatchBinOp
-func Parser_errorUnexpectedExpr                                                 50%
-func Parser_errorUnexpectedToken
-func Parser_errorUnrecognizedCtor
-func Parser_errorUnrecognizedFunc
-func Parser_errorUnrecognizedMember                                             85%
-func Parser_errorUnrecognizedType
-func Parser_errorUnrecognizedVar
-func Parser_fini
-func Parser_fromFile                            10        81%                   67%
-func Parser_ignore
-func Parser_lookupModule                         2        67%        25%        12%
-func Parser_match
-func Parser_matches
-func Parser_warnCtorCase
-func Parser_warnSameExpr
-func Parser_warnUnusedArg                                                       50%
-func Parser_warnUnusedFunc                                                      50%
-func Parser_warnUnusedType                                                      50%
-func Parser_warnUnusedVar                                                       50%
+func spec_cname                           6         0%         0%         0%
+func spec_dumpc
+func spec_emit                            7        56%        69%        46%
+func spec_name
+func spec_new
+func spec_write                           2        87%                   78%
+func type_analyse                                                            96%
+func type_checkCycles                         2        75%                   88%
+func type_dumpc
+func type_emit                               51         0%         0%         0%
+func type_genJson                            18         0%         0%         0%
+func type_genJsonReader                       1         0%
+func type_genNameAccessors                   16         0%         0%         0%
+func type_genTypeInfoDecls                   10         0%         0%         0%
+func type_genTypeInfoDefs                     2         0%
+func type_genh                               12         0%         0%         0%
+func type_getVar                              3        57%        67%        42%
+func type_makeDefaultCtor
+func type_write                               3        81%                   79%
+func var_dumpc
+func var_emit                                                                50%
+func var_genh                                 4        43%                   50%
+func var_insertDrop
+func var_write                                2        94%        91%        77%
+func par__errHeader
+func par__errHeaderWithExpr                                                  18%
+func par__errHeaderWithLoc
+func par__printSourceLines
+func par__printSourceLinesWithOffset                                         75%
+func par__warnHeaderWithLoc
+func par_consume
+func par_emit_close
+func par_emit_open
+func err_argTypeMismatch
+func err_argsCountMismatch                                              50%
+func err_binOpDimsMismatch
+func err_callingFuncWithVoid
+func err_constructorHasCycle             5         0%
+func err_ctorHasType                     5         0%
+func err_duplicateEnum                   7         0%         0%         0%
+func err_duplicateFunc
+func err_duplicateTest                   5         0%
+func err_duplicateType                   1        86%                   50%
+func err_duplicateVar
+func err_expectedToken
+func err_increment                       1        80%                   75%
+func err_indexDimsMismatch               1        92%                   75%
+func err_initDimsMismatch
+func err_initMismatch                                                   80%
+func err_invalidIdent
+func err_invalidTestName
+func err_invalidTypeForOp                                               75%
+func err_invalidTypeMember
+func err_missingInit                                                    50%
+func err_noEnumInferred
+func err_syntax
+func err_readOnlyVar
+func err_stringInterp
+func err_typeInheritsSelf
+func err_typeMismatch
+func err_typeMismatchBinOp
+func err_unexpectedExpr                                                 50%
+func err_unexpectedToken
+func err_unrecognizedCtor
+func err_unrecognizedFunc
+func err_unrecognizedMember                                             85%
+func err_unrecognizedType
+func err_unrecognizedVar
+func par_fini
+func par_fromFile                            10        81%                   67%
+func par_ignore
+func par_lookupModule                         2        67%        25%        12%
+func par_match
+func par_matches
+func par_warnCtorCase
+func par_warnSameExpr
+func par_warnUnusedArg                                                       50%
+func par_warnUnusedFunc                                                      50%
+func par_warnUnusedType                                                      50%
+func par_warnUnusedVar                                                       50%
 func Pool_alloc                                                                 80%
 func Pool_allocs                                15         0%         0%         0%
 func Pool_deref                                  3         0%         0%         0%
 func Pool_free                                   4         0%         0%         0%
-func PtrList_append
-func PtrList_count
-func PtrList_pop                                 5         0%         0%         0%
-func PtrList_shift
-func PtrList_unshift                             4         0%
-func PtrList_with
-func PtrList_withNext
+func li_push
+func li_count
+func li_pop                                 5         0%         0%         0%
+func li_shift
+func li_unshift                             4         0%
+func li_with
+func li_withNext
 func Real64_compare                              4         0%         0%         0%
 func Real64_hash
 func SpVector_distsqr                           12         0%         0%         0%
@@ -302,17 +302,17 @@ func TokenKind_getPrecedence
 func TokenKind_isRightAssociative
 func TokenKind_isUnary
 func TokenKind_reverseBracket                    3        73%                   71%
-func Token_advance                                                   95%        20%
-func Token_detect                                5        96%        97%        76%
-func Token_getType                               2        95%                   95%
-func Token_isUnaryAfter                                                         29%
-func Token_peekCharAfter                                                        75%
-func Token_tryKeywordMatch                                                      98%
-func TypeType_byName                                                            88%
-func TypeType_format                            18         0%         0%         0%
-func TypeType_isnum
-func TypeType_name                                                              42%
-func TypeType_size                              11        39%                   21%
+func tok_advance                                                   95%        20%
+func tok_detect                                5        96%        97%        76%
+func tok_getType                               2        95%                   95%
+func tok_isUnaryAfter                                                         29%
+func tok_peekCharAfter                                                        75%
+func tok_tryKeywordMatch                                                      98%
+func Typetype_byName                                                            88%
+func Typetype_format                            18         0%         0%         0%
+func Typetype_isnum
+func Typetype_name                                                              42%
+func Typetype_size                              11        39%                   21%
 func Vector__linspace_step_count                 9         0%         0%         0%
 func Vector_add1                                 1         0%         0%         0%
 func Vector_add1_out                             3         0%         0%         0%

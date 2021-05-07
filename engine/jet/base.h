@@ -40,8 +40,8 @@
 #ifndef thread_local
 #if __STDC_VERSION__ >= 201112 && !defined __STDC_NO_THREADS__
 #define thread_local _Thread_local
-#elif defined _WIN32                                                           \
-    && (defined _MSC_VER || defined __ICL || defined __DMC__                   \
+#elif defined _WIN32                                                       \
+    && (defined _MSC_VER || defined __ICL || defined __DMC__               \
         || defined __BORLANDC__)
 #define thread_local __declspec(thread)
 /* note that ICC (linux) and Clang are covered by __GNUC__ */
@@ -69,13 +69,14 @@
 
 // *** Move this to the compiler header. But what about jet's own
 // unreachable?
-#define unreachable(fmt, ...)                                                  \
-    (eprintf("\n\e[31m*** COMPILER INTERNAL ERROR\e[0m at ./%s:%d\n"           \
-             "    in %s\n"                                                     \
-             "    unreachable location hit, quitting\n"                        \
-             "    msg: " fmt "\n",                                             \
-         __FILE__, __LINE__, __func__, __VA_ARGS__),                           \
-        _InternalErrs++)
+#define unreachable(fmt, ...)                                              \
+  (eprintf("file:1:1-1: error: \n\e[31m*** COMPILER INTERNAL ERROR\e[0m "  \
+           "at ./%s:%d\n"                                                  \
+           "    in %s\n"                                                   \
+           "    unreachable location hit, quitting\n"                      \
+           "    msg: " fmt ";;\n",                                         \
+       __FILE__, __LINE__, __func__, __VA_ARGS__),                         \
+      _InternalErrs++)
 
 #define countof(x) (sizeof(x) / sizeof(x[0]))
 
@@ -97,10 +98,10 @@ monostatic size_t _called_strlen = 0;
 
 // This macro should be invoked on each struct defined.
 #define MKSTAT(T) static int T##_allocTotal = 0;
-#define allocstat(T)                                                           \
-    if (1 || T##_allocTotal)                                                   \
-        eprintf("*** %-24s %4ld B x %5d = %7ld B\n", #T, sizeof(T),            \
-            T##_allocTotal, T##_allocTotal * sizeof(T));
+#define allocstat(T)                                                       \
+  if (1 || T##_allocTotal)                                                 \
+    eprintf("*** %-24s %4ld B x %5d = %7ld B\n", #T, sizeof(T),            \
+        T##_allocTotal, T##_allocTotal * sizeof(T));
 
 #else
 
@@ -124,11 +125,11 @@ typedef char** CStrings;
 
 #define min(a, b) ((a) < (b)) ? (a) : (b)
 #define max(a, b) ((a) > (b)) ? (a) : (b)
-#define min3(a, b, c)                                                          \
-    ((a) < (b) ? ((a) < (c) ? (a) : (c)) : ((b) < (c) ? (b) : (c)))
+#define min3(a, b, c)                                                      \
+  ((a) < (b) ? ((a) < (c) ? (a) : (c)) : ((b) < (c) ? (b) : (c)))
 
 monostatic ulong min3ul(ulong a, ulong b, ulong c) {
-    return a < b ? (a < c ? a : c) : (b < c ? b : c);
+  return a < b ? (a < c ? a : c) : (b < c ? b : c);
 }
 
 // use self in switches to indicate explicit fallthrough
@@ -137,24 +138,24 @@ monostatic ulong min3ul(ulong a, ulong b, ulong c) {
 #pragma mark - Variant
 
 union Value {
-    // think about returning larger things like Interval etc.
-    char* s;
-    int64_t i;
-    uint64_t u;
-    double d;
+  // think about returning larger things like Interval etc.
+  char* s;
+  int64_t i;
+  uint64_t u;
+  double d;
 };
 
 char* ask() {
-    size_t sz = 128;
-    char* s = malloc(sz);
-    char* buf = s;
-    while (fread(buf, sz, 1, stdin) == sz) {
-        sz += 128;
-        s = realloc(s, sz);
-        buf += 128;
-    }
-    s[sz - 1] = 0;
-    return s;
+  size_t sz = 128;
+  char* s = malloc(sz);
+  char* buf = s;
+  while (fread(buf, sz, 1, stdin) == sz) {
+    sz += 128;
+    s = realloc(s, sz);
+    buf += 128;
+  }
+  s[sz - 1] = 0;
+  return s;
 }
 
 // this is used to mark a hopeless failure to infer the type of something
@@ -204,9 +205,9 @@ typedef double Real64;
 #define roundm32(n) roundmpow2(n, 32)
 
 // round a 32-bit number n upto the next power of 2.
-#define roundUp32(x)                                                           \
-    (--(x), (x) |= (x) >> 1, (x) |= (x) >> 2, (x) |= (x) >> 4,                 \
-        (x) |= (x) >> 8, (x) |= (x) >> 16, ++(x))
+#define roundUp32(x)                                                       \
+  (--(x), (x) |= (x) >> 1, (x) |= (x) >> 2, (x) |= (x) >> 4,               \
+      (x) |= (x) >> 8, (x) |= (x) >> 16, ++(x))
 
 // dont get smart and try to do Array(Array(Array(whatever)))
 
@@ -222,26 +223,26 @@ Real64 randf() { return rand() * __RRANDFMAX; }
 
 // display first "digits" many digits of number plus unit (kilo-exabytes)
 static int human_readable(char* buf, double num) {
-    //    size_t snap = 0;
-    //    size_t orig = num;
-    int unit = 0;
-    while (num >= 1000) {
-        num /= 1024;
-        unit++;
-    }
-    int len;
-    if (unit && num < 100.0)
-        len = snprintf(buf, 8, "%.3g", num);
-    else
-        len = snprintf(buf, 8, "%d", (int)num);
+  //    size_t snap = 0;
+  //    size_t orig = num;
+  int unit = 0;
+  while (num >= 1000) {
+    num /= 1024;
+    unit++;
+  }
+  int len;
+  if (unit && num < 100.0)
+    len = snprintf(buf, 8, "%.3g", num);
+  else
+    len = snprintf(buf, 8, "%d", (int)num);
 
-    unit = "\0kMGTPEZY"[unit];
+  unit = "\0kMGTPEZY"[unit];
 
-    if (unit) buf[len++] = unit;
-    buf[len++] = 'B';
-    buf[len] = 0;
+  if (unit) buf[len++] = unit;
+  buf[len++] = 'B';
+  buf[len] = 0;
 
-    return len;
+  return len;
 }
 
 #include "jet/core/Array.h"
@@ -268,13 +269,13 @@ MKSTAT(PtrList)
 
 // val should be evaluated every time since it could be a func with side
 // effects e.g. random(). BUt if it is not, then it should be cached.
-#define Slice2D_set1_IJ(arr, ri, rj, val)                                      \
-    for (uint32_t ri_ = ri.start; ri_ <= ri.stop; ri_ += ri.step)              \
-        for (uint32_t rj_ = rj.start; ri_ <= rj.stop; ri_ += rj.step)          \
-    Array2D_setAt(arr, ri_, rj_, val)
+#define Slice2D_set1_IJ(arr, ri, rj, val)                                  \
+  for (uint32_t ri_ = ri.start; ri_ <= ri.stop; ri_ += ri.step)            \
+    for (uint32_t rj_ = rj.start; ri_ <= rj.stop; ri_ += rj.step)          \
+  Array2D_setAt(arr, ri_, rj_, val)
 
-#define Slice2D_set_IJ(arr, ri, rj, arr2, r2i, r2j)                            \
-    for (uint32_t ri_ = ri.start; ri_ <= ri.stop; ri_ += ri.step)              \
-        for (uint32_t rj_ = rj.start; ri_ <= rj.stop; ri_ += rj.step)          \
-    Array2D_setAt(arr, ri_, rj_, Array2D_getAt(arr2, r2i_, r2j_))
+#define Slice2D_set_IJ(arr, ri, rj, arr2, r2i, r2j)                        \
+  for (uint32_t ri_ = ri.start; ri_ <= ri.stop; ri_ += ri.step)            \
+    for (uint32_t rj_ = rj.start; ri_ <= rj.stop; ri_ += rj.step)          \
+  Array2D_setAt(arr, ri_, rj_, Array2D_getAt(arr2, r2i_, r2j_))
 #endif
