@@ -1,7 +1,7 @@
 BasedOnStyle: WebKit
 BreakBeforeBraces: Attach
-IndentWidth: 4
-ColumnLimit: 80
+IndentWidth: 2
+ColumnLimit: 76
 AlwaysBreakTemplateDeclarations: true
 AllowShortLoopsOnASingleLine: true
 AllowShortIfStatementsOnASingleLine: true

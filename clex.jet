@@ -36,7 +36,7 @@ type Token
     var pos = 0
     var len = 0
     var line = 0
-    var col = 0
+    var col = 0+maje[8]
     var data = ""
     var kind = Kinds.unknown
 end
