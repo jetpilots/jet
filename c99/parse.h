@@ -209,6 +209,10 @@ static Expr* parseExpr(Parser* parser) {
       break;
 
     case tkReturn:
+    case tkBreak:
+    case tkContinue:
+    case tkThrow:
+    case tkCatch:
       // for empty return, push a NULL if there is no expr coming.
       arr_push(&ops, expr);
       if (lookAheadChar == '!' || lookAheadChar == '\n')
@@ -863,7 +867,8 @@ static Func* parseFunc(
   func->nameLen = parser->token.matchlen;
   if (memchr(parser->token.pos, '_', parser->token.matchlen))
     err_invalidIdent(parser);
-  func->name = parseIdent(parser);
+  func->name = parseIdent(parser); // parser->token.pos; //
+  // tok_advance_notrample(&parser->token);
   func->isDeclare = !shouldParseBody;
 
   bool mutator = func->name[func->nameLen - 1] == '!';
@@ -883,18 +888,26 @@ static Func* parseFunc(
     // par_consume(parser, tkOneSpace);
     func->spec = parseTypeSpec(parser);
   }
+  if (!func->spec) {
+    func->spec = NEWW(TypeSpec, //
+        .name = "", //
+        .line = parser->token.line, //
+        .col = parser->token.col //
+    );
+  }
 
   Var* ans;
-  if (func->spec) {
-    ans = NEW(Var);
-    ans->name = "ans";
-    ans->line = func->line;
-    ans->col = func->col;
-    ans->isVar = true;
-    ans->init = NULL; // FIXME
-    ans->spec = func->spec; // NEW(TypeSpec);
-    //        fvar->spec->typeType = TYReal64;
-  }
+  // if (func->spec) {
+  ans = NEWW(Var, //
+      .name = "ans", //
+      .line = func->spec->line, //
+      .col = func->spec->col, //
+      .isVar = true,
+      .init = NULL, // FIXME
+      .spec = func->spec // NEW(TypeSpec);
+  );
+  //        fvar->spec->typeType = TYReal64;
+  // }
 
   if (shouldParseBody) {
     par_ignore(parser, tkComment);
@@ -903,7 +916,7 @@ static Func* parseFunc(
     Scope* funcScope = NEW(Scope);
     funcScope->parent = globScope;
     funcScope->locals = func->args;
-    if (ans) li_shift(&funcScope->locals, ans);
+    li_shift(&funcScope->locals, ans);
     func->body = parseScope(parser, funcScope, false);
 
     func->endline = parser->token.line;
@@ -1042,7 +1055,7 @@ static Type* parseEnum(Parser* parser, Scope* globScope) {
 
   par_consume(parser, tkEOL);
 
-  // if (Typetype_byName(en->name) != TYUnresolved) {
+  // if (Typetype_byName(en->name) != TYUnknown) {
   //     // conflicts with a primitive type name
   //     err_duplicateEnum(parser, en, NULL);
   //     return en;
@@ -1175,7 +1188,9 @@ static Module* parseModule(
   // ret->noext = cstr_noext(cstr_clone(filename));
   root->name
       = cstr_tr_ip(cstr_noext_ip(cstr_clone(parser->filename)), '/', '.');
-  // root->name = parser->modName;
+  root->cname = cstr_tr_ip(cstr_clone(root->name), '.', '_');
+  root->Cname = cstr_upper_ip(cstr_clone(root->cname));
+  root->filename = parser->filename;
   // To break recursion, add the root to the existingModules list right
   // away. The name is all that is required for this module to be found
   // later.
@@ -1249,13 +1264,16 @@ static Module* parseModule(
       // add a global of the corresponding type so that it can be used
       // to access members.
       assert(en);
-      Var* enumv = NEW(Var);
-      enumv->name = en->name;
-      enumv->line = en->line;
-      enumv->col = en->col;
-      enumv->spec = NEW(TypeSpec);
-      enumv->spec->typeType = TYObject;
-      enumv->spec->type = en;
+      Var* enumv = NEWW(Var, //
+          .name = en->name, //
+          .line = en->line, //
+          .col = en->col, //
+          .used = 1,
+          .spec = NEWW(TypeSpec, //
+              .typeType = TYObject, //
+              .type = en // doesn't increase en's usage
+              ) //
+      );
       gvars = li_push(gvars, enumv);
     }
 

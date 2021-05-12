@@ -118,23 +118,23 @@ type JetModule
     var scope Scope
 end
 
-func loadModule(filename String) as JetModule
+func loadModule(filename String) JetModule
     return nil
     end
 
     func save()
      return
     end
-    func getfunc(selector String) as JetFunc
+    func getfunc(selector String) JetFunc
      return nil
         end
-    func gettype(name String) as JetType
+    func gettype(name String) JetType
      return nil
         end
-    func getvar(name String) as JetVar
+    func getvar(name String) JetVar
      return nil
     end
-    func getimport(alias String) as JetImport
+    func getimport(alias String) JetImport
      return nil
     end
 
@@ -253,21 +253,21 @@ func format()
         end
     end
 
-func parseModule(par Parser) as JetModule
+func parseModule(par Parser) JetModule
     end
-func parseFunc(par Parser) as JetFunc
+func parseFunc(par Parser) JetFunc
     end
-func parseStmtfunc(par Parser) as JetFunc
+func parseStmtfunc(par Parser) JetFunc
     end
-func parseVar(par Parser) as JetVar
+func parseVar(par Parser) JetVar
     end
-func parseScope(par Parser) as Scope
+func parseScope(par Parser) Scope
     end
-func parseType(par Parser) as JetType
+func parseType(par Parser) JetType
     end
-func parseImport(par Parser) as JetImport
+func parseImport(par Parser) JetImport
     end
-func parseExpr(scope Scope) as JetExpr
+func parseExpr(scope Scope) JetExpr
     end
 ~ end
 

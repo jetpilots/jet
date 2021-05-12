@@ -52,10 +52,6 @@
 #endif
 #endif
 
-// #define and &&
-// #define or ||
-// #define not !
-
 #ifndef monostatic
 #define monostatic
 #endif
@@ -70,11 +66,8 @@
 // *** Move this to the compiler header. But what about jet's own
 // unreachable?
 #define unreachable(fmt, ...)                                              \
-  (eprintf("file:1:1-1: error: \n\e[31m*** COMPILER INTERNAL ERROR\e[0m "  \
-           "at ./%s:%d\n"                                                  \
-           "    in %s\n"                                                   \
-           "    unreachable location hit, quitting\n"                      \
-           "    msg: " fmt ";;\n",                                         \
+  (eprintf("file:1:1-1: error: unreachable hit at ./%s:%d in %s: " fmt     \
+           "\n",                                                           \
        __FILE__, __LINE__, __func__, __VA_ARGS__),                         \
       _InternalErrs++)
 
@@ -111,6 +104,7 @@ monostatic size_t _called_strlen = 0;
 #endif
 
 #pragma mark - Custom types
+
 typedef char bool;
 static const bool true = 1;
 static const bool false = 0;
@@ -192,7 +186,7 @@ typedef int64_t Int64;
 // typedef const char* CString;
 typedef float Real32;
 typedef double Real64;
-#define ctstrlen(s) (sizeof(s) - 1)
+#define ctstrlen(s) (sizeof(s "") - 1)
 
 // #define PtrArray_topAs(T, self) Array_topAs(T, self)
 
@@ -258,6 +252,141 @@ MKSTAT(PtrList)
 #include "jet/math/random.h"
 
 #include "jet/core/isin.h"
+
+#ifdef DEBUG
+#define HANDLE_UNCAUGHT eprintf("error: %s\n", _err_);
+#else
+// its the same for now, tweak it
+#define HANDLE_UNCAUGHT eprintf("error: %s\n", _err_);
+#endif
+
+// ---------
+//         // If something causes an error and the handler is not installed,
+//         insert
+//         // a goto to the catch-all error handler for the function,
+//         labeled by
+//         // uncaught:.
+//         uncaught : // error:
+//                    HANDLE_UNCAUGHT;
+// // If something has set _err_=ERROR_TRACE it has initiated a backtrace
+// and the
+// // unwrap must continue, so insert a goto to backtrace:.
+// backtrace : SHOW_BACKTRACE_LINE;
+// // The function that initates a backtrace does not go to backtrace:, but
+// // prints the initial site description, sets _err_=ERROR_TRACE, and
+// starts
+// // an unwind, going to unwind1:
+// unwind : // one:
+//          STACKDEPTH_DOWN;
+// return DEFAULT_VALUE;
+// }
+// -----------
+/// This allows a single statement or subexpression to be included only in
+/// debug mode.
+#ifdef DEBUG
+#define IFDEBUG(s) s
+#define IFDEBUGELSE(s, e) s
+#else
+#define IFDEBUG(s)
+#define IFDEBUGELSE(s, e) e
+#endif
+
+// FIXME: String will be a proper String type whereas normal C strings
+// are CString. For now ignoring
+typedef double Number;
+// typedef CString String;
+typedef CStrings Strings;
+typedef bool Boolean;
+typedef unsigned char Byte;
+#define STR(x) #x
+
+static const char* const _fp_bools_tf_[2] = { "false", "true" };
+static const char* const _fp_bools_yn_[2] = { "no", "yes" };
+
+// #define CString_cmp_EQ(a, b) (! strcmp(a, b))
+#define CString_cmp(op, a, b) (strcmp(a, b) op 0)
+// #define CString_cmp_GE(a, b) (strcmp(a, b) >= 0)
+// #define CString_cmp_LE(a, b) (strcmp(a, b) <= 0)
+// #define CString_cmp_GT(a, b) (strcmp(a, b) > 0)
+// #define CString_cmp_LT(a, b) (strcmp(a, b) < 0)
+
+#define Boolean_json_(x, _) printf("%s", _fp_bools_tf_[x])
+#define Number_json_(x, _) printf("%g", x)
+#define CString_json_(x, _) printf("\"%s\"", x) // should be escape(x)
+
+#define Boolean_json(x) printf("\"%s\": %s\n", #x, _fp_bools_tf_[x])
+#define Number_json(x) printf("\"%s\": %g\n", #x, x)
+#define CString_json(x)                                                    \
+  printf("\"%s\": \"%s\"\n", #x, x) // should be escape(x)
+
+// void Array_Number_print(Array(Number) * arr) {
+//     putc(']', stdout);
+//     for (int i = 0; i < arr->used - 1; i++) printf("%g, ", arr->ref[i]);
+//     printf("%g]\n", arr->ref[arr->used - 1]);
+// }
+
+static const char* _spaces_ = //
+    "                                                                    ";
+
+#define DECL_json_wrap_(T) static void T##_json_wrap_(const T this);
+
+#define MAKE_JSON_WRAP_(T)                                                 \
+  monostatic void T##_json_wrap_(const T self) {                           \
+    T##_json_(self, 0);                                                    \
+    puts("");                                                              \
+  }
+
+#define MAKE_JSON_FILE(T)                                                  \
+  monostatic void T##_json_file(const T self, const char* file) {          \
+    FILE* fd = fopen(file, "w");                                           \
+    if (!fd) ERR;                                                          \
+    T##_json(self, fd);                                                    \
+    fclose(fd);                                                            \
+  }
+
+#define MAKE_cmp3way(T)                                                    \
+  monostatic bool T##_cmp3way_LT_LT(T a, T b, T c) {                       \
+    return a < b && b < c;                                                 \
+  }                                                                        \
+  monostatic bool T##_cmp3way_LT_LE(T a, T b, T c) {                       \
+    return a < b && b <= c;                                                \
+  }                                                                        \
+  monostatic bool T##_cmp3way_LE_LT(T a, T b, T c) {                       \
+    return a <= b && b < c;                                                \
+  }                                                                        \
+  monostatic bool T##_cmp3way_LE_LE(T a, T b, T c) {                       \
+    return a <= b && b <= c;                                               \
+  }                                                                        \
+  monostatic bool T##_cmp3way_GT_GT(T a, T b, T c) {                       \
+    return a > b && b > c;                                                 \
+  }                                                                        \
+  monostatic bool T##_cmp3way_GT_GE(T a, T b, T c) {                       \
+    return a > b && b >= c;                                                \
+  }                                                                        \
+  monostatic bool T##_cmp3way_GE_GT(T a, T b, T c) {                       \
+    return a >= b && b > c;                                                \
+  }                                                                        \
+  monostatic bool T##_cmp3way_GE_GE(T a, T b, T c) {                       \
+    return a >= b && b >= c;                                               \
+  }
+
+MAKE_cmp3way(Number)
+
+// #define DEFAULT_VALUE
+// #define SArray(x) x[]
+
+// output funcs: print -> normal print, debug -> only prints (to stderr) in
+// debug mode, error -> print to stderr, fatal -> print to stderr and exit
+#define CString_equals !strcmp
+#define print printf
+#define String_print puts
+#define CString_print puts
+#define Boolean_print(x) printf("%s\n", _fp_bools_yn_[x])
+#define Number_print(x) printf("%g\n", x)
+#define CString_describe(x) printf("%s as String =\n    \"%s\"\n", #x, x)
+#define Number_describe(x) printf("%s as Number =\n    %g\n", #x, x)
+#define Boolean_describe(x)                                                \
+  printf("%s as Boolean =\n    %s\n", #x, _fp_bools_yn_[x])
 
 // FIXME: this should go into runtime.h
 

@@ -8,6 +8,13 @@ monostatic CString cstr_malloc(size_t len) {
   return malloc(roundm8(len + 1));
 }
 
+monostatic bool cstr_eq(const CString a, const CString b) {
+  return a == b || !strcmp(a, b);
+}
+monostatic bool cstr_eqi(const CString a, const CString b) {
+  return a == b || !strcasecmp(a, b);
+}
+
 monostatic CString cstr_pndup(const CString str, size_t len) {
   CString ret = cstr_palloc(len);
   memcpy(ret, str, len); // sPool uses calloc, so no need to zero last
@@ -83,7 +90,7 @@ monostatic CString cstr_base(CString str, char sep, size_t slen) {
   return s;
 }
 
-monostatic CString cstr_dir(CString str) {
+monostatic CString cstr_dir_ip(CString str) {
   const size_t len = strlen(str);
   CString s = str; // pstrndup(str, len);
   CString sc = s + len;
@@ -92,7 +99,7 @@ monostatic CString cstr_dir(CString str) {
   return s;
 }
 
-monostatic CString cstr_upper(CString str) {
+monostatic CString cstr_upper_ip(CString str) {
   CString s = str; // pstrdup(str);
   CString sc = s - 1;
   while (*++sc)
@@ -236,8 +243,9 @@ monostatic CString __cstr_interp__s(
     int size, CString buf, const CString fmt, ...) {
   va_list args;
   va_start(args, fmt);
-  int l = vsnprintf(buf, size, fmt, args);
+  int l = vsnprintf(buf, size - 2, fmt, args);
   va_end(args);
+  buf[size - 1] = 0;
   if (l > size) printf("*** %s: size %d, needed %d\n", __func__, size, l);
   return buf;
 }

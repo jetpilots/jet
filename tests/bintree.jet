@@ -37,7 +37,7 @@ end
 add(root BTreeT, data Number) := add!(root, BTreeT(data))
 
 with Number
-func preorder(root BTreeT) as Number
+func preorder(root BTreeT) Number
     ~Preorder traversal of a binary tree.
     ~This uses an explicit stack (which is more efficient than
     ~a recursive iterator factory).

@@ -1,0 +1,73 @@
+enum Modes
+    lint
+    compile
+    dotest
+end
+
+~ simple init for enums.
+~ enum Kinds = #one, #two, #three
+
+~ if you want associated data init it like a dict.
+enum Kinds
+    unknown
+    ident
+end
+
+~ if you want more associated data you can always do:
+~ var w String[Kinds] = {
+~     #unknown = "..." } ...
+~ but you have to repeat member names here and its easy to miss some.
+
+len(k Kinds) := 9
+
+~ num of items is like any other array:
+var l = len(Kinds)
+~ Kinds is in fact a variable. Like types get default ctors, enums get default instances (and no ctors).
+slurp(file String) := "8"
+
+type Parser
+    var filename = ""
+    var mode Modes = .lint
+    var tok = Token()
+    var data = ""
+end
+
+type Token
+    var kind Kinds = .unknown
+    var pos = ""
+    var line = 1
+    var col = 1
+    var len = 0
+end
+var x = 6
+
+func Parser(file String)
+    ans = Parser()
+    ans.filename = file
+    ans.data = slurp(file) or ""
+    ans.tok.pos = ans.data
+    var z = x^2+6*x+7
+end
+
+func advance!(tok Token)
+    tok.col += tok.len
+    tok.pos = tok.pos[tok.len:]
+    detect!(tok)
+    var z = x^2+6*x+7
+    var m = x^2+6*x+7
+end
+
+func detect!(tok Token)
+    match tok.pos[0]
+    case `[a-z][A-Za-z0-9]*`
+        tok.kind = .ident
+    case `[A-Z][A-Za-z0-9]*`
+        tok.kind = .typename
+    end
+end
+
+func start()
+    var t = Parser("boon")
+    advance!(t.tok)
+    print(l)
+end

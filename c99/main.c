@@ -1,4 +1,5 @@
 #include "jet/base.h"
+#include "jet/os/Process.h"
 #include "signal.h"
 
 #define STEP 4
@@ -11,9 +12,26 @@ static const char* const spaces = //
 #include "token.h"
 #include "ast.h"
 #include "clone.h"
+
+#include "lower.h"
+
+#define outln(s) fwrite(s "\n", sizeof(s ""), 1, outfile)
+#define outl(s) fwrite(s "", sizeof(s "") - 1, 1, outfile)
+#define iprintf(nspc, fmt, ...)                                            \
+  printf("%.*s", nspc, spaces), printf(fmt, __VA_ARGS__)
+#define printf(...) fprintf(outfile, __VA_ARGS__)
+#define puts(s) fputs(s, outfile), fputs("\n", outfile)
+
+static thread_local FILE* outfile = NULL;
 #include "write.h"
 #include "emit.h"
 #include "dumpc.h"
+
+#undef outln
+#undef outl
+#undef iprintf
+#undef printf
+#undef puts
 
 typedef enum CompilerMode {
   PMTokenize, // just tokenize (debug only)
@@ -34,326 +52,17 @@ static const char* CompilerMode__str[] = { //
   [PMTest] = "PMTest"
 };
 
-// typedef enum DiagnosticSeverity {
-//     DiagError,
-//     DiagWarning,
-//     DiagHint
-// } DiagnosticSeverity;
-
-// typedef struct Diagnostic {
-//     unsigned short line;
-//     unsigned char col;
-//     DiagnosticSeverity severity : 8;
-//     // DiagnosticKind kind : 8;
-//     // DiagnosticEntity entity : 8;
-//     union {
-//         Type* type;
-//         Func* func;
-//         Var* var;
-//         Expr* expr;
-//     };
-// } Diagnostic;
-
-// typedef struct IssueMgr {
-//     char* filename;
-//     uint16_t errCount, warnCount, errLimit;
-//     uint8_t lastError /*enum type*/, warnUnusedVar : 1, warnUnusedFunc :
-//     1,
-//         warnUnusedType : 1, warnUnusedArg : 1, hasParseErrors : 1;
-// } IssueMgr;
-
-// typedef struct Parser {
-//     char* filename; // mod/submod/xyz/mycode.ch
-//     // char* moduleName; // mod.submod.xyz.mycode
-//     // char* mangledName; // mod_submod_xyz_mycode
-//     // char* capsMangledName; // MOD_SUBMOD_XYZ_MYCODE
-//     char *data, *end;
-//     // char* noext;
-//     PtrArray orig; // holds lines of original source for error reports
-
-//     Token token; // current
-//     IssueMgr issues;
-//     List(Module) * modules;
-
-//     CompilerMode mode;
-//     // JetOpts opts;
-
-//     bool generateCommentExprs; // set to false when compiling, set to
-//                                // true when linting
-
-//     // set these whenever use is detected (e.g. during resolveTypes or
-//     parsing
-//     // literals)
-//     struct {
-//         bool complex : 1, json : 1, yaml : 1, xml : 1, html : 1, http :
-//         1,
-//             ftp : 1, imap : 1, pop3 : 1, smtp : 1, frpc : 1, fml : 1,
-//             fbin : 1, rational : 1, polynomial : 1, regex : 1, datetime :
-//             1, colour : 1, range : 1, table : 1, ui : 1;
-//     } requires;
-// } Parser;
-
-// // static const int sgr = sizeof(Compiler);
-
-// // #define STR(x) STR_(x)
-// // #define STR_(x) #x
-
-// // static const char* const banner = //
-// //     "________     _____  _\n"
-// //     "______(_)______  /_ _|  The next-gen language of computing\n"
-// //     "_____  /_  _ \\  __/ _|  %s %s %4d-%02d-%02d\n"
-// //     "____  / /  __/ /_  __|\n"
-// //     "___  /  \\___/\\__/ ___|  https://github.com/jetpilots/jet\n"
-// //     "/___/
-// ______________________________________________________\n\n";
-
-// static void par_fini(Parser* parser) {
-//     // free(parser->data);
-//     // free(parser->orig.ref[0]);
-//     // free(parser->noext);
-//     // free(parser->modName);
-//     // free(parser->mangledName);
-//     // free(parser->capsMangledName);
-// }
-// #define FILE_SIZE_MAX 1 << 24
-
-// long recordNewlines(Parser* parser) {
-//     // push a new entry to get hold of the current source line later
-//     // this is the pointer in the original (unmodified) buffer
-//     char* cptr = parser->orig.ref[0];
-//     char* cend = cptr + (parser->end - parser->data);
-//     long lines = 1;
-//     for (char* c = cptr; c < cend; c++) {
-//         if (*c == '\n') {
-//             *c = 0;
-//             lines++;
-//             arr_push(&parser->orig, c + 1);
-//         }
-//     }
-//     return lines;
-// }
-
-// static Parser* par_fromFile(char* filename, bool skipws, CompilerMode
-// mode) {
-//     size_t flen = cstr_length(filename);
-
-//     // Error: the file might not end in .ch
-//     if (!cstr_endsWith(filename, flen, ".jet", 4)) {
-//         eprintf("jet: file '%s' invalid: name must end in '.jet'.\n",
-//         filename); return NULL;
-//     }
-
-//     struct stat sb;
-//     if (stat(filename, &sb) != 0) { // the file might not exist
-//         eprintf("jet: file '%s' not found.\n", filename);
-//         return NULL;
-//     } else if (S_ISDIR(sb.st_mode)) { // might really be a folder
-//         eprintf("jet: '%s' is a folder; only files are accepted.\n",
-//         filename); return NULL;
-//     } else if (access(filename, R_OK) == -1) { // permissions for the
-//     file
-//         eprintf("jet: no permission to read file '%s'.\n", filename);
-//         return NULL;
-//     }
-
-//     FILE* file = fopen(filename, "r");
-//     assert(file);
-
-//     Parser* ret = NEW(Parser);
-
-//     ret->filename = filename;
-//     fseek(file, 0, SEEK_END);
-//     const size_t size = ftell(file) + 2;
-
-//     // 2 null chars, so we can always lookahead
-//     if (size < FILE_SIZE_MAX) {
-//         char* data = malloc(size);
-//         data[size - 1] = 0;
-//         data[size - 2] = 0;
-
-//         fseek(file, 0, SEEK_SET);
-//         if (fread(data, size - 2, 1, file) != 1) {
-//             eprintf("jet: error: file '%s' could not be read\n",
-//             filename); fclose(file); return NULL;
-//             // would leak if ret was malloc'd directly, but we have a
-//             pool
-//         }
-//         fclose(file);
-
-//         ret = NEW(Parser);
-
-//         ret->filename = filename;
-//         ret->data = data;
-//         ret->end = ret->data + size - 2;
-//         ret->orig = (PtrArray) {};
-//         arr_push(&ret->orig, strndup(data, size));
-//         ret->token = (Token) { //
-//             .pos = ret->data,
-//             .skipWhiteSpace = skipws,
-//             .mergeArrayDims = false,
-//             .kind = tkUnknown,
-//             .line = 1,
-//             .col = 1
-//         };
-//         ret->issues = (IssueMgr) { .errLimit = 50000 };
-//         ret->mode = mode;
-//         ret->generateCommentExprs = (ret->mode == PMLint);
-
-//         // If you ar not linting, even a single error is enough to stop
-//         and tell
-//         // the user to LINT THE DAMN FILE FIRST.
-//         if (ret->mode != PMLint) ret->issues.errLimit = 1;
-//         recordNewlines(ret);
-
-//         if (ret->orig.used > 65535) {
-//             eprintf("%s: error: too many lines (%u); limit is 65000\n",
-//                 filename, ret->orig.used);
-//             par_fini(ret);
-//             ret = NULL;
-//         }
-//     } else {
-//         eprintf("%s: error: file with %zu MB exceeds 16 MB limit\n",
-//         filename,
-//             (size - 2) / 1024 / 1024);
-//     }
-//     return ret;
-// }
-// static bool par_matches(Parser* parser, TokenKind expected);
-
 #include "parser.h"
 
 #include "errors.h"
 #include "stats.h"
 
-#pragma mark - PARSING BASICS
-
-// static Expr* exprFromCurrentToken(Parser* parser) {
-//     Expr* expr = expr_fromToken(&parser->token);
-//     tok_advance(&parser->token);
-//     return expr;
-// }
-
-// static Expr* next_token_node(
-//     Parser* parser, TokenKind expected, const bool ignore_error) {
-//     if (parser->token.kind == expected) {
-//         return exprFromCurrentToken(parser);
-//     } else {
-//         if (!ignore_error) err_expectedToken(parser, expected);
-//         return NULL;
-//     }
-// }
-// // these should all be part of tok_ when converted back to C
-// // in the match case, self->token should be advanced on error
-// static Expr* par_match(Parser* parser, TokenKind expected) {
-//     return next_token_node(parser, expected, false);
-// }
-
-// // this returns the match node or null
-// static Expr* par_trymatch(Parser* parser, TokenKind expected) {
-//     return next_token_node(parser, expected, true);
-// }
-
-// // just yes or no, simple
-// static bool par_matches(Parser* parser, TokenKind expected) {
-//     return (parser->token.kind == expected);
-// }
-
-// static bool par_ignore(Parser* parser, TokenKind expected) {
-//     bool ret;
-//     if ((ret = par_matches(parser, expected)))
-//     tok_advance(&parser->token); return ret;
-// }
-
-// // this is same as match without return
-// static void par_consume(Parser* parser, TokenKind expected) {
-//     if (!par_ignore(parser, expected))
-//         err_expectedToken(parser, expected);
-// }
-
-// static char* parseIdent(Parser* parser) {
-//     if (parser->token.kind != tkIdent)
-//         err_expectedToken(parser, tkIdent);
-//     char* p = parser->token.pos;
-//     tok_advance(&parser->token);
-//     return p;
-// }
-
-// static void getSelector(Func* func) {
-//     if (func->argCount) {
-//         size_t selLen = 0;
-//         int remain = 128, wrote = 0;
-//         char buf[128];
-//         buf[127] = 0;
-//         char* bufp = buf;
-
-//         Var* arg1 = (Var*)func->args->item;
-//         wrote = snprintf(bufp, remain, "%s_", spec_name(arg1->spec));
-//         selLen += wrote;
-//         bufp += wrote;
-//         remain -= wrote;
-
-//         wrote = snprintf(bufp, remain, "%s", func->name);
-//         selLen += wrote;
-//         bufp += wrote;
-//         remain -= wrote;
-
-//         foreach (Var*, arg, func->args->next) {
-//             wrote = snprintf(bufp, remain, "_%s", arg->name);
-//             selLen += wrote;
-//             bufp += wrote;
-//             remain -= wrote;
-//         }
-//         // TODO: why not use pstrndup here?
-//         func->sel = cstr_pndup(buf, selLen + 1);
-//         // func->sel = PoolB_alloc(strPool, selLen + 1);
-//         // memcpy(func->sel, buf, selLen + 1);
-
-//         bufp = buf;
-
-//         wrote = snprintf(bufp, remain, "%s(", func->name);
-//         selLen += wrote;
-//         bufp += wrote;
-//         remain -= wrote;
-
-//         wrote = snprintf(bufp, remain, "%s", spec_name(arg1->spec));
-//         selLen += wrote;
-//         bufp += wrote;
-//         remain -= wrote;
-
-//         foreach (Var*, arg, func->args->next) {
-//             wrote = snprintf(bufp, remain, ", %s", arg->name);
-//             selLen += wrote;
-//             bufp += wrote;
-//             remain -= wrote;
-//         }
-//         selLen += snprintf(bufp, 2, ")");
-//         func->psel = cstr_pndup(buf, selLen + 1);
-
-//     } else {
-//         func->sel = func->name;
-//         char buf[128];
-//         buf[127] = 0;
-//         int n = snprintf(buf, 127, "%s()", func->name);
-//         func->psel = cstr_pndup(buf, n + 1);
-//         ;
-//     }
-// }
-
 #include "resolve.h"
-
-// this is a global astexpr representing 0. it will be used when parsing
-// e.g. the colon op with nothing on either side. : -> 0:0 means the same as
-// 1:end
-static Expr lparen[] = { { .kind = tkParenOpen } };
-static Expr rparen[] = { { .kind = tkParenClose } };
-static Expr expr_const_0[] = { { .kind = tkNumber, .str = "0" } };
-static Expr expr_const_yes[] = { { .kind = tkYes } };
-static Expr expr_const_no[] = { { .kind = tkNo } };
-static Expr expr_const_nil[] = { { .kind = tkNil } };
-static Expr expr_const_empty[] = { { .kind = tkString, .str = "" } };
 
 #include "analyse.h"
 #include "parse.h"
+
+#include "serv.h"
 
 static void par_emit_open(Parser* parser) {
   printf("#define THISFILE \"%s\"\n", parser->filename);
@@ -379,11 +88,11 @@ int main(int argc, char* argv[]) {
   sa.sa_sigaction = sighandler;
   sigaction(SIGSEGV, &sa, NULL);
 
-  if (argc == 1) {
-    eputs("jet: no input files. What are you trying to do?\n");
-    return 1;
-  }
-  clock_Time t0 = clock_getTime();
+  // if (argc == 1) {
+  //   eputs("cjet: no input file specified. What are you trying to do?\n"
+  //         "      if you want language-server mode, it's `cjet -s`.\n");
+  //   return 1;
+  // }
 
   // JetOpts opts[1];
   // if (!getOpts(argc, argv, opts)) return 3;
@@ -400,7 +109,13 @@ int main(int argc, char* argv[]) {
   CompilerMode mode = PMEmitC;
   bool stats = false;
 
-  char* filename = argv[1];
+  char* filename = (argc > 1) ? argv[1] : NULL;
+
+  // language server mode with no options to jetc
+  // TODO: later this should be REPL mode, with "-s" argument for
+  // language server.
+  if (!filename) return langserver(argc, argv);
+
   if (argc > 2) {
     if (*argv[2] == 'c' || *argv[2] == 'C')
       mode = PMEmitC, stats = (*argv[2] == 'C');
@@ -409,6 +124,7 @@ int main(int argc, char* argv[]) {
     if (*argv[2] == 't' || *argv[2] == 'T')
       mode = PMTest, stats = (*argv[2] == 'T');
   }
+  clock_Time t0 = clock_getTime();
   Parser* parser = par_fromFile(filename, true, mode);
   if (!parser) return 2;
 
@@ -420,15 +136,14 @@ int main(int argc, char* argv[]) {
   List(Module)* modules = NULL;
 
   Module* root = parseModule(parser, &modules, NULL);
-
-  if (parser->mode == PMLint) {
+  if (_InternalErrs) {
+    // nothing
+  } else if (parser->mode == PMLint) {
     if (parser->issues.hasParseErrors) {
       /* TODO: fallback to token-based linter (formatter)*/
     } else {
-      foreach (Module*, mod, modules)
-        mod_write(mod);
-      foreach (Module*, mod, modules)
-        mod_dumpc(mod);
+      foreach (Module*, mod, modules) { mod_write(mod); }
+      foreach (Module*, mod, modules) { mod_dumpc(mod); }
     }
   } else if (!(parser->issues.errCount)) {
     switch (parser->mode) {
@@ -439,8 +154,25 @@ int main(int argc, char* argv[]) {
       // ^ This is called before including the runtime, so that the
       // runtime can know THISFILE NUMLINES etc.
       printf("#include \"jet/runtime.h\"\n");
-      foreach (Module*, mod, modules)
-        mod_emit(mod);
+      foreach (Module*, mod, modules) { mod_emit(mod); }
+      parser->elap = clock_clockSpanMicro(t0) / 1.0e3;
+      foreach (Module*, mod, modules) {
+        // TODO: check if the file needs updating and only then run cc
+        char* enginePath = "engine"; // FIXME
+        char* cmd[]
+            = { "/usr/bin/gcc", "-I", enginePath, "-c", mod->out_c, NULL };
+        Process_launch(cmd);
+      }
+
+      // TODO: do something useful while cc is running
+
+      // here count the actual number of valid pids
+      Process proc;
+      do {
+        proc = Process_awaitAny();
+        if (proc.exited && proc.code) unreachable("cc failed\n", "");
+        // here launch 1 more
+      } while (proc.pid);
       par_emit_close(parser);
 
     } break;
@@ -452,20 +184,21 @@ int main(int argc, char* argv[]) {
       // Besides, THISFILE should be the actual module's file not the
       // test file
 
-      foreach (Module*, mod, modules)
-        mod_genTests(mod);
+      foreach (Module*, mod, modules) { mod_genTests(mod); }
     } break;
 
     default: break;
     }
   }
-
-  double elap = clock_clockSpanMicro(t0) / 1.0e3;
-  if (stats) printstats(parser, elap);
-  if (parser->issues.errCount)
-    eprintf("\n\e[31m*** errors: %d\e[0m\n", parser->issues.errCount);
+  parser->elap_tot = clock_clockSpanMicro(t0) / 1.0e3;
+  if (stats) printstats(parser);
+  eputs("\n");
   if (parser->issues.warnCount)
-    eprintf("\n\e[33m*** warnings: %d\e[0m\n", parser->issues.warnCount);
+    eprintf("\e[33m*** warnings: %d\e[0m\n", parser->issues.warnCount);
+  if (parser->issues.errCount)
+    eprintf("\e[31m*** errors: %d\e[0m\n", parser->issues.errCount);
+  if (_InternalErrs)
+    eputs("\e[31m*** an internal error has ocurred.\e[0m\n");
 
   return parser->issues.errCount || _InternalErrs;
 }

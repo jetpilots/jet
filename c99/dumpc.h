@@ -2,9 +2,10 @@
 #define PRFIELD(ex, fi, fmt)                                               \
   if (ex->fi) printf("." #fi " = " fmt ",\n", ex->fi)
 
-_Thread_local static FILE* dumpcfile = NULL;
-#define printf(...) fprintf(dumpcfile, __VA_ARGS__)
-#define puts(s) fputs(s, dumpcfile)
+// _Thread_local static FILE* outfile = NULL;
+
+// #define printf(...) fprintf(outfile, __VA_ARGS__)
+// #define puts(s) fputs(s, outfile)
 
 static void imp_dumpc(Import* import, int level) {
   printf("&(Import) {.name = \"%s\", .aliasOffset = "
@@ -16,14 +17,14 @@ static void spec_dumpc(TypeSpec* spec, int level) {
   printf("&(TypeSpec) {\n");
   PRFIELD(spec, typeType, "%d");
   PRFIELD(spec, collectionType, "%d");
-  if (spec->typeType == TYObject) {
-    printf(".type = &%s_%s, ", spec->type->isEnum ? "enum" : "type",
-        spec->type->name);
-  } else {
-    printf(".name = \"%s\", ", spec->name);
-  }
   PRFIELD(spec, dims, "%d");
   PRFIELD(spec, nullable, "%d");
+  if (spec->typeType == TYObject) {
+    printf(".type = &%s_%s ", spec->type->isEnum ? "enum" : "type",
+        spec->type->name);
+  } else {
+    printf(".name = \"%s\" ", spec->name);
+  }
   printf("}\n");
 }
 
@@ -92,33 +93,32 @@ static void scope_dumpc(Scope* scope, int level) {
 }
 
 static void type_dumpc(Type* type, int level) {
-  printf("static const Type type_%s = {\n    .name =\"%s\",\n", type->name,
-      type->name);
-  printf("    .body = ");
+  printf("static Type type_%s = {\n", type->name);
+  printf("    .body = &(Scope) { .locals = ");
   PtrList* vars = type->body->locals;
-  do {
-    printf("&(PtrList) {\n        .item = &(Var)");
-    var_dumpc(vars->item, 8);
-    if ((vars = vars->next)) { printf(",\n        .next = "); }
-  } while (vars);
+  if (vars) do {
+      printf("&(PtrList) {\n        .item = &(Var)");
+      var_dumpc(vars->item, 8);
+      if ((vars = vars->next)) { printf(",\n        .next = "); }
+    } while (vars);
   for_to(i, li_count(type->body->locals) - 1) printf("}\n");
-  printf("    }\n};\n");
+  printf("}}, .name =\"%s\"};\n", type->name);
 }
 
 static void JetEnum_dumpc(Type* type, int level) {
-  printf("static const Type enum_%s = { .name =\"%s\" , .isEnum = yes };\n",
+  printf("static Type enum_%s = { .name =\"%s\" , .isEnum = yes };\n",
       type->name, type->name);
 }
 
 static void func_dumpc(Func* func, int level) {
-  printf("static const Func func_%s = { .name = \"%s\", .selector = "
-         "\"%s\", ",
-      func->sel, func->name, func->sel);
+  printf("static Func func_%s = { .name = \"%s\",", func->sel, func->name);
+  PRFIELD(func, sel, "\"%s\"");
+  PRFIELD(func, psel, "\"%s\"");
   if (func->argCount) {
     printf(".args = ");
     PtrList* args = func->args;
     do {
-      printf("&(PtrList) { .item = &(Var)");
+      printf("&(PtrList) {\n .item = &(Var)");
       var_dumpc(args->item, 0);
       if ((args = args->next)) { printf(", .next = "); }
     } while (args);
@@ -176,7 +176,7 @@ static void JetTest_dumpc(JetTest* test, int level) {
 static void expr_dumpc(
     Expr* expr, int level, bool spacing, bool escStrings) {
 
-  printf("&(Expr) { .kind = %s,\n", TokenKind_names[expr->kind]);
+  printf("&(Expr) {\n .kind = %s,\n", TokenKind_names[expr->kind]);
   PRFIELD(expr, line, "%d");
   PRFIELD(expr, col, "%d");
 
@@ -184,11 +184,11 @@ static void expr_dumpc(
   case tkNumber:
     //   case tkMultiDotNumber:
     //   case tkArgumentLabel:
-  case tkIdent: printf(".string = \"%s\",\n", expr->str); break;
+  case tkIdent: printf(".str = \"%s\",\n", expr->str); break;
 
   case tkRegexp:
   case tkRawString:
-  case tkString: printf(".string = \"%s\",\n", expr->str + 1); break;
+  case tkString: printf(".str = \"%s\",\n", expr->str + 1); break;
 
   case tkIdentR:
     printf(".var = &var_%d_%s, ", expr->var->line, expr->var->name);
@@ -196,7 +196,7 @@ static void expr_dumpc(
 
   case tkSubscript:
   case tkFuncCall:
-    printf(".string = \"%s\",\n", expr->str);
+    printf(".str = \"%s\",\n", expr->str);
     if (expr->left) {
       printf(".left = ");
       expr_dumpc(expr->left, 0, 0, escStrings);
@@ -292,37 +292,81 @@ static void expr_dumpc(
   PRFIELD(expr, prec, "%d");
   PRFIELD(expr, unary, "%d");
   PRFIELD(expr, rassoc, "%d");
+  printf(".allTypeInfo = %d", expr->allTypeInfo);
   // printf(".throws = %d,\n", expr->throws);
   printf("}");
 }
 
-static void mod_dumpc(Module* module) {
+static void mod_dumpc(Module* mod) {
+  int l = strlen(mod->filename);
+  static thread_local char buf[512];
+  // TODO: improve this later
+  mod->out_xc = __cstr_interp__s(512, buf, "%s/.%s.x.c",
+      cstr_dir_ip(cstr_clone(mod->filename)),
+      cstr_base(mod->filename, '/', l));
 
-  dumpcfile = fopen("dumpc_out.c", "w");
-  foreach (Import*, imp, module->imports)
+  outfile = fopen(mod->out_xc, "w");
+
+  puts( //
+      "#include \"jet/base.h\"\n"
+      "#include \"token.h\"\n"
+      "#include \"types.h\"\n"
+      "#include \"ast.h\"\n" //
+  );
+
+  // outfile = fopen("dumpc_out.c", "w");
+  foreach (Import*, imp, mod->imports)
     imp_dumpc(imp, 0);
 
   puts("");
 
   puts("");
 
-  foreach (Type*, type, module->types)
+  //--------
+
+  foreach (Type*, type, mod->types)
+    printf("static Type type_%s;\n", type->name);
+  foreach (Type*, en, mod->enums)
+    printf("static Type enum_%s;\n", en->name);
+  foreach (Func*, func, mod->funcs)
+    printf("static Func func_%s;\n", func->sel);
+  foreach (JetTest*, test, mod->tests)
+    printf("static Test test_%d;\n", test->line);
+  foreach (Var*, var, mod->scope->locals)
+    printf("static Var var_%s;\n", var->name);
+
+  //--------
+
+  foreach (Type*, type, mod->types)
     type_dumpc(type, 0);
 
-  foreach (Type*, en, module->enums)
+  foreach (Type*, en, mod->enums)
     JetEnum_dumpc(en, 0);
 
-  foreach (Func*, func, module->funcs)
+  foreach (Func*, func, mod->funcs)
     func_dumpc(func, 0);
 
-  foreach (JetTest*, test, module->tests)
+  foreach (JetTest*, test, mod->tests)
     JetTest_dumpc(test, 0);
 
-  foreach (Var*, var, module->scope->locals)
+  foreach (Var*, var, mod->scope->locals)
     var_dumpc(var, 0), puts("");
 
-  fclose(dumpcfile);
+  printf("static Module mod_%s = {\n", mod->cname);
+  PRFIELD(mod, name, "\"%s\"");
+  PRFIELD(mod, cname, "\"%s\"");
+  PRFIELD(mod, Cname, "\"%s\"");
+  PRFIELD(mod, filename, "\"%s\"");
+  printf(".funcs = ");
+  foreach (Func*, func, mod->funcs) {
+    printf("&(PtrList) {\n.item = &func_%s, .next = \n", func->sel);
+  }
+  printf("NULL");
+  for_to(i, li_count(mod->funcs)) { printf("}"); }
+  printf("};");
+
+  fclose(outfile);
 }
 
-#undef puts
-#undef printf
+// #undef puts
+// #undef printf

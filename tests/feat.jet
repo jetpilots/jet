@@ -1,6 +1,6 @@
 ~ Comments start with a tilde. There are only single-line comments.
 
-declare func ask() as String
+decl func ask() String
 
 ~ vars do not need type annotation when type is obvious (RHS is literal).
 var x = 4 ~ global variables are read-only once they are defined.

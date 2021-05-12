@@ -268,7 +268,7 @@ static void par_warnUnusedFunc(Parser* parser, Func* func) {
 static void par_warnUnusedType(Parser* parser, Type* type) {
   if (!parser->issues.warnUnusedType) return;
   par__warnHeaderWithLoc(parser, type->line, type->col, strlen(type->name));
-  eprintf("unused type '%s'\n", type->name);
+  eprintf("unused or unnecessary type '%s'\n", type->name);
 }
 
 static void par_warnSameExpr(Parser* parser, Expr* e1, Expr* e2) {
@@ -361,12 +361,14 @@ static void err_unrecognizedFunc(
   if (noPoison && *selector == '<') return; // invalid type; already error'd
   par__errHeaderWithExpr(parser, expr);
 
-  eprintf("cannot resolve call to '%s'\n", expr->str);
+  eprintf(
+      "cannot resolve call to '%s' (selector: %s);;", expr->str, selector);
 
-  par__printSourceLines(
-      parser, expr->line, expr->col, strlen(expr->str), "unknown function");
+  // par__printSourceLines(
+  //     parser, expr->line, expr->col, strlen(expr->str), "unknown
+  //     function");
 
-  eprintf("info: no function with selector '%s'\n", selector);
+  // eprintf("info: no function with selector '%s'\n", selector);
 
   err_increment(parser);
 }
@@ -472,8 +474,8 @@ static void err_argsCountMismatch(Parser* parser, Expr* expr) {
 
 static void err_indexDimsMismatch(Parser* parser, Expr* expr, int nhave) {
   assert(expr->kind == tkSubscriptR);
-  if (expr->var->spec->typeType == TYErrorType
-      || expr->var->spec->typeType == TYUnresolved)
+  if (expr->var->spec->typeType == TYError
+      || expr->var->spec->typeType == TYUnknown)
     return;
   // ^ type resolution failed (and must have raised error) so
   // don't process further
@@ -559,8 +561,7 @@ static void err_initMismatch(Parser* parser, Expr* expr) {
   if ((expr->var->init->kind == tkArrayOpen
           || expr->var->init->kind == tkBraceOpen)
       && expr->var->spec->collectionType != CTYNone
-      && !expr->var->init->right
-      && expr->var->spec->typeType != TYUnresolved)
+      && !expr->var->init->right && expr->var->spec->typeType != TYUnknown)
     return;
   par__errHeaderWithExpr(parser, expr);
 
@@ -600,8 +601,7 @@ static void err_noEnumInferred(Parser* parser, Expr* expr) {
 }
 
 static void err_invalidTypeForOp(Parser* parser, Expr* expr) {
-  if (expr->left->typeType == TYErrorType
-      || expr->right->typeType == TYErrorType)
+  if (expr->left->typeType == TYError || expr->right->typeType == TYError)
     return;
   par__errHeaderWithExpr(parser, expr);
 

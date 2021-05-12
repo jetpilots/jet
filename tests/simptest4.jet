@@ -5,7 +5,7 @@ enum ASTKind
     typeo
 end
 func start()
-    let x = "`^Fat`"
+    var x = "`^Fat`"
     match x
     case "`^Fat`"
             print("s")
@@ -15,7 +15,7 @@ func start()
     case "`quick (\w+) fox`"
         print("j")
     end
-    let o = no
+    var o = no
 
     var isVar = no
     var isLet = yes

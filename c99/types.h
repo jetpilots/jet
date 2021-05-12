@@ -38,7 +38,7 @@ enum CollSubTypesDict {
 };
 
 enum TypeTypes_basic {
-   TYUnresolved,
+   TYUnknown,
    TYVoid,
    TYError,
    TYObject,
@@ -77,25 +77,32 @@ enum TypeSubTypes_Number {
 // to determine quickly if it is a primitive. fits in 4bits btw
 typedef enum TypeTypes {
   // FIXME: this should fit in 4bit max!!!! or not?
-  TYUnresolved = 0, // unknown type
+  TYUnknown = 0, // unknown type
   // nonprimitives: means they should have their own
   // methods to print,
   // serialise, identify, reflect, etc.
-  TYNoType, // void
-  TYNilType, // passes type validation with anything. be careful!
+  // TYOpen, // open for inference -> tyunknown is this
+  TYVoid, // void
+  TYNil, // passes type validation with anything. be careful!
   TYObject, // resolved to an Type
   // primitives that can be printed or represented with no fuss
-  TYErrorType, // use this to poison an expr which has a type error
+  TYError, // use this to poison an expr which has a type error
   // and the error has been reported, to avoid
   // reporting the same error for all parents, as the
   // error-checking routine unwinds.
-  // TYDateTime, // this should have subtypes TYDateTimeSeconds and
-  // TYDateTimeStructTM; based on usage patterns the right one
+  // This is needed in addition to TYUnknown because that also indicates
+  // something is open for non-local inference. If you instead poison
+  // something with TYError it will not be considered for nonlocal
+  // inference.
+  TYDateTime, // this should have subtypes TYDateTimeSeconds and
+  TYDateTimeSec, // based on usage patterns the right one
   // is applied (for just > >= etc. seconds from epoch is enough)
-  TYSize, // this is actually uintptr_t, since actual ptrs are
+  TYRange, //
+  TYPtrInt, // this is actually uintptr_t, since actual ptrs are
+  TYSize2D, // this is actually uintptr_t, since actual ptrs are
   // TYObjects. maybe rename it
-  // TY2DPoint, // 200x200
-  // TYRect, // 0x0:150x150. A range of 2 2D points is a... rect!
+  TYPoint2D, // 200x200
+  TYRect, // 0x0:150x150. A range of 2 2D points is a... rect!
   TYRegex,
   TYString, // need to distinguish String and char*?
   TYBool,
@@ -110,7 +117,12 @@ typedef enum TypeTypes {
   TYUInt64,
   //  TYReal16,
   TYReal32,
-  TYReal64 // Numbers start out with Real64 by default
+  TYReal64, // Numbers start out with Real64 by default
+  TYDual32, // for forward mode AD
+  TYDual64,
+  TYActive32, // for reverse mode AD
+  TYActive64,
+  TYComplex
   // conplex, duals, intervals,etc.??
 } TypeTypes;
 
@@ -118,15 +130,15 @@ static bool Typetype_isnum(TypeTypes tyty) { return tyty >= TYInt8; }
 
 static const char* Typetype_name(TypeTypes tyty) {
   switch (tyty) {
-  case TYUnresolved: return NULL;
-  case TYNilType: return "Nil";
-  case TYNoType: return "Void";
-  case TYErrorType: return "<invalid>";
+  case TYUnknown: return NULL;
+  case TYNil: return "Nil";
+  case TYVoid: return "Void";
+  case TYError: return "<invalid>";
   case TYString: return "String";
   case TYBool: return "Boolean";
   case TYRegex: return "Regex";
   case TYObject: return "";
-  case TYSize:
+  case TYPtrInt:
   case TYInt8:
   case TYUInt8:
   case TYInt16:
@@ -136,20 +148,31 @@ static const char* Typetype_name(TypeTypes tyty) {
   case TYInt64:
   case TYUInt64:
   case TYReal32:
-  case TYReal64: return "Number";
+  case TYReal64:
+  case TYDual32:
+  case TYDual64:
+  case TYActive32:
+  case TYActive64: return "Number";
+  case TYDateTime:
+  case TYDateTimeSec: return "DateTime";
+  case TYSize2D: return "ui.Size";
+  case TYPoint2D: return "ui.Point";
+  case TYRect: return "ui.Rect";
+  case TYRange: return "Range";
+  case TYComplex: return "Complex";
   }
 }
 
 static const char* Typetype_c_name[] = {
-  [TYUnresolved] = "<unresolved>",
-  [TYNoType] = "void",
-  [TYNilType] = "(nil)",
-  [TYErrorType] = "<invalid>",
+  [TYUnknown] = "<unknown>",
+  [TYVoid] = "void",
+  [TYNil] = "(nil)",
+  [TYError] = "<invalid>",
   [TYString] = "String",
   [TYBool] = "bool",
   [TYRegex] = "Regex",
   [TYObject] = "<object>",
-  [TYSize] = "SizeT",
+  [TYPtrInt] = "SizeT",
   [TYInt8] = "Int8",
   [TYUInt8] = "UInt8",
   [TYInt16] = "Int16",
@@ -165,13 +188,13 @@ static const char* Typetype_c_name[] = {
 // these are DEFAULTS
 static const char* Typetype_format(TypeTypes tyty, bool quoted) {
   switch (tyty) {
-  case TYUnresolved:
-  case TYNoType:
-  case TYNilType:
-  case TYErrorType: return NULL;
+  case TYUnknown:
+  case TYVoid:
+  case TYNil:
+  case TYError: return NULL;
   case TYObject: return "%p";
-  case TYSize: // this is actually uintptr_t, since actual ptrs are
-               // TYObjects. maybe rename it
+  case TYPtrInt: // this is actually uintptr_t, since actual ptrs are
+                 // TYObjects. maybe rename it
     return "%lu";
   case TYString: return quoted ? "\\\"%s\\\"" : "%s";
   case TYRegex: return "%s";
@@ -189,21 +212,22 @@ static const char* Typetype_format(TypeTypes tyty, bool quoted) {
   case TYInt64: // for loop indices start out as size_t by default
     return "%d";
   case TYUInt64: return "%u";
-  case TYReal32: return "%g";
-  case TYReal64: // Numbers start out with Real64 by default
+  case TYReal32:
+  case TYReal64:
     return "%g";
+    // Numbers start out with Real64 by default
   }
 }
 
 // needed to compute stack usage
 static unsigned int Typetype_size(TypeTypes tyty) {
   switch (tyty) {
-  case TYUnresolved:
-  case TYNoType:
-  case TYNilType:
-  case TYErrorType: return 0;
+  case TYUnknown:
+  case TYVoid:
+  case TYNil:
+  case TYError: return 0;
   case TYObject: return sizeof(void*);
-  case TYSize: return sizeof(size_t);
+  case TYPtrInt: return sizeof(size_t);
   case TYRegex: return sizeof(char*);
   case TYString: return sizeof(char*); // what about length
   case TYBool: return sizeof(int);
@@ -227,15 +251,15 @@ static unsigned int Typetype_size(TypeTypes tyty) {
 // but this is needed as long as there is ANY type annotation somewhere.
 // (e.g. func args)
 static TypeTypes Typetype_byName(const char* spec) {
-  if (!spec) return TYUnresolved;
-  if (!strcasecmp(spec, "Number"))
-    return TYReal64; // this is default, analysis might change it to
-                     // more specific
+  if (!spec) return TYUnknown;
+  if (!strcasecmp(spec, "Number")) return TYReal64;
+  // this is default, analysis might change it to
+  // more specific
   if (!strcasecmp(spec, "String")) return TYString;
   if (!strcasecmp(spec, "Boolean")) return TYBool;
   // note that Vector, Matrix, etc. are actually types, so they should
   // resolve to TYObject.
-  return TYUnresolved;
+  return TYUnknown;
 }
 
 // says what exactly a collection should generate to, since in check

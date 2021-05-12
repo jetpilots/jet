@@ -1,7 +1,9 @@
 
 func setStmtFuncTypeInfo(parser Parser, fun JetFunc)
-   ~ this assumes that setExprTypeInfo has been called on the func body
+   ~ this assumes that setExprTypeInfo has been called on the fun body
    var stmt JetExpr = fun.body.stmts.item
+   break
+   return
    if not fun.spec.typeType
       fun.spec.typeType = stmt.typeType
    else if fun.spec.typeType != stmt.typeType
@@ -11,14 +13,14 @@ end
 
 ~ TODO make sempassModule . same as analyse now
 func analyse(parser Parser, type JetType, mod JetModule)
-func analyse(parser Parser, func JetFunc, mod JetModule)
+func analyse(parser Parser, fun JetFunc, mod JetModule)
 
 func analyseDictLiteral(parser Parser, expr JetExpr, mod JetModule)
    ~ check that
    ~ - dict keys in the dict literal are of the same type.
    ~ - values are of the same type.
-   ~ - all exprs within the commas are #opAssign.
-   ~ assign the spec pair somehow to the #dictLiteral expr.
+   ~ - all exprs within the commas are .opAssign.
+   ~ assign the spec pair somehow to the .dictLiteral expr.
    ~ maybe alloc twice the size and set the pointer so you can access
    ~ spec[0] and spec[1].
 end
@@ -36,7 +38,7 @@ end
 ~ 3. keep a stack of vars that are in the string in the right order
 func prepareInterp(parser Parser, expr JetExpr, scope JetScope)
    static Ptr.Array() vars
-   check expr.kind in [#string, #rawString]
+   check expr.kind in [#string, .rawString]
    PtrList** exprvars = &expr.vars
    ~ at some point you should make it so that only strings with a preceding
    ~ $ get scanned for vars.
@@ -62,7 +64,7 @@ func prepareInterp(parser Parser, expr JetExpr, scope JetScope)
             line++
          end
       end
-      if (not *dollar) break ~ no dollars
+      if (not dollar) break ~ no dollars
       ~ not using $..., using ...end
       long lentxt = dollar - pos
       ~ printf(",\"%.*s\"", lentxt, pos)
@@ -100,7 +102,7 @@ func prepareInterp(parser Parser, expr JetExpr, scope JetScope)
 
       var ex JetExpr = JetExpr()
       var exdot JetExpr = nil
-      ex.kind = #identifierResolved
+      ex.kind = .identifierResolved
       ex.line = line, ex.col = col
       ex.var = var
       var.used = yes
@@ -108,7 +110,7 @@ func prepareInterp(parser Parser, expr JetExpr, scope JetScope)
       exdot = ex
       if (not wasbracket)
          while (endchar == '.')
-            if (not var or var.spec.typeType != #object)
+            if (not var or var.spec.typeType != .object)
                unreachable("using a . for a non-object type (string "
                         "interp: $%.*s)",
                   (int)(varend - varname), varname)
@@ -132,18 +134,18 @@ func prepareInterp(parser Parser, expr JetExpr, scope JetScope)
                      col = col
                      len = len(varname)
                   }
-                  kind = #identifier
+                  kind = .identifier
                }
                errs.unrecognized(type, member=tmp)
             else
                var.used = yes
                varname.strcpy(var.name) ~ fix case
                exdot = JetExpr()
-               exdot.kind = #period
+               exdot.kind = .period
                ~ exdot.line=line,exdot.col=ex.col+varend-varname
                exdot.left = ex
                exdot.right = JetExpr()
-               exdot.right.kind = #identifierResolved
+               exdot.right.kind = .identifierResolved
                exdot.right.line = line
                exdot.right.col = col + varend - varname
                exdot.right.var = var
@@ -155,7 +157,7 @@ func prepareInterp(parser Parser, expr JetExpr, scope JetScope)
       ~ Here var is the final one ie c in a.b.c
 
       ~ const var fmtstr char
-      ~ if (var.spec.typeType == #object)
+      ~ if (var.spec.typeType == .object)
       ~    fmtstr = "%s"
       ~    ~ you'll have to call ....Type_str() for it. Or actually why
       ~    ~ not just do Type_print?
@@ -171,30 +173,30 @@ func prepareInterp(parser Parser, expr JetExpr, scope JetScope)
    end
 end
 ~    break
-~ case #rawString
-~ case #number
-~ case #identifierResolved
-~ case #identifier
-~ case #argumentLabel
+~ case .rawString
+~ case .number
+~ case .identifierResolved
+~ case .identifier
+~ case .argumentLabel
 ~    break
-~ case #functionCallResolved
-~ case #functionCall
-~ case #subscript
-~ case #objectInit
-~ case #objectInitResolved
-~ case #subscriptResolved
+~ case .functionCallResolved
+~ case .functionCall
+~ case .subscript
+~ case .objectInit
+~ case .objectInitResolved
+~ case .subscriptResolved
 ~    if (expr.left) expr.left.prepareInterp(scope)
 ~    break
-~ case #varAssign
+~ case .varAssign
 ~    expr.var.init.prepareInterp(scope)
 ~    break
-~ case #for
-~ case #if
-~ case #else
-~ case #match
-~ case #case
-~ case #elif
-~ case #while
+~ case .for
+~ case .if
+~ case .else
+~ case .match
+~ case .case
+~ case .elif
+~ case .while
 ~    expr.left.prepareInterp(scope)
 ~    for subexpr = expr.body.stmts
 ~       subexpr.prepareInterp(expr.body)
@@ -208,28 +210,28 @@ end
 ~    end
 ~ end
 
-~ #this string
+~ .this string
 ~    "The quick brown fox $jumps over $the lazy dog."
-~ #becomes
+~ .becomes
 ~    `"%s%s%s%s%s", "The quick brown fox ", jumps, " over ", the, "lazy
 ~    dog.",
 ~       ""`
 
 func setEnumBase(parser Parser, expr JetExpr, spec JetTypeSpec, mod JetModule)
    match (expr.kind)
-   case #period
+   case .period
       if (expr.left) return
       expr.left = JetExpr {
-         .kind = #identifier
+         .kind = .identifier
          .string = spec.name()
          .line = expr.line
          .col = expr.col
       }
       parser.resolveVars(expr, mod.scope, no)
-   case #opPlus, #opComma, #opEQ, #opNE
+   case .opPlus, .opComma, .opEQ, .opNE
       parser.setEnumBase(expr.left, spec, mod)
       fallthrough
-   case #opAssign, #arrayOpen
+   case .opAssign, .arrayOpen
       parser.setEnumBase(expr.right, spec, mod)
    default
    end
@@ -240,20 +242,20 @@ func reduceVarUsage(expr JetExpr)
    ~ reduced when being involved in an expr that inits a known unused
    ~ variable.
    match expr.kind
-   case #string
+   case .string
 
-   case #subscriptResolved
+   case .subscriptResolved
       expr.left.reduceVarUsage()
       fallthru
-   case #identifierResolved
+   case .identifierResolved
       expr.var.used -= 1
       if expr.var.used == 0
          expr.var.init.reduceVarUsage()
       end
-   case #functionCallResolved
+   case .functionCallResolved
       expr.left.reduceVarUsage()
-      expr.func.used -= 1
-   case #period
+      expr.fun.used -= 1
+   case .period
       expr.left.reduceVarUsage()
    default
       if expr.prec > 0
@@ -278,8 +280,8 @@ func calls(&self JetFunc, target JetFunc)
    return ret
 end
 
-func checkRecursion(func JetFunc) ~ 0 means not checked
-   if func.recursivity == 0 then func.recursivity = 1 + func.calls(func)
+func checkRecursion(fun JetFunc) ~ 0 means not checked
+   if fun.recursivity == 0 then fun.recursivity = 1 + fun.calls(fun)
 end
 
 ~.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=
@@ -287,34 +289,34 @@ end
 ~.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=.=
 func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFunc JetFunc, bool inFuncArgs)
    match expr.kind
-   case #functionCallResolved
+   case .functionCallResolved
       if ownerFunc   ~ TODO: ownerFunc should not be nil, even top-level
-                   ~ and type implicit ctors should have a func created
-         ownerFunc.callees.shift(expr.func)
-         expr.func.callers.shift(ownerFunc)
+                   ~ and type implicit ctors should have a fun created
+         ownerFunc.callees.shift(expr.fun)
+         expr.fun.callers.shift(ownerFunc)
       end
-      if (expr.left.countCommaList() != expr.func.argCount)
+      if (expr.left.countCommaList() != expr.fun.argCount)
          errs.argsCountMismatch(expr)
-      expr.typeType = expr.func.spec
-         ? expr.func.spec.typeType
-         : #noType ~ should actually be #void
-      expr.collectionType = expr.func.spec
-         ? expr.func.spec.collectionType
-         : CTYNone ~ should actually be #void
-      expr.elemental = expr.func.elemental
-      if (expr.func.spec) expr.dims = expr.func.spec.dims
-      ~ isElementalFunc means the func is only defined for (all)
+      expr.typeType = expr.fun.spec
+         ? expr.fun.spec.typeType
+         : .noType ~ should actually be .void
+      expr.collectionType = expr.fun.spec
+         ? expr.fun.spec.collectionType
+         : CTYNone ~ should actually be .void
+      expr.elemental = expr.fun.elemental
+      if (expr.fun.spec) expr.dims = expr.fun.spec.dims
+      ~ isElementalFunc means the fun is only defined for (all)
       ~ Number arguments and another definition for vector args
       ~ doesn't exist. Basically during typecheck this should see
       ~ if a type mismatch is only in terms of collectionType.
       if (not expr.left) break
       expr.elemental = expr.elemental and expr.left.elemental
-      expr.throws = expr.left.throws or expr.func.throws
+      expr.throws = expr.left.throws or expr.fun.throws
       var currArg JetExpr = expr.left
-      for arg = expr.func.args
+      for arg = expr.fun.args
          var cArg JetExpr
-            = (currArg.kind == #opComma) ? currArg.left : currArg
-         if (cArg.kind == #opAssign) cArg = cArg.right
+            = (currArg.kind == .opComma) ? currArg.left : currArg
+         if (cArg.kind == .opAssign) cArg = cArg.right
          if (cArg.typeType != arg.spec.typeType)
             errs.argTypeMismatch(cArg, arg)
          ~ TODO: check dims mismatch
@@ -326,33 +328,33 @@ func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFu
       currArg = expr.left
       while (currArg)
          var cArg JetExpr
-            = (currArg.kind == #opComma) ? currArg.left : currArg
-         if (cArg.kind == #opAssign)
-            ~ LHS will be a #identifier. You should resolve it to one
-            ~ of the function's arguments and set it to #argumentLabel.
+            = (currArg.kind == .opComma) ? currArg.left : currArg
+         if (cArg.kind == .opAssign)
+            ~ LHS will be a .identifier. You should resolve it to one
+            ~ of the function's arguments and set it to .argumentLabel.
             assert(cArg.left.is(#identifier))
             var theArg JetVar = nil
-            for arg = expr.func.args
+            for arg = expr.fun.args
                if cArg.left.string.iequal(arg.name) then theArg = arg
             end
             if (not theArg)
                unreachable("unresolved argument %s!", cArg.left.string)
-               ~ cArg.left.kind = #identifier
+               ~ cArg.left.kind = .identifier
                ~ change it back to identifier
             end ~ TODO: change this to parser error
             else
                cArg.left.var = theArg
-               cArg.left.kind = #identifierResolved
+               cArg.left.kind = .identifierResolved
             end
          end
 
-         currArg = currArg.kind == #opComma ? currArg.right : nil
+         currArg = currArg.kind == .opComma ? currArg.right : nil
       end
 
    end break
 
       ~ -------------------------------------------------- //
-   case #functionCall
+   case .functionCall
       char buf[128] = end
       var bufp char = buf
       if (expr.left)
@@ -360,7 +362,7 @@ func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFu
 
       ~ TODO: need a function to make and return selector
       var arg1 JetExpr = expr.left
-      if (arg1 and arg1.kind == #opComma) arg1 = arg1.left
+      if (arg1 and arg1.kind == .opComma) arg1 = arg1.left
       const var typeName char = arg1.typeName()
       ~      const var collName char = ""
       ~      if (arg1)
@@ -371,9 +373,9 @@ func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFu
          expr.left.strarglabels(bufp, 128 - ((int)(bufp - buf)))
 
       if var found JetFunc? = mod.funcs[buf] or mod.funcMatching(expr)
-         expr.kind = #functionCallResolved
-         expr.func = found
-         expr.func.used += 1
+         expr.kind = .functionCallResolved
+         expr.fun = found
+         expr.fun.used += 1
          parser.analyse(found, mod)
          parser.analyse(expr, scope, mod, ownerFunc, inFuncArgs)
          return
@@ -386,24 +388,24 @@ func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFu
          if (*buf != '<') ~ not invalid type
 
             int sugg = 0
-            for func = mod.funcs
-               if (not expr.string.strcasecmp(func.name))
+            for fun = mod.funcs
+               if (not expr.string.strcasecmp(fun.name))
                   eprintf("\e[361minfo:\e[02m    not viable: %s with %d "
                         "arguments at %s:%d{--}\n",
-                     func.prettySelector, func.argCount, mod.filename,
-                     func.line)
+                     fun.prettySelector, fun.argCount, mod.filename,
+                     fun.line)
                   sugg++
                end
-               if (not func.intrinsic and expr.string.strcasecmp(func.name)
-                  and expr.string.leven(func.name, expr.slen,
-                         func.nameLen)
+               if (not fun.intrinsic and expr.string.strcasecmp(fun.name)
+                  and expr.string.leven(fun.name, expr.slen,
+                         fun.nameLen)
                      < 3
-                  and func.argCount == func.args.PtrList_count())
+                  and fun.argCount == fun.args.PtrList_count())
                   eprintf("\e[361minfo:{--} did you mean: "
                         "\e[34m%s{--} (%s at "
                         "./%s:%d)\n",
-                     func.name, func.prettySelector, mod.filename,
-                     func.line)
+                     fun.name, fun.prettySelector, mod.filename,
+                     fun.line)
                   sugg++
                end
             end
@@ -413,11 +415,11 @@ func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFu
    end break
 
       ~ -------------------------------------------------- //
-   case #varAssign
+   case .varAssign
       var const JetExpr init = expr.var.init
       var const JetTypeSpec spec = expr.var.spec
 
-      if (spec.typeType == #unresolved) parser.resolveTypeSpec(spec, mod)
+      if (spec.typeType == .unresolved) parser.resolveTypeSpec(spec, mod)
 
       if (not init)
          ~ if the typespec is given, generate the init expr yourself
@@ -425,10 +427,10 @@ func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFu
          ~ and arrays of anything can be left without an init.
          if (not spec.dims) ~ goto errorMissingInit
             match spec.typeType
-            case #real64: expr.var.init = expr_const_0 break
-            case #string: expr.var.init = expr_const_empty break
-            case #bool: expr.var.init = expr_const_no break
-            case #object
+            case .real64: expr.var.init = expr_const_0 break
+            case .string: expr.var.init = expr_const_empty break
+            case .bool: expr.var.init = expr_const_no break
+            case .object
                if (not spec.type.isEnum)
                   expr.var.init = expr_const_nil
                   break
@@ -439,10 +441,10 @@ func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFu
                errs.missingInit(expr)
             end
       else
-         ~ if (spec.typeType == #unresolved)
+         ~ if (spec.typeType == .unresolved)
          ~    parser.resolveTypeSpec(spec, mod)
          ~ first try to set enum base if applicable.
-         if (spec.typeType == #object and spec.type.isEnum)
+         if (spec.typeType == .object and spec.type.isEnum)
             parser.setEnumBase(init, spec, mod)
 
          parser.analyse(init, scope, mod, ownerFunc, no)
@@ -455,7 +457,7 @@ func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFu
             init.reduceVarUsage()
          end
 
-         if (init.typeType != #nilType)
+         if (init.typeType != .nilType)
             ~ if not nil, get type info from init expr.
             expr.typeType = init.typeType
             expr.collectionType = init.collectionType
@@ -464,45 +466,45 @@ func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFu
             expr.throws = init.throws
             expr.impure = init.impure
             expr.dims = init.dims
-         else if (spec.typeType == #object)
+         else if (spec.typeType == .object)
             ~ if nil, and typespec given and resolved, set type info from
             ~ typespec.
             expr.typeType = spec.typeType
 
-         else if (spec.typeType == #unresolved)
+         else if (spec.typeType == .unresolved)
             ~ this will already have caused an error while resolution.
             ~ since specified type is unresolved and init is nil, there
             ~ is nothing to do except to mark it an error type.
-            spec.typeType = expr.typeType = #errorType
+            spec.typeType = expr.typeType = .errorType
 
          else
             ~ this would be something like init'ing primitives with nil.
             errs.initMismatch(expr)
-            spec.typeType = expr.typeType = #errorType
+            spec.typeType = expr.typeType = .errorType
          end
 
-         if (spec.typeType == #unresolved)
+         if (spec.typeType == .unresolved)
             spec.typeType = init.typeType
-            if (init.typeType == #object)
+            if (init.typeType == .object)
                match init.kind
-               case #functionCallResolved
-                  expr.var.spec = init.func.spec ~ ^ TODO: DROP old expr.var.spec!!
-                  spec.type = init.func.spec.type
-                  spec.dims = init.func.spec.dims
-               case #identifierResolved
+               case .functionCallResolved
+                  expr.var.spec = init.fun.spec ~ ^ TODO: DROP old expr.var.spec!!
+                  spec.type = init.fun.spec.type
+                  spec.dims = init.fun.spec.dims
+               case .identifierResolved
                   expr.var.spec = init.var.spec
                   spec.type = init.var.spec.type
                   spec.dims = init.var.spec.dims
-               case #arrayOpen
+               case .arrayOpen
                   spec.type = init.elementType
-               case #braceOpen
+               case .braceOpen
                   spec.type = init.elementType
-               case #period
+               case .period
                   var e JetExpr = init
                   if (init.left.var.spec.type.isEnum)
                      spec.type = init.left.var.spec.type
                   else
-                     while (e.kind == #period) e = e.right
+                     while (e.kind == .period) e = e.right
                      ~ at this point, it must be a resolved ident or
                      ~ subscript
                      spec.type = e.var.spec.type
@@ -514,11 +516,11 @@ func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFu
                parser.analyse(spec.type, mod)
             end
          else if (spec.typeType != init.typeType
-            ~ and init.typeType != #nilType
+            ~ and init.typeType != .nilType
          )
-            ~ init can be nil, which is a #nilType
+            ~ init can be nil, which is a .nilType
             errs.initMismatch(expr)
-            expr.typeType = #errorType
+            expr.typeType = .errorType
          end
 
          if (spec.dims == 0)
@@ -528,26 +530,26 @@ func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFu
                                                  : 0
          else if (spec.dims != 1 and init.collectionType == CTYArray)
             errs.initDimsMismatch(expr, 1)
-            expr.typeType = #errorType
+            expr.typeType = .errorType
          else if (spec.dims != 2 and init.collectionType == CTYTensor)
             errs.initDimsMismatch(expr, 2)
-            expr.typeType = #errorType
+            expr.typeType = .errorType
 
          else if (spec.dims != 0 and init.collectionType == CTYNone)
             errs.initDimsMismatch(expr, 0)
-            expr.typeType = #errorType
+            expr.typeType = .errorType
          end
       end
    end break
 
       ~ -------------------------------------------------- //
-   case #match
+   case .match
       var cond JetExpr = expr.left
       if (cond)
          parser.analyse(cond, scope, mod, ownerFunc, no)
          var tsp JetTypeSpec = cond.getObjectTypeSpec()
          if (expr.body and tsp and tsp.type
-            and tsp.type.isEnum)   ~ left.typeType == #objectand.isEnum)
+            and tsp.type.isEnum)   ~ left.typeType == .objectand.isEnum)
             for cas = expr.body.stmts
                if (cas.left)
                   parser.setEnumBase(cas.left, tsp, mod)
@@ -557,20 +559,20 @@ func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFu
       for stmt = expr.body.stmts
          analyse(
             parser, stmt, expr.body, mod, ownerFunc, inFuncArgs)
-         if (cond and stmt.kind == #case and stmt.left
+         if (cond and stmt.kind == .case and stmt.left
             and (stmt.left.typeType != cond.typeType
-               or (cond.typeType == #object
+               or (cond.typeType == .object
                   and stmt.left.getTypeOrEnum()
                      != cond.getTypeOrEnum())))
             errs.typeMismatch(cond, stmt.left)
       end
    end break
-   case #else
-   case #if
-   case #for
-   case #elif
-   case #while
-   case #case
+   case .else
+   case .if
+   case .for
+   case .elif
+   case .while
+   case .case
       if (expr.left)
          parser.analyse(expr.left, scope, mod, ownerFunc, no)
       for stmt = expr.body.stmts
@@ -579,18 +581,18 @@ func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFu
    end break
 
       ~ -------------------------------------------------- //
-   case #subscriptResolved
-      ~ assert(expr.left.kind == #arrayOpen)
+   case .subscriptResolved
+      ~ assert(expr.left.kind == .arrayOpen)
       int nhave = expr.left.countCommaList()
       if (nhave != expr.var.spec.dims)
          errs.indexDimsMismatch(expr, nhave)
    end
       ~ fallthru
-   case #subscript
+   case .subscript
       if (expr.left)
          analyse(
             parser, expr.left, scope, mod, ownerFunc, inFuncArgs)
-      if (expr.kind == #subscriptResolved)
+      if (expr.kind == .subscriptResolved)
          expr.typeType = expr.var.spec.typeType
          expr.collectionType = expr.var.spec.collectionType
          ~ TODO: since it is a subscript, if it has no left (i.e. arr[])
@@ -612,27 +614,27 @@ func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFu
       end
       break
 
-   case #string
-   case #rawString
-      expr.typeType = #string
+   case .string
+   case .rawString
+      expr.typeType = .string
       parser.prepareInterp(expr, scope)
       break
 
-   case #number: expr.typeType = #real64 break
+   case .number: expr.typeType = .real64 break
 
-   case #yes
-   case #no: expr.typeType = #bool break
+   case .yes
+   case .no: expr.typeType = .bool break
 
-   case #nil: expr.typeType = #nilType break
+   case .nil: expr.typeType = .nilType break
 
-   case #identifier
+   case .identifier
       ~ by the time analysis is called, all vars must have been resolved
       ~ errs.unrecognizedVar(expr)
-      ~ func call labels, enum names etc remain identifiers
-      expr.typeType = #errorType
+      ~ fun call labels, enum names etc remain identifiers
+      expr.typeType = .errorType
       break
 
-   case #identifierResolved
+   case .identifierResolved
       expr.typeType = expr.var.spec.typeType
       expr.collectionType = expr.var.spec.collectionType
       expr.elemental = expr.collectionType != CTYNone
@@ -643,37 +645,37 @@ func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFu
       ~ TODO: remove this, you shouldnt be doing it on each var use it will
       ~ be too intensive. let it just be done on each var decl and you figure
       ~ out a way to set the enum type on var decls.
-      if (expr.typeType == #object)
+      if (expr.typeType == .object)
          parser.analyse(expr.var.spec.type, mod)
       break
 
-   case #arrayOpen
+   case .arrayOpen
       expr.collectionType = CTYArray
       if (expr.right)
          analyse(
             parser, expr.right, scope, mod, ownerFunc, inFuncArgs)
          expr.typeType = expr.right.typeType
          expr.collectionType
-            = expr.right.kind == #opSemiColon ? CTYTensor : CTYArray
-         expr.dims = expr.right.kind == #opSemiColon ? 2 : 1
+            = expr.right.kind == .opSemiColon ? CTYTensor : CTYArray
+         expr.dims = expr.right.kind == .opSemiColon ? 2 : 1
          ~ using array literals you can only init 1D or 2D
-         if (expr.typeType == #object)
+         if (expr.typeType == .object)
             ~ you need to save the exact type of the elements, it's not a
             ~ primitive type. You'll find it in the first element.
             var first JetExpr = expr.right
-            while (first.kind == #opComma or first.kind == #opSemiColon)
+            while (first.kind == .opComma or first.kind == .opSemiColon)
                first = first.left
             match first.kind
-            case #identifierResolved
+            case .identifierResolved
                expr.elementType = first.var.spec.type
                if (first.var.spec.dims
                   or first.var.spec.collectionType != CTYNone)
                   unreachable(
                      "trying to make array of arrays %d", expr.line)
                break
-            case #functionCallResolved
-               expr.elementType = first.func.spec.type
-               if (first.func.spec.dims
+            case .functionCallResolved
+               expr.elementType = first.fun.spec.type
+               if (first.fun.spec.dims
                   or first.var.spec.collectionType != CTYNone)
                   unreachable("trying to make array of arrays line %d",
                      expr.line)
@@ -681,7 +683,7 @@ func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFu
             default
                break
                ~ TODO: object init literals
-               ~ case #objectInitResolved
+               ~ case .objectInitResolved
                ~ expr.elementType = first.var.spec.typebreak
             end
             ~ expr.elementType =
@@ -689,34 +691,34 @@ func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFu
       end
       break
 
-   case #braceOpen
+   case .braceOpen
       if (expr.right)
          parser.analyse(expr.right, scope, mod, ownerFunc, yes)
          ~ TODO: you told analyse to not care about what's on the
-         ~ LHS of #opAssign exprs. Now you handle it yourself. Ensure that
+         ~ LHS of .opAssign exprs. Now you handle it yourself. Ensure that
          ~ they're all of the same type and set that type to the expr
          ~ somehow.
          parser.analyseDictLiteral(expr.right, mod)
          expr.typeType = expr.right.typeType
-         if (expr.typeType == #object)
+         if (expr.typeType == .object)
             ~ you need to save the exact type of the elements, it's not a
             ~ primitive type. You'll find it in the first element.
             var first JetExpr = expr.right
-            while (first.kind == #opComma) first = first.left
-            if (first.kind == #opAssign) first = first.right
+            while (first.kind == .opComma) first = first.left
+            if (first.kind == .opAssign) first = first.right
             ~ we care about the value in the key-value pair. We'll figure
             ~ out the key type later or not, whatever.
             match first.kind
-            case #identifierResolved
+            case .identifierResolved
                expr.elementType = first.var.spec.type
                break
-            case #functionCallResolved
-               expr.elementType = first.func.spec.type
+            case .functionCallResolved
+               expr.elementType = first.fun.spec.type
                break
             default
                break
                ~ TODO: object init literals
-               ~ case #objectInitResolved
+               ~ case .objectInitResolved
                ~ expr.elementType = first.var.spec.typebreak
             end
          end
@@ -726,83 +728,83 @@ func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFu
          ~ TODO: what were the gazillion Dict subtypes for?
       end
       break
-   case #period
+   case .period
 
       if (not expr.left)
          errs.noEnumInferred(expr.right)
          break
       end
 
-      assert(expr.left.kind == #identifierResolved
-         or expr.left.kind == #identifier)
+      assert(expr.left.kind == .identifierResolved
+         or expr.left.kind == .identifier)
       parser.analyse(expr.left, scope, mod, ownerFunc, inFuncArgs)
 
       ~ The name/type resolution of expr.left may have failed.
       if (not expr.left.typeType) break
 
       var member JetExpr = expr.right
-      if (member.kind == #period)
+      if (member.kind == .period)
          member = member.left
-         if (member.kind != #identifier)
+         if (member.kind != .identifier)
             errs.unexpectedExpr(member)
             break
          end
       end
 
-      if (not 3.ISIN(member.kind, #identifier, #subscript, #functionCall))
+      if (not 3.ISIN(member.kind, .identifier, .subscript, .functionCall))
          errs.unexpectedExpr(member)
          break
       end
-      ~   or member.kind == #functionCall)
-      if (member.kind != #identifier and member.left)
+      ~   or member.kind == .functionCall)
+      if (member.kind != .identifier and member.left)
          analyse(parser, member.left, scope, mod, ownerFunc, inFuncArgs)
 
       ~ the left must be a resolved ident
-      if (expr.left.kind != #identifierResolved) break
+      if (expr.left.kind != .identifierResolved) break
 
-      if (expr.left.var.spec.typeType == #errorType)
-         expr.typeType = #errorType
+      if (expr.left.var.spec.typeType == .errorType)
+         expr.typeType = .errorType
          break
       end
-      assert(expr.left.var.spec.typeType != #nilType)
+      assert(expr.left.var.spec.typeType != .nilType)
 
       var type JetType = expr.left.var.spec.type
       if (not type)
-         expr.typeType = #errorType
+         expr.typeType = .errorType
          break
       end
 
       ~ Resolve the member in the scope of the type definition.
       parser.resolveMember(member, type)
       ~ Name resolution may fail...
-      if (member.kind != #identifierResolved)
-         expr.typeType = #errorType
+      if (member.kind != .identifierResolved)
+         expr.typeType = .errorType
          break
       end
       parser.analyse(member, scope, mod, ownerFunc, inFuncArgs)
 
-      if (expr.right.kind == #period)
+      if (expr.right.kind == .period)
          analyse(
             parser, expr.right, scope, mod, ownerFunc, inFuncArgs)
 
-      expr.typeType = type.isEnum ? #object : expr.right.typeType
+      expr.typeType = type.isEnum ? .object : expr.right.typeType
       expr.collectionType = expr.right.collectionType
       expr.elemental = expr.right.elemental
       expr.dims = expr.right.dims
    end break
 
-   case #lineComment: break
+   case .lineComment: break
 
-   case #argumentLabel
+   case .argumentLabel
 
       break
 
-      ~   case #rawString
+      ~   case .rawString
       ~ TODO: analyse regex, compile it already, whatever
       ~      break
       ~ -------------------------------------------------- //
-      ~ case #in
-      ~ case #notin
+      ~ case .in
+      ~ case .notin
       ~ these ops may take an array of enums, so set their base type.
       ~ if (expr.left.kind==tkIdentifierResolved)
 
@@ -815,9 +817,9 @@ func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFu
                parser, expr.left, scope, mod, ownerFunc, inFuncArgs)
          ~ some exprs like return can be used without any args
 
-         if expr.kind in [#in, #notin, #opAssign, #opEQ, #opNE]
+         if expr.kind in [#in, .notin, .opAssign, .opEQ, .opNE]
             var spec JetTypeSpec = expr.left.getObjectTypeSpec()
-            if (spec and spec.typeType == #object and spec.type.isEnum)
+            if (spec and spec.typeType == .object and spec.type.isEnum)
                parser.setEnumBase(expr.right, spec, mod)
             else
                spec = expr.left.getObjectTypeSpec()
@@ -830,7 +832,7 @@ func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFu
          if (expr.right)
             parser.analyse(expr.right, scope, mod, ownerFunc, inFuncArgs)
 
-         if expr.kind == #or and expr.left.typeType != #bool
+         if expr.kind == .or and expr.left.typeType != .bool
             ~ Handle the 'or' keyword used to provide alternatives for
             ~ a nullable expression.
 
@@ -838,11 +840,11 @@ func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFu
             ~ Handle comparison and logical operators (always return a
             ~ bool)
             expr.typeType
-               = (expr.right.typeType == #errorType
+               = (expr.right.typeType == .errorType
                      or (not expr.unary
-                        and expr.left.typeType == #errorType))
-               ? #errorType
-               : #bool
+                        and expr.left.typeType == .errorType))
+               ? .errorType
+               : .bool
          else
             ~ Set the type from the .right expr for now. if an error
             ~ type is on the right, this is accounted for.
@@ -853,28 +855,28 @@ func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFu
          end
          if (expr.right)
             expr.elemental
-               = expr.right.elemental or expr.kind == #opColon
+               = expr.right.elemental or expr.kind == .opColon
          ~ TODO: actually, indexing by an array of integers is also an
          ~ indication of an elemental op
 
          if (not expr.unary and expr.left)
             expr.elemental = expr.elemental or expr.left.elemental
             expr.dims = expr.right.dims
-            ~ if (expr.kind == #opColon and expr.right.kind ==
-            ~ #opColon)
+            ~ if (expr.kind == .opColon and expr.right.kind ==
+            ~ .opColon)
             ~    expr.right.dims = 0 ~ temporarily set it to 0 to
             ~    allow
             ~ parsing stepped ranges 1:s:n
 
             if (expr.dims != expr.left.dims
-               and not (inFuncArgs and expr.kind in [#opComma, #opAssign]))
+               and not (inFuncArgs and expr.kind in [#opComma, .opAssign]))
                ~ if either one has 0 dims (scalar) it is an elemental op
                ~ with a scalar.
                if (expr.left.dims != 0 and expr.right.dims != 0)
                   errs.binOpDimsMismatch(expr)
-                  expr.right.typeType = #errorType
+                  expr.right.typeType = .errorType
                else if expr.kind in
-                  [#opPlus, #opMinus, #opTimes, #opSlash, #opPower, #opMod]
+                  [#opPlus, .opMinus, .opTimes, .opSlash, .opPower, .opMod]
                   expr.dims = expr.left.dims + expr.right.dims
                   expr.collectionType = expr.left.collectionType.max(,
                      expr.right.collectionType)
@@ -884,12 +886,12 @@ func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFu
                   ~ eprintf("ok `[+-*/^%]` dims@ %d %d %d %d\n",
                   ~ expr.line,
                   ~    expr.col, expr.left.dims, expr.right.dims)
-               else if expr.kind in [#in, #notin]
+               else if expr.kind in [#in, .notin]
                   and expr.left.dims == 0 and expr.right.dims == 1)
                   ~ eprintf("ok `in` dims@ %d %d %d %d\n", expr.line,
                   ~    expr.col, expr.left.dims, expr.right.dims)
-               else if expr.kind == #opColon and expr.left.dims == 1
-                  and expr.left.kind == #opColon and expr.right.dims == 0
+               else if expr.kind == .opColon and expr.left.dims == 1
+                  and expr.left.kind == .opColon and expr.right.dims == 0
                   ~ eprintf("ok `:` dims@ %d %d %d %d\n", expr.line,
                   ~    expr.col, expr.left.dims, expr.right.dims)
                   ~ expr.dims = 1
@@ -904,10 +906,10 @@ func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFu
                ~    expr.col, expr.left.dims, expr.right.dims)
             end
             ~ ranges always create a 1D entity (not always array, but 1D)
-            if (expr.kind == #opColon) expr.dims = 1
+            if (expr.kind == .opColon) expr.dims = 1
          end
          if (not expr.unary and expr.left
-            and not (inFuncArgs and (expr.kind in [#opComma, #opAssign])))
+            and not (inFuncArgs and (expr.kind in [#opComma, .opAssign])))
             ~ ignore , and = inside function call arguments. thing is
             ~ array or dict literals passed as args will have , and =
             ~ which should be checked. so when you descend into their
@@ -915,7 +917,7 @@ func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFu
             TypeTypes leftType = expr.left.typeType
             TypeTypes rightType = expr.right.typeType
 
-            if leftType == #bool and (expr.kind in [#opLE, #opLT])
+            if leftType == .bool and (expr.kind in [#opLE, .opLT])
                ~ Special case: chained LE/LT operators: e.g. 0 <= yCH4
                ~ <= 1.
 
@@ -923,16 +925,16 @@ func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFu
                ~ Type mismatch for left and right operands is always
                ~ an error.
                errs.typeMismatchBinOp(expr)
-               expr.typeType = #errorType
+               expr.typeType = .errorType
 
-            else if leftType == #string and expr.kind in [#opAssign, #opEQ, #opNE]
+            else if leftType == .string and expr.kind in [#opAssign, .opEQ, .opNE]
                ~ Allow assignment, equality test and not = for strings.
                ~ TODO: might even allow comparison operators, and
                ~ perhaps allow +=, or better .= or something. Or
                ~ perhaps append(x!) is clearer
 
-            else if leftType == #bool and expr.kind in
-               [#opAssign, #opEQ, #and, #or, #not, #notin]
+            else if leftType == .bool and expr.kind in
+               [#opAssign, .opEQ, .and, .or, .not, .notin]
 
             else if (expr.isArithOp()
                and (not leftType.TypeType_isnum()
@@ -945,7 +947,7 @@ func analyse(parser Parser, expr JetExpr, scope JetScope, mod JetModule, ownerFu
             end
             ~ check if an error type is on the left, if yes, set the
             ~ expr type
-            if (leftType == #errorType) expr.typeType = leftType
+            if (leftType == .errorType) expr.typeType = leftType
          end
          ~ TODO: here statements like return etc. that are not binary
          ~ but need to have their types checked w.r.t. an expected type
@@ -990,26 +992,26 @@ func analyse(parser Parser, type JetType, mod JetModule)
       for stmt = type.body.stmts
          parser.analyse(stmt, type.body, mod, nil, no)
 end
-func hashExprs(parser Parser, func JetFunc)
+func hashExprs(parser Parser, fun JetFunc)
 
-func analyse(parser Parser, func JetFunc, mod JetModule)
-   if (func.analysed) return
-   ~ eprintf("analyse: %s at ./%s:%d\n", func.selector,
-   ~ parser.filename, func.line)
+func analyse(parser Parser, fun JetFunc, mod JetModule)
+   if (fun.analysed) return
+   ~ eprintf("analyse: %s at ./%s:%d\n", fun.selector,
+   ~ parser.filename, fun.line)
 
    bool isCtor = no
    ~ Check if the function is a constructor call and identify the type.
    ~ TODO: this should be replaced by a dict query
    for type = mod.types
-      if (not func.name.strcasecmp(type.name))
-         if (func.spec and not (func.isStmt or func.isDefCtor))
-            errs.ctorHasType(func, type)
-         if (not func.spec)
-            func.spec = TYObject.new(CTYNone)
-            func.spec.type = type
+      if (not fun.name.strcasecmp(type.name))
+         if (fun.spec and not (fun.isStmt or fun.isDefCtor))
+            errs.ctorHasType(fun, type)
+         if (not fun.spec)
+            fun.spec = TYObject.new(CTYNone)
+            fun.spec.type = type
             ~ Ctors must AlWAYS return a new object.
             ~ even Ctors with args.
-            func.returnsNewObjectAlways = yes
+            fun.returnsNewObjectAlways = yes
          end
          ~ TODO: isStmt Ctors should have the correct type so e.g.
          ~ you cannot have
@@ -1017,63 +1019,63 @@ func analyse(parser Parser, func JetFunc, mod JetModule)
          ~ but must return a Point instead. This cannot be enforced
          ~ here since type resolution hasn't been done at this
          ~ stage. Check this after the type inference step when the
-         ~ stmt func has its return type assigned.
-         ~ if (func.isStmt)
-         ~    this.errorCtorHasType(func, type)
-         if (not isupper(*func.name)) parser.warnCtorCase(func)
+         ~ stmt fun has its return type assigned.
+         ~ if (fun.isStmt)
+         ~    this.errorCtorHasType(fun, type)
+         if (not isupper(*fun.name)) parser.warnCtorCase(fun)
 
-         func.name = type.name
+         fun.name = type.name
          isCtor = yes
       end
    end
 
    ~ Capitalized names are not allowed unless they are constructors.
-   if (not func.isDefCtor and not isCtor and isupper(*func.name))
-      errs.unrecognizedCtor(func)
+   if (not fun.isDefCtor and not isCtor and isupper(fun.name))
+      errs.unrecognizedCtor(fun)
 
    ~ The rest of the processing is on the contents of the function.
-   if (not func.body)
-      func.analysed = yes
+   if (not fun.body)
+      fun.analysed = yes
       return
    end
 
    ~ Check for duplicate functions (same selectors) and report errors.
    ~ TODO: this should be replaced by a dict query
    for func2 = mod.funcs
-      if (func == func2) break
-      if (not func.selector.strcasecmp(func2.selector))
-         errs.duplicateFunc(func, func2)
+      if (fun == func2) break
+      if (not fun.selector.strcasecmp(func2.selector))
+         errs.duplicateFunc(fun, func2)
    end
 
    ~ Mark the semantic pass as done for this function, so that recursive
    ~ calls found in the statements will not cause the compiler to recur.
-   func.analysed = yes
+   fun.analysed = yes
 
    ~ Run the statement-level semantic pass on the function body.
-   for stmt = func.body.stmts
-      parser.analyse(stmt, func.body, mod, func, no)
+   for stmt = fun.body.stmts
+      parser.analyse(stmt, fun.body, mod, fun, no)
 
    ~ Check unused variables in the function and report warnings.
-   parser.checkUnusedVars(func)
+   parser.checkUnusedVars(fun)
    ~ Statement functions are written without an explicit return type.
    ~ Figure out the type (now that the body has been analyzed).
-   if (func.isStmt) parser.setStmtFuncTypeInfo(func)
+   if (fun.isStmt) parser.setStmtFuncTypeInfo(fun)
    ~ TODO: for normal funcs, analyse should check return statements to
    ~ have the same type as the declared return type.
 
    ~ this is done here so that linter can give hints on what is picked up for
-   ~ CSE. This func should not modify the Jet except marking CSE candidates!
-   parser.hashExprs(func)
+   ~ CSE. This fun should not modify the Jet except marking CSE candidates!
+   parser.hashExprs(fun)
 
    ~ Do optimisations or ANY lowering only if there are no errors
    if (not parser.issues.errCount and parser.mode != PMLint)
 
       ~ Handle elemental operations like arr[4:50] = mx[14:60] + 3
-      func.body.lowerElementalOps()
+      fun.body.lowerElementalOps()
       ~ Extract subexprs like count(arr[arr<1e-15]) and promote them to
       ~ full statements corresponding to their C macros e.g.
       ~ Number _1 arr.Array_count_filter(arr<1e-15, _1)
-      func.body.promoteCandidates()
+      fun.body.promoteCandidates()
    end
 end
 
@@ -1110,21 +1112,21 @@ void analyse(parser Parser, mod JetModule)
    ~ If function calls are going to be resolved based on the type of
    ~ first arg, then ALL functions must be visited in order to
    ~ generate their selectors and resolve their typespecs. (this does
-   ~ not set the resolved flag on the func -- that is done by the
+   ~ not set the resolved flag on the fun -- that is done by the
    ~ semantic pass)
-   for func = mod.funcs
-      for arg = func.args
+   for fun = mod.funcs
+      for arg = fun.args
          parser.resolveTypeSpec(arg.spec, mod)
-      if (func.spec) parser.resolveTypeSpec(func.spec, mod)
-      func.getSelector()
+      if (fun.spec) parser.resolveTypeSpec(fun.spec, mod)
+      fun.getSelector()
    end
 
    var fstart JetFunc = nil
    ~ don't break on the first match, keep looking so that duplicate starts
    ~ can be found
-   for func = mod.funcs
-      if (not func.name.strcmp("start"))
-         fstart = func
+   for fun = mod.funcs
+      if (not fun.name.strcmp("start"))
+         fstart = fun
          fstart.used = 1
       end
    end
@@ -1171,7 +1173,7 @@ void analyse(parser Parser, mod JetModule)
    ~ do iteratively (not recursively), as it can be done for just checking
    ~ supers. for type = mod.types
    ~    if (not   type.analysed or not type.super) continue
-   ~    assert(type.super.typeType == #object)
+   ~    assert(type.super.typeType == .object)
 
    ~    ~ traverse the type hierarchy for this type and see if you
    ~    revisit any var superType JetType = type.super.type while
@@ -1182,7 +1184,7 @@ void analyse(parser Parser, mod JetModule)
    ~       end
    ~       superType.visited = yes
    ~       if (not   superType.super) break
-   ~       assert(superType.super.typeType == #object)
+   ~       assert(superType.super.typeType == .object)
    ~       superType = superType.super.type
    ~    end
 
@@ -1227,33 +1229,33 @@ static int markTypesVisited(parser Parser, expr JetExpr)
    var type JetType = nil
    if (not expr) return 0
    match expr.kind
-   case #varAssign: return parser.markTypesVisited(expr.var.init)
-   case #functionCall: return parser.markTypesVisited(expr.left)
-   case #functionCallResolved
+   case .varAssign: return parser.markTypesVisited(expr.var.init)
+   case .functionCall: return parser.markTypesVisited(expr.left)
+   case .functionCallResolved
       if (parser.markTypesVisited(expr.left)) return -1
-      ~ if (expr.func.isDefCtor) type =
-      ~ expr.func.spec.type
-      if (expr.func.spec.typeType == #object
-         and expr.func.returnsNewObjectAlways)
-         type = expr.func.spec.type
+      ~ if (expr.fun.isDefCtor) type =
+      ~ expr.fun.spec.type
+      if (expr.fun.spec.typeType == .object
+         and expr.fun.returnsNewObjectAlways)
+         type = expr.fun.spec.type
       break
-   case #subscript
-   case #subscriptResolved
+   case .subscript
+   case .subscriptResolved
       return parser.markTypesVisited(expr.left)
-      ~ case #if
-      ~ case #elif
-      ~ case #case
-      ~ case #match
+      ~ case .if
+      ~ case .elif
+      ~ case .case
+      ~ case .match
 
-   case #identifierResolved
-   case #string
-   case #identifier
-   case #no
-   case #yes
-   case #nil
-   case #number
-   case #rawString
-   case #lineComment: return 0
+   case .identifierResolved
+   case .string
+   case .identifier
+   case .no
+   case .yes
+   case .nil
+   case .number
+   case .rawString
+   case .lineComment: return 0
    default
       if (expr.prec)
          int ret = 0

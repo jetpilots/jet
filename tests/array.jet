@@ -1,11 +1,11 @@
-declare function push(arr Any, item Any)
-declare function pop(arr Any)
-declare function concat(arr Any, arr2 Any)
-declare function describe(what Any)
-declare function print(what Any)
-declare type Strs
+decl func push(arr Any, item Any)
+decl func pop(arr Any)
+decl func concat(arr Any, arr2 Any)
+decl func describe(what Any)
+decl func print(what Any)
+decl type Strs end
 ~ do declare type
-declare type Any
+decl type Any end
 
 type Something
    var x = 4
@@ -37,14 +37,14 @@ func start(a Strs)
     ~ literal ints hint at int unless a division or other op is found
     ~ generate the above = to a `Array_init_cArray` call
     push(arr, 3)
-    let m = pop(arr!)
+    var m = pop(arr!)
     push(arr, 4)
     arr = 3 + 4
     push(arr, m)
 
     concat(arr!, [5, 6, 7, 8])
     ~ just a `Array_concat_cArray` call
-    let arrd as Number[] = arr / 2
+    var arrd as Number[] = arr / 2
     ~ asking for double
     describe(arr)
     ~ 4-element Array<Int>... [ 1, 2, 3, 5]

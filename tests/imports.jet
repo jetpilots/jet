@@ -9,7 +9,11 @@ type Jax
    var x = 6
 end
 
+
 func start()
    print("yellow")
-   im.noko()
+   im..noko()
+   var win ui_Window
+   poly_derive(y, 67)
+   a = m_sin(x)
 end

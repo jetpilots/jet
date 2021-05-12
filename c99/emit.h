@@ -2,18 +2,12 @@
 #define genCoverage 1
 #define genLineProfile 1
 
-#define outln(s) fwrite(s "\n", sizeof(s ""), 1, stdout)
-#define outl(s) fwrite(s "", sizeof(s "") - 1, 1, stdout)
-#define iprintf(nspc, fmt, ...)                                            \
-  printf("%.*s", nspc, spaces), printf(fmt, __VA_ARGS__)
+// _Thread_local static FILE* outfile = NULL;
 
 static void imp_emit(Import* import, int level) {
   char* alias = import->aliasOffset + import->name;
   cstr_tr_ip_len(import->name, '.', '_', 0);
   printf("\n#include \"%s.h\"\n", import->name);
-  if (alias) printf("#define %s %s\n", alias, import->name);
-  // TODO: remove #defines! There could be a field of any
-  // struct with the same name that will get clobbered
   cstr_tr_ip_len(import->name, '_', '.', 0);
 }
 
@@ -47,7 +41,7 @@ static void spec_emit(TypeSpec* spec, int level, bool isconst) {
     // leaving it as is for now
     printf("%s", spec->type->name);
     break;
-  case TYUnresolved:
+  case TYUnknown:
     unreachable(
         "unresolved: '%s' at %d:%d", spec->name, spec->line, spec->col);
     printf("%s", *spec->name ? spec->name : "Error_Type");
@@ -70,23 +64,6 @@ static void var_emit(Var* var, int level, bool isconst) {
   if (var->spec) spec_emit(var->spec, level + STEP, isconst);
   printf(" %s", var->name);
 }
-
-// Functions like Array_any_filter, Array_count_filter etc.
-// are macros and don't return a value but may set one. For these
-// and other such funcs, the call must be moved to before the
-// containing statement, and in place of the original call you
-// should place a temporary holding the value that would have been
-// "returned".
-// static bool mustPromote(const char* name) {
-//     // TODO: at some point these should go into a dict or trie or MPH
-//     // whatever
-//     if (!strcmp(name, "Array_any_filter")) return true;
-//     if (!strcmp(name, "Array_all_filter")) return true;
-//     if (!strcmp(name, "Array_count_filter")) return true;
-//     if (!strcmp(name, "Array_write_filter")) return true;
-//     if (!strcmp(name, "Strs_print_filter")) return true;
-//     return false;
-// }
 
 static void expr_unmarkVisited(Expr* expr) {
   switch (expr->kind) {
@@ -128,17 +105,7 @@ static void expr_genPrintVars(Expr* expr, int level) {
     expr->var->visited = true;
     break;
 
-  case tkPeriod:
-    //        {
-    //            Expr* e = expr->right;
-    //            while (e->kind==tkPeriod) e=e->right;
-    ////            if (e->var->visited) break;
-    //            printf("%.*sprintf(\"    %s = %s\\n\", %s);\n", level,
-    //            spaces,
-    //                   expr->var->name, Typetype_format(e->typeType,
-    //                   true), expr->var->name);
-    //        }
-    break;
+  case tkPeriod: break;
 
   case tkFuncCallR:
   case tkFuncCall: // shouldnt happen
@@ -154,223 +121,6 @@ static void expr_genPrintVars(Expr* expr, int level) {
       if (!expr->unary) expr_genPrintVars(expr->left, level);
       expr_genPrintVars(expr->right, level);
     }
-  }
-}
-
-// Extraction scan & Extraction happens AFTER resolving functions!
-static Expr* expr_findExtractionCandidate(Expr* expr) {
-  assert(expr);
-  Expr* ret;
-
-  // what about func args?
-  switch (expr->kind) {
-  case tkFuncCallR:
-    // promote innermost first, so check args
-    if (expr->left && (ret = expr_findExtractionCandidate(expr->left)))
-      return ret;
-    else if (expr->extract)
-      return expr;
-    break;
-
-  case tkSubscriptR:
-    return expr_findExtractionCandidate(expr->left);
-    // TODO: here see if the subscript itself needs to be promoted up
-
-  case tkSubscript: return expr_findExtractionCandidate(expr->left);
-
-  case tkIf:
-  case tkFor:
-  case tkElse:
-  case tkElif:
-  case tkWhile:
-    if (expr->left) return expr_findExtractionCandidate(expr->left);
-    // body will be handled by parent scope
-
-  case tkVarDefn:
-    if ((ret = expr_findExtractionCandidate(expr->var->init))) return ret;
-    break;
-
-  case tkFuncCall: // unresolved
-    // assert(0);
-    unreachable("unresolved call %s\n", expr->str);
-    if ((ret = expr_findExtractionCandidate(expr->left))) return ret;
-    break;
-
-  default:
-    if (expr->prec) {
-      if (expr->right && (ret = expr_findExtractionCandidate(expr->right)))
-        return ret;
-      if (!expr->unary)
-        if ((ret = expr_findExtractionCandidate(expr->left))) return ret;
-    }
-  }
-  return NULL;
-}
-
-static char* newTmpVarName(int num, char c) {
-  char buf[8];
-  int l = snprintf(buf, 8, "_%c%d", c, num);
-  return cstr_pndup(buf, l);
-}
-
-static bool isCtrlExpr(Expr* expr) {
-  return expr->kind == tkIf //
-      || expr->kind == tkFor //
-      || expr->kind == tkWhile //
-      || expr->kind == tkElse;
-}
-
-static bool isLiteralExpr(Expr* expr) { return false; }
-static bool isComparatorExpr(Expr* expr) { return false; }
-
-static void scope_lowerElementalOps(Scope* scope) {
-  foreach (Expr*, stmt, scope->stmts) {
-
-    if (isCtrlExpr(stmt) && stmt->body) scope_lowerElementalOps(stmt->body);
-
-    if (!stmt->elemental) continue;
-
-    // wrap it in an empty block (or use if true)
-    Expr* ifblk = NEW(Expr);
-    ifblk->kind = tkIf;
-    ifblk->left = NEW(Expr);
-    ifblk->left->kind = tkNumber;
-    ifblk->str = "1";
-
-    // look top-down for subscripts. if you encounter a node with
-    // elemental=false, don't process it further even if it may have
-    // ranges inside. e.g.
-    // vec[7:9] = arr2[6:8] + sin(arr2[-6:-1:-4]) + test[[8,6,5]]
-    // + 3 + count(vec[vec < 5]) + M ** x[-8:-1:-4]
-    // the matmul above is not
-    // elemental, but the range inside it is.
-    // the Array_count_filter will be promoted and isnt elemental
-    // (unless you plan to set elemental op on boolean subscripts.)
-    // Even so, count is a reduce op and will unset elemental.
-    // --
-    // as you find each subscript, add 2 local vars to the ifblk body
-    // so then you might have for the above example :
-    // T* vec_p1 = vec->start + 7;
-    // // ^ this func could be membptr(a,i) -> i<0 ? a->end-i :
-    // a->start+i #define vec_1 *vec_p1 // these could be Vars with
-    // an isCMacro flag T2* arr2_p1 = membptr(arr2, 6); #define arr2_1
-    // *arr2_p1 T3* arr2_p2 = membptr(arr2, -6); #define arr2_2 *arr2_p2
-    // ...
-    // // now add vars for each slice end and delta
-    // const T* const vec_e1 = vec->start + 9; // use membptr
-    // const T2* const arr2_e1 = arr2->start + 8; // membptr
-    // const T3* const arr2_e2 = membptr(arr2, -4);
-    // what about test[[8,6,5]]?
-    // const T* const vec_d1 = 1;
-    // const T2* const arr2_d1 = 1;
-    // const T3* const arr2_d2 = -1;
-    // ...
-    // // the ends (and starts) could be used for BC.
-    // ...
-    // // now add a check / separate checks for count match and bounds
-    // check_span1deq(vec_e1,vec_p1,arr2_e1,arr2_p1,col1,col2,"vec[7:9]","arr2[6:8]",__FILE__,__LINE__);
-    // check_span1deq(arr2_e1,arr2_p1,arr2_e2,arr2_p2,col1,col2,"arr2[6:8]","arr2[-6:-4]",__FILE__,__LINE__);
-    // check_inbounds1d(vec, vec_p1, vec_e1,col1,
-    // "vec[7:9]",__FILE__,__LINE__) check_inbounds1d(arr2, arr2_p1,
-    // arr2_e1,col1, "arr2[6:8]",__FILE__,__LINE__) now change the
-    // subscripts in the stmt to unresolved idents, and change the ident
-    // by appending _1, _2 etc. based on their position. so when they
-    // are generated they will refer to the current item of that array.
-    // then wrap the stmt in a for expr 'forblk'. put the for expr in
-    // ifblk. the active scope is now the for's body. generate the stmt.
-    // it should come out in Number form if all went well.. add
-    // increments for each ptr. vec_p1 += vec_d1; arr2_p1 += arr2_d1;
-    // arr2_p2 += arr2_d2;
-    // ...
-    // all done, at the end put the ifblk at the spot of stmt in the
-    // original scope. stmt is already inside ifblk inside forblk.
-  }
-}
-
-static void scope_promoteCandidates(Scope* scope) {
-  int tmpCount = 0;
-  Expr* pc = NULL;
-  List(Expr)* prev = NULL;
-  foreachn(Expr*, stmt, stmts, scope->stmts) {
-    // TODO:
-    // if (! stmt->promote) {prev=stmts;continue;}
-
-    if (isCtrlExpr(stmt) && stmt->body) scope_promoteCandidates(stmt->body);
-
-  startloop:
-
-    if (!(pc = expr_findExtractionCandidate(stmt))) { // most likely
-      prev = stmts;
-      continue;
-    }
-    if (pc == stmt) {
-      // possible, less likely: stmt already at toplevel.
-      // TODO: in this case, you still have to add the extra arg.
-      prev = stmts;
-      continue;
-    }
-
-    Expr* pcClone = NEW(Expr);
-    *pcClone = *pc;
-
-    // 1. add a temp var to the scope
-    Var* tmpvar = NEW(Var);
-    tmpvar->name = newTmpVarName(++tmpCount, 'p');
-    tmpvar->spec = NEW(TypeSpec);
-    //        tmpvar->spec->typeType = TYReal64; // FIXME
-    // TODO: setup tmpvar->spec
-    li_push(&scope->locals, tmpvar);
-
-    // 2. change the original to an ident
-    pc->kind = tkIdentR;
-    pc->prec = 0;
-    pc->var = tmpvar;
-
-    // 3. insert the tmp var as an additional argument into the call
-
-    if (!pcClone->left)
-      pcClone->left = pc;
-    else if (pcClone->left->kind != tkComma) {
-      // single arg
-      Expr* com = NEW(Expr);
-      // TODO: really should have an astexpr ctor
-      com->prec = TokenKind_getPrecedence(tkComma);
-      com->kind = tkComma;
-      com->left = pcClone->left;
-      com->right = pc;
-      pcClone->left = com;
-    } else {
-      Expr* argn = pcClone->left;
-      while (argn->kind == tkComma && argn->right->kind == tkComma)
-        argn = argn->right;
-      Expr* com = NEW(Expr);
-      // TODO: really should have an astexpr ctor
-      com->prec = TokenKind_getPrecedence(tkComma);
-      com->kind = tkComma;
-      com->left = argn->right;
-      com->right = pc;
-      argn->right = com;
-    }
-
-    // 4. insert the promoted expr BEFORE the current stmt
-    //        li_push(prev ? &prev : &self->stmts, pcClone);
-    //        PtrList* tmp = prev->next;
-    // THIS SHOULD BE in PtrList as insertAfter method
-    if (!prev) {
-      scope->stmts = li_with(pcClone);
-      scope->stmts->next = stmts;
-      prev = scope->stmts;
-    } else {
-      prev->next = li_with(pcClone);
-      prev->next->next = stmts;
-      prev = prev->next;
-    } // List(Expr)* insertionPos = prev ? prev->next : self->stmts;
-      //  insertionPos
-    //  = insertionPos;
-    goto startloop; // it will continue there if no more Extractions are
-                    // needed
-
-    prev = stmts;
   }
 }
 
@@ -463,7 +213,7 @@ static void type_genJson(Type* type) {
     outln("\\n\");");
   }
   printf("    printf(\"%%.*s}\", nspc, _spaces_);\n");
-  printf("}\nMAKE_json_wrap_(%s)\n//MAKE_json_file(%s)\n", type->name,
+  printf("}\nMAKE_JSON_WRAP_(%s)\n//MAKE_JSON_FILE(%s)\n", type->name,
       type->name);
 }
 
@@ -474,7 +224,7 @@ static const char functionEntryStuff_UNESCAPED[]
 
 static const char functionExitStuff_UNESCAPED[]
     = "\n"
-      "    return result;\n"
+      "    return ans;\n"
       "uncaught: HANDLE_UNCAUGHT;\n"
       "backtrace: SHOW_BACKTRACE_LINE;\n"
       "return_: STACKDEPTH_DOWN;\n"
@@ -486,33 +236,37 @@ static void func_printStackUsageDef(size_t stackUsage) {
       stackUsage);
 }
 
-static void type_emit(Type* type, int level) {
-  if (!type->body || !type->analysed || type->isDeclare) return;
-  // if (! type->body or not type->analysed) return;
+static void type_emit_fieldHead(Type* type) {
   const char* const name = type->name;
   printf("#define FIELDS_%s \\\n", name);
+
+  if (type->super) {
+    outl("    FIELDS_");
+    spec_emit(type->super, 0, false);
+    outln(" \\");
+  }
   foreach (Var*, var, type->body->locals) {
     if (!var /*or not var->used*/) continue;
     // It's not so easy to just skip 'unused' type members.
     // what if I just construct an object and print it?
     // I expect to see the default members. But if they
     // haven't been otherwise accessed, they are left out.
-    var_emit(var, level + STEP, false);
+    var_emit(var, 4, false);
     outln("; \\");
   }
-  printf("\n\nstruct %s {\n", name);
+  outln("");
+}
 
-  if (type->super) {
-    outl("    FIELDS_");
-    spec_emit(type->super, level, false);
-    outln("");
-  }
+static void type_emit(Type* type, int level) {
+  // if (! type->body or not type->analysed) return;
+  const char* const name = type->name;
+  printf("\n\nstruct %s {\n", name);
 
   printf("    FIELDS_%s\n};\n\n", name);
   printf("static const char* %s_name_ = \"%s\";\n\n", name, name);
-  printf("static %s %s_alloc_() {\n    return _Pool_alloc_(&gPool_, "
+  printf("static %s %s_alloc_() {\n    return Pool_alloc(gPool, "
          "sizeof(struct %s));\n}\n\n",
-      name, name, name);
+      name, name, name, name);
   printf("static %s %s_init_(%s self) {\n", name, name, name);
 
   foreach (Var*, var, type->body->locals) // if (var->used)
@@ -532,7 +286,7 @@ static void type_emit(Type* type, int level) {
 
   func_printStackUsageDef(48);
   printf("#define DEFAULT_VALUE NULL\n"
-         "JET_STATIC %s %s_new_(IFDEBUG(const char* callsite_)) {\n"
+         "monostatic %s %s_new_(IFDEBUG(const char* callsite_)) {\n"
          "IFDEBUG(static const char* sig_ = \"%s()\");\n",
       name, name, name);
   puts(functionEntryStuff_UNESCAPED);
@@ -544,7 +298,7 @@ static void type_emit(Type* type, int level) {
   outln("#undef DEFAULT_VALUE\n#undef MYSTACKUSAGE\n}\n");
   printf("#define %s_print(p) %s_print__(p, STR(p))\n", name, name);
   printf(
-      "JET_STATIC void %s_print__(%s self, const char* name) {\n    "
+      "monostatic void %s_print__(%s self, const char* name) {\n    "
       "printf(\"<%s "
       "'%%s' at %%p size %%luB>\\n\",name, self, sizeof(struct %s));\n}\n",
       name, name, name, name);
@@ -592,18 +346,18 @@ static void JetEnum_genh(Type* type, int level) {
   const char* datType
       = ex1->kind == tkAssign ? expr_typeName(ex1->right) : NULL;
   if (datType)
-    printf("JET_STATIC %s %s__data[%d];\n", datType, name,
+    printf("monostatic %s %s__data[%d];\n", datType, name,
         li_count(type->body->locals));
-  printf("JET_STATIC const char* %s__fullnames[] ={\n", name);
+  printf("monostatic const char* %s__fullnames[] ={\n", name);
   foreach (Var*, var, type->body->locals)
     printf("    \"%s.%s\",\n", name, var->name);
   outln("};");
-  printf("JET_STATIC const char* %s__names[] ={\n", name);
+  printf("monostatic const char* %s__names[] ={\n", name);
   foreach (Var*, var, type->body->locals)
     printf("    \".%s\",\n", var->name);
   outln("};");
 
-  printf("JET_STATIC void %s__init() {\n", name);
+  printf("monostatic void %s__init() {\n", name);
 
   foreach (Expr*, stmt, type->body->stmts) {
     if (!stmt || stmt->kind != tkAssign) continue;
@@ -1461,116 +1215,87 @@ static void expr_emit(Expr* expr, int level) {
   }
 }
 
-// WARNING: DO NOT USE THESE STRINGS WITH PRINTF(...) USE PUTS(...).
-// static const char* coverageFunc[] = { //
-//     "static void coverage_report() { /* unused */ }",
-//     "static void coverage_report() {\n"
-//     "    int count=0,l=NUMLINES;\n"
-//     "    while(--l>0) count+=!!_cov_[l];\n"
-//     "    printf(\"coverage: %d/%d lines = %.2f%%\\n\","
-//     "        count, NUMLINES, count*100.0/NUMLINES);\n"
-//     "}"
-// };
-// WARNING: DO NOT USE THESE STRINGS WITH PRINTF(...) USE PUTS(...).
-// static const char* lineProfileFunc[] = {
-//     //
-//     "static void lineprofile_report() { /* unused */ }\n"
-//     "static void lineprofile_begin() { /* unused */ }\n",
-//     "static void lineprofile_report() {\n"
-//     // "    printf(\"profiler: %llu cycles\\n\","
-//     // "        _lprof_[NUMLINES-1]-_lprof_[0]);\n"
-//     "    FILE* fd = fopen(\".\" THISFILE \"r\", \"w\");\n"
-//     // "    for (int i=1; i<NUMLINES; i++)\n"
-//     // "        if (0== _lprof_[i]) _lprof_[i] = _lprof_[i-1];\n"
-//     // "    for (int i=NUMLINES-1; i>0; i--) _lprof_[i] -=
-//     _lprof_[i-1];\n" "    ticks sum=0; for (int i=0; i<NUMLINES; i++)
-//     sum += _lprof_[i];\n" "    for (int i=0; i<NUMLINES; i++) {\n" "
-//     double pct = _lprof_[i] * 100.0 / sum;\n" "        if (pct>1.0)"
-//     "            fprintf(fd,\" %8.1f%% |\\n\", pct);\n"
-//     "        else if (pct == 0.0)"
-//     "            fprintf(fd,\"           |\\n\");\n"
-//     "        else"
-//     "            fprintf(fd,\"         ~ |\\n\");\n"
-//     "    }\n"
-//     "    fclose(fd);\n"
-//     "    system(\"paste -d ' ' .\" THISFILE \"r \" THISFILE \" > \" "
-//     "THISFILE "
-//     "\"r\" );"
-//     "}\n"
-//     "static void lineprofile_begin() {_lprof_last_=getticks();}\n"
-// };
-// TODO: why do you need to pass level here?
-
 void type_genTypeInfoDecls(Type* type);
 void type_genTypeInfoDefs(Type* type);
 void type_genNameAccessors(Type* type);
-static void mod_emit(Module* module) {
+static void mod_emit(Module* mod) {
+
+  int l = strlen(mod->filename);
+  static thread_local char buf[512];
+  // TODO: improve this later
+  mod->out_h = cstr_pclone(__cstr_interp__s(512, buf, "%s/.%s.h",
+      cstr_dir_ip(cstr_pclone(mod->filename)),
+      cstr_base(mod->filename, '/', l)));
+  outfile = fopen(mod->out_h, "w");
+
   // outln("");
-  printf(
-      "#ifndef HAVE_%s\n#define HAVE_%s\n\n", module->name, module->name);
-  printf("#define THISMODULE %s\n", module->name);
+  printf("#ifndef HAVE_%s\n"
+         "#define HAVE_%s\n\n",
+      mod->Cname, mod->Cname);
+  printf("#define THISMODULE %s\n", mod->cname);
+  puts("#ifndef HAVE_JET_BASE\n"
+       "#include \"jet/base.h\"\n"
+       "#endif\n");
 
-  foreach (Import*, import, module->imports)
-    imp_emit(import, 0);
-
+  foreach (Import*, import, mod->imports) { imp_emit(import, 0); }
   outln("");
 
-  foreach (Var*, var, module->scope->locals)
+  foreach (Var*, var, mod->scope->locals) {
     if (var->used) var_genh(var, 0);
-
-  foreach (Type*, type, module->enums) {
-    if (type->body && type->analysed) {
-      JetEnum_genh(type, 0);
-      // type_genTypeInfoDecls(type);
-    }
+  }
+  foreach (Type*, type, mod->enums) {
+    if (type->body && type->analysed) { JetEnum_genh(type, 0); }
   }
 
-  foreach (Type*, type, module->types) {
+  foreach (Type*, type, mod->types) {
     if (type->body && type->analysed) {
       type_genh(type, 0);
       type_genTypeInfoDecls(type);
     }
   }
-  foreach (Func*, func, module->funcs) {
+  foreach (Func*, func, mod->funcs) {
     if (func->body && func->analysed) { func_genh(func, 0); }
   }
+  printf("#undef THISMODULE\n");
+  printf("#endif // HAVE_%s\n", mod->Cname);
 
-  foreach (Type*, type, module->types) {
-    if (type->body && type->analysed) {
-      // foreach (Expr*, expr, type->body->stmts)
-      //     expr_prepareInterp(expr, type->body);
-      // ^ MOVE THIS INTO type_emit
+  fclose(outfile);
+
+  mod->out_c = cstr_pclone(__cstr_interp__s(512, buf, "%s/.%s.c",
+      cstr_dir_ip(cstr_pclone(mod->filename)),
+      cstr_base(mod->filename, '/', l)));
+  outfile = fopen(mod->out_c, "w");
+
+  printf("#include \"%s\"\n\n",
+      cstr_base(mod->out_h, '/', strlen(mod->out_h)));
+
+  foreach (Type*, type, mod->types) {
+    if (type->body && type->analysed && !type->isDeclare) {
+      type_emit_fieldHead(type);
+    }
+  }
+
+  foreach (Type*, type, mod->types) {
+    if (type->body && type->analysed && !type->isDeclare) {
       type_emit(type, 0);
       type_genTypeInfoDefs(type);
       type_genNameAccessors(type);
     }
   }
-  foreach (Func*, func, module->funcs) {
-    if (func->body && func->analysed) {
-      // foreach (Expr*, expr, func->body->stmts) {
-      //     expr_prepareInterp(parser,expr, func->body);
-      // }
-      // ^ MOVE THIS INTO func_emit
-      func_emit(func, 0);
-    }
+  foreach (Func*, func, mod->funcs) {
+    if (func->body && func->analysed) { func_emit(func, 0); }
   }
-  foreach (Import*, import, module->imports)
-    imp_undefc(import);
 
-  // puts(coverageFunc[genCoverage]);
-  // puts(lineProfileFunc[genLineProfile]);
-
-  printf("#undef THISMODULE\n");
-  printf("#endif // HAVE_%s\n", module->name);
+  fclose(outfile);
 }
 
-static void mod_genTests(Module* module) {
-  mod_emit(module);
-  foreach (JetTest*, test, module->tests)
+static void mod_genTests(Module* mod) {
+  mod_emit(mod);
+  foreach (JetTest*, test, mod->tests)
     JetTest_emit(test);
-  // generate a func that main will call
-  printf("\nvoid tests_run_%s() {\n", module->name);
-  foreach (JetTest*, test, module->tests)
+
+  printf("\nvoid tests_run_%s() {\n", mod->name);
+  foreach (JetTest*, test, mod->tests)
     printf("    test_%s();\n", test->name);
   outln("}");
 }
@@ -1585,24 +1310,24 @@ void type_genNameAccessors(Type* type) {
   if (!type->analysed || type->isDeclare) return;
   // type_genMemberRecognizer( type, "Int64 value",  )
 
-  printf("static void* %s__memberNamed(%s self, const char* name) {\n",
+  printf("static void* %s__memberNamed(%s self, char* name) {\n",
       type->name, type->name);
 
   // TODO: skip bitfield members in this loop or it wont compile
   foreach (Var*, var, type->body->locals) /*if (var->used) */ //
-    printf("    if (cstr_equals(name, \"%s\")) return "
+    printf("    if (cstr_eq(name, \"%s\")) return "
            "&(self->%s);\n",
         var->name, var->name);
   outln("    return NULL;\n}");
 
   // this func sets bools or ints that may be part of bitfields
-  printf("static void %s__setMemberNamed(%s self, const char* name, "
+  printf("static void %s__setMemberNamed(%s self, char* name, "
          "Int64 "
          "value) {\n",
       type->name, type->name);
   foreach (Var*, var, type->body->locals) // if (var->used) //
     if (var->spec->typeType >= TYBool && var->spec->typeType <= TYReal64)
-      printf("    if (cstr_equals(name, \"%s\"))  {self->%s = "
+      printf("    if (cstr_eq(name, \"%s\"))  {self->%s = "
              "*(%s*) "
              "&value;return;}\n",
           var->name, var->name, spec_cname(var->spec));

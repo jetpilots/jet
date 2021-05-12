@@ -157,14 +157,14 @@ static char tok_peekCharAfter(Token* token) {
   return *s;
 }
 
-#define tok_compareKeywordAlt(tok, actual)                                 \
+#define TOK_COMPAREKEYWORDAlt(tok, actual)                                 \
   if (sizeof(#tok) - 1 == l && !strncasecmp(#tok, s, l)) {                 \
     token->kind = tk##actual;                                              \
     return;                                                                \
   }
-#define tok_compareKeyword(tok) tok_compareKeywordAlt(tok, tok)
+#define TOK_COMPAREKEYWORD(tok) TOK_COMPAREKEYWORDAlt(tok, tok)
 
-// #define tok_compareKeyword(tok) tok_compareKeywordWith(tok,tok)
+// #define TOK_COMPAREKEYWORD(tok) TOK_COMPAREKEYWORDWith(tok,tok)
 
 // Check if an (ident) self->token matches a keyword and return its type
 // accordingly.
@@ -175,26 +175,41 @@ static void tok_tryKeywordMatch(Token* token) {
   const char* s = token->pos;
   const int l = token->matchlen;
 
-  tok_compareKeyword(And)
-      // tok_compareKeywoRd(cheater)
-      tok_compareKeyword(For) tok_compareKeyword(Do)
-          tok_compareKeyword(While) tok_compareKeyword(If)
-              tok_compareKeyword(Then) tok_compareKeyword(End)
-                  tok_compareKeyword(Enum) tok_compareKeyword(Match)
-                      tok_compareKeyword(Case) tok_compareKeyword(Func)
-      // tok_compareKeywoRdAlt(func, function)
-      tok_compareKeyword(Decl) tok_compareKeyword(Test)
-          tok_compareKeyword(And) tok_compareKeyword(Yes)
-              tok_compareKeyword(No) tok_compareKeyword(Nil)
-                  tok_compareKeyword(Or) tok_compareKeyword(In)
-      // tok_compareKeywoRd(elif)
-      tok_compareKeyword(Type) tok_compareKeyword(Check)
-          tok_compareKeyword(Extends) tok_compareKeyword(Var)
-              tok_compareKeyword(Let) tok_compareKeyword(Import)
-                  tok_compareKeyword(Return) tok_compareKeyword(Result)
-                      tok_compareKeyword(As)
+  TOK_COMPAREKEYWORD(And)
+  TOK_COMPAREKEYWORD(As)
+  TOK_COMPAREKEYWORD(Case)
+  TOK_COMPAREKEYWORD(Check)
+  TOK_COMPAREKEYWORD(Decl)
+  TOK_COMPAREKEYWORD(Do)
+  TOK_COMPAREKEYWORD(Else)
+  TOK_COMPAREKEYWORD(End)
+  TOK_COMPAREKEYWORD(Enum)
+  TOK_COMPAREKEYWORD(Extends)
+  TOK_COMPAREKEYWORD(For)
+  TOK_COMPAREKEYWORD(Func)
+  TOK_COMPAREKEYWORD(If)
+  TOK_COMPAREKEYWORD(Import)
+  TOK_COMPAREKEYWORD(In)
+  TOK_COMPAREKEYWORD(Let)
+  TOK_COMPAREKEYWORD(Match)
+  TOK_COMPAREKEYWORD(Nil)
+  TOK_COMPAREKEYWORD(No)
+  TOK_COMPAREKEYWORD(Not)
+  TOK_COMPAREKEYWORD(Or)
+  TOK_COMPAREKEYWORD(Result)
+  TOK_COMPAREKEYWORD(Break)
+  TOK_COMPAREKEYWORD(Continue)
+  TOK_COMPAREKEYWORD(Throw)
+  TOK_COMPAREKEYWORD(Catch)
+  TOK_COMPAREKEYWORD(Return)
+  TOK_COMPAREKEYWORD(Test)
+  TOK_COMPAREKEYWORD(Then)
+  TOK_COMPAREKEYWORD(Type)
+  TOK_COMPAREKEYWORD(Var)
+  TOK_COMPAREKEYWORD(While)
+  TOK_COMPAREKEYWORD(Yes)
 
-                          if (!strncasecmp("else if ", s, 8)) {
+  if (!strncasecmp("else if ", s, 8)) {
     token->kind = tkElif;
     token->matchlen = 7;
     return;
@@ -204,11 +219,11 @@ static void tok_tryKeywordMatch(Token* token) {
     token->matchlen = 6;
     return;
   }
-  // tok_compareKeyword(else) tok_compareKeyword(not )
+  // TOK_COMPAREKEYWORD(else) TOK_COMPAREKEYWORD(not )
 
-  // tok_compareKeyword(elif)
+  // TOK_COMPAREKEYWORD(elif)
 
-  //        tok_compareKeyword(print);
+  //        TOK_COMPAREKEYWORD(print);
   //     if (sizeof("else if") - 1 == l and not strncmp("else if", s, l))
   // {
   //     self->kind = tkElseif;
@@ -531,6 +546,25 @@ static void tok_detect(Token* token) {
     tt_lastNonSpace = tt_last;
 }
 
+static void tok_advance_notrample(Token* token) {
+
+  token->pos += token->matchlen;
+  token->col += token->matchlen;
+  token->matchlen = 0;
+  tok_detect(token);
+
+  if (token->kind == tkEOL) {
+    // WHY don't you do self->token advance here?
+    // TODO: if (token->col>80) warning
+    token->line++;
+    token->col = 0; // position of the nl itself is 0
+  }
+  if (token->skipWhiteSpace
+      && (token->kind == tkSpaces
+          || (token->strictSpacing && token->kind == tkOneSpace)))
+    tok_advance_notrample(token);
+}
+
 // Advance to the next self->token (skip whitespace if `skipws` is set).
 static void tok_advance(Token* token) {
   switch (token->kind) {
@@ -575,21 +609,5 @@ static void tok_advance(Token* token) {
     *token->pos = 0; // trample it so that idents etc. can be assigned
                      // in-situ
   }
-
-  token->pos += token->matchlen;
-  token->col += token->matchlen;
-  token->matchlen = 0;
-  tok_detect(token);
-
-  if (token->kind == tkEOL) {
-    // WHY don't you do self->token advance here?
-    // TODO: if (token->col>80) warning
-    token->line++;
-    token->col = 0; // position of the nl itself is 0
-  }
-  if (token->skipWhiteSpace
-      && (token->kind == tkSpaces
-          || (token->strictSpacing && token->kind == tkOneSpace)))
-    tok_advance(token);
+  tok_advance_notrample(token);
 }
-//

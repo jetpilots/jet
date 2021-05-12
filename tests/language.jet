@@ -10,7 +10,7 @@
 yes, no ~ logical. true/false are read but linted to yes/no.
 
 ~ Builtin types
-... as Text "abcdefg"
+... as String "abcdefg"
 ... as Number 233.54e3 42 1.0 ~04ed42fe7fff
 ... as YesOrNo yes no ~ 1 bit
 ... as Complex 1i 3+4i
@@ -19,14 +19,14 @@ yes, no ~ logical. true/false are read but linted to yes/no.
 ... as DateTime("2007-20-01 10:33:43 +0530") ~ parsed at compile time
 
 ~ anything can be null if explicitly allowed
-... as Text
+... as String
 ... as YesOrNo ~ 2 bits
 ... as Number
 
 ~ Variables
 ~ only one way: with keyword "var". names cannot start with caps.
 var x = "5"
-var x Text
+var x String
 var pi Number
 var pi = 3.14159
 var magFieldStrength Complex
@@ -39,23 +39,23 @@ var magFieldStrength = 0i
 {"name" = 35, "size" = 33} ~ maps are homogenous (in both keys and values)
 var mx Number[] = [3, 4, 5] ~ write var mx = ... and linter will annotate
 var mx Number[] ~ implies = []. arrays are never nil nor nilable, only empty
-var mp Number[Text] = {"w" = 4} ~ again just write var mp = {...} and annotation comes from linter
-var mp Number[Text] ~ implies = {}. maps are never nil nor nilable.
+var mp Number[String] = {"w" = 4} ~ again just write var mp = {...} and annotation comes from linter
+var mp Number[String] ~ implies = {}. maps are never nil nor nilable.
 
 ~ Functions
 ~ func names cannot start with caps.
 ~ second and higher arguments must be named at call sites (linter can do it)
-func myfunc(parm Text, parm2 Number) as Text
+func myfunc(parm String, parm2 Number) String
     ans = "empty"
 end
 ~ basic function definition
 
-myfunc(parm Text, parm2 Number) := "empty" ~ statement function
+myfunc(parm String, parm2 Number) := "empty" ~ statement function
 
 var x = myfunc("test", parm2=45) ~ function call
 
 ~# funcs cannot mutate params, except first param if declared with "var"
-func pop!(array Number[]) as Number
+func pop!(array Number[]) Number
     var tmp = array[-1]
     array.count -= 1
     ans = tmp
@@ -112,7 +112,7 @@ var test4|m/s = speed + dspeed ~ explicit unit conversion to that of the second
 var test5|ft/min = speed + dspeed ~ explicit unit conversion to something else
 
 ~# automatic conversion where possible when passing to funcs etc.
-func flux!(rate Complex[:,:]|kg/s, speed Number|m/s) as Number|kg.m3/s
+func flux!(rate Complex[:,:]|kg/s, speed Number|m/s) Number|kg.m3/s
 end
 
 ~ Syntax specials

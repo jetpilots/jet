@@ -1,91 +1,22 @@
-~ type MyBasicType
-~     var fileName = ""
-~ #    var fileSize = 0
-~     get fileSize => os.fsize(fileName) # short form
-~     set filePerms(value) => os.chmod(fileName, value) # short form
 
-~     # get fileSize # long form
-~     #     return os.fsize(fileName)
-~     # end get
+decl func print(t Number)
 
-~     # set fileETime(value) # long form
-~     #     doSomething()
-~     #     fgx(ff)
-~     # end set
-
-~     # get/set creates the variable automatically; no need to do var separately.
-~     # in fact, doing it is an error (redefinition)
-~     # declaring set auto declares a default get.
-~     # declaring var auto declares both default set/get.
-
-~ end
-
-~ type FolderItem
-~     var fileName as String = "default name"
-~     var fileSize as Number = 0
-~     var nextItem as FolderItem = NULL
-~ end
-
-
-declare type Strings
-end
-declare func print(t Number)
-
-func main(a Strings) as Number
+func start()
     var x Number = fx(34 + 4 * 3)
-    ~ var fi = FolderItem()
-    ~ var fn as String = fi.fileName
     print(x)
-    ~ print("Hello, World %d!\n", x)
 end
 
-func fx(a Number) as Number
-    var m Number = gx(5 - 4 + 2 / 5)
-    return m
+func fx(a Number) Number
+    var m Number = gx(5 - a + 2 / 5)
+    ans = m
 end
 
-func gx(a Number) as Number
-    var m Number = mx(2 + 4 ^ 5)
-    return m
+func gx(a Number) Number
+    var m Number = mx(2 + 4 ^ a)
+    ans = m
 end
 
-~ function start(args String)
-    ~ var currTime as DateTime = repeat(DateTime(), times = 4)
-    ~ var msx = [3, 4, 5, 6]
-    ~ var currentFolder = split(os.pwd(), sep = ",")
-    ~ var ss = duplicate(sys.stackSize(), times = 4)
-~ end
-
-func mx(a Number) as Number
-    var m Number = fx(5 * 2.0)
-    ~ var f as Range = m[1:3, g:sin(g)+x]
-    return m
+func mx(a Number) Number
+    var m Number = fx(a * 2.0)
+    ans = m
 end
-
-func final(a Number) as Number
-    var m = 3
-    ~ var cx = Strings.linesFromFile("~/basics.txt")
-    ~ if missing(cx) then break
-    ~ print(myObjcount)
-    return m
-end
-
-~ _____________________________________________________________________________
-~ readFileAndGetHeader: Do something and this is the documentation.
-~ filename: the initWithFrame argument.
-~ headerCols: the NSWindow.getFrame argument.
-~ function readFileAndGetHeader(filename, headerCols, options)
-~     var mxp = 4
-~     var mg = mxp[map:3, :]
-~     var bg = HTML()
-~     check(0 < mg < 4)
-~     mFileContents = readfile("wowee.txt") or return
-~     mHeaders = trim(split(mFileContents[1]))
-~     print("Wow $mg")
-~     if mxp == 5
-~         doSomethingElse()
-~         for m in 1:45
-~             mx = m + 4
-~     readFileAndGetHeader = mg
-
-~ readFileAndGetHeader() = readFileAndGetHeader(0)

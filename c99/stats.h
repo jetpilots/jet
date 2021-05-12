@@ -12,7 +12,7 @@ static void expralloc_stat() {
   eputs("-------------------------------------------------------\n");
 }
 
-static void printstats(Parser* const parser, double tms) {
+static void printstats(Parser* const parser) {
   eputs("\n=======================================================\n");
   eputs(parser->filename);
   eputs(": statistics\n");
@@ -70,6 +70,8 @@ static void printstats(Parser* const parser, double tms) {
 #endif
   expralloc_stat();
 
-  eprintf("Time elapsed: %.1f ms (%.1f ms / 32kB)\n", tms,
-      tms * 32768.0 / (parser->end - parser->data - 2)); // sw.print();
+  eprintf("jetc time: %.1f ms (%.1f ms / 32kB)\n", parser->elap,
+      parser->elap * 32768.0
+          / (parser->end - parser->data - 2)); // sw.print();
+  eprintf("cc time: %.1f ms\n", parser->elap_tot - parser->elap);
 }

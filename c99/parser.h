@@ -22,7 +22,7 @@ typedef struct Parser {
   CompilerMode mode;
   // JetOpts opts;
 
-  double elap;
+  double elap, elap_tot;
 
   bool generateCommentExprs; // set to false when compiling, set to
                              // true when linting
@@ -81,10 +81,19 @@ static Parser* par_fromFile(
     char* filename, bool skipws, CompilerMode mode) {
   size_t flen = cstr_length(filename);
 
-  // Error: the file might not end in .ch
+  // Error: the file might not end in .jet
   if (!cstr_endsWith(filename, flen, ".jet", 4)) {
-    eprintf("jet: file '%s' invalid: name must end in '.jet'.\n", filename);
-    return NULL;
+    // char* newname
+    filename = cstr_interp_s(256, "%s.jet", filename);
+    // char fbuf[256];
+    // snprintf(fbuf,254,"%s.jet",filename);
+    // fbuf[255]=0;
+    // eprintf("cjet: invalid filename:\n"
+    //         "      %s\n"
+    //         "looking instead for:\n"
+    //         "      %s.jet\n",
+    //     filename);
+    // return NULL;
   }
 
   struct stat sb;

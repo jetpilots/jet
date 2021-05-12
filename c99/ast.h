@@ -1,8 +1,36 @@
-#pragma mark - Jet TYPE DEFINITIONS
+typedef struct PArray {
+  void** ref;
+  int used, cap;
+} PArray;
+#define PARRAY_INITN 8 // 2 * sizeof(Expr) / sizeof(void*)
+// that way when you need to grow beyond this, you can have a fixed number
+// of Expr slots returned to the freelist.
 
-typedef struct JetLocation {
-  uint32_t line : 24, col : 8;
-} JetLocation;
+PArray PArray_new() {
+  return (PArray) { .ref = Pool_alloc(gPool, PARRAY_INITN * sizeof(void*)),
+    .cap = PARRAY_INITN };
+}
+
+void PArray_grow2x(PArray* arr) {
+  arr->cap *= 2;
+
+  if (arr->cap == 2 * PARRAY_INITN) {
+    // TODO: do jet_mem_dealloc
+    arr->ref = NULL;
+  }
+  arr->ref = realloc(arr->ref, sizeof(void*) * arr->cap);
+}
+
+void PArray_push(PArray* arr, void* p) {
+  if (unlikely(arr->used == arr->cap)) PArray_grow2x(arr);
+  arr->ref[arr->used++] = p;
+}
+
+// #pragma mark - Jet TYPE DEFINITIONS
+
+// typedef struct JetLocation {
+//   uint32_t line : 24, col : 8;
+// } JetLocation;
 
 typedef struct Module Module;
 
@@ -14,11 +42,14 @@ typedef struct Expr Expr;
 typedef struct Var Var;
 
 typedef struct Import {
+  // TODO: put name and mod in union
   char* name; //, *alias;
   Module* mod;
   uint32_t aliasOffset, line : 16, col : 8, used : 1;
   // bool isPackage, hasAlias;
 } Import;
+
+static const size_t szImp = sizeof(Import);
 
 typedef struct JetUnits {
   uint8_t powers[7], something;
@@ -59,9 +90,10 @@ struct TypeSpec {
     TypeTypes typeType : 7;
     bool nullable : 1;
   };
-  JetLocation loc[0];
+  // JetLocation loc[0];
   uint32_t line : 24, col, : 8;
 };
+static const size_t szSpec = sizeof(TypeSpec);
 
 struct Var {
   char* name;
@@ -96,7 +128,7 @@ struct Var {
   // within the subscope itself after the actual expr. (so set the
   // if/for/while as the lastref, not the actual lastref) WHY NOT JUST SAVE
   // THE LINE NUMBER OF THE LJet USE?
-  JetLocation loc[0];
+  // JetLocation loc[0];
   uint32_t line : 24, col : 8; //
   uint16_t lastUsage, used, changed;
   // ^ YOu canot use the last used line no to decide drops etc. because code
@@ -163,6 +195,7 @@ struct Var {
   };
   // uint8_t col;
 };
+static const size_t szVar = sizeof(Var);
 
 static const char* const StorageClassNames[]
     = { "refcounted", "heap", "stack", "mixed" };
@@ -240,6 +273,16 @@ struct Expr {
     Import* imp; // for imports tkImport
   };
 };
+// this is a global astexpr representing 0. it will be used when parsing
+// e.g. the colon op with nothing on either side. : -> 0:0 means the same as
+// 1:end
+static Expr lparen[] = { { .kind = tkParenOpen } };
+static Expr rparen[] = { { .kind = tkParenClose } };
+static Expr expr_const_0[] = { { .kind = tkNumber, .str = "0" } };
+static Expr expr_const_yes[] = { { .kind = tkYes } };
+static Expr expr_const_no[] = { { .kind = tkNo } };
+static Expr expr_const_nil[] = { { .kind = tkNil } };
+static Expr expr_const_empty[] = { { .kind = tkString, .str = "" } };
 
 struct Scope {
   List(Expr) * stmts;
@@ -323,6 +366,7 @@ struct Func {
     uint8_t argCount, nameLen;
   };
 };
+static const size_t szFunc = sizeof(Func);
 
 typedef struct JetTest {
   char* name;
@@ -345,8 +389,9 @@ struct Module {
   List(Import) * imports;
   List(Module) * importedBy; // for dependency graph. also use
                              // imports[i]->mod over i
-  char *name, *fqname, *filename;
-  FILE *out_x, *out_c, *out_h, *out_jet;
+  char *name, *cname, *Cname, *filename;
+  char *out_x, *out_xc, *out_c, *out_h, *out_jet;
+
   // DiagnosticReporter reporter;
 
   struct {
@@ -416,7 +461,7 @@ static TypeSpec* spec_new(TypeTypes tt, CollectionTypes ct) {
 
 static const char* spec_name(TypeSpec* self) {
   switch (self->typeType) {
-  case TYUnresolved: return self->name;
+  case TYUnknown: return self->name;
   case TYObject: return self->type->name;
   default: return Typetype_name(self->typeType);
   }
@@ -426,7 +471,7 @@ static const char* spec_name(TypeSpec* self) {
 // The name of this type spec as it will appear in the generated C code.
 static const char* spec_cname(TypeSpec* self) {
   switch (self->typeType) {
-  case TYUnresolved: return self->name;
+  case TYUnknown: return self->name;
   case TYObject: return self->type->name;
   default: return Typetype_name(self->typeType);
   }
@@ -436,7 +481,7 @@ static const char* spec_cname(TypeSpec* self) {
 static const char* getDefaultValueForType(TypeSpec* type) {
   if (!type) return "";
   switch (type->typeType) {
-  case TYUnresolved:
+  case TYUnknown:
     unreachable(
         "unresolved: '%s' at %d:%d", type->name, type->line, type->col);
     return "ERROR_ERROR_ERROR";
@@ -711,6 +756,42 @@ static bool isBoolOp(Expr* expr) {
       || expr->kind == tkNotin //
       || expr->kind == tkNot;
 }
+
+static bool isCtrlExpr(Expr* expr) {
+  return expr->kind == tkIf //
+      || expr->kind == tkFor //
+      || expr->kind == tkWhile //
+      || expr->kind == tkElse;
+}
+
+static bool isSelfMutOp(Expr* expr) {
+  return expr->kind > __tk__selfMutOps__begin
+      && expr->kind < __tk__selfMutOps__end;
+  //  expr->kind == tkPlusEq //
+  //     || expr->kind == tkMinusEq //
+  //     || expr->kind == tkSlashEq //
+  //     || expr->kind == tkTimesEq //
+  //     || expr->kind == tkPowerEq //
+  //     || expr->kind == tkModEq //
+  //     || expr->kind == tkAssign;
+}
+
+static bool isArithOp(Expr* expr) {
+  return expr->kind > __tk__arithOps__begin
+      && expr->kind < __tk__arithOps__end;
+  // == tkPlusEq //
+  //     || expr->kind == tkMinusEq //
+  //     || expr->kind == tkSlashEq //
+  //     || expr->kind == tkTimesEq //
+  //     || expr->kind == tkPowerEq //
+  //     || expr->kind == tkModEq //
+  //     || expr->kind == tkPlus || expr->kind == tkMinus
+  //     || expr->kind == tkSlash || expr->kind == tkTimes
+  //     || expr->kind == tkPower || expr->kind == tkMod;
+}
+
+static bool isLiteralExpr(Expr* expr) { return false; }
+static bool isComparatorExpr(Expr* expr) { return false; }
 
 static size_t type_calcSizeUsage(Type* self) {
   size_t size = 0, sum = 0;
@@ -1079,8 +1160,8 @@ monostatic bool downcastable(Type* type, Type* target) {
           for (E2 item2, nxt2; _; _ = 0)                                   \
             for (; BOTHOK(_it1, _en1, _it2, _en2);                         \
                  movenext(T1, _it1), movenext(T2, _it2))                   \
-              if (item1 = get(T1, _it1), nxt1 = get(T1, next(T1, _it1)),   \
-                  item2 = get(T2, _it2), nxt2 = get(T2, next(T2, _it2)),   \
+              if (item1 = get(T1, _it1), nxt1 = getu(T1, next(T1, _it1)),  \
+                  item2 = get(T2, _it2), nxt2 = getu(T2, next(T2, _it2)),  \
                   1)
 
 #define zip(item1, E1, item2, E2, coll1, T1, coll2, T2)                    \
@@ -1095,7 +1176,7 @@ monostatic bool downcastable(Type* type, Type* target) {
     for (T##_Iter _it = begin(T, coll), _end = end(T, coll); _;)           \
       for (E item, nxt; _; _ = 0)                                          \
         for (; _it != _end; movenext(T, _it))                              \
-          if (item = get(T, _it), nxt = get(T, next(T, _it)), 1)
+          if (item = get(T, _it), nxt = getu(T, next(T, _it)), 1)
 
 #define each(item, E, coll, T) eachn(item, __next__, E, coll, T)
 
@@ -1103,6 +1184,7 @@ monostatic bool downcastable(Type* type, Type* target) {
 #define begin(T, it) T##_begin(it)
 #define end(T, it) T##_end(it)
 #define get(T, it) T##_get(it)
+#define getu(T, it) (it ? T##_get(it) : (T)0)
 
 // begin:
 #define ExprP_begin(expr) (expr)
@@ -1153,15 +1235,14 @@ monostatic Func* mod_getFuncByTypeMatch(
         if (strcasecmp(arg->name, cArg->left->str)) goto nextfunc;
         cArg = cArg->right;
       }
-      if (ISIN(3, cArg->typeType, TYUnresolved, TYErrorType, TYNoType))
-        return NULL;
+      if (ISIN(3, cArg->typeType, TYUnknown, TYError, TYVoid)) return NULL;
       if (cArg->typeType == arg->spec->typeType
           && cArg->collectionType == arg->spec->collectionType) {
         if (cArg->typeType == TYObject
             && !upcastable(expr_getTypeOrEnum(cArg), arg->spec->type))
           goto nextfunc;
       } else {
-        if (cArg->typeType != TYUnresolved) goto nextfunc;
+        if (cArg->typeType != TYUnknown) goto nextfunc;
       }
     }
 
@@ -1174,7 +1255,7 @@ monostatic Func* mod_getFuncByTypeMatch(
     //     // The way it is now, CString and String wont match because they
     //     // arent strictly equal, although they are perfectly compatible
     //     // for argument passing.
-    //     if (ISIN(3, cArg->typeType, TYUnresolved, TYErrorType, TYNoType))
+    //     if (ISIN(3, cArg->typeType, TYUnknown, TYError, TYVoid))
     //         return NULL;
     //     if (cArg->typeType == arg->spec->typeType
     //         && cArg->collectionType == arg->spec->collectionType) {
@@ -1187,7 +1268,7 @@ monostatic Func* mod_getFuncByTypeMatch(
     //         // an arg type has failed to match. Wait: if it is
     //         unresolved,
     //         // you can still consider this func. Otherwise you skip to
-    //         next. if (cArg->typeType != TYUnresolved) goto nextfunc;
+    //         next. if (cArg->typeType != TYUnknown) goto nextfunc;
     //     }
     //     currArg = (currArg->kind == tkComma) ? currArg->right : NULL;
     // }

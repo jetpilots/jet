@@ -1,11 +1,10 @@
 
-CCFLAGS=-std=c99 -I../engine -O3 -ferror-limit=999
+CCFLAGS=-std=c99 -O3 -I../engine
 CCLIBS=-lc -lm
 CC=gcc
 
-
-install: cjet cjetd tokcnt
-	cp cjet cjetd /usr/local/bin
+install: cjet tokcnt
+	cp cjet /usr/local/bin
 
 cjet: main.c *.h TokenKind.h
 	$(CC)  $(CCFLAGS) main.c $(CCLIBS) -o $@
@@ -24,13 +23,13 @@ all: cjet cjet-fast cjet-dbg cjet-cov
 # Each build mode (except the default) should define a specific macro.
 
 cjet-fast: *.[ch] TokenKind.h
-	$(CC) -Os -DFAST $(CCFLAGS) main.c $(CCLIBS) -o $@
+	$(CC) $(CCFLAGS) -Os -DFAST main.c $(CCLIBS) -o $@
 
 cjet-dbg: *.[ch] TokenKind.h
-	$(CC) -g -O0 -DDEBUG $(CCFLAGS) main.c $(CCLIBS) -o $@
+	$(CC) $(CCFLAGS) -g -O0 -DDEBUG main.c $(CCLIBS) -o $@
 
 cjet-cov: *.[ch] TokenKind.h
-	$(CC) -g -DCOVERAGE -fprofile-arcs -ftest-coverage -O0 $(CCFLAGS) main.c $(CCLIBS) -o $@
+	$(CC) $(CCFLAGS) -g -DCOVERAGE -fprofile-arcs -ftest-coverage -O0  main.c $(CCLIBS) -o $@
 
 # test:  #cjet-cov
 # 	./coverage.sh

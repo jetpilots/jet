@@ -1,30 +1,4 @@
 
-static bool isSelfMutOp(Expr* expr) {
-  return expr->kind > __tk__selfMutOps__begin
-      && expr->kind < __tk__selfMutOps__end;
-  //  expr->kind == tkPlusEq //
-  //     || expr->kind == tkMinusEq //
-  //     || expr->kind == tkSlashEq //
-  //     || expr->kind == tkTimesEq //
-  //     || expr->kind == tkPowerEq //
-  //     || expr->kind == tkModEq //
-  //     || expr->kind == tkAssign;
-}
-
-static bool isArithOp(Expr* expr) {
-  return expr->kind > __tk__arithOps__begin
-      && expr->kind < __tk__arithOps__end;
-  // == tkPlusEq //
-  //     || expr->kind == tkMinusEq //
-  //     || expr->kind == tkSlashEq //
-  //     || expr->kind == tkTimesEq //
-  //     || expr->kind == tkPowerEq //
-  //     || expr->kind == tkModEq //
-  //     || expr->kind == tkPlus || expr->kind == tkMinus
-  //     || expr->kind == tkSlash || expr->kind == tkTimes
-  //     || expr->kind == tkPower || expr->kind == tkMod;
-}
-
 // isSelfMutOp(expr as Expr) := expr.kind in [
 //     .plusEq, .minusEq, .slashEq, .timesEq, .opModEq, .opAssign
 // ]
@@ -46,7 +20,7 @@ static bool isArithOp(Expr* expr) {
 
 static void resolveTypeSpec(Parser* parser, TypeSpec* spec, Module* mod) {
   // TODO: disallow a type that derives from itself!
-  if (spec->typeType != TYUnresolved) return;
+  if (spec->typeType != TYUnknown) return;
   if (!*spec->name) return;
 
   // TODO: DO THIS IN PARSE... stuff!!
@@ -187,9 +161,10 @@ static void resolveVars(Parser* parser, Expr* expr, Scope* scope,
     //        expr->right, scope, inFuncCall);
     // besides an ident, the ->right of a . can be either another
     // dot, a subscript, or a func call if we allow member funcs
-    if (expr->right->kind == tkSubscript
-        || expr->right->kind == tkSubscriptR)
-      resolveVars(parser, expr->right->left, scope, inFuncCall);
+    if (expr->right)
+      if (expr->right->kind == tkSubscript
+          || expr->right->kind == tkSubscriptR)
+        resolveVars(parser, expr->right->left, scope, inFuncCall);
 
     break;
 

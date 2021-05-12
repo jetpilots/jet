@@ -8,7 +8,7 @@ static void imp_write(Import* import, int level) {
 static void spec_write(TypeSpec* spec, int level) {
   switch (spec->typeType) {
   case TYObject: printf("%s", spec->type->name); break;
-  case TYUnresolved: printf("%s", spec->name); break;
+  case TYUnknown: printf("%s", spec->name); break;
   default: printf("%s", Typetype_name(spec->typeType)); break;
   }
 
@@ -49,20 +49,24 @@ static void var_write(Var* var, int level) {
   } else if (kind == tkFuncCallR && var->spec->typeType == TYObject
       && !strcmp(var->init->func->name, var->spec->type->name)) {
     // resolved constructor, so type is also resolved
-  } else if ((kind == tkNumber || kind == tkRegexp || kind == tkNo
-                 || kind == tkYes || kind == tkString
-                 || kind == tkRawString)) { // simple literals
+  } else if (ISIN(6, kind, tkNumber, tkRegexp, tkNo, tkYes, tkString,
+                 tkRawString)) { // simple literals
+    // } else if () { // usual ops on numbers
+  } else if (kind == tkArrayOpen && var->init->right) {
+    Expr* e1 = var->init->right;
+    if (e1->kind == tkComma) e1 = e1->left;
+    if (!ISIN(6, e1->kind, tkNumber, tkRegexp, tkNo, tkYes, tkString,
+            tkRawString))
+      genType = true;
   } else if (var->init
-      && (isBoolOp(var->init)
-          || isCmpOp(var->init))) { // simple stuff that gives Boolean
+      && (isBoolOp(var->init) || isCmpOp(var->init)
+          || isArithOp(var->init))) { // simple stuff that gives Boolean
   }
   // else if (var->spec->typeType == TYObject
   //     && var->spec->type->isEnum) {
   // }
-  else if (var->spec->typeType == TYErrorType
-      || var->spec->typeType == TYNoType
-      || (var->spec->typeType == TYUnresolved
-          && *var->spec->name == '\0')) {
+  else if (var->spec->typeType == TYError || var->spec->typeType == TYVoid
+      || (var->spec->typeType == TYUnknown && *var->spec->name == '\0')) {
     genType = false;
   } else {
     genType = true;
@@ -182,9 +186,9 @@ static void func_write(Func* func, int level) {
   if (func->isCalledAsync) printf("asyncable ");
   printf("]\n");
 
-  if (func->isDeclare) printf("declare ");
+  if (func->isDeclare) printf("decl ");
 
-  printf("%s%s(", func->isStmt ? "\n" : "function ", func->name);
+  printf("%s%s(", func->isStmt ? "\n" : "func ", func->name);
 
   foreachn(Var*, arg, args, func->args) {
     var_write(arg, level);
@@ -192,8 +196,10 @@ static void func_write(Func* func, int level) {
   }
   printf(")");
 
-  if (func->spec && !func->isStmt) {
-    printf(" as ");
+  if (func->spec && !func->isStmt
+      && !(func->spec->typeType == TYObject
+          && !strcasecmp(func->spec->type->name, func->name))) {
+    printf(" ");
     spec_write(func->spec, level);
   }
   if (func->isDeclare) {
@@ -225,8 +231,8 @@ static void expr_write(
   printf("%.*s", level, spaces);
 
   switch (expr->kind) {
-  case tkNumber:
-  // case tkMultiDotNumber: printf("%s", expr->str); break;
+  case tkNumber: printf("%s", expr->str); break;
+  // case tkMultiDotNumber:
   case tkRawString: printf("'%s'", expr->str + 1); break;
   case tkRegexp: printf("`%s`", expr->str + 1); break;
 
@@ -284,11 +290,16 @@ static void expr_write(
   case tkObjInitR: break;
 
   case tkPeriod:
-    if (expr->left && expr->left->typeType == TYObject
-        && !expr->left->var->spec->type->isEnum)
+    if (!expr->left) break;
+    if (expr->left->kind == tkPeriod) {
       expr_write(expr->left, 0, spacing, escapeStrings);
-    printf(".");
-    expr_write(expr->right, 0, spacing, escapeStrings);
+    } else {
+      if (expr->left->typeType == TYObject
+          && !expr->left->var->spec->type->isEnum)
+        expr_write(expr->left, 0, spacing, escapeStrings);
+      printf(".");
+      expr_write(expr->right, 0, spacing, escapeStrings);
+    }
     break;
 
   case tkVarDefn:
@@ -378,6 +389,8 @@ static void expr_write(
 // SR("func arty(yu Int, hj Num) String[:,:]")
 
 static void mod_write(Module* module) {
+  outfile = stdout; // fopen("linted.jet", "w");
+
   printf("~ module %s\n", module->name);
 
   foreach (Import*, import, module->imports) { imp_write(import, 0); }
@@ -392,4 +405,6 @@ static void mod_write(Module* module) {
   foreach (Type*, en, module->enums) { JetEnum_write(en, 0); }
   foreach (Func*, func, module->funcs) { func_write(func, 0); }
   foreach (JetTest*, test, module->tests) { JetTest_write(test, 0); }
+
+  fclose(outfile);
 }
