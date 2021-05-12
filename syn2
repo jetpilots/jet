@@ -1,0 +1,38 @@
+String := type
+    v := 8
+    m := 7
+String.UTF := type
+    h Complex := 77
+# ^ types cannot be redefined anyway, := is the only op usable
+
+String.len := func (s)
+    while s[ans]
+        ans += 1
+
+String.UTF.len := func ... # error := already defined from super
+
+String.UTF.len = func (s) # ok, clearly overriding
+    tmp := 6
+    while utfch(s, ans)
+        ans += 1
+
+# because += is only for nums, ans must be num, infer it
+String.UTF.len = func (s) while utfch(s, ans) do ans += 1
+
+String.prop = 6 # error, no such property 'prop'
+String.prop := 6 # ok, extending String with new prop
+
+# not having [] for list literals may be a good idea.
+# in that sense [] is the same as () for grouping exprs.
+# [] is then optional , needed only eg in call args. []
+# is for both arrays & dicts
+String.encodings := "utf8", "koi8r", "iso-8859-1", "cp1252"
+String.typographics := "/" -> "÷", "*" -> "•"
+
+func(g, ["ji"->"gi"], [9,8,7])
+func(g, ["ji"->"gi"], 9) # should lint to func(g, ["ji"->"gi"], [9])
+
+matrix :=
+    1,     2 ,     3 ;
+    4,     5 , sin(6);
+    7, cos(8),     9

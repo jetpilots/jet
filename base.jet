@@ -1,17 +1,17 @@
 ~ Basic types
-declare type Any end
-declare type String extends Regex end
-declare type Regex extends Any end
-declare type Boolean extends Number end
-declare type Number extends Any end
-declare type Range extends Any end
-declare type Size extends Any end
-declare type Point extends Any end
-declare type Rect extends Any end
+decl type Any end
+decl type String extends Regex end
+decl type Regex extends Any end
+decl type Boolean extends Number end
+decl type Number extends Any end
+decl type Range extends Any end
+decl type Size extends Any end
+decl type Point extends Any end
+decl type Rect extends Any end
 
 ~ pseudo type for templates
 ~ T does not include collections. For that use T[].
-declare type T end
+decl type T end
 
 func empty(x Any) end
 
@@ -40,38 +40,47 @@ end
 
 ~ Collection types. basically they have 1 implicit template param
 ~ and on jet level they are all represented by [].
-declare type Collection end
-declare type Array extends Collection end
-declare type List extends Collection end
-declare type DList extends Collection end
-declare type LazyArray extends Collection end ~ in contrast to generator, caches its values end
-declare type Generator extends Collection end
-declare type Filter extends Collection end
-declare type Slice extends Collection end
-declare type Selection extends Collection end
-declare type Set extends Collection end
-declare type Dict extends Collection end
-declare type Vector extends Array end
-declare type SparseVector extends Vector end
-declare type Tensor2D extends Collection end
-declare type Matrix extends Tensor2D end
-declare type DiagMatrix extends Matrix end
-declare type TriDiagMatrix extends Matrix end
-declare type PentaDiagMatrix extends Matrix end
-declare type BandedMatrix extends Matrix end
-declare type SymmMatrix extends Matrix end
-declare type SkewSymmMatrix extends Matrix end
-declare type SparseMatrix extends Matrix end
-declare type Tensor3D extends Collection end
-declare type Tensor4D extends Collection end
-declare type Tensor5D extends Collection end
-declare type Tensor6D extends Collection end
-declare type Tensor7D extends Collection end
+decl type Collection end
+decl type Array extends Collection end
+decl type List extends Collection end
+decl type DList extends Collection end
+decl type LazyArray extends Collection end ~ in contrast to generator, caches its values end
+decl type Generator extends Collection end
+decl type Filter extends Collection end
+decl type Slice extends Collection end
+decl type Selection extends Collection end
+decl type Set extends Collection end
+decl type Dict extends Collection end
+decl type Vector extends Array end
+decl type SparseVector extends Vector end
+decl type Tensor2D extends Collection end
+decl type Matrix extends Tensor2D end
+decl type DiagMatrix extends Matrix end
+decl type TriDiagMatrix extends Matrix end
+decl type PentaDiagMatrix extends Matrix end
+decl type BandedMatrix extends Matrix end
+decl type SymmMatrix extends Matrix end
+decl type SkewSymmMatrix extends Matrix end
+decl type SparseMatrix extends Matrix end
+decl type Tensor3D extends Collection end
+decl type Tensor4D extends Collection end
+decl type Tensor5D extends Collection end
+decl type Tensor6D extends Collection end
+decl type Tensor7D extends Collection end
 
 
 func argcheck(ex Expr._, fns Funct[])
     for fn = fns
         for (fnArg, arg) = zip(fn.args, ex)
+            ~ ^ for x = y is generated as
+            ~ iters_y(x, y, ...T) so this becomes
+            ~ iters_zip(fnArg, arg, fn.args, ex, T1, T2, T3, T4)
+            ~ similarly
+            ~ iters_each(x, y, Tx, Ty)
+            ~ iters_range(i, IntRange_snew(1,String_len(b)))
+            ~ iters_each(x, Filter_snew(y, expr))
+            ~ iters_dict(k,v,x,y)
+            ~ iters_enumerate(i,v,x, y))
             if arg.kind == .assign
                 if arg.left.string != fnArg.name
                     continue fn
@@ -91,9 +100,9 @@ func zip(l List, e Expr)
     var li = begin(l)
     var ex = ref(e) ~ new ref, this is const T*, not const T* const
     while yes
-        a = each!(li) or break ~ copy li implicitly since each is mutating arg1
+        var a = each!(li) or break ~ copy li implicitly since each is mutating arg1
         ~ actualluy you just want to mutate the ptr which is local!...
-        b = each!(ex) or break
+        var b = each!(ex) or break
         yield a, b
     end
 end

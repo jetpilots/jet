@@ -43,5 +43,7 @@
         "__node_handle": "cpp",
         "optional": "cpp",
         "system_error": "cpp"
-    }
+    },
+    "Lua.diagnostics.globals": [],
+    "Lua.diagnostics.disable": []
 }

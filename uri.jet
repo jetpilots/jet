@@ -1,0 +1,372 @@
+~ import { CharCode } from './charCode'
+~ import { os.windows } from './platform'
+
+var schemePattern = `^\w[\w\d+.-]*$`
+var singleSlashStart = `^/`
+var doubleSlashStart = `^\//`
+
+func validateUri(ret URI, strict Boolean)
+
+    ~ scheme, must be set
+    if (not ret.scheme and strict)
+        throw new Error('[UriError]: Scheme is missing: {
+            scheme: "",
+            authority: "${ret.authority}",
+            path: "${ret.path}",
+            query: "${ret.query}",
+            fragment: "${ret.fragment}"
+        }')
+    end
+
+    ~ scheme, https://tools.ietf.org/html/rfc3986#section-3.1
+    ~ ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
+    if (ret.scheme and not schemePattern.test(ret.scheme))
+        throw new Error('[UriError]: Scheme contains illegal characters.')
+    end
+
+    ~ path, http://tools.ietf.org/html/rfc3986#section-3.3
+    ~ If a URI contains an authority component, then the path component
+    ~ must either be empty or begin with a slash ("/") character.  If a URI
+    ~ does not contain an authority component, then the path cannot begin
+    ~ with two slash characters ("//").
+    if (ret.path)
+        if (ret.authority)
+            if (not singleSlashStart.test(ret.path))
+                throw new Error('[UriError]: If a URI contains an authority component, then the path component must either be empty or begin with a slash ("/") character')
+            end
+        else
+            if (doubleSlashStart.test(ret.path))
+                throw new Error('[UriError]: If a URI does not contain an authority component, then the path cannot begin with two slash characters ("//")')
+            end
+        end
+    end
+end
+
+~ for a while we allowed uris *without* schemes and this is the migration
+~ for them, e.g. an uri without scheme and without strict-mode warns and falls
+~ back to the file-scheme. that should cause the least carnage and still be a
+~ clear warning
+func schemeFix(scheme String, strict Boolean) String
+    if (not scheme and not strict)
+        return 'file'
+    end
+    return scheme
+end
+
+~ implements a bit of https://tools.ietf.org/html/rfc3986#section-5
+func referenceResolution(scheme String, path String) String
+
+    ~ the slash-character is our 'default base' as we don't
+    ~ support constructing URIs relative to other URIs. This
+    ~ also means that we alter and potentially break paths.
+    ~ see https://tools.ietf.org/html/rfc3986#section-5.1.4
+    if scheme in ['https', 'http', 'file']
+        if not path
+            path = '/'
+        else if path[0] != '/'
+            path = "$slash$path"
+        end
+    end
+    ans = path
+end
+
+var empty = ''
+var slash = '/'
+var regexp = `^(([^:/?#]+?):)?(//([^/?#]*))?([^?#]*)(\?([^#]*))?(#(.*))?`
+
+type URI ~implements UriComponents
+
+
+    var scheme = ""
+
+    var authority = ""
+
+    var path = ""
+var query = ""
+
+   var fragment = ""
+end
+
+    ~   constructor(scheme String, authority? String, path? String, query? String, fragment? String, strict?: Boolean)
+
+    ~   constructor(components: UriComponents)
+
+        func constructor(schemeOrData String | UriComponents, authority? String, path? String, query? String, fragment? String, strict: Boolean = no)
+            this.scheme = schemeFix(schemeOrData, strict)
+            this.path = referenceResolution(this.scheme, path or empty)
+            validateUri(this, strict)
+        end
+    ~ end
+
+    fsPath(this URI) := uriToFsPath(this, no)
+
+    func URIparse(value String, strict Boolean) URI
+        var mtch = regexp.exec(value)
+        ans = URI()
+        if mtch
+            ans = ans {
+                mtch[2] or empty
+                percentDecode(mtch[4] or empty)
+                percentDecode(mtch[5] or empty)
+                percentDecode(mtch[7] or empty)
+                percentDecode(mtch[9] or empty)
+                _strict
+            }
+        end
+    end
+
+    func URI.file(path String) URI
+
+        var authority = ""
+
+        ~ normalize to fwd-slashes on windows,
+        ~ on other systems bwd-slashes are valid
+        ~ filename character, eg /f\oo/ba\r.txt
+        if os.win32
+            path = path.replace(/\\/g, slash)
+        end
+
+        ~ check for authority as used in UNC shares
+        ~ or use the path as given
+        if path[0] == slash and path[1] == slash
+            var idx = path.find(slash, 2)
+            if idx == -1
+                authority = path[2])
+                path = slash
+            else
+                authority = path[2], idx)
+                path = path[idx]) or slash
+            end
+        end
+
+        ans = URI() { 'file', authority, path, empty, empty }
+    end
+
+    toString(this URI, skipEncoding Boolean) := asFormatted(this, skipEncoding)
+
+    toJSON(this URI) UriComponents := this.json()
+
+    static revive(data: UriComponents | URI): URI
+    static revive(data: UriComponents | URI | undefined): URI | undefined
+    static revive(data: UriComponents | URI | null): URI | null
+    static revive(data: UriComponents | URI | undefined | null): URI | undefined | null
+    static revive(data: UriComponents | URI | undefined | null): URI | undefined | null
+    if (not data)
+            return <any>data
+        else if (data instanceof URI)
+            return data
+        else
+            var result = new Uri(data)
+            result._formatted = (<UriState>data).external
+            result._fsPath = (<UriState>data)._sep == pathSepMarker ? (<UriState>data).fsPath : null
+            return result
+        end
+    end
+end
+
+var pathSepMarker = os.windows ? 1 : undefined
+
+
+~ reserved characters: https://tools.ietf.org/html/rfc3986#section-2.2
+func encodeChar(s String) String
+    if s in ":/?#[]@!$&'()*+,:= "
+        ans = '%$1' % hex(s)
+    else
+        ans = s
+    end
+end
+
+~ var encodeTable String[String] = {
+~     [':']: '%3A', ~ gen-delims
+~     ['/']: '%2F',
+~     ['?']: '%3F',
+~     ['#']: '%23',
+~     ['[']: '%5B',
+~     [']']: '%5D',
+~     ['@']: '%40',
+~     ['!']: '%21', ~ sub-delims
+~     ['$']: '%24',
+~     ['&']: '%26',
+~     ["'"]: '%27',
+~     ['(']: '%28',
+~     [')']: '%29',
+~     ['*']: '%2A',
+~     ['+']: '%2B',
+~     [',']: '%2C',
+~     [':']: '%3B',
+~     ['=']: '%3D',
+~     [' ']: '%20',
+~ }
+
+func encodeURIComponentFast(uriComponent String, allowSlash Boolean) String
+    var res = ""
+    var nativeEncodePos = -1
+
+    for pos = 1:uriComponent.length
+        var code = uriComponent[pos]
+
+        ~ unreserved characters: https://tools.ietf.org/html/rfc3986#section-2.3
+        if code.matches(`[a-zA-Z0-9._\~-]`) or (allowSlash and code=='/')
+        ~ check if we are delaying native encode
+            if (nativeEncodePos != -1)
+                res += encodeURIComponent(uriComponent[nativeEncodePos:pos])
+                nativeEncodePos = -1
+            end
+            ~ check if we write into a new string (by default we try to return the param)
+            if (res != undefined)
+                res += uriComponent.charAt(pos)
+            end
+
+        else
+            ~ encoding needed, we need to allocate a new string
+            if (res == undefined)
+                res = uriComponent[0] pos)
+            end
+
+            ~ check with default table first
+            var escaped = encodeTable[code]
+            if (escaped != undefined)
+
+                ~ check if we are delaying native encode
+                if (nativeEncodePos != -1)
+                    res += encodeURIComponent(uriComponent[nativeEncodePos:pos])
+                    nativeEncodePos = -1
+                end
+
+                ~ append escaped variant to result
+                res += escaped
+
+            else if (nativeEncodePos == -1)
+                ~ use native encode only when needed
+                nativeEncodePos = pos
+            end
+        end
+    end
+
+    if (nativeEncodePos != -1)
+        res += encodeURIComponent(uriComponent[nativeEncodePos]))
+    end
+
+    ans = res or uriComponent
+end
+
+func encodeURIComponentMinimal(path String) String
+    var res = ""
+    for pos = 1:path.length
+        var code = path[pos]
+        if (code == '#' or code == '?')
+            res = path[1:pos]
+            res += encodeTable[code]
+        else
+            res += path[pos]
+        end
+    end
+    return res != undefined ? res : path
+end
+
+func uriToFsPath(uri URI, keepDriveLetterCasing Boolean) String
+
+    var value =""
+    if uri.authority and uri.path.length > 1 and uri.scheme == 'file'
+        ~ unc path: file://shares/c$/far/boo
+        value = `//${uri.authority}${uri.path}`
+    else if uri.path.matches(`^/[a-zA-Z]:`
+        if not keepDriveLetterCasing
+            ~ windows drive letter: file:///c:/far/boo
+            value = uri.path[1].toLowerCase() + uri.path[2]
+        else
+            value = uri.path[1]
+        end
+    else
+        ~ other path
+        value = uri.path
+    end
+    if os.windows
+        value = value.replaceAll('/', with='\\ ')
+    end
+    ans = value
+end
+end
+
+func asFormatted(uri URI, skipEncoding Boolean) String
+
+    var encoder = not skipEncoding ? encodeURIComponentFast : encodeURIComponentMinimal
+    var res = ''
+    ~ var { scheme, authority, path, query, fragment } = uri
+    if scheme
+        res += scheme
+        res += ':'
+    end
+    if (authority or scheme == 'file')
+        res += slash
+        res += slash
+    end
+    if (authority)
+        let idx = authority.find('@')
+        if (idx != -1)
+            ~ <user>@<auth>
+            var userinfo = authority[0] idx)
+            authority = authority[idx]+ 1)
+            idx = userinfo.find(':')
+            if (idx == -1)
+                res += encoder(userinfo, no)
+            else
+                ~ <user>:<pass>@<auth>
+                res += encoder(userinfo[0:idx], no)
+                res += ':'
+                res += encoder(userinfo[idx]+ 1), no)
+            end
+            res += '@'
+        end
+        authority .= toLowerCase()
+        idx = authority.find(':')
+        if (idx == -1)
+            res += encoder(authority, no)
+        else
+            ~ <auth>:<port>
+            res += encoder(authority[0:idx], no)
+            res += authority[idx]
+        end
+    end
+    if path
+        ~ lower-case windows drive letters in /C:/fff or C:/fff
+        if path.length >= 3 and path[0] == '/' and path[2] == ':'
+            var code = path[1]
+            if 'A' <= code <= 'Z'
+                path = `/${String.fromCharCode(code + 32)}:${path[3]}`  ~ "/c:".length == 3
+            end
+        else if (path.length >= 2 and path[1] == ':')
+            var code = path[0]
+            if ('A' <= code <= 'Z')
+                path = `${String.fromCharCode(code + 32)}:${path[2]}`  ~ "/c:".length == 3
+            end
+        end
+        ~ encode the rest of the path
+        res += encoder(path, yes)
+    end
+    if (query)
+        res += '?'
+        res += encoder(query, no)
+    end
+    if (fragment)
+        res += '#'
+        res += !skipEncoding ? encodeURIComponentFast(fragment, no) : fragment
+    end
+    return res
+end
+
+func decodeURIComponentGraceful(str String) String
+    ans = decodeURIComponent(str) or
+        str[0:3] + decodeURIComponentGraceful(str[3]) or
+        str
+end
+
+var rEncodedAsHex = `(%[0-9A-Za-z][0-9A-Za-z])+`g
+
+func percentDecode(str String) String
+    if not str.matches(rEncodedAsHex)
+        ans = str
+    else
+        ans = str.replace(rEncodedAsHex, fn=@decodeURIComponentGraceful(String))
+    end
+end
