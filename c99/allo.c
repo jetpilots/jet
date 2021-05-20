@@ -3,37 +3,37 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+typedef unsigned long long uint;
 
-typedef struct {
-  int size;
-  int next; /* (+/- offset from &size to) next free block */
+typedef struct FreeBlock {
+  uint size;
+  struct FreeBlock* next; /* (+/- offset from &size to) next free block */
 } FreeBlock;
 
 typedef struct {
-  int size;
-  int ffb; // (+/- offset from &s[] to) first free block
+  FreeBlock* ffb;
+  uint size;
+  // int ffb; // (+/- offset from &s[] to) first free block
   FreeBlock s[];
 } Subpool;
 
-// spsize must be num of qwords not bytes, minimum 2. typically start from
-// 4KB/8 and go up to 1MB/8.
-Subpool* Subpool_new(int spsize) {
-  Subpool* sp = malloc(spsize * sizeof(void*));
+Subpool* Subpool_new(uint spsize) {
+  Subpool* sp = malloc(spsize * 2 * sizeof(void*));
   spsize -= 2; // one header; one sentinel
-  sp->ffb = 0;
+  sp->ffb = sp->s;
   sp->size = spsize; // always const
   sp->s[spsize] = (FreeBlock) {}; // sentinel
-  sp->s[0].size = spsize; // setup the ffb (which is at idx 0 now)
-  sp->s[0].next = 0;
+  sp->ffb->size = spsize; // setup the ffb (which is at idx 0 now)
+  sp->ffb->next = NULL;
   return sp;
 }
 
-void* Subpool_alloc(Subpool** spp, int size) {
+void* Subpool_alloc(Subpool** spp, uint size) {
   Subpool* sp = *spp;
   // size must be in 8B multiples, not bytes
-  FreeBlock* block = sp->s + sp->ffb;
-  int avbl;
-  int* referer = &sp->ffb;
+  FreeBlock* block = sp->ffb;
+  uint avbl;
+  FreeBlock** referer = &sp->ffb;
   //^ this is the pointer which you followed to get to the current block you
   // are checking. You start from sp->ffb, but when following a chain from a
   // block the referer is updated to the addr of the ->next of that block.
@@ -44,7 +44,7 @@ retry:
   if (avbl > size) {
     // big blocks will be instantly decimated this way even if exact matches
     // are present down the chain. what to do...
-    int next = block->next;
+    FreeBlock* next = block->next;
     void* ret = block;
     *referer += size;
     block += size;
@@ -55,23 +55,26 @@ retry:
     *referer = block->next;
     return ret;
   } else if (!avbl) {
+    uint nsz;
   notavbl:
+    // hit sentinel.
     // subpool exhausted. let pool malloc a new one & alloc from there.
-    if (size <= (sp->size * 2)) {
-      int nsz = (sp->size + 2) * 2 - 2;
+    nsz = (sp->size + 2) * 2 - 2;
+    if (size <= nsz) {
       // Subpool* nsp = Subpool_new(nsz);
       // void* ret = Subpool_alloc(&nsp, size);
       // *spp = nsp;
       // return ret;
       *spp = Subpool_new(nsz);
       return Subpool_alloc(spp, size);
-    } // you should probably let Pool handle this case
+    }
+    // you should probably let Pool handle this case
     return NULL; // don't create next subpool with excessive size.
   } else {
     if (!block->next) {
       goto notavbl;
     } else {
-      block = sp->s + block->next;
+      block = block->next;
       referer = &block->next;
       goto retry;
     }
@@ -84,36 +87,21 @@ retry:
 #define likely(x) (x)
 #define unlikely(x) (x)
 #endif
-void Subpool_free(Subpool* sp, void* ptr, int size) {
-  int offs = (FreeBlock*)ptr - sp->s;
-  FreeBlock* block = sp->s + offs;
+void Subpool_free(Subpool* sp, void* ptr, uint size) {
+  FreeBlock* block = ptr;
 
-  // TODO: optimisation if you find that the bext contiguous block is the
-  // next ptr then coalesce them
-  if (likely(sp->s + sp->ffb == block + size)) {
-    // at the top of the stack. coalesce with the large contiguous chunk
-    // instead of creating a new linked list entry.
-    // this optim gives 10x improvement esp when you are asking or
-    // increasingly larger objs after freeing. Recently freed objs are going
-    // to be useless and they are going to lengthen the chain each time
-    // (remember new stuff is shifted on to the freelist, not pushed)
-    // for allocating the same size obj over and over, having this branch
-    // causes about 5% overhead (mainly for computing the condition; NOT
-    // branch penalty)
-    FreeBlock* nextblock = sp->s + sp->ffb;
-    block->size = size + nextblock->size;
-    block->next = nextblock->next;
+  if (likely(sp->ffb == block + size)) {
+    block->size = size + sp->ffb->size;
+    block->next = sp->ffb->next;
   } else {
-    // not at top of stack. we'll shift this on the linked list, set ffb to
-    // this block and set its next to the old ffb.
     block->size = size;
     block->next = sp->ffb;
   }
-  sp->ffb = offs; // the new ffb is the freed block.
+  sp->ffb = block; // the new ffb is the freed block.
 }
 
 void Subpool_stat(Subpool* sp) {
-  FreeBlock* block = sp->s + sp->ffb;
+  FreeBlock* block = sp->ffb;
   int sum = 0, count = 0;
   if (!block->size) {
     // hit sentinel at end; subpool is full
@@ -122,28 +110,29 @@ void Subpool_stat(Subpool* sp) {
       sum += block->size;
       count++;
       if (!block->next) break;
-      block = sp->s + block->next;
+      block = block->next;
     }
   }
 }
 #define thread_local
-
+extern void* p;
 #include "../engine/jet/os/clock.h"
+void* p;
 int main() {
   tic();
-  Subpool* sp = Subpool_new(4096 / 8);
+  Subpool* sp = Subpool_new(4096 / 16);
   for (int i = 0; i < 40000; i++) {
-    void* p = Subpool_alloc(&sp, i + 16);
+    p = Subpool_alloc(&sp, 16);
     if (!p) break;
     // if (i % 2 == 1)
-    Subpool_free(sp, p, i + 16);
+    Subpool_free(sp, p, 16);
   }
   Subpool_stat(sp);
   toc();
 
   tic();
   for (int i = 0; i < 400000; i++) {
-    void* p = malloc(8 * 32);
+    p = malloc(16 * 16);
     if (!p) break;
     // if (i % 2 == 1)
     free(p);
