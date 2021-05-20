@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-// #include "../engine/jet/core/Array.h"
 
 typedef struct {
   int size;
@@ -16,10 +15,6 @@ typedef struct {
   FreeBlock s[];
 } Subpool;
 
-// typedef struct {
-//   PtrArray subpools;
-// } Pool;
-
 // spsize must be num of qwords not bytes, minimum 2. typically start from
 // 4KB/8 and go up to 1MB/8.
 Subpool* Subpool_new(int spsize) {
@@ -28,7 +23,6 @@ Subpool* Subpool_new(int spsize) {
   sp->ffb = 0;
   sp->size = spsize; // always const
   sp->s[spsize] = (FreeBlock) {}; // sentinel
-  // printf("new subpool of size %luB at %p\n", spsize * sizeof(void*), sp);
   sp->s[0].size = spsize; // setup the ffb (which is at idx 0 now)
   sp->s[0].next = 0;
   return sp;
@@ -37,7 +31,6 @@ Subpool* Subpool_new(int spsize) {
 void* Subpool_alloc(Subpool** spp, int size) {
   Subpool* sp = *spp;
   // size must be in 8B multiples, not bytes
-  // if (size & 1) size++;
   FreeBlock* block = sp->s + sp->ffb;
   int avbl;
   int* referer = &sp->ffb;
@@ -47,7 +40,6 @@ void* Subpool_alloc(Subpool** spp, int size) {
 
 retry:
   avbl = block->size;
-  // printf("need %d, avbl %d qwords in ffb at %p\n", size, avbl, block);
 
   if (avbl > size) {
     // big blocks will be instantly decimated this way even if exact matches
@@ -57,47 +49,67 @@ retry:
     *referer += size;
     block += size;
     block->size = avbl - size, block->next = next;
-    // printf("- alloc %d qwords at %p\n", size, ret);
     return ret;
   } else if (avbl == size) {
     void* ret = block;
     *referer = block->next;
-    // printf("- exact alloc %d qwords at %p\n", size, ret);
     return ret;
   } else if (!avbl) {
   notavbl:
     // subpool exhausted. let pool malloc a new one & alloc from there.
     if (size <= (sp->size * 2)) {
       int nsz = (sp->size + 2) * 2 - 2;
-      Subpool* nsp = Subpool_new(nsz);
-      // printf("- created new subpool of size %d at %p.\n", nsz, nsp);
-      void* ret = Subpool_alloc(&nsp, size);
-      *spp = nsp;
-      return ret;
-    }
-    // printf("- req size is just too large even for next subpool.\n");
+      // Subpool* nsp = Subpool_new(nsz);
+      // void* ret = Subpool_alloc(&nsp, size);
+      // *spp = nsp;
+      // return ret;
+      *spp = Subpool_new(nsz);
+      return Subpool_alloc(spp, size);
+    } // you should probably let Pool handle this case
     return NULL; // don't create next subpool with excessive size.
   } else {
     if (!block->next) {
-      // printf("- chain finished, no next block\n");
       goto notavbl;
     } else {
-      // printf("- checking next block at offset %d\n", block->next);
       block = sp->s + block->next;
       referer = &block->next;
       goto retry;
     }
   }
 }
-
+#if __GNUC__ >= 3
+#define likely(x) __builtin_expect(!!(x), 1)
+#define unlikely(x) __builtin_expect(!!(x), 0)
+#else
+#define likely(x) (x)
+#define unlikely(x) (x)
+#endif
 void Subpool_free(Subpool* sp, void* ptr, int size) {
   int offs = (FreeBlock*)ptr - sp->s;
-  // if (size & 1) size++;
-  // printf("freeing %d qwords at %p\n", size, ptr);
   FreeBlock* block = sp->s + offs;
-  block->size = size;
-  block->next = sp->ffb;
-  sp->ffb = offs;
+
+  // TODO: optimisation if you find that the bext contiguous block is the
+  // next ptr then coalesce them
+  if (likely(sp->s + sp->ffb == block + size)) {
+    // at the top of the stack. coalesce with the large contiguous chunk
+    // instead of creating a new linked list entry.
+    // this optim gives 10x improvement esp when you are asking or
+    // increasingly larger objs after freeing. Recently freed objs are going
+    // to be useless and they are going to lengthen the chain each time
+    // (remember new stuff is shifted on to the freelist, not pushed)
+    // for allocating the same size obj over and over, having this branch
+    // causes about 5% overhead (mainly for computing the condition; NOT
+    // branch penalty)
+    FreeBlock* nextblock = sp->s + sp->ffb;
+    block->size = size + nextblock->size;
+    block->next = nextblock->next;
+  } else {
+    // not at top of stack. we'll shift this on the linked list, set ffb to
+    // this block and set its next to the old ffb.
+    block->size = size;
+    block->next = sp->ffb;
+  }
+  sp->ffb = offs; // the new ffb is the freed block.
 }
 
 void Subpool_stat(Subpool* sp) {
@@ -105,7 +117,6 @@ void Subpool_stat(Subpool* sp) {
   int sum = 0, count = 0;
   if (!block->size) {
     // hit sentinel at end; subpool is full
-    // printf("subpool %p is full\n", sp);
   } else {
     while (1) {
       sum += block->size;
@@ -113,7 +124,6 @@ void Subpool_stat(Subpool* sp) {
       if (!block->next) break;
       block = sp->s + block->next;
     }
-    // printf("%d free blocks with %d free qwords total\n", count, sum);
   }
 }
 #define thread_local
@@ -123,11 +133,10 @@ int main() {
   tic();
   Subpool* sp = Subpool_new(4096 / 8);
   for (int i = 0; i < 40000; i++) {
-    void* p = Subpool_alloc(&sp, 32);
+    void* p = Subpool_alloc(&sp, i + 16);
     if (!p) break;
     // if (i % 2 == 1)
-    Subpool_free(sp, p, 32);
-    // printf("--- done iter %d\n", i + 1);
+    Subpool_free(sp, p, i + 16);
   }
   Subpool_stat(sp);
   toc();
@@ -138,7 +147,6 @@ int main() {
     if (!p) break;
     // if (i % 2 == 1)
     free(p);
-    // printf("--- done iter %d\n", i + 1);
   }
   toc();
 }
