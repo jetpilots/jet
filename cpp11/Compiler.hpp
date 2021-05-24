@@ -1,236 +1,227 @@
 
 struct Compiler {
-    enum class Mode : char { lint, build, run, test };
+  enum class Mode : char { lint, build, run, test };
 
-    char* filename;
-    CompilerOpts opts;
+  char* filename;
+  CompilerOpts opts;
 
-    Compiler(int argc, char* argv[]) { parseOpts(argc, argv); }
+  Compiler(int argc, char* argv[]) { parseOpts(argc, argv); }
 
-    /// Create a new empty module with the given name.
-    Module& newModule(const char* name) { }
+  /// Create a new empty module with the given name.
+  Module& newModule(const char* name) { }
 
-    void start() {
-        Diagnostics errs;
-        Module* root = loadRootModule(errs);
-        if (opts.mode >= Mode::lint)
-            if (root)
-                root->write();
-            else
-                Token::format(errs.lines);
-        if (opts.mode >= Mode::build) build();
-        if (opts.mode >= Mode::run) run();
-        if (opts.mode >= Mode::test) test();
+  void start() {
+    Diagnostics errs;
+    Module* root = loadRootModule(errs);
+    if (opts.mode >= Mode::lint)
+      if (root)
+        root->write();
+      else
+        Token::format(errs.lines);
+    if (opts.mode >= Mode::build) build();
+    if (opts.mode >= Mode::run) run();
+    if (opts.mode >= Mode::test) test();
+  }
+
+  Module* loadRootModule(Diagnostics& errs) {
+    Module* root = nullptr;
+    if ((root = Module::load(filename))) return root;
+    Parser parser(filename, errs);
+    if ((root = parser.parseModule())) {
+      Analyzer an(errs);
+
+      if (opts.mode >= Mode::build) {
+        Func* fnMain = root->getFunc("main()");
+        if (fnMain)
+          an.analyse(*root, *fnMain);
+        else
+          errs.missingMain();
+      } else {
+        an.analyse(*root);
+      }
+
+      if (not errs.count)
+        root->save();
+      else {
+        root = nullptr;
+      }
     }
+    return root;
+  }
+  void build() { }
+  void run() { }
+  void test() { }
+  void parseOpts(int argc, char* argv[]) { }
 
-    Module* loadRootModule(Diagnostics& errs) {
-        Module* root = nullptr;
-        if ((root = Module::load(filename))) return root;
-        Parser parser(filename, errs);
-        if ((root = parser.parseModule())) {
-            Analyzer an(errs);
+  typedef struct {
+    CompilerMode mode;
+    bool stats, coverage, profiling, buildobj, inplace, strictSpacing,
+        disableGC, forceBuild;
+    const char *srcfile, *makeMode;
+    long nprocs, nthreads;
+  } JetOpts;
 
-            if (opts.mode >= Mode::build) {
-                Func* fnMain = root->getFunc("main()");
-                if (fnMain)
-                    an.analyse(*root, *fnMain);
-                else
-                    errs.missingMain();
+  static void getDefaultOpts(JetOpts* out) {
+    *out = (JetOpts) {
+      .mode = PMRun, .makeMode = "debug", .buildobj = true
+    };
+  }
+  void printOpts(JetOpts* opts) {
+    static const char* _fp_yn[] = { "no", "yes" };
+    printf("mode = %s\n", CompilerMode__str[opts->mode]);
+    printf("stats = %s\n", _fp_yn[opts->stats]);
+    printf("coverage = %s\n", _fp_yn[opts->coverage]);
+    printf("profiling = %s\n", _fp_yn[opts->profiling]);
+    printf("buildobj = %s\n", _fp_yn[opts->buildobj]);
+    printf("inplace = %s\n", _fp_yn[opts->inplace]);
+    printf("strictSpacing = %s\n", _fp_yn[opts->strictSpacing]);
+    printf("disableGC = %s\n", _fp_yn[opts->disableGC]);
+    printf("forceBuild = %s\n", _fp_yn[opts->forceBuild]);
+    printf("srcfile = %s\n", opts->srcfile);
+    printf("makeMode = %s\n", opts->makeMode);
+    printf("nprocs = %ld\n", opts->nprocs);
+    printf("nthreads = %ld\n", opts->nthreads);
+  }
+
+  static bool getOpts(int argc, char* argv[], JetOpts* out) {
+    getDefaultOpts(out);
+    bool ok = true;
+    for (int i = 1; i < argc; i++) {
+      if (!argv[i]) continue; // may have been clobbered by -o
+      char* arg = argv[i];
+      char lookahead = 1, *value;
+      if (*arg == '-' && *(arg + 1)) {
+        while (lookahead && lookahead != ' ') {
+          // you can do e.g. -abcde to activate all
+          if (!*++arg) break;
+          lookahead = *(arg + 1);
+          value = arg + 2;
+          switch (*arg) {
+          case 'c': // only generate .c file, stop at first error
+            out->mode = PMEmitC;
+            break;
+          case 'w': out->buildobj = false; break;
+          case 'v': out->coverage = true; break;
+          case 'p': out->profiling = true; break;
+          case 's': out->stats = true; break;
+          case 'l': out->mode = PMLint; break;
+          case 'k': // just print tokens (for debugging only).
+            out->mode = PMTokenize;
+            break;
+          case 't': out->mode = PMTest; break;
+          case 'b': // make specified target (or everything)
+            out->mode = PMMake;
+            break;
+          case 'r': out->makeMode = "release"; break;
+          case 'z': out->makeMode = "fast"; break;
+          case 'f': out->forceBuild = true; break;
+          case 'i': // in-place update linted file(s)
+            out->inplace = true;
+            break;
+          case 'x': out->disableGC = false; break;
+          case 'n':
+            if (i + 1 < argc && '-' != *argv[i + 1]) {
+              out->nprocs = atoi(argv[i + 1]);
+              i++;
             } else {
-                an.analyse(*root);
+              eprintf("jetc: missing value for argument #%d (-n)\n", i);
             }
-
-            if (not errs.count)
-                root->save();
-            else {
-                root = nullptr;
-            }
-        }
-        return root;
-    }
-    void build() { }
-    void run() { }
-    void test() { }
-    void parseOpts(int argc, char* argv[]) { }
-
-    typedef struct {
-        CompilerMode mode;
-        bool stats, coverage, profiling, buildobj, inplace, strictSpacing,
-            disableGC, forceBuild;
-        const char *srcfile, *makeMode;
-        long nprocs, nthreads;
-    } JetOpts;
-
-    static void getDefaultOpts(JetOpts* out) {
-        *out = (JetOpts) {
-            .mode = PMRun, .makeMode = "debug", .buildobj = true
-        };
-    }
-    void printOpts(JetOpts* opts) {
-        static const char* _fp_yn[] = { "no", "yes" };
-        printf("mode = %s\n", CompilerMode__str[opts->mode]);
-        printf("stats = %s\n", _fp_yn[opts->stats]);
-        printf("coverage = %s\n", _fp_yn[opts->coverage]);
-        printf("profiling = %s\n", _fp_yn[opts->profiling]);
-        printf("buildobj = %s\n", _fp_yn[opts->buildobj]);
-        printf("inplace = %s\n", _fp_yn[opts->inplace]);
-        printf("strictSpacing = %s\n", _fp_yn[opts->strictSpacing]);
-        printf("disableGC = %s\n", _fp_yn[opts->disableGC]);
-        printf("forceBuild = %s\n", _fp_yn[opts->forceBuild]);
-        printf("srcfile = %s\n", opts->srcfile);
-        printf("makeMode = %s\n", opts->makeMode);
-        printf("nprocs = %ld\n", opts->nprocs);
-        printf("nthreads = %ld\n", opts->nthreads);
-    }
-
-    static bool getOpts(int argc, char* argv[], JetOpts* out) {
-        getDefaultOpts(out);
-        bool ok = true;
-        for (int i = 1; i < argc; i++) {
-            if (!argv[i]) continue; // may have been clobbered by -o
-            char* arg = argv[i];
-            char lookahead = 1, *value;
-            if (*arg == '-' && *(arg + 1)) {
-                while (lookahead && lookahead != ' ') {
-                    // you can do e.g. -abcde to activate all
-                    if (!*++arg) break;
-                    lookahead = *(arg + 1);
-                    value = arg + 2;
-                    switch (*arg) {
-                    case 'c': // only generate .c file, stop at first error
-                        out->mode = PMEmitC;
-                        break;
-                    case 'w': out->buildobj = false; break;
-                    case 'v': out->coverage = true; break;
-                    case 'p': out->profiling = true; break;
-                    case 's': out->stats = true; break;
-                    case 'l': out->mode = PMLint; break;
-                    case 'k': // just print tokens (for debugging only).
-                        out->mode = PMTokenize;
-                        break;
-                    case 't': out->mode = PMTest; break;
-                    case 'b': // make specified target (or everything)
-                        out->mode = PMMake;
-                        break;
-                    case 'r': out->makeMode = "release"; break;
-                    case 'z': out->makeMode = "fast"; break;
-                    case 'f': out->forceBuild = true; break;
-                    case 'i': // in-place update linted file(s)
-                        out->inplace = true;
-                        break;
-                    case 'x': out->disableGC = false; break;
-                    case 'n':
-                        if (i + 1 < argc && '-' != *argv[i + 1]) {
-                            out->nprocs = atoi(argv[i + 1]);
-                            i++;
-                        } else {
-                            eprintf(
-                                "jetc: missing value for argument #%d (-n)\n",
-                                i);
-                        }
-                        break;
-                    case 'm':
-                        if (i + 1 < argc && '-' != *argv[i + 1]) {
-                            out->nthreads = atoi(argv[i + 1]);
-                            i++;
-                        } else {
-                            eprintf(
-                                "jetc: missing value for argument #%d (-m)\n",
-                                i);
-                        }
-                        break;
-                    default:
-                    defaultCase:
-                        eprintf("jetc: unrecognized option #%d: %s [%s]\n", i,
-                            argv[i], arg);
-                        ok = false;
-                    }
-                }
+            break;
+          case 'm':
+            if (i + 1 < argc && '-' != *argv[i + 1]) {
+              out->nthreads = atoi(argv[i + 1]);
+              i++;
             } else {
-                // jetc supports only ONE file at a time?
-                out->srcfile = arg;
+              eprintf("jetc: missing value for argument #%d (-m)\n", i);
             }
-        }
-
-        if (!out->srcfile) {
-            eputs("jet: error: no input file specified\n");
+            break;
+          default:
+          defaultCase:
+            eprintf("jetc: unrecognized option #%d: %s [%s]\n", i, argv[i],
+                arg);
             ok = false;
-        } else if (!strcmp(out->srcfile, "-")) {
-            // this is STDIN...
-        } else {
-            size_t flen = CString_length(out->srcfile);
-            if (!CString_endsWith(out->srcfile, flen, ".jet", 4)) {
-                eprintf("%s: error: filename invalid, must end in '.jet'\n",
-                    out->srcfile);
-                ok = false;
-            }
-
-            struct stat sb;
-            if (stat(out->srcfile, &sb) != 0) {
-                eprintf("%s: error: file not found\n", out->srcfile),
-                    ok = false;
-            } else if (S_ISDIR(sb.st_mode)) {
-                eprintf("%s: error: that's a folder\n", out->srcfile),
-                    ok = false;
-            } else if (access(out->srcfile, R_OK) == -1) {
-                eprintf("%s: error: permission denied\n", out->srcfile),
-                    ok = false;
-            }
+          }
         }
-        printOpts(out);
-
-        for (int i = 0; i < argc; i++) printf("%s ", argv[i]);
-        puts("");
-
-        return ok;
+      } else {
+        // jetc supports only ONE file at a time?
+        out->srcfile = arg;
+      }
     }
 
-    static const unsigned long ONE_NANO = 1000000000;
+    if (!out->srcfile) {
+      eputs("jet: error: no input file specified\n");
+      ok = false;
+    } else if (!strcmp(out->srcfile, "-")) {
+      // this is STDIN...
+    } else {
+      size_t flen = CString_length(out->srcfile);
+      if (!CString_endsWith(out->srcfile, flen, ".jet", 4)) {
+        eprintf("%s: error: filename invalid, must end in '.jet'\n",
+            out->srcfile);
+        ok = false;
+      }
 
-    // Check if the corresponding .c, .o, or .x file exists for a given source
-    // file and whether it is older than the source file. `file` is any Jet
-    // source file, `newext` is either 'c', 'o', or 'x'.
-    bool needsBuild(const char* file, char newext) {
-        struct stat sb, sbc;
-
-        printf("checking %s\n", file);
-
-        int ret = stat(file, &sb);
-        if (ret) return false; // unreachable
-        size_t filetime
-            = sb.st_mtimespec.tv_sec * ONE_NANO + sb.st_mtimespec.tv_nsec;
-
-        static char cfile[4096] = {}; //, *cend = cfile + 4095;
-        size_t n = strlen(file);
-        assert(n < 4095);
-        strncpy(
-            cfile, file, 4094); // one for NULL, one for a dot to hide the file
-
-        // char* lastSlash = cfile + n;
-        // while (lastSlash > cfile && lastSlash[-1] != '/') lastSlash--;
-
-        char* mover = cfile + n;
-        while (--mover > cfile && mover[-1] != '/') mover[0] = mover[-1];
-        mover[0] = '.';
-
-        char* lastDot = cfile + n;
-        while (lastDot > cfile && lastDot[-1] != '.') lastDot--;
-        cfile[n - 3] = '.';
-        cfile[n - 2] = newext; // change file.jet to .file.c
-        cfile[n - 1] = 0;
-
-        // size_t alen = strlen(altext);
-        // assert(alen < cend - lastDot);
-        // strncpy(lastDot, altext, alen);
-
-        // printf("checking %s\n", cfile);
-
-        if (stat(cfile, &sbc))
-            return true; // yes it needs a build if it doesn't exist
-
-        size_t cfiletime
-            = sbc.st_mtimespec.tv_sec * ONE_NANO + sbc.st_mtimespec.tv_nsec;
-
-        return cfiletime < filetime;
+      struct stat sb;
+      if (stat(out->srcfile, &sb) != 0) {
+        eprintf("%s: error: file not found\n", out->srcfile), ok = false;
+      } else if (S_ISDIR(sb.st_mode)) {
+        eprintf("%s: error: that's a folder\n", out->srcfile), ok = false;
+      } else if (access(out->srcfile, R_OK) == -1) {
+        eprintf("%s: error: permission denied\n", out->srcfile), ok = false;
+      }
     }
+    printOpts(out);
+
+    for (int i = 0; i < argc; i++) printf("%s ", argv[i]);
+    puts("");
+
+    return ok;
+  }
+
+  // Check if the corresponding .c, .o, or .x file exists for a given source
+  // file and whether it is older than the source file. `file` is any Jet
+  // source file, `newext` is either 'c', 'o', or 'x'.
+  bool needsBuild(const char* file, char newext) {
+    struct stat sb, sbc;
+
+    printf("checking %s\n", file);
+
+    int ret = stat(file, &sb);
+    if (ret) return false; // unreachable
+    size_t filetime
+        = sb.st_mtimespec.tv_sec * ONE_NANO + sb.st_mtimespec.tv_nsec;
+
+    static char cfile[4096] = {}; //, *cend = cfile + 4095;
+    size_t n = strlen(file);
+    assert(n < 4095);
+    strncpy(
+        cfile, file, 4094); // one for NULL, one for a dot to hide the file
+
+    // char* lastSlash = cfile + n;
+    // while (lastSlash > cfile && lastSlash[-1] != '/') lastSlash--;
+
+    char* mover = cfile + n;
+    while (--mover > cfile && mover[-1] != '/') mover[0] = mover[-1];
+    mover[0] = '.';
+
+    char* lastDot = cfile + n;
+    while (lastDot > cfile && lastDot[-1] != '.') lastDot--;
+    cfile[n - 3] = '.';
+    cfile[n - 2] = newext; // change file.jet to .file.c
+    cfile[n - 1] = 0;
+
+    // size_t alen = strlen(altext);
+    // assert(alen < cend - lastDot);
+    // strncpy(lastDot, altext, alen);
+
+    // printf("checking %s\n", cfile);
+
+    if (stat(cfile, &sbc))
+      return true; // yes it needs a build if it doesn't exist
+
+    size_t cfiletime
+        = sbc.st_mtimespec.tv_sec * ONE_NANO + sbc.st_mtimespec.tv_nsec;
+
+    return cfiletime < filetime;
+  }
 };

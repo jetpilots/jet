@@ -81,10 +81,10 @@ struct TypeSpec {
            // pasted
     uint16_t dims; // more than 65535 dims will not be handled at compile
                    // time (size check, shape check etc) but at runtime. if
-                   // collectionType is tensor but dims is 0, it means too
+                   // collType is tensor but dims is 0, it means too
                    // many dims or ct-unknown dims, in any case it is then
                    // the generic ArrayND.
-    CollectionTypes collectionType : 6;
+    CollectionTypes collType : 6;
     bool hasRange : 1, //
         hasUnits : 1;
     TypeTypes typeType : 7;
@@ -110,7 +110,7 @@ struct Var {
         unsigned _init_lower32;
         struct {
             uint16_t dims;
-            CollectionTypes collectionType : 6;
+            CollectionTypes collType : 6;
             bool hasRange : 1, hasUnits : 1;
             TypeTypes typeType : 7;
             bool nullable : 1;
@@ -145,6 +145,7 @@ struct Var {
     char //
         isLet : 1, //
         isVar : 1, //
+        isMutableArg : 1, // func arg only: passed by ref (needs extra *)
         storage : 2, // 0,1,2,3: refc/heap/stack/mixed
         isArg : 1, // a function arg, not a local var
         stackAlloc : 1, // this var is of a ref type, but it will be
@@ -212,9 +213,9 @@ struct Expr {
       struct {
         uint16_t typeType : 8, // typeType of this expression -> must
                                // match for ->left and ->right
-            collectionType : 4, // collectionType of this expr -> the
-                                // higher dim-type of left's and right's
-                                // collectionType.
+            collType : 4, // collType of this expr -> the
+                          // higher dim-type of left's and right's
+                          // collType.
             nullable : 1, // is this expr nullable (applies only when
                           // typeType is object.) generally will be set
                           // on idents and func calls etc. since
@@ -390,7 +391,8 @@ struct Module {
   List(Module) * importedBy; // for dependency graph. also use
                              // imports[i]->mod over i
   char *name, *cname, *Cname, *filename;
-  char *out_x, *out_xc, *out_c, *out_h, *out_jet;
+  char *out_x, *out_xc, *out_c, *out_o, *out_h, *out_jet;
+  int nlines;
 
   // DiagnosticReporter reporter;
 
@@ -455,7 +457,7 @@ static uint32_t exprsAllocHistogram[128];
 static TypeSpec* spec_new(TypeTypes tt, CollectionTypes ct) {
   TypeSpec* ret = NEW(TypeSpec);
   ret->typeType = tt;
-  ret->collectionType = ct;
+  ret->collType = ct;
   return ret;
 }
 
@@ -532,7 +534,7 @@ static Expr* expr_fromToken(const Token* self) {
   case tkElif:
   case tkType:
   case tkReturn:
-  case tkResult:
+  case tkYield:
   case tkExtends:
   case tkVar:
   case tkLet:
@@ -1125,6 +1127,7 @@ monostatic Expr* mod_getExpr(Module* mod, int line, int col,
   return NULL;
 }
 monostatic bool upcastable(Type* type, Type* target) {
+  if (!type || !target) return false;
   if (type->isEnum) return type == target;
   do {
     if (type == target) return true;
@@ -1237,7 +1240,7 @@ monostatic Func* mod_getFuncByTypeMatch(
       }
       if (ISIN(3, cArg->typeType, TYUnknown, TYError, TYVoid)) return NULL;
       if (cArg->typeType == arg->spec->typeType
-          && cArg->collectionType == arg->spec->collectionType) {
+          && cArg->collType == arg->spec->collType) {
         if (cArg->typeType == TYObject
             && !upcastable(expr_getTypeOrEnum(cArg), arg->spec->type))
           goto nextfunc;
@@ -1258,7 +1261,7 @@ monostatic Func* mod_getFuncByTypeMatch(
     //     if (ISIN(3, cArg->typeType, TYUnknown, TYError, TYVoid))
     //         return NULL;
     //     if (cArg->typeType == arg->spec->typeType
-    //         && cArg->collectionType == arg->spec->collectionType) {
+    //         && cArg->collType == arg->spec->collType) {
 
     //         if (cArg->typeType == TYObject
     //             && !upcastable(expr_getTypeOrEnum(cArg),

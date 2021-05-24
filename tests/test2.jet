@@ -1,5 +1,5 @@
 
-declare function check()
+decl func check()
 
 var d = 3
 
@@ -13,7 +13,7 @@ func binfo()
     x = func(x[1:3], y[3:5]) # nested for loops, tmp var, x = tmp at end
     m = all(x<5) or any(x<5) # both must short circuit
 end
-~ function mc.change(x,y) # YOU CANT DO THIS W/O FUNC PTRS!!
+~ func mc.change(x,y) # YOU CANT DO THIS W/O FUNC PTRS!!
 ~ end # NO FUNC PTRS PLS
 
 type Hello extends hello
@@ -31,23 +31,23 @@ type Hello extends hello
     ~ g= 4 + anfb(b)
 
     ~ event change(x, y)
-    ~ instead of handler x onchange, use function x.onchange
+    ~ instead of handler x onchange, use func x.onchange
     ~ dots arent allowed in normal funcs anyway, and Class.func means static
     ~ # you can only define a.func() funcs if there is a var a and
     ~ # it has a func `func`, and `func` is marked as an event.
-    ~ function self.change(x, y)
-    ~     print("default function for all instances of this type")
+    ~ func self.change(x, y)
+    ~     print("default func for all instances of this type")
     ~ end
 
-    ~ function jy.change(x,y)
-    ~     print("overrides change function for var jy only")
+    ~ func jy.change(x,y)
+    ~     print("overrides change func for var jy only")
     ~ end
 
     ~ event bang()
-    ~ no default function for bang: empty default will be generated
-    ~ so all events are guaranteed to have an empty function if not overridden.
+    ~ no default func for bang: empty default will be generated
+    ~ so all events are guaranteed to have an empty func if not overridden.
 
-    ~ function wiz()
+    ~ func wiz()
     ~     m = 3
     ~     if m > 4
     ~         bang() # raise the event
@@ -56,26 +56,26 @@ type Hello extends hello
 
 end
 
-~ this means ec must be defined in the scope containing this function.
+~ this means ec must be defined in the scope containing this func.
 ~ basically means functions must be defined INSIDE types, also handlers
 ~ or inside modules but that means mutable module-level vars.
-~ function ec.change(x, y)
+~ func ec.change(x, y)
 ~     print("hi")
 ~ end
 thirty() := 30
 thirty() := 30
 
-~ function basic(arg Text, n Text) as MyClass
+~ func basic(arg Text, n Text) as MyClass
 func basic(arg Text[] or None, n Text[:,:]) as MyClass or None
     var a = 0 #!
     var x = 5 + 1 * 3 + (5+6) * arg
     print("Hello, world!" + x)
     var c = 7
 
-    let enc = JSON("{hyyp: 67}")
+    var enc = JSON("{hyyp: 67}")
 
-    let encj = toJSON({"hyp" = 67}) # same thing
-    let arrj = toJSON([1, 2, 3, 4, 5, 6])
+    var encj = toJSON({"hyp" = 67}) # same thing
+    var arrj = toJSON([1, 2, 3, 4, 5, 6])
 
     var ebc = getJSON("hyyp.ch")
     var ec = readJSON("hyyp.json")
@@ -84,9 +84,9 @@ func basic(arg Text[] or None, n Text[:,:]) as MyClass or None
     ~ ec.change = ecChange
 
     var j = x + y*1i
-    ~ let cj(x) = 7+x
+    ~ var cj(x) = 7+x
     var jj = 7 + j #!
-    ~ var function = c + test + m #r
+    ~ var func = c + test + m #r
     if a == 5 #!
         ~ var a = 6
         x = 5 + a[3+c, 5+JSON.read(j)] #!notarr
@@ -105,24 +105,24 @@ end
 
 pang() := 7
 
-declare function func2(x Text) as Text or None
-declare function xyz()
-declare function JSON.download()
-declare function JSON()
-declare function JSON.read()
+decl func func2(x Text) as Text or None
+decl func xyz()
+decl func JSON.download()
+decl func JSON()
+decl func JSON.read()
 
 func func(m Text)
 end
 
-declare function print()
+decl func print()
 ~ end
 
-~ function fdsu()
+~ func fdsu()
 ~ end
 
-~ declare function fdsu()
+~ decl func fdsu()
 
 fdsu(x, y, z) := sqrt(x + y + z) + 5
 
-~ let func2() = 0
-~ let xyz() = 0
+~ var func2() = 0
+~ var xyz() = 0

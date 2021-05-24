@@ -35,7 +35,7 @@
     Continue = {id=34, name="Continue", repr="continue "}, 
     Throw = {id=35, name="Throw", repr="throw "}, 
     Catch = {id=36, name="Catch", repr="catch "}, 
-    Result = {id=37, name="Result", repr=" result "}, 
+    Yield = {id=37, name="Yield", repr="yield "}, 
     Extends = {id=38, name="Extends", repr=" extends "}, 
     Var = {id=39, name="Var", repr="var "}, 
     Let = {id=40, name="Let", repr="let "}, 
@@ -117,4 +117,3 @@
     Unknown = {id=116, name="Unknown", repr="(unk)"}, 
 }
 return tk
-

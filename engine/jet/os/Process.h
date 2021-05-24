@@ -9,8 +9,8 @@
 
 extern char** environ;
 
-void test_fork_exec(void);
-void test_posix_spawn(void);
+monostatic void test_fork_exec(void);
+monostatic void test_posix_spawn(void);
 
 /*
 void test_fork_exec(void)
@@ -71,7 +71,7 @@ typedef struct {
 // ping example shows pipe.
 // speaking of ping, you should have a function ping
 
-Process Process_launch(char* args[]) {
+monostatic Process Process_launch(char* args[]) {
   pid_t pid;
   // spawnp won't allow for creating a pipe.
   int ret = posix_spawnp(&pid, args[0], NULL, NULL, args, environ);
@@ -90,7 +90,7 @@ typedef enum {
   JET_PIPE_READERR = 4
 } PipedProcessCapture;
 
-Pipe Pipe_new(char* args[], int capture) {
+monostatic Pipe Pipe_new(char* args[], int capture) {
   int p_from[2] = { -1, -1 };
   int p_to[2] = { -1, -1 };
   int p_errfrom[2] = { -1, -1 }; // from parent to child
@@ -145,10 +145,10 @@ Pipe Pipe_new(char* args[], int capture) {
   // you can do read(pp.p_read, buf, bufsize), write(pp.p_write, buf,
   // bufsize) then close(pp)
 }
-char wrote(int fd, void* data, unsigned int size) {
+monostatic char wrote(int fd, void* data, unsigned int size) {
   return write(fd, data, size) == size;
 }
-void Pipe_write(Pipe proc, void* data, ssize_t size) {
+monostatic void Pipe_write(Pipe proc, void* data, ssize_t size) {
   static const unsigned int maxsz = 1 << 30;
   do {
     ssize_t sz = size > maxsz ? maxsz : size;
@@ -160,20 +160,20 @@ void Pipe_write(Pipe proc, void* data, ssize_t size) {
   } while (size > 0);
 }
 
-void Pipe_close(Pipe* proc) {
+monostatic void Pipe_close(Pipe* proc) {
   close(proc->p_read), close(proc->p_write), close(proc->p_err);
   proc->p_read = proc->p_write = proc->p_err = -1;
 }
 
-Pipe Pipe_shnew(char* cmd, int capture) {
+monostatic Pipe Pipe_shnew(char* cmd, int capture) {
   return Pipe_new((char*[]) { "/bin/sh", "-c", cmd, NULL }, capture);
 }
 
-Process Process_shlaunch(char* cmd) {
+monostatic Process Process_shlaunch(char* cmd) {
   return Process_launch((char*[]) { "/bin/sh", "-c", cmd, NULL });
 }
 
-void Process_await(Process* proc) {
+monostatic void Process_await(Process* proc) {
   // all you need is here: https://linux.die.net/man/2/waitpid
   int status = 0;
   if (waitpid(proc->pid, &status, 0) == -1) {
@@ -184,7 +184,7 @@ void Process_await(Process* proc) {
   proc->code = WEXITSTATUS(status);
 }
 
-Process Process_awaitAny() {
+monostatic Process Process_awaitAny() {
   int status = 0;
   pid_t pid = wait(&status);
   if (pid == -1) return (Process) {};
@@ -197,19 +197,19 @@ Process Process_awaitAny() {
   };
 }
 
-void Process_awaitAll() {
+monostatic void Process_awaitAll() {
   int status = 0;
   while (wait(&status) > 0) continue;
 }
 
-void Process_update(Process* proc) {
+monostatic void Process_update(Process* proc) {
   int status = 0;
   waitpid(proc->pid, &status, WNOHANG);
   proc->code = WEXITSTATUS(status);
   proc->exited = WIFEXITED(status);
 }
 
-void test_posix_spawn(void) {
+monostatic void test_posix_spawn(void) {
 #define TOT 2000
 #define PROCS 4
 
@@ -241,7 +241,7 @@ void test_posix_spawn(void) {
   }
 }
 
-int test__jet_os_Process(void) {
+monostatic int test__jet_os_Process(void) {
   // test_fork_exec();
   // test_posix_spawn();
 

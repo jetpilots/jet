@@ -26,7 +26,7 @@ enum Kinds
     cmpNE
     mutops
 end
-
+var maje = [9,8,7]
 type Byte
     var c = 0
 end

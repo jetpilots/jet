@@ -1,35 +1,35 @@
 ~include "jetbase.h"
 ~include "jetsys_time.h"
 
-declare type Attr
-    var key TextRef
-    var val TextRef
+decl type Attr
+    var key String
+    var val String
 end
 
-declare type Node
-    var tag TextRef
+decl type Node
+    var tag String
     var attributes Attr[]
-    var text TextRef
+    var text String
     var children Node[]
 end
 
-declare type Parser
-    var filename Text
-    var line Number #in [0:50M]    # check 0 <= line <= 50k # redundant invariant caught at comptime
-    var col Number #in [0:132]     # check 0 <= col <= 132    # data as Text
-    var data Byte[]     # pos as TextRef     # ends as TextRef
+decl type Parser
+    var filename String
+    var line Number ~in [0:50M]    ~check 0 <= line <= 50k ~redundant invariant caught at comptime
+    var col Number ~in [0:132]     ~check 0 <= col <= 132    ~data as String
+    var data Byte[]     ~pos as String     ~ends as String
 end
 
 var size[4D] in [6:78] = 12.4|MB
 var nonDimButScaled = 50|k or 50k
 
-Parser(fromText Text) :=
+Parser(fromText as String) :=
     Parser {
         .data = clone(fromText),
         .pos = 1,
         .ends = len(fromText)}
 
-func Parser(file Text)
+func Parser(file as String)
 
     var f = FileInfo(file)
     ~ like this and DateTime, a lot of types need to be instantiated
@@ -52,7 +52,7 @@ func Parser(file Text)
             .end = .pos + len(.data)
         }
 
-~ Text is mutable which means raw strings will have to be pstrdup'd at runtime.
+~ String is mutable which means raw strings will have to be pstrdup'd at runtime.
 ~ you can access bytes (chars) of a text using [] -> no need for memoryblock.
 ~ if encoding is ASCII/CP12xx/ISO8859 then [] is O(1), for UTF8 it is O(N).
 ~ if you don't want to edit text in place, use explicit copy().
@@ -62,25 +62,25 @@ func Parser(file Text)
 ~ -- SOOOOOOO text should APPEAR TO BE IMMUTABLE on the Jet side but funcs
 ~ should be implemented in a mutable way in C and Jet calls should be translated
 ~ to mutating an existing string IF they are inplaceable.
-var txt Text = read(file, encoding=TextEncodings.ascii)
+var txt String = read(file, encoding=TextEncodings.ascii)
 ~    -> this func just does {t=read(file);t.encoding=.ascii;ret t;}
 var bytes Byte[] = read(file)
 ~ do whatever with bytes
-var tyt = Text(bytes, encoding=.ascii) # this is a copy if byt is used later else move
-~ var by as Byte[] = bytes(txt) # this is a copy if you use txt later, but otherwise a move
+var tyt = String(bytes, encoding=.ascii) ~this is a copy if byt is used later else move
+~ var by as Byte[] = bytes(txt) ~this is a copy if you use txt later, but otherwise a move
 
-~ var by as Byte[] = read(file) # this is a move
+~ var by as Byte[] = read(file) ~this is a move
 
-~ if Text is immutable but byte array is mutable then it incurs an implicit copy
+~ if String is immutable but byte array is mutable then it incurs an implicit copy
 ~ unless the var is not used later then it can be made a move
 
 end
 
-func parseAttrs(var par as Parser) result (list Attr[])
+func parseAttrs(par as Parser) Attr[]
     ~ GET RID OF ALIAS/MACRO BUSINESS!
 
     while char(par) not in ">/?"
-        let name as TextRef = pos
+        let name as String = pos
         advance!(par, toFirst='=')
         trample!(par)
 
@@ -92,7 +92,7 @@ func parseAttrs(var par as Parser) result (list Attr[])
             markers = " >/?\t\n"
         end
 
-        var val TextRef = pos
+        var val String = pos
 
         advance!(par, past=markers)
         trample!(par, toFirst="[?>")
@@ -101,7 +101,7 @@ func parseAttrs(var par as Parser) result (list Attr[])
         ~ when focused in a local block. how is c related to pos again?
         trample!(par, ifCharIs=' ')
         advance!(par, past="\s")
-        list[end+1] = Attr { .key = name, .val = val }
+        ans[end+1] = Attr { .key = name, .val = val }
     end
 end
 
@@ -114,7 +114,7 @@ end
 skipws!(par Parser) :=
     while par.data[par.pos] == " " do par.pos += 1
 
-func parseTags!(par Parser) result (list Node[])
+func parseTags!(par as Parser) result (list Node[])
 
     ~ ref pos as Number = par.pos
     ~ --> pos is generated as *pos in C, works on lhs/rhs. refs have a
@@ -124,8 +124,8 @@ func parseTags!(par Parser) result (list Node[])
     ~ computed by subtracting origpos from pos.
     ~ yeah well this is becoming a slice with 1 index
 
-    ~ ref data as Text = par.data
-    ~ ref c as Text = data[pos]
+    ~ ref data as String = par.data
+    ~ ref c as String = data[pos]
 ~ fortran equivalence
 
     while not eof(par) #par.pos < par.ends
@@ -137,11 +137,11 @@ func parseTags!(par Parser) result (list Node[])
             trample!(par)
             var noChild = no
 
-            if matches!(par, str='/')  # closing tag here means empty content
+            if matches!(par, str='/')  ~closing tag here means empty content
                 trample!(par)
-                return    # null if no elements were found at this level
+                return    ~null if no elements were found at this level
 
-             else if matches(par, str="[CDATA[")   # cdata
+             else if matches(par, str="[CDATA[")   ~cdata
 
              else
                 var node Node = { .tag = str(par) }
@@ -168,7 +168,7 @@ func parseTags!(par Parser) result (list Node[])
                         node.children = parseTags!(par)
 
                         var closingTag = str(par)
-                        advance!(par, toFirst='>') # other variants advance_past and advance_by
+                        advance!(par, toFirst='>') ~other variants advance_past and advance_by
                         ~ i guess instead of advance_past going past the last match, it should
                         ~ stop at the last match. also be named differently then.
                         trample!(par)
@@ -181,7 +181,7 @@ func parseTags!(par Parser) result (list Node[])
                     end
 
                 case else
-                    let char as TextRef = c
+                    let char as String = c
                     panic("oops1: unexpected '$char'")
 
                 end
@@ -190,7 +190,7 @@ func parseTags!(par Parser) result (list Node[])
              end
 
         else
-            var text TextRef = str(par) # still need to eliminate TextRef
+            var text String = str(par) ~still need to eliminate String
             advance!(par, toFirst='<')
             list[end+1] = Node { .text = text }
 
@@ -216,15 +216,15 @@ end
 ~ although more work for me to write such a general inference routine.
 
 ~ string interps make it quite easy, dont u think
-str(x Attr) => "$x.key='$x.value'"
+str(x Attr) := "$x.key='$x.value'"
 ~ compare that to the write defn
-write(x Attr) => write("$x.key='$x.value'")
+write(x Attr) := write("$x.key='$x.value'")
 ~ ok, you have explicit 1-on-1 map of write() to printf() for genc. or is it?
 ~ you still do the same string interp. in the same sense you also have a 1on1
 ~ of the string itself (w/ interps) to snprintf.
 
 ~ if you aren't following along, what I'm trying to avoid is:
-write(x) = write(str(x))
+write(x) := write(str(x))
 ~ which is the easiest but stupidest solution. this is after all the best
 ~ programming language in the history of human civilisation.
 
@@ -245,14 +245,14 @@ write(x) = write(str(x))
 ~ but dispatching to the subclass impl instead of baseclass impl
 ~ 1 thing is it is implicit, you can have
 var fx FXBase
-if ask()=='y' # -- btw temporaries/rvalues that allocate must be discarded
+if ask()=='y' ~-- btw temporaries/rvalues that allocate must be discarded
 ~ immediately after use! ask() retval is an owned var not assigned to
 ~ any ref so you cant track it. if you promote ALL funcs then it can be tracked.
     fx = FXSubClassA("test")
 else
     fx = FXSubClassB()
 end
-var d = funcy(fx) <-- not clear to the user what func will be called, not even decidable statically.
+var d = funcy(fx) ~<-- not clear to the user what func will be called, not even decidable statically.
 ~ just stick with composition over ineritance.
 ~ the reason for getting into this was you could then have ASTExpr and subtypes
 ~ and have jet autogenerate dispatch switch that is handwritten in C now.
@@ -270,7 +270,7 @@ write(nodeList Node[], indent Int) :=
     for xn as Node = nodeList[1:end] do write(child, indent=indent)
 
 
-TextRef const spaces
+String const spaces
     = "                                                 "
 
 func write(node Node, indent Int)
@@ -334,10 +334,10 @@ func start()
 
     var t0 = clock()
     var myxml = readxml(os.args[1])
-    ~ var myxml = read(os.args[1]) to Doc # this is then just a conversion of string to Doc
-    ~ var mydat = read(os.args[1]) to Table with { .sep = ';', .skip = 3} # this works as well!
-    ~ # basically `as` is an operator that is implemented by types taking some other type to convert from
-    ~ # but what about
+    ~ var myxml = read(os.args[1]) to Doc ~this is then just a conversion of string to Doc
+    ~ var mydat = read(os.args[1]) to Table with { .sep = ';', .skip = 3} ~this works as well!
+    ~ ~basically `as` is an operator that is implemented by types taking some other type to convert from
+    ~ ~but what about
     ~ var mystr = read(os.args[1])
     ~ var myxml = mystr to  to JSON to Webpage
     ~ if mystr is used elsewhere afterwards, WHOA it should also not have refs that
@@ -351,7 +351,7 @@ func start()
     var tms = clock(t0)
 
     "\e[1mTime elapsed:\e[0m %.1f ms (%.2f GB/s)\n", tms|ms,
-        1 / ((tms / 1e3)   1e9 / (par.end - par.data)), file=stdout)  # sw.write()
+        1 / ((tms / 1e3)   1e9 / (par.end - par.data)), file=stdout)  ~sw.write()
 
 end
 
@@ -362,7 +362,7 @@ func stats(fileSize Number|B in <0:2^24>,
     ~ var sret as Number[3D] = clone(inArg)
     ~ let fileSize|B
     ~ let fileModified::YesOrNo
-    ~ let fileRange as Number[3D] in <2:1:29> # <2:29> is RealRange, <2:1:29> is IntRange
+    ~ let fileRange as Number[3D] in <2:1:29> ~<2:29> is RealRange, <2:1:29> is IntRange
     check fileRange in <2:29>
 
     var pctUsed = jet.gPool.usedTotal * 100 / jet.gPool.capTotal
@@ -388,9 +388,9 @@ end
 
     ~ if try os.argv[2] == "d" then write(xml)
 
-    ~ # try has nothing to do with catch
-    ~ # it takes a bool expr and if the expr can be eval'd it returns it
-    ~ # or else it returns false
+    ~ ~try has nothing to do with catch
+    ~ ~it takes a bool expr and if the expr can be eval'd it returns it
+    ~ ~or else it returns false
     ~ if os.argv[2] == "d" then write(xml)
     ~ ignore .outOfBounds
 

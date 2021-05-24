@@ -23,5 +23,7 @@ doxy/
 .ccls-cache/
 *.run
 *.run.c
+.*.c
+.*.h
 *.jetr
 *.app/

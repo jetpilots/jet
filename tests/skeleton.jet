@@ -1,5 +1,5 @@
-declare type Strings
+decl type Strings end
 
-func main(a Strings) as Number
+func main(a Strings) Number
 
 end

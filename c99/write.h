@@ -12,7 +12,7 @@ static void spec_write(TypeSpec* spec, int level) {
   default: printf("%s", Typetype_name(spec->typeType)); break;
   }
 
-  switch (spec->collectionType) {
+  switch (spec->collType) {
   case CTYDictS: printf("[DICTK]"); break;
   case CTYArray: printf("[]"); break;
   case CTYTensor:

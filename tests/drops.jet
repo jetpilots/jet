@@ -1,8 +1,10 @@
 
-func start()
+func start(n Number, s String)
+    ans=0
     var v = 31
     var f = "my name is gonsa"
-    var h = v +6
+    var h = v +6 +n
+    print(s)
     if h==78
         var b = 45 + v
         print(b)

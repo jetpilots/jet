@@ -89,7 +89,8 @@ static void expr_dohash(
     }
   }
   if (!ISIN(4, expr->kind, tkNumber, tkIdentR, tkVarDefn, tkComment)) {
-    if (expr->kind != tkPeriod || expr->right->kind == tkFuncCallR) {
+    if (expr->kind != tkPeriod
+        || (expr->right && expr->right->kind == tkFuncCallR)) {
       // Don't put really simple things like literals into the CSE dict.
       int status = 0;
       UInt32 idx = Dict_put(UInt32, Ptr)(cseDict, expr->hash, &status);
@@ -110,7 +111,7 @@ static void expr_checkHashes(
     Expr* orig = Dict_val(cseDict, idx);
     // unfortunately there ARE collisions, so check again
     if (orig != expr && orig->kind == expr->kind) {
-      par_warnSameExpr(parser, expr, orig);
+      warn_sameExpr(parser, expr, orig);
       return;
     }
   }

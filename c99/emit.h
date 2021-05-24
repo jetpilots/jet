@@ -1,6 +1,6 @@
 #define genLineNumbers 0
-#define genCoverage 1
-#define genLineProfile 1
+#define genCoverage 0
+#define genLineProfile 0
 
 // _Thread_local static FILE* outfile = NULL;
 
@@ -17,7 +17,7 @@ static void imp_undefc(Import* import) {
 
 static void spec_emit(TypeSpec* spec, int level, bool isconst) {
   if (isconst) outl("const ");
-  // TODO: actually this depends on the collectionType. In general
+  // TODO: actually this depends on the collType. In general
   // Array is the default, but in other cases it may be SArray, Array64,
   // whatever
   if (spec->dims) {
@@ -62,6 +62,7 @@ static void var_emit(Var* var, int level, bool isconst) {
   // for C the variables go at the top of the block, without init
   printf("%.*s", level, spaces);
   if (var->spec) spec_emit(var->spec, level + STEP, isconst);
+  if (var->isMutableArg) puts("*");
   printf(" %s", var->name);
 }
 
@@ -126,7 +127,7 @@ static void expr_genPrintVars(Expr* expr, int level) {
 
 void var_insertDrop(Var* var, int level) {
   iprintf(level, "DROP(%s,%s,%s,%s);\n", spec_name(var->spec), var->name,
-      Collectiontype_nativeName(var->spec->collectionType),
+      Collectiontype_nativeName(var->spec->collType),
       StorageClassNames[var->storage]);
 }
 
@@ -168,9 +169,8 @@ static void scope_emit(Scope* scope, int level) {
         }
     } while (!sco->isLoop // if loop scope, don't walk up
         && (sco = sco->parent) // walk up to the last loop scope
-        && sco->parent && !sco->parent->isLoop);
-    // all scopes have the global scope as the final parent.
-    // what if some scope tries to drop something from there?
+        && sco->parent && !sco->parent->isLoop // until you hit a loop
+        && sco->parent->parent); // or until you hit 1 below globscope
 
     // TODO:
     // Maybe scope should have a lineno. If a loop scope has the lastUsage
@@ -224,16 +224,16 @@ static const char functionEntryStuff_UNESCAPED[]
 
 static const char functionExitStuff_UNESCAPED[]
     = "\n"
-      "    return ans;\n"
+      "    return *ans;\n"
       "uncaught: HANDLE_UNCAUGHT;\n"
       "backtrace: SHOW_BACKTRACE_LINE;\n"
       "return_: STACKDEPTH_DOWN;\n"
       "    return DEFAULT_VALUE;";
 
 static void func_printStackUsageDef(size_t stackUsage) {
-  printf("#define MYSTACKUSAGE (%lu + 6*sizeof(void*) + "
-         "IFDEBUGELSE(sizeof(char*),0))\n",
-      stackUsage);
+  // printf("#define MYSTACKUSAGE (%lu + 6*sizeof(void*) + "
+  //        "IFDEBUGELSE(sizeof(char*),0))\n",
+  //     stackUsage);
 }
 
 static void type_emit_fieldHead(Type* type) {
@@ -284,7 +284,7 @@ static void type_emit(Type* type, int level) {
 
   outln("    return self;\n}\n");
 
-  func_printStackUsageDef(48);
+  // func_printStackUsageDef(48);
   printf("#define DEFAULT_VALUE NULL\n"
          "monostatic %s %s_new_(IFDEBUG(const char* callsite_)) {\n"
          "IFDEBUG(static const char* sig_ = \"%s()\");\n",
@@ -295,7 +295,8 @@ static void type_emit(Type* type, int level) {
          "    _err_ = NULL; STACKDEPTH_DOWN; return ret;\n",
       name, name, name);
   puts(functionExitStuff_UNESCAPED);
-  outln("#undef DEFAULT_VALUE\n#undef MYSTACKUSAGE\n}\n");
+  outln("#undef DEFAULT_VALUE\n");
+  // outln("#undef MYSTACKUSAGE\n}\n");
   printf("#define %s_print(p) %s_print__(p, STR(p))\n", name, name);
   printf(
       "monostatic void %s_print__(%s self, const char* name) {\n    "
@@ -391,6 +392,11 @@ static void func_emit(Func* func, int level) {
     var_emit(arg, level, true);
     printf(args->next ? ", " : "");
   }
+  if (func->spec && func->spec->typeType != TYVoid) {
+    if (func->args) printf(", ");
+    spec_emit(func->spec, level, false);
+    printf("* ans");
+  }
 
   printf("\n#ifdef DEBUG\n"
          "    %c const char* callsite_ "
@@ -399,7 +405,7 @@ static void func_emit(Func* func, int level) {
 
   outln(") {");
   printf("    IFDEBUG(static const char* sig_ = \"");
-  printf("%s%s(", func->isStmt ? "" : "function ", func->name);
+  printf("%s%s(", func->isStmt ? "" : "func ", func->name);
 
   foreachn(Var*, arg, args, func->args) {
     var_write(arg, level);
@@ -407,7 +413,7 @@ static void func_emit(Func* func, int level) {
   }
   outl(")");
   if (func->spec) {
-    outl(" as ");
+    outl(" ");
     spec_write(func->spec, level);
   }
   outln("\");");
@@ -418,7 +424,7 @@ static void func_emit(Func* func, int level) {
 
   puts(functionExitStuff_UNESCAPED);
   outln("}\n#undef DEFAULT_VALUE");
-  outln("#undef MYSTACKUSAGE");
+  // outln("#undef MYSTACKUSAGE");
 }
 
 static void func_genh(Func* func, int level) {
@@ -433,6 +439,11 @@ static void func_genh(Func* func, int level) {
   foreachn(Var*, arg, args, func->args) {
     var_emit(arg, level, true);
     printf(args->next ? ", " : "");
+  }
+  if (func->spec && func->spec->typeType != TYVoid) {
+    if (func->args) printf(", ");
+    spec_emit(func->spec, level, false);
+    printf("* ans");
   }
   printf("\n#ifdef DEBUG\n    %c const char* callsite_\n#endif\n",
       ((func->args && func->args->item) ? ',' : ' '));
@@ -558,7 +569,7 @@ static void expr_emit_tkFuncCallR(Expr* expr, int level) {
   const char* tmpc = "";
   if (arg1) {
     if (arg1->kind == tkComma) arg1 = arg1->left;
-    tmpc = Collectiontype_nativeName(arg1->collectionType);
+    tmpc = Collectiontype_nativeName(arg1->collType);
   }
   printf("%s%s", tmpc, tmp);
   if (*tmp >= 'A' && *tmp <= 'Z' && !strchr(tmp, '_')) outl("_new_");
@@ -601,8 +612,11 @@ static void printmultilstr(char* pos) {
 
 static void expr_emit_tkString(Expr* expr, int level) {
   astexpr_lineupmultilinestring(expr, level + STEP);
+  outl("String_fromCString(");
   if (!expr->vars) {
+    outl("(char[]){"); // FIXME: only needed for mutable strings
     printmultilstr(expr->str + 1);
+    outl("}");
   } else {
     char *pos = expr->str, *last = pos;
     Var* v;
@@ -632,6 +646,7 @@ static void expr_emit_tkString(Expr* expr, int level) {
     }
     outl(")");
   }
+  outl(")");
 }
 
 //_____________________________________________________________________________
@@ -691,7 +706,7 @@ static void expr_emit_tkCheck(Expr* expr, int level) {
   // genPrintVars.
   if (!checkExpr->unary) {
     // dont print literals or arrays
-    if (lhsExpr->collectionType == CTYNone
+    if (lhsExpr->collType == CTYNone
         && !ISIN(5, lhsExpr->kind, tkString, tkNumber, tkRawString, tkLE,
             tkLT)) {
       if (lhsExpr->kind != tkIdentR || !lhsExpr->var->visited) {
@@ -706,7 +721,7 @@ static void expr_emit_tkCheck(Expr* expr, int level) {
       //     lhsExpr->var->visited = true;
     }
   }
-  if (rhsExpr->collectionType == CTYNone //
+  if (rhsExpr->collType == CTYNone //
       && !ISIN(3, rhsExpr->kind, tkString, tkNumber, tkRawString)) {
     if (rhsExpr->kind != tkIdentR || !rhsExpr->var->visited) {
       printf("%.*s%s", level + STEP, spaces, "printf(\"    %s = ");
@@ -732,35 +747,24 @@ static void expr_emit(Expr* expr, int level) {
 
   printf("%.*s", level, spaces);
   switch (expr->kind) {
-  case tkNumber: expr_emit_tkNumber(expr, level); break;
-
   case tkNo: outl("no"); break;
   case tkYes: outl("yes"); break;
   case tkNil: outl("nil"); break;
-
-  // case tkMultiDotNumber:
   case tkIdent: printf("%s", expr->str); break;
+  case tkNumber: expr_emit_tkNumber(expr, level); break;
 
-  case tkString: // TODO: parse vars inside, escape stuff, etc.
-  case tkRawString: // 'raw strings' or 'regexes'
-    expr_emit_tkString(expr, level);
-    // printf(escStrings ? "\\%s\\\"" : "%s\"", expr->str);
-    break;
+  case tkString:
+  case tkRawString: expr_emit_tkString(expr, level); break;
 
   case tkIdentR:
+    if (expr->var->isMutableArg) outl("(*");
     printf("%s", expr->var->name);
+    if (expr->var->isMutableArg) outln(")");
     break;
 
-    // printf("\"%s\"", expr->str + 1);
-    // break;
+  case tkRegexp: printf("%s", expr->str + 1); break;
 
-  case tkRegexp: // inline C code?
-    printf("%s", expr->str + 1);
-    break;
-
-  case tkComment: // TODO: skip  comments in generated code
-    printf("// %s", expr->str);
-    break;
+  case tkComment: printf("// %s", expr->str); break;
 
   case tkFuncCall:
     unreachable("unresolved call to '%s'\n", expr->str);
@@ -1220,22 +1224,23 @@ void type_genTypeInfoDefs(Type* type);
 void type_genNameAccessors(Type* type);
 static void mod_emit(Module* mod) {
 
-  int l = strlen(mod->filename);
-  static thread_local char buf[512];
-  // TODO: improve this later
-  mod->out_h = cstr_pclone(__cstr_interp__s(512, buf, "%s/.%s.h",
-      cstr_dir_ip(cstr_pclone(mod->filename)),
-      cstr_base(mod->filename, '/', l)));
-  outfile = fopen(mod->out_h, "w");
+  // outfile = fopen(mod->out_h, "w");
 
+  if (!(outfile = fopen(mod->out_h, "w"))) {
+    eprintf("%s:1:1-1: error: can't open file for writing\n", mod->out_h);
+    return;
+  }
   // outln("");
-  printf("#ifndef HAVE_%s\n"
-         "#define HAVE_%s\n\n",
-      mod->Cname, mod->Cname);
+  printf("#define THISFILE \"%s\"\n", mod->filename);
+  printf("#define NUMLINES %d\n", mod->nlines);
+
+  printf("#ifndef HAVE_%s\n#define HAVE_%s\n\n", mod->Cname, mod->Cname);
   printf("#define THISMODULE %s\n", mod->cname);
   puts("#ifndef HAVE_JET_BASE\n"
-       "#include \"jet/base.h\"\n"
+       "#include \"jet/runtime.h\"\n"
        "#endif\n");
+
+  puts("DECL_COV_PROF(NUMLINES)\n");
 
   foreach (Import*, import, mod->imports) { imp_emit(import, 0); }
   outln("");
@@ -1257,15 +1262,17 @@ static void mod_emit(Module* mod) {
     if (func->body && func->analysed) { func_genh(func, 0); }
   }
   printf("#undef THISMODULE\n");
+  printf("#undef THISFILE\n");
   printf("#endif // HAVE_%s\n", mod->Cname);
 
   fclose(outfile);
 
-  mod->out_c = cstr_pclone(__cstr_interp__s(512, buf, "%s/.%s.c",
-      cstr_dir_ip(cstr_pclone(mod->filename)),
-      cstr_base(mod->filename, '/', l)));
-  outfile = fopen(mod->out_c, "w");
+  // outfile = fopen(mod->out_c, "w");
 
+  if (!(outfile = fopen(mod->out_c, "w"))) {
+    eprintf("%s:1:1-1: error: can't open file for writing\n", mod->out_c);
+    return;
+  }
   printf("#include \"%s\"\n\n",
       cstr_base(mod->out_h, '/', strlen(mod->out_h)));
 

@@ -1,5 +1,5 @@
 
-CCFLAGS=-std=c99 -O3 -I../engine
+CCFLAGS=-std=c99 -O3 -Dmonostatic=static -I../engine #-D_POSIX_C_SOURCE=199309L
 CCLIBS=-lc -lm
 CC=gcc
 

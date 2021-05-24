@@ -29,6 +29,7 @@ static bool TokenKind_isUnary(TokenKind kind) {
     [tkUnaryMinus] = 1,
     [tkUnaryDot] = 1,
     [tkReturn] = 1,
+    [tkYield] = 1,
     [tkBreak] = 1,
     [tkContinue] = 1,
     [tkThrow] = 1,
@@ -87,6 +88,7 @@ static uint8_t TokenKind_getPrecedence(TokenKind kind) {
     [tkContinue] = 25,
     [tkBreak] = 25,
     [tkThrow] = 25,
+    [tkYield] = 25,
     [tkCatch] = 25,
 
     [tkAssign] = 22,

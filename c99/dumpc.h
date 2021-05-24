@@ -16,7 +16,7 @@ static void imp_dumpc(Import* import, int level) {
 static void spec_dumpc(TypeSpec* spec, int level) {
   printf("&(TypeSpec) {\n");
   PRFIELD(spec, typeType, "%d");
-  PRFIELD(spec, collectionType, "%d");
+  PRFIELD(spec, collType, "%d");
   PRFIELD(spec, dims, "%d");
   PRFIELD(spec, nullable, "%d");
   if (spec->typeType == TYObject) {
@@ -298,15 +298,16 @@ static void expr_dumpc(
 }
 
 static void mod_dumpc(Module* mod) {
-  int l = strlen(mod->filename);
-  static thread_local char buf[512];
+  // int l = strlen(mod->filename);
+  // static thread_local char buf[512];
   // TODO: improve this later
-  mod->out_xc = __cstr_interp__s(512, buf, "%s/.%s.x.c",
-      cstr_dir_ip(cstr_clone(mod->filename)),
-      cstr_base(mod->filename, '/', l));
 
-  outfile = fopen(mod->out_xc, "w");
-
+  if (!(outfile = fopen(mod->out_xc, "w"))) {
+    eprintf("%s:1:1-1: error: can't open file for writing\n", mod->out_xc);
+    return;
+  } else {
+    eprintf("%p %p:1:1-1: writing\n", mod, mod->filename);
+  }
   puts( //
       "#include \"jet/base.h\"\n"
       "#include \"token.h\"\n"
@@ -315,9 +316,7 @@ static void mod_dumpc(Module* mod) {
   );
 
   // outfile = fopen("dumpc_out.c", "w");
-  foreach (Import*, imp, mod->imports)
-    imp_dumpc(imp, 0);
-
+  foreach (Import*, imp, mod->imports) { imp_dumpc(imp, 0); }
   puts("");
 
   puts("");
@@ -336,21 +335,11 @@ static void mod_dumpc(Module* mod) {
     printf("static Var var_%s;\n", var->name);
 
   //--------
-
-  foreach (Type*, type, mod->types)
-    type_dumpc(type, 0);
-
-  foreach (Type*, en, mod->enums)
-    JetEnum_dumpc(en, 0);
-
-  foreach (Func*, func, mod->funcs)
-    func_dumpc(func, 0);
-
-  foreach (JetTest*, test, mod->tests)
-    JetTest_dumpc(test, 0);
-
-  foreach (Var*, var, mod->scope->locals)
-    var_dumpc(var, 0), puts("");
+  foreach (Type*, type, mod->types) { type_dumpc(type, 0); }
+  foreach (Type*, en, mod->enums) { JetEnum_dumpc(en, 0); }
+  foreach (Func*, func, mod->funcs) { func_dumpc(func, 0); }
+  foreach (JetTest*, test, mod->tests) { JetTest_dumpc(test, 0); }
+  foreach (Var*, var, mod->scope->locals) { var_dumpc(var, 0), puts(""); }
 
   printf("static Module mod_%s = {\n", mod->cname);
   PRFIELD(mod, name, "\"%s\"");

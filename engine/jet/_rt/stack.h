@@ -8,7 +8,8 @@ thread_local size_t _scDepth_ = 0;
 thread_local size_t _scPrintAbove_ = 0;
 // used for truncating long backtraces
 // static const char* _scStart_; // start of stack, set in main()
-thread_local _stack_boundary;
+thread_local char* _stack_boundary;
+// ^ FIXME THESE MUST BE EXTERN! THEY ARE PER EXECUTABLE NOT PER MODULE
 
 #define _STACK_BLOWN() (&(char) { 0 } < _stack_boundary)
 #define _STACK_GROWS_UP() _stack_grows_up__(&(char) { 0 })

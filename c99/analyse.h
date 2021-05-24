@@ -91,17 +91,21 @@ static void expr_prepareInterp(Parser* parser, Expr* expr, Scope* scope) {
     // ^ TODO: this should be getQualVar which looks up a.b.c and
     // returns c
     if (!var) {
-      unreachable("undefined var found: '%s' at %d:%d", varname, line, col);
+      err_unrecognizedVar(
+          parser, &(Expr) { .line = line, .col = col, .str = varname });
+      // unreachable("undefined var found: '%s' at %d:%d", varname, line,
+      // col);
       return;
     }
     // You should have checked for all var refs to be valid in the analysis
     // phase!
 
-    Expr* ex = NEW(Expr);
     Expr* exdot = NULL;
-    ex->kind = tkIdentR;
-    ex->line = line, ex->col = col;
-    ex->var = var;
+    Expr* ex = NEWW(Expr, //
+        .kind = tkIdentR, //
+        .line = line, //
+        .col = col, //
+        .var = var);
     // var->used++;
 
     exdot = ex;
@@ -132,15 +136,14 @@ static void expr_prepareInterp(Parser* parser, Expr* expr, Scope* scope) {
         } else {
           // var->used++;
           strcpy(varname, var->name); // fix case
-          exdot = NEW(Expr);
-          exdot->kind = tkPeriod;
-          // exdot->line=line,exdot->col=ex->col+varend-varname;
-          exdot->left = ex;
-          exdot->right = NEW(Expr);
-          exdot->right->kind = tkIdentR;
-          exdot->right->line = line,
-          exdot->right->col = col + varend - varname;
-          exdot->right->var = var;
+          exdot = NEWW(Expr, //
+              .kind = tkPeriod,
+              .left = ex, //
+              .right = NEWW(Expr, //
+                  .kind = tkIdentR, //
+                  .line = line, //
+                  .col = col + varend - varname, //
+                  .var = var));
           ex = exdot;
         }
         *varend = endchar;
@@ -265,7 +268,8 @@ static void expr_reduceVarUsage(Expr* expr) {
     break;
   case tkFuncCallR:
     if (expr->left) expr_reduceVarUsage(expr->left);
-    expr->func->used--; // func_reduce will bedone later
+    if (expr->func->used) expr->func->used--;
+    // func_reduce will bedone later
     break;
   case tkPeriod:
     if (expr->left) expr_reduceVarUsage(expr->left);
@@ -334,6 +338,7 @@ SFN_ANALYSE(_keyword_match) {
     } else if (cond->typeType == TYObject
         && !upcastable(
             expr_getTypeOrEnum(stmt->left), expr_getTypeOrEnum(cond))) {
+      err_typeMismatch(parser, cond, stmt->left);
     } else if (stmt->left->typeType != cond->typeType) {
       err_typeMismatch(parser, cond, stmt->left);
     }
@@ -352,7 +357,7 @@ static void expr_analyse_functionCall(Parser* parser, Expr* expr,
   Expr* arg1 = expr->left;
   if (arg1 && arg1->kind == tkComma) arg1 = arg1->left;
   Type* type = expr_getObjectType(arg1);
-  if (arg1) collName = Collectiontype_nativeName(arg1->collectionType);
+  if (arg1) collName = Collectiontype_nativeName(arg1->collType);
   if (arg1) *bufp++ = '_'; // += sprintf(bufp, "_", typeName);
 
   bufp += sprintf(bufp, "%s", expr->str);
@@ -371,7 +376,7 @@ static void expr_analyse_functionCall(Parser* parser, Expr* expr,
   if (!found && (found = mod_getFuncByTypeMatch(mod, expr))) {
     // take the closest function by type match instead, for now. tell
     // the user this may not be what they expected
-    par_warnUnrecognizedSelector(parser, expr, sbuf, found);
+    warn_unrecognizedSelector(parser, expr, sbuf, found);
   }
   if (found) {
     expr->kind = tkFuncCallR;
@@ -420,15 +425,14 @@ static void expr_analyse_functionCallResolved(Parser* parser, Expr* expr,
     err_argsCountMismatch(parser, expr);
   expr->typeType = expr->func->spec ? expr->func->spec->typeType
                                     : TYVoid; // should actually be TYVoid
-  expr->collectionType = expr->func->spec
-      ? expr->func->spec->collectionType
-      : CTYNone; // should actually be TYVoid
+  expr->collType = expr->func->spec ? expr->func->spec->collType
+                                    : CTYNone; // should actually be TYVoid
   expr->elemental = expr->func->elemental;
   if (expr->func->spec) expr->dims = expr->func->spec->dims;
   // isElementalFunc means the func is only defined for (all)
   // Number arguments and another definition for vector args
   // doesn't exist. Basically during typecheck this should see
-  // if a type mismatch is only in terms of collectionType.
+  // if a type mismatch is only in terms of collType.
   if (!expr->left) return;
   expr->elemental = expr->elemental && expr->left->elemental;
   expr->throws = expr->left->throws || expr->func->throws;
@@ -440,6 +444,8 @@ static void expr_analyse_functionCallResolved(Parser* parser, Expr* expr,
         err_argLabelMismatch(parser, cArg->left, arg);
       cArg->left->str = arg->name;
       cArg = cArg->right;
+    } else {
+      // warn_labelMissing(...)
     }
     if (cArg->typeType == TYUnknown //
         && arg->spec->typeType == TYObject && arg->spec->type->isEnum) {
@@ -481,11 +487,11 @@ static void expr_analyse_functionCallResolved(Parser* parser, Expr* expr,
 }
 static void expr_analyse_arrayOpen(Parser* parser, Expr* expr, Scope* scope,
     Module* mod, Func* ownerFunc, bool inFuncArgs) {
-  expr->collectionType = CTYArray;
+  expr->collType = CTYArray;
   if (expr->right) {
     expr_analyse(parser, expr->right, scope, mod, ownerFunc, false);
     expr->typeType = expr->right->typeType;
-    expr->collectionType
+    expr->collType
         = expr->right->kind == tkSemiColon ? CTYTensor : CTYArray;
     expr->dims = expr->right->kind == tkSemiColon ? 2 : 1;
     // using array literals you can only init 1D or 2D
@@ -493,19 +499,18 @@ static void expr_analyse_arrayOpen(Parser* parser, Expr* expr, Scope* scope,
       // you need to save the exact type of the elements, it's not a
       // primitive type. You'll find it in the first element.
       Expr* first = expr->right;
-      while (first->kind == tkComma || first->kind == tkSemiColon)
+      while (ISIN(2, first->kind, tkComma, tkSemiColon))
         first = first->left;
       switch (first->kind) {
       case tkIdentR:
         expr->elementType = first->var->spec->type;
-        if (first->var->spec->dims
-            || first->var->spec->collectionType != CTYNone)
+        if (first->var->spec->dims || first->var->spec->collType != CTYNone)
           unreachable("trying to make array of arrays %d", expr->line);
         break;
       case tkFuncCallR:
         expr->elementType = first->func->spec->type;
         if (first->func->spec->dims
-            || first->var->spec->collectionType != CTYNone)
+            || first->var->spec->collType != CTYNone)
           unreachable("trying to make array of arrays line %d", expr->line);
         break;
       default:
@@ -539,13 +544,14 @@ static void expr_analyse_braceOpen(Parser* parser, Expr* expr, Scope* scope,
     case tkIdentR: expr->elementType = first->var->spec->type; break;
     case tkFuncCallR: expr->elementType = first->func->spec->type; break;
     default:
+      expr->elementType = NULL;
       break;
       // TODO: object init literals
       // case tkObjectInitResolved:
       // expr->elementType = first->var->spec->type;break;
     }
   }
-  expr->collectionType = CTYDictS;
+  expr->collType = CTYDictS;
   // these are only Dicts! Sets are normal [] when you detect they are
   // only used for querying membership.
   // TODO: what were the gazillion Dict subtypes for?
@@ -591,7 +597,7 @@ static void expr_analyse_varAssign(Parser* parser, Expr* expr, Scope* scope,
     if (init->typeType != TYNil) {
       // if not nil, get type info from init expr.
       expr->typeType = init->typeType;
-      expr->collectionType = init->collectionType;
+      expr->collType = init->collType;
       expr->nullable = init->nullable;
       expr->elemental = init->elemental;
       expr->throws = init->throws;
@@ -656,18 +662,18 @@ static void expr_analyse_varAssign(Parser* parser, Expr* expr, Scope* scope,
     }
 
     if (spec->dims == 0) {
-      spec->collectionType = init->collectionType;
-      spec->dims = init->collectionType == CTYTensor ? init->dims
-          : init->collectionType == CTYArray         ? 1
-                                                     : 0;
-    } else if (spec->dims != 1 && init->collectionType == CTYArray) {
+      spec->collType = init->collType;
+      spec->dims = init->collType == CTYTensor ? init->dims
+          : init->collType == CTYArray         ? 1
+                                               : 0;
+    } else if (spec->dims != 1 && init->collType == CTYArray) {
       err_initDimsMismatch(parser, expr, 1);
       expr->typeType = TYError;
-    } else if (spec->dims != 2 && init->collectionType == CTYTensor) {
+    } else if (spec->dims != 2 && init->collType == CTYTensor) {
       err_initDimsMismatch(parser, expr, 2);
       expr->typeType = TYError;
 
-    } else if (spec->dims != 0 && init->collectionType == CTYNone) {
+    } else if (spec->dims != 0 && init->collType == CTYNone) {
       err_initDimsMismatch(parser, expr, 0);
       expr->typeType = TYError;
     }
@@ -716,7 +722,7 @@ monostatic void expr_analyse(Parser* parser, Expr* expr, Scope* scope,
       err_indexDimsMismatch(parser, expr, nhave);
     // }   if (expr->kind == tkSubscriptR) {
     expr->typeType = expr->var->spec->typeType;
-    expr->collectionType = expr->var->spec->collectionType;
+    expr->collType = expr->var->spec->collType;
     // TODO: since it is a subscript, if it has no left (i.e. arr[])
     // i'm guessing it is a full array, and therefore can be an
     // elemental op
@@ -764,8 +770,8 @@ monostatic void expr_analyse(Parser* parser, Expr* expr, Scope* scope,
 
   case tkIdentR:
     expr->typeType = expr->var->spec->typeType;
-    expr->collectionType = expr->var->spec->collectionType;
-    expr->elemental = expr->collectionType != CTYNone;
+    expr->collType = expr->var->spec->collType;
+    expr->elemental = expr->collType != CTYNone;
     expr->dims = expr->var->spec->dims;
 
     // this was done just to ensure enums are caught and analysed in
@@ -886,7 +892,7 @@ monostatic void expr_analyse(Parser* parser, Expr* expr, Scope* scope,
     if (expr->typeType == TYError) break;
 
     expr->typeType = type->isEnum ? TYObject : expr->right->typeType;
-    expr->collectionType = expr->right->collectionType;
+    expr->collType = expr->right->collType;
     expr->elemental = expr->right->elemental;
     expr->dims = expr->right->dims;
   } break;
@@ -901,9 +907,7 @@ monostatic void expr_analyse(Parser* parser, Expr* expr, Scope* scope,
       if (!expr->unary && expr->left)
         expr_analyse(parser, expr->left, scope, mod, ownerFunc,
             inFuncArgs
-                && (expr->left->kind == tkComma
-                    || expr->left->kind == tkAssign
-                    || expr->left->kind == tkPeriod));
+                && ISIN(3, expr->left->kind, tkComma, tkAssign, tkPeriod));
       // some exprs like return can be used without any args
 
       if (ISIN(5, expr->kind, tkIn, tkNotin, tkAssign, tkEQ, tkNE)) {
@@ -938,7 +942,7 @@ monostatic void expr_analyse(Parser* parser, Expr* expr, Scope* scope,
             expr->typeType = TYError;
           } else if (expr->right) {
             expr->typeType = expr->right->typeType;
-            expr->collectionType = expr->right->collectionType;
+            expr->collType = expr->right->collType;
           }
         }
 
@@ -955,7 +959,7 @@ monostatic void expr_analyse(Parser* parser, Expr* expr, Scope* scope,
         // type is on the right, this is accounted for.
         if (expr->right) {
           expr->typeType = expr->right->typeType;
-          expr->collectionType = expr->right->collectionType;
+          expr->collType = expr->right->collType;
         }
       }
 
@@ -981,15 +985,11 @@ monostatic void expr_analyse(Parser* parser, Expr* expr, Scope* scope,
           if (expr->left->dims != 0 && expr->right->dims != 0) {
             err_binOpDimsMismatch(parser, expr);
             expr->right->typeType = TYError;
-          } else if (expr->kind == tkPlus //
-              || expr->kind == tkMinus //
-              || expr->kind == tkTimes //
-              || expr->kind == tkSlash //
-              || expr->kind == tkPower //
-              || expr->kind == tkMod) {
+          } else if (ISIN(6, expr->kind, tkPlus, tkMinus, tkTimes, tkSlash,
+                         tkPower, tkMod)) {
             expr->dims = expr->left->dims + expr->right->dims;
-            expr->collectionType = max(
-                expr->left->collectionType, expr->right->collectionType);
+            expr->collType
+                = max(expr->left->collType, expr->right->collType);
             // todo: stop distinguishing array and tensor!!! then
             // you dont need this. this strongly depends on the op &
             // is too much repeated work
@@ -1155,7 +1155,7 @@ static void func_analyse(Parser* parser, Func* func, Module* mod) {
       // stmt func has its return type assigned.
       // if (func->isStmt)
       //     err_ctorHasType(this, func, type);
-      if (!isupper(*func->name)) par_warnCtorCase(parser, func);
+      if (!isupper(*func->name)) warn_ctorCase(parser, func);
 
       func->name = type->name;
       isCtor = true;
@@ -1270,6 +1270,7 @@ static int expr_markTypesVisited(Parser* parser, Expr* expr);
 static int type_checkCycles(Parser* parser, Type* type);
 
 void mod_analyse(Parser* parser, Module* mod) {
+  FUNC_ENTRY
   // If function calls are going to be resolved based on the type of
   // first arg, then ALL functions must be visited in order to
   // generate their selectors and resolve their typespecs. (this does
@@ -1315,8 +1316,15 @@ void mod_analyse(Parser* parser, Module* mod) {
     parser->issues.errCount++;
   }
 
+  foreach (Func*, func, mod->funcs) { func_checkRecursion(func); }
+
   foreach (Func*, func, mod->funcs)
-    if (!func->intrinsic && (!func->used || !func->analysed)) {
+    if (!func->intrinsic
+        && (!func->used || !func->analysed
+            // || (func->recursivity > 1 && func->used == 1)
+            // TODO: setting unused is tricky when there is a cycle. just
+            // like refcounting GC!
+            )) {
       func_reduceUsage(func);
       Type* t = mod_getType(mod, func->name);
       if (t)
@@ -1326,21 +1334,20 @@ void mod_analyse(Parser* parser, Module* mod) {
   foreach (Func*, func, mod->funcs)
     if (!func->intrinsic
         && (!func->used || (!func->analysed && !func->isDefCtor)))
-      par_warnUnusedFunc(parser, func);
+      warn_unusedFunc(parser, func);
 
   foreach (Type*, type, mod->types)
     if (!type->used || !type->analysed) type_reduceUsage(type);
 
   foreach (Type*, type, mod->types)
-    if (!type->used || !type->analysed) par_warnUnusedType(parser, type);
+    if (!type->used || !type->analysed) warn_unusedType(parser, type);
 
   foreach (Type*, type, mod->enums)
     if (!type->used || !type->analysed) type_reduceUsage(type);
 
   foreach (Type*, type, mod->enums)
-    if (!type->used || !type->analysed) par_warnUnusedType(parser, type);
+    if (!type->used || !type->analysed) warn_unusedType(parser, type);
 
-  foreach (Func*, func, mod->funcs) { func_checkRecursion(func); }
   // now that funcs are marked recursive you can do a second pass
   // analysis,
   // which deals with var storage decisions, inlining,  etc. or perhaps this
@@ -1369,6 +1376,7 @@ void mod_analyse(Parser* parser, Module* mod) {
 
 // return 0 on no cycle found, -1 on cycle found
 static int type_checkCycles(Parser* parser, Type* type) {
+  FUNC_ENTRY
   foreach (Expr*, stmt, type->body->stmts)
     if (expr_markTypesVisited(parser, stmt)) {
       eprintf("  -> created in type \e[;1;2m%s\e[0;2m at ./%s:%d:%d \n",
@@ -1379,6 +1387,7 @@ static int type_checkCycles(Parser* parser, Type* type) {
 }
 
 static int expr_markTypesVisited(Parser* parser, Expr* expr) {
+  FUNC_ENTRY
   Type* type = NULL;
   if (!expr) return 0;
   switch (expr->kind) {

@@ -54,7 +54,7 @@ func loadFile()
         return
     end
 
-    var accel = 89.86|kg.m2/s2 + sum(1:end:, 1:end)
+    var accel = 89.86|kg.m2/s2 + sum(1:len, 1:len)
 
 end
 

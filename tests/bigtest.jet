@@ -33,13 +33,13 @@ type Type2 extends Type1
     ~ var t2 = Type1(f=33, g=45)
 end
 
-declare type Byte
-declare function unhex(s String) as Byte[:,:]
+decl type Byte end
+decl func unhex(s String) as Byte[:,:]
 
 sets(g Number) := g  #
 
 
-func start()
+func stamrt()
     var arg1=sets(5)
     maisn("k",b="jk")
     print(arg1)

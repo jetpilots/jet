@@ -7,12 +7,12 @@ test "charr1"
 end
 
 test "chdict1"
-    var d = []
+    var d = {}
     d["test"] = 54
     d["whack"] = 77
     check d["whack"] == 77
-    check not has(d, key = "whac")
-    check not has(d, value = 65)
+    check "whac" not in d
+    check 65 not in d
 end
 
 test "chstr"

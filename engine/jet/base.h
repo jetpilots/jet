@@ -38,7 +38,9 @@
 #endif
 
 #ifndef thread_local
-#if __STDC_VERSION__ >= 201112 && !defined __STDC_NO_THREADS__
+#if __TINYC__
+#define thread_local
+#elif __STDC_VERSION__ >= 201112 && !defined __STDC_NO_THREADS__
 #define thread_local _Thread_local
 #elif defined _WIN32                                                       \
     && (defined _MSC_VER || defined __ICL || defined __DMC__               \
@@ -55,6 +57,8 @@
 #ifndef monostatic
 #define monostatic
 #endif
+
+#define DROP(...)
 
 #define KB *1024UL
 #define MB *1024 KB
@@ -90,11 +94,11 @@ monostatic size_t _called_strlen = 0;
 #define strlen(s) (++_called_strlen, strlen(s))
 
 // This macro should be invoked on each struct defined.
-#define MKSTAT(T) static int T##_allocTotal = 0;
+#define MKSTAT(T) monostatic int _allocTotal_##T = 0;
 #define allocstat(T)                                                       \
-  if (1 || T##_allocTotal)                                                 \
+  if (1 || _allocTotal_##T)                                                \
     eprintf("*** %-24s %4ld B x %5d = %7ld B\n", #T, sizeof(T),            \
-        T##_allocTotal, T##_allocTotal * sizeof(T));
+        _allocTotal_##T, _allocTotal_##T * sizeof(T));
 
 #else
 
@@ -379,7 +383,7 @@ MAKE_cmp3way(Number)
 // debug mode, error -> print to stderr, fatal -> print to stderr and exit
 #define CString_equals !strcmp
 #define print printf
-#define String_print puts
+#define String_print(x) fwrite(x.ref, x.len, 1, stdout)
 #define CString_print puts
 #define Boolean_print(x) printf("%s\n", _fp_bools_yn_[x])
 #define Number_print(x) printf("%g\n", x)

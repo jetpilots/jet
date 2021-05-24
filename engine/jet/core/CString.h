@@ -95,7 +95,8 @@ monostatic CString cstr_dir_ip(CString str) {
   CString s = str; // pstrndup(str, len);
   CString sc = s + len;
   while (sc > s && *sc != '/') sc--;
-  if (sc >= s) *sc = '\0';
+  if (*sc == '/') ++sc;
+  *sc = '\0';
   return s;
 }
 

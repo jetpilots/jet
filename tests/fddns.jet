@@ -11,11 +11,11 @@ end
 ~ var v = Float[3, 4, 5, 6]
 ~ var v = [3, 4, 5, 6] Complex
 
-declare function zeros4d(arr Number[]) as Number[:,:,:,:]
-declare function zeros2d(arr Number[]) as Number[:,:]
-declare function ones1d(arr Number) as Number[:]
-declare function zeros1d(arr Number) as Number[:]
-declare function shape(arr Number[:,:,:,:]) as Number[]
+decl func zeros4d(arr Number[]) Number[:,:,:,:]
+decl func zeros2d(arr Number[]) Number[:,:]
+decl func ones1d(arr Number) Number[:]
+decl func zeros1d(arr Number) Number[:]
+decl func shape(arr Number[:,:,:,:]) Number[]
 
 func start()
     ~ var t = 0 ~|s
@@ -30,7 +30,7 @@ func start()
     ~ [ai->sin(ai)+cos(ai) @ a[:]] ~ map, list compr.
     ~ ai -> sin(ai) + cos(ai) @ a[:] + ~ reduce to sum
 
-    for t in 1:dt:te
+    for t = 1:dt:te
         update!(u, dt=dt, dx=dx)
         ~ update(u!, dt=dt, dx=dx)
         ~ update!(u, dt=dt, dx=dx)
@@ -55,7 +55,7 @@ end
 ~     var limit Number[String] = shape(u) - 1
 ~     var dudx Number[2D] = zeros(3, 3)
 
-declare function fwddiff(u Number[:,:,:,:], at Number[], dim Number) as Number
+decl func fwddiff(u Number[:,:,:,:], at Number[], dim Number) Number
 
 func update!(u Number[:,:,:,:], dt Number, dx Number[])
     var limit = shape(u) - 1

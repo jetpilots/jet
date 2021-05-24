@@ -1,0 +1,40 @@
+decl type T end
+decl type DateTime end
+decl func now() DateTime
+
+type RingBuf
+  var buf T[]
+  var pos Number
+end
+
+func push!(rb RingBuf, item T)
+  rb.buf[rb.pos] = item
+  rb.pos += 1
+  if rb.pos > len(rb.buf)
+    rb.pos = 1
+  end
+end
+
+func RingBuf(size Number)
+  ans = RingBuf()
+  resize!(ans.buf, to=size)
+end
+
+type SubBuf
+  var samples Sample[]
+  var state BufState = .empty
+end
+
+type Sample
+  var time = now()
+  var inputs Number[]
+end
+
+func Sample(inputs Number[])
+  ans = Sample()
+  ans.inputs = inputs
+end
+
+func start()
+  var s = Sample()
+end

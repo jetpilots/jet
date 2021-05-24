@@ -52,7 +52,7 @@ static void par__errHeaderWithExpr(Parser* parser, Expr* expr) {
   case tkElif:
   case tkType:
   case tkReturn:
-  case tkResult:
+  case tkYield:
   case tkExtends:
   case tkVar:
   case tkLet:
@@ -244,20 +244,20 @@ static void err_unrecognizedMember(Parser* parser, Type* type, Expr* expr) {
   err_increment(parser);
 }
 
-static void par_warnUnusedArg(Parser* parser, Var* var) {
+static void warn_unusedArg(Parser* parser, Var* var) {
   if (!parser->issues.warnUnusedArg) return;
   par__warnHeaderWithLoc(parser, var->line, var->col, strlen(var->name));
   eprintf("unused or unnecessary argument '%s'\n", var->name);
 }
 
-static void par_warnUnusedVar(Parser* parser, Var* var) {
+static void warn_unusedVar(Parser* parser, Var* var) {
   if (!parser->issues.warnUnusedVar) return;
   par__warnHeaderWithLoc(
       parser, var->line, var->col - 4, 4 + strlen(var->name));
   eprintf("unused or unnecessary variable '%s'\n", var->name);
 }
 
-static void par_warnUnusedFunc(Parser* parser, Func* func) {
+static void warn_unusedFunc(Parser* parser, Func* func) {
   if (!parser->issues.warnUnusedFunc) return;
   par__warnHeaderWithLoc(
       parser, func->line, func->col - 5, 5 + strlen(func->name));
@@ -265,13 +265,13 @@ static void par_warnUnusedFunc(Parser* parser, Func* func) {
       func->name, func->sel);
 }
 
-static void par_warnUnusedType(Parser* parser, Type* type) {
+static void warn_unusedType(Parser* parser, Type* type) {
   if (!parser->issues.warnUnusedType) return;
   par__warnHeaderWithLoc(parser, type->line, type->col, strlen(type->name));
   eprintf("unused or unnecessary type '%s'\n", type->name);
 }
 
-static void par_warnSameExpr(Parser* parser, Expr* e1, Expr* e2) {
+static void warn_sameExpr(Parser* parser, Expr* e1, Expr* e2) {
   par__warnHeaderWithLoc(parser, e1->line, e1->col, 1);
   eprintf("CSE candidate '%s' for %d:%d\n", TokenKind_repr[e1->kind],
       e2->line, e2->col);
@@ -327,7 +327,7 @@ static void err_ctorHasType(Parser* parser, Func* func, Type* orig) {
   err_increment(parser);
 }
 
-static void par_warnCtorCase(Parser* parser, Func* func) {
+static void warn_ctorCase(Parser* parser, Func* func) {
   Type* orig = func->spec->type;
   par__errHeader(parser);
   eprintf("\n(%d) warning: wrong case "
@@ -341,10 +341,10 @@ static void par_warnCtorCase(Parser* parser, Func* func) {
 }
 
 static void err_duplicateFunc(Parser* parser, Func* func, Func* orig) {
-  par__errHeaderWithLoc(parser, func->line, 5, strlen(func->name));
+  par__errHeaderWithLoc(parser, func->line, 6, strlen(func->name));
   eprintf("duplicate function "
           "'%s' already declared at %s%s:%d:%d with selector %s\n",
-      func->name, RELF(parser->filename), orig->line, 5, func->sel);
+      func->name, RELF(parser->filename), orig->line, 6, func->psel);
   err_increment(parser);
 }
 
@@ -376,7 +376,7 @@ static void err_unrecognizedFunc(
 // when a func is not exactly found based on selector, issue a warning and
 // take the closest matching func by type. Generally the linter will add
 // labels automatically so this warning will only appear on unlinted files.
-static void par_warnUnrecognizedSelector(
+static void warn_unrecognizedSelector(
     Parser* parser, Expr* expr, char* selector, Func* selected) {
   if (noPoison && *selector == '<') return; // invalid type; already error'd
   par__warnHeaderWithLoc(parser, expr->line, expr->col, strlen(expr->str));
@@ -531,8 +531,8 @@ static void err_typeMismatchBinOp(Parser* parser, Expr* expr) {
   const char* rightTypeName = expr_typeName(expr->right);
   if (noPoison && (*leftTypeName == '<' || *rightTypeName == '<')) return;
   par__errHeaderWithExpr(parser, expr);
-  eprintf("type mismatch; can't apply '%s' to '%s' and '%s'\n",
-      TokenKind_repr[expr->kind], leftTypeName, rightTypeName);
+  eprintf("type mismatch; can't do '%s %s %s'\n", leftTypeName,
+      TokenKind_repr[expr->kind], rightTypeName);
   err_increment(parser);
 }
 
@@ -541,8 +541,7 @@ static void err_typeMismatch(Parser* parser, Expr* e1, Expr* e2) {
   const char* rightTypeName = expr_typeName(e2);
   if (noPoison && (*leftTypeName == '<' || *rightTypeName == '<')) return;
   par__errHeaderWithExpr(parser, e2);
-  eprintf(
-      "type mismatch: '%s' here must be '%s' instead (from %s%s:%d:%d)\n",
+  eprintf("type mismatch: '%s' here must be '%s' (from %s%s:%d:%d)\n",
       rightTypeName, leftTypeName, RELF(parser->filename), e1->line,
       e1->col);
   err_increment(parser);
@@ -560,8 +559,8 @@ static void err_initMismatch(Parser* parser, Expr* expr) {
   // arr[:,:,:] = [] that would be an error.
   if ((expr->var->init->kind == tkArrayOpen
           || expr->var->init->kind == tkBraceOpen)
-      && expr->var->spec->collectionType != CTYNone
-      && !expr->var->init->right && expr->var->spec->typeType != TYUnknown)
+      && expr->var->spec->collType != CTYNone && !expr->var->init->right
+      && expr->var->spec->typeType != TYUnknown)
     return;
   par__errHeaderWithExpr(parser, expr);
 
@@ -583,8 +582,8 @@ static void err_initDimsMismatch(Parser* parser, Expr* expr, int dims) {
 static void err_binOpDimsMismatch(Parser* parser, Expr* expr) {
   par__errHeaderWithExpr(parser, expr);
 
-  eprintf("can't apply '%s' to %dD array and %dD array\n",
-      TokenKind_repr[expr->kind], expr->left->dims, expr->right->dims);
+  eprintf("can't do '%dD array %s %dD array'\n", expr->left->dims,
+      TokenKind_repr[expr->kind], expr->right->dims);
   err_increment(parser);
 }
 

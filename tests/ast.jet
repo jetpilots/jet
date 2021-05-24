@@ -35,21 +35,21 @@ var e  = ASTTokenKinds.string
 ~ f(5, kind=.newline)
 ~ f(6, n2=8)
 
-declare type ASTImport
+decl type ASTImport
     var name = ""
     var aliasOffset = 0
     var isPackage = no
     var hasAlias = no
 end
 
-declare type ASTUnits
+decl type ASTUnits
     var powers Number[]
     var factor = 0
     var factors Number[]
     var label = ""
 end
 
-declare type ASTTypeSpec
+decl type ASTTypeSpec
     var ttype ASTType = nil
     var name = ""
     var units ASTUnits = nil
@@ -63,7 +63,7 @@ declare type ASTTypeSpec
     var nullable = no
 end
 
-declare type ASTVar
+decl type ASTVar
     var typeSpec ASTTypeSpec = nil
     var init ASTExpr = nil
     var name = ""
@@ -81,7 +81,7 @@ declare type ASTVar
     var returned = no
 end
 
-declare type ASTExpr
+decl type ASTExpr
     var line = 0
     var col = 0
     var typeType = ASTTypeTypes.unresolved
@@ -104,13 +104,13 @@ declare type ASTExpr
     var right ASTExpr = nil
 end
 
-declare type ASTScope
+decl type ASTScope
     var stmts ASTExpr[]
     var locals ASTVar[]
     var parent ASTScope = nil
 end
 
-declare type ASTType
+decl type ASTType
     var super ASTTypeSpec = nil
     var name = ""
     var body ASTScope = nil
@@ -120,7 +120,7 @@ declare type ASTType
     var isValueType = no
 end
 
-declare type ASTFunc
+decl type ASTFunc
     var body ASTScope = nil
     var args ASTVar[]
     var argCount = 0
@@ -147,14 +147,14 @@ declare type ASTFunc
     var analysed = no
  end
 
-declare type ASTTest
+decl type ASTTest
     var body ASTScope = nil
     var name = ""
     var line = 0
     var analysed = no
 end
 
-declare type ASTModule
+decl type ASTModule
     var imports ASTImport[]
     var funcs ASTFunc[]
     var tests ASTTest[]

@@ -2,21 +2,26 @@
 decl func print(t Number)
 
 func start()
-    var x Number = fx(34 + 4 * 3)
+    var x = fx(34 + 4 * 3)
     print(x)
 end
 
-func fx(a Number) Number
-    var m Number = gx(5 - a + 2 / 5)
+func fx(a Number)
+    var m = gx(5 - a + 2 / 5)
     ans = m
 end
 
-func gx(a Number) Number
-    var m Number = mx(2 + 4 ^ a)
+func bx(a)
+    var h = fx(8)
+    ans = h + 6
+end
+
+func gx(a Number)
+    var m = mx(2 + 4 ^ a)
     ans = m
 end
 
 func mx(a Number) Number
-    var m Number = fx(a * 2.0)
+    var m = fx(a * 2.0)
     ans = m
 end

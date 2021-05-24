@@ -54,7 +54,7 @@ static void resolveTypeSpec(Parser* parser, TypeSpec* spec, Module* mod) {
 
 static void scope_checkUnusedVars(Parser* parser, Scope* scope) {
   foreach (Var*, var, scope->locals)
-    if (!var->used) par_warnUnusedVar(parser, var);
+    if (!var->used) warn_unusedVar(parser, var);
 
   foreach (Expr*, stmt, scope->stmts)
     if (isCtrlExpr(stmt) && stmt->body)
@@ -63,7 +63,7 @@ static void scope_checkUnusedVars(Parser* parser, Scope* scope) {
 
 static void func_checkUnusedVars(Parser* parser, Func* func) {
   foreach (Var*, arg, func->args)
-    if (!arg->used) par_warnUnusedArg(parser, arg);
+    if (!arg->used) warn_unusedArg(parser, arg);
 
   scope_checkUnusedVars(parser, func->body);
 }

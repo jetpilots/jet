@@ -4,6 +4,7 @@
     _lprof_[l - 1] += (_lprof_tmp_ - _lprof_last_) / 100;                  \
     _lprof_last_ = _lprof_tmp_;                                            \
   }
+extern Ticks _lprof_[], _lprof_last_;
 
 static void lineprofile_report() {
   FILE* fd = fopen("." THISFILE "r", "w");

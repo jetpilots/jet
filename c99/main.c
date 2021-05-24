@@ -1,6 +1,12 @@
+#include <signal.h>
+
 #include "jet/base.h"
 #include "jet/os/Process.h"
-#include "signal.h"
+
+static const char* _lastFunc;
+static int _lastFuncLen;
+
+#define FUNC_ENTRY _lastFunc = __func__, _lastFuncLen = strlen(_lastFunc);
 
 #define STEP 4
 #define JOIN(x, y) x##y
@@ -65,23 +71,40 @@ static const char* CompilerMode__str[] = { //
 #include "serv.h"
 
 static void par_emit_open(Parser* parser) {
-  printf("#define THISFILE \"%s\"\n", parser->filename);
-  printf("#define NUMLINES %d\n", parser->token.line);
+  // printf("#define THISFILE \"%s\"\n", parser->filename);
+  // printf("#define NUMLINES %d\n", parser->token.line);
 }
 
-static void par_emit_close(Parser* parser) { printf("#undef THISFILE\n"); }
+static void par_emit_close(Parser* parser) {
+  // printf("#undef THISFILE\n");
+}
 
 static void alloc_stat() { }
 
 static void sighandler(int sig, siginfo_t* si, void* unused) {
+  write(2, _lastFunc, _lastFuncLen);
   write(2,
-      "file:1:1-1: error: internal error: this file caused a segmentation "
+      ":1:1-1: error: internal error: this file caused a segmentation "
       "fault (unknown location)\n",
-      92);
+      88);
   _exit(1);
 }
 
+bool file_newer(const char* file, const char* than) {
+  static const unsigned long ONE_NANO = 1000000000;
+  struct stat sb1 = {}, sb2 = {};
+  if (stat(file, &sb1) + stat(than, &sb2)) return false;
+  // ^ one or both file(s) not found or other error
+  if (sb1.st_mtimespec.tv_sec > sb2.st_mtimespec.tv_sec) return true;
+  size_t time1
+      = sb1.st_mtimespec.tv_sec * ONE_NANO + sb1.st_mtimespec.tv_nsec;
+  size_t time2
+      = sb2.st_mtimespec.tv_sec * ONE_NANO + sb2.st_mtimespec.tv_nsec;
+  return time1 > time2;
+}
+
 int main(int argc, char* argv[]) {
+  FUNC_ENTRY
   struct sigaction sa;
   sa.sa_flags = SA_SIGINFO;
   sigemptyset(&sa.sa_mask);
@@ -108,6 +131,7 @@ int main(int argc, char* argv[]) {
 
   CompilerMode mode = PMEmitC;
   bool stats = false;
+  bool forceBuildAll = false;
 
   char* filename = (argc > 1) ? argv[1] : NULL;
 
@@ -136,6 +160,7 @@ int main(int argc, char* argv[]) {
   List(Module)* modules = NULL;
 
   Module* root = parseModule(parser, &modules, NULL);
+  parser->elap = clock_clockSpanMicro(t0) / 1.0e3;
   if (_InternalErrs) {
     // nothing
   } else if (parser->mode == PMLint) {
@@ -145,22 +170,31 @@ int main(int argc, char* argv[]) {
       foreach (Module*, mod, modules) { mod_write(mod); }
       foreach (Module*, mod, modules) { mod_dumpc(mod); }
     }
+    parser->oelap = clock_clockSpanMicro(t0) / 1.0e3;
+
   } else if (!(parser->issues.errCount)) {
     switch (parser->mode) {
-
+    case PMRun:
     case PMEmitC: {
+      const char* enginePath = "engine"; // FIXME
       // TODO: if (monolithic) printf("#define function static\n");
-      par_emit_open(parser);
+      // par_emit_open(parser);
       // ^ This is called before including the runtime, so that the
       // runtime can know THISFILE NUMLINES etc.
-      printf("#include \"jet/runtime.h\"\n");
-      foreach (Module*, mod, modules) { mod_emit(mod); }
-      parser->elap = clock_clockSpanMicro(t0) / 1.0e3;
+      // printf("#include \"jet/runtime.h\"\n");
       foreach (Module*, mod, modules) {
-        // TODO: check if the file needs updating and only then run cc
-        char* enginePath = "engine"; // FIXME
-        char* cmd[]
-            = { "/usr/bin/gcc", "-I", enginePath, "-c", mod->out_c, NULL };
+        // for emitting C, test out_o for newness not out_c, since out_c is
+        // updated by clangformat etc. anyway O is the goal.
+        if (!forceBuildAll && file_newer(mod->out_o, mod->filename))
+          continue;
+        mod_emit(mod);
+      }
+      parser->oelap = clock_clockSpanMicro(t0) / 1.0e3;
+      foreach (Module*, mod, modules) {
+        if (!forceBuildAll && file_newer(mod->out_o, mod->out_c)) continue;
+        // TODO: check if the out_o needs updating and only then run cc
+        const char* cmd[] = { "/usr/bin/gcc", "-I", enginePath, "-c",
+          mod->out_c, "-o", mod->out_o, NULL };
         Process_launch(cmd);
       }
 
@@ -173,7 +207,14 @@ int main(int argc, char* argv[]) {
         if (proc.exited && proc.code) unreachable("cc failed\n", "");
         // here launch 1 more
       } while (proc.pid);
-      par_emit_close(parser);
+      // par_emit_close(parser);
+
+      // if (parser->mode == PMRun) {
+      //   const char* cmd[]
+      //       = { "/usr/bin/gcc", "-I", enginePath, "-c",
+      //       "engine/jet/rt0.c", NULL };
+      //   Process_launch(cmd);
+      // }
 
     } break;
 

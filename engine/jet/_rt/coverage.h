@@ -1,6 +1,8 @@
 #define JET_COVERAGE_UP(l)                                                 \
   { _cov_[l - 1]++; }
 
+extern UInt64 _cov_[];
+
 static void coverage_report() {
   int count = 0, l = NUMLINES;
   while (--l > 0) count += !!_cov_[l];

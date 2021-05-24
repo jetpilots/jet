@@ -80,13 +80,12 @@ static Expr* parseExpr(Parser* parser) {
         && memchr(parser->token.pos, '_', parser->token.matchlen))
       err_invalidIdent(parser); // but continue parsing
 
-    Expr* expr;
-    if (par_matches(parser, tkParenOpen))
-      expr = lparen;
-    else if (par_matches(parser, tkParenClose))
-      expr = rparen;
-    else
-      expr = expr_fromToken(&parser->token); // dont advance yet
+    Expr* expr = par_matches(parser, tkParenOpen) //
+        ? lparen
+        : par_matches(parser, tkParenClose)
+            ? rparen
+            : expr_fromToken(&parser->token);
+    // dont advance yet
 
     int prec = expr->prec;
     bool rassoc = prec ? expr->rassoc : false;
@@ -102,22 +101,16 @@ static Expr* parseExpr(Parser* parser) {
       // case '!':
       //     if (parser->token.pos[2] != '(') goto defaultCase;
       case '(':
-        expr->kind = tkFuncCall;
-        expr->prec = 60;
-        arr_push(&ops, expr);
+        expr->kind = tkFuncCall, expr->prec = 60, arr_push(&ops, expr);
         break;
       case '[':
-        expr->kind = tkSubscript;
-        expr->prec = 60;
-        arr_push(&ops, expr);
+        expr->kind = tkSubscript, expr->prec = 60, arr_push(&ops, expr);
         break;
       case ' ':
         if (parser->token.pos[2] != '{') goto defaultCase;
         // otherwise fall through
       case '{':
-        expr->kind = tkObjInit;
-        expr->prec = 60;
-        arr_push(&ops, expr);
+        expr->kind = tkObjInit, expr->prec = 60, arr_push(&ops, expr);
         break;
 
       default:
@@ -199,6 +192,7 @@ static Expr* parseExpr(Parser* parser) {
 
       break;
 
+    case tkYield:
     case tkCheck: arr_push(&ops, expr); break;
     case tkExcl:
       if (arr_empty(&rpn) || arr_topAs(Expr*, &rpn)->kind != tkIdent) {
@@ -469,7 +463,7 @@ static TypeSpec* parseTypeSpec(Parser* parser) {
       for_to_where(i, parser->token.matchlen, parser->token.pos[i] == ':')
           spec->dims++;
       if (!spec->dims) spec->dims = 1;
-      spec->collectionType = spec->dims == 1 ? CTYArray : CTYTensor;
+      spec->collType = spec->dims == 1 ? CTYArray : CTYTensor;
     }
     tok_advance(&parser->token);
   }
@@ -881,6 +875,7 @@ static Func* parseFunc(
   if (mutator && func->argCount) {
     Var* arg1 = func->args->item;
     arg1->isVar = true;
+    arg1->isMutableArg = true;
     func->mutator = true;
   }
 
@@ -896,18 +891,15 @@ static Func* parseFunc(
     );
   }
 
-  Var* ans;
-  // if (func->spec) {
-  ans = NEWW(Var, //
+  Var* ans = NEWW(Var, //
       .name = "ans", //
       .line = func->spec->line, //
       .col = func->spec->col, //
-      .isVar = true,
+      .isVar = true, //
+      .isMutableArg = true, //
       .init = NULL, // FIXME
       .spec = func->spec // NEW(TypeSpec);
   );
-  //        fvar->spec->typeType = TYReal64;
-  // }
 
   if (shouldParseBody) {
     par_ignore(parser, tkComment);
@@ -1183,7 +1175,8 @@ static Module* par_lookupModule(PtrList* existingModules, char* name) {
 
 static Module* parseModule(
     Parser* parser, PtrList** existingModulesPtr, Module* importer) {
-  Module* root = NEW(Module);
+  FUNC_ENTRY
+  Module* root = NEW(Module); // FIXME RENAME ROOT TO MOD, IT IS NOT ROOT!
 
   // ret->noext = cstr_noext(cstr_clone(filename));
   root->name
@@ -1191,6 +1184,22 @@ static Module* parseModule(
   root->cname = cstr_tr_ip(cstr_clone(root->name), '.', '_');
   root->Cname = cstr_upper_ip(cstr_clone(root->cname));
   root->filename = parser->filename;
+
+  int l = strlen(root->filename);
+  static char buf[512];
+  // TODO: improve this later
+  root->out_h = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.h",
+      cstr_dir_ip(cstr_pclone(root->filename)),
+      cstr_base(root->filename, '/', l)));
+  root->out_c = cstr_pclone(__cstr_interp__s(512, buf, "%s/.%s.c",
+      cstr_dir_ip(cstr_pclone(root->filename)),
+      cstr_base(root->filename, '/', l)));
+  root->out_xc = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.x.c",
+      cstr_dir_ip(cstr_clone(root->filename)),
+      cstr_base(root->filename, '/', l)));
+  root->out_o = cstr_pclone(root->out_c);
+  root->out_o[strlen(root->out_o) - 1] = 'o';
+
   // To break recursion, add the root to the existingModules list right
   // away. The name is all that is required for this module to be found
   // later.
@@ -1304,15 +1313,15 @@ static Module* parseModule(
 
         imports = li_push(imports, imp);
 
-        imp->mod = par_lookupModule(parser->mods, imp->name);
+        imp->mod = par_lookupModule(*existingModulesPtr, imp->name);
         if (!imp->mod) {
-          eprintf("%s needs %s, parsing\n", root->name, imp->name);
           size_t len = strlen(imp->name) + 5;
           char* filename = malloc(len);
           filename[len - 1] = 0;
           strcpy(filename, imp->name);
           cstr_tr_ip_len(filename, '.', '/', len - 5);
           strcpy(filename + len - 5, ".jet");
+          eprintf("%s needs %s, parsing\n", root->filename, filename);
           // later you can have a fancier routine that figures out
           // the file name from a module name
           Parser* subParser = par_fromFile(filename, true, parser->mode);
@@ -1321,7 +1330,8 @@ static Module* parseModule(
           // parsed once on first use.
           // FIXME: these parsers will LEAK!
           if (subParser) {
-            if ((imp->mod = parseModule(parser, existingModulesPtr, NULL)))
+            if ((imp->mod
+                    = parseModule(subParser, existingModulesPtr, NULL)))
               li_shift(&imp->mod->importedBy, root);
           }
         }
@@ -1401,6 +1411,7 @@ static Module* parseModule(
       func->intrinsic = true;
       funcs = li_push(funcs, func);
     }
+  root->nlines = parser->token.line;
 
   // do some analysis that happens after the entire module is loaded
   mod_analyse(parser, root);

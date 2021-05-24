@@ -71,10 +71,9 @@ end
 
 ~ export
 func Point(x Number)
-    var p = Point()
-    p.y = x
+    ans = Point()
+    ans.y = x
     describe(x)
-    return p
 end
 
 func start() Number

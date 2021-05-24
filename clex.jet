@@ -27,26 +27,28 @@ enum Kinds
     mutops
 end
 
-type Byte
-    var c = 0
-end
-eq(b Byte, b2 Byte) := b.c == b2.c
+decl type Byte end
 
 type Token
     var pos = 0
     var len = 0
     var line = 0
-    var col = 0+maje[8]
-    var data = ""
+    var col = 0
     var kind = Kinds.unknown
+end
+
+type Parser
+    var data Byte[] = []
+    var filename = ""
+    var tok = Token()
 end
 
 func slurp(file String) Byte[]
 
 end
 
-func detect(tok Token[]) Kinds
-    match tok.data
+func detect(par Parser) Kinds
+    match par.data[par.tok.pos:]
     case '+=', '-=', '*=', '/=', '^=', '%=', '.='
         ans = .mutops
     case '+','-','/','*','^','%','.',':','~','#',',',';'
@@ -68,11 +70,11 @@ func args(idx Number) String
 end
 
 func start()
-    var tok = Token()
+    var par = Parser()
     var f String = args(1)
-    tok.data = slurp(f)
-    while detect(tok) != .eof
-        print(tok.data[tok.pos:tok.pos+tok.len])
-        advance!(tok)
+    par.data = slurp(f)
+    while detect(par) != .eof
+        print(par.data[par.tok.pos:par.tok.pos+par.tok.len])
+        advance!(par.tok)
     end
 end

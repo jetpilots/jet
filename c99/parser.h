@@ -22,7 +22,7 @@ typedef struct Parser {
   CompilerMode mode;
   // JetOpts opts;
 
-  double elap, elap_tot;
+  double elap, oelap, elap_tot;
 
   bool generateCommentExprs; // set to false when compiling, set to
                              // true when linting

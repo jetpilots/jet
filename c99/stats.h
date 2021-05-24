@@ -70,8 +70,9 @@ static void printstats(Parser* const parser) {
 #endif
   expralloc_stat();
 
-  eprintf("jetc time: %.1f ms (%.1f ms / 32kB)\n", parser->elap,
+  eprintf("parse+check time: %.3g ms (%.1f ms / 32kB)\n", parser->elap,
       parser->elap * 32768.0
           / (parser->end - parser->data - 2)); // sw.print();
-  eprintf("cc time: %.1f ms\n", parser->elap_tot - parser->elap);
+  eprintf("output time: %.3g ms\n", parser->oelap - parser->elap);
+  eprintf("cc time: %.3g ms\n", parser->elap_tot - parser->oelap);
 }

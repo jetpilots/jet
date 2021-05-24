@@ -77,9 +77,9 @@ monostatic Pool gPool[1] = {};
 monostatic Pool sPool[1] = {};
 
 #ifndef NDEBUG
-#define NEW(T) (T##_allocTotal++, (T*)Pool_alloc(gPool, sizeof(T)))
+#define NEW(T) (++_allocTotal_##T, (T*)Pool_alloc(gPool, sizeof(T)))
 // Use nNEW for contiguous alloc of n objects of type T (for small n!)
-#define nNEW(T, n) (T##_allocTotal += n, Pool_alloc(gPool, n * sizeof(T)))
+#define nNEW(T, n) (_allocTotal_##T += n, Pool_alloc(gPool, n * sizeof(T)))
 #else
 #define NEW(T) Pool_alloc(gPool, sizeof(T))
 // Use nNEW for contiguous alloc of n objects of type T (for small n!)

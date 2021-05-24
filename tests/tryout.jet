@@ -1,4 +1,4 @@
-
+ 
 
 func foo()
     var ls[] Int
@@ -7,7 +7,7 @@ func foo()
     ls!.push(3).push(32).push(67).shift(1)
     ls!.print()
 
-    var sted[] String
+    var sted String[]
     sted!.pushn(["hello", "there", "wowee"])
     sted!.shift("hey").insert("bouk", at=4).push("adsa")
     sted.print()  ~ YOU CAN'T TAG ON print() to the above chain!!!
