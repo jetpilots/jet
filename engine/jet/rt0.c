@@ -1,12 +1,15 @@
 #include "runtime.h"
 
-monostatic void start(IFDEBUG(const char* callsite_));
+#include "_rt/coverage.h"
+#include "_rt/profiler.h"
+
+extern void start(IFDEBUG(const char* callsite_));
 
 monostatic thread_local const char* _err_ = NULL;
 // monostatic const PtrArray _os_args;
 
 int main(int argc, char* argv[]) {
-  _stack_boundary = &argc - sys_stackSize() + 1024;
+  _stack_boundary = (char*)&argc - sys_stackSize() + 1024;
   // _os_args = (CStrArray) { .ref = argc, .used = argc };
   Ticks t0 = Ticks_get();
 

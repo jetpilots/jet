@@ -30,6 +30,55 @@
 #define arr_empty Array_empty(Ptr)
 #define arr_topAs(T, self) ((T)arr_top(self))
 
+#define DECL_Array(T)                                                      \
+  typedef struct Array(T) Array(T);                                        \
+  monostatic void Array_free(T)(Array(T) * self);                          \
+  monostatic void Array_growTo(T)(Array(T) * self, UInt32 size);           \
+  monostatic void Array_resize(T)(Array(T) * self, UInt32 size);           \
+  monostatic T Array_get(T)(Array(T) * self, UInt32 index);                \
+  monostatic void Array_concatCArray(T)(                                   \
+      Array(T) * self, T * cArray, int count);                             \
+  monostatic void Array_concatArray(T)(Array(T) * self, Array(T) * other); \
+  monostatic void Array_clear(T)(Array(T) * self);                         \
+  monostatic void Array_initWithCArray(T)(                                 \
+      Array(T) * self, T * cArray, int count);                             \
+  monostatic void Array_grow(T)(Array(T) * self);                          \
+  monostatic void Array_justPush(T)(Array(T) * self, T node);              \
+  monostatic void Array_push(T)(Array(T) * self, T node);                  \
+  monostatic T Array_pop(T)(Array(T) * self);                              \
+  monostatic T Array_top(T)(Array(T) * self);                              \
+  monostatic bool Array_empty(T)(Array(T) * self);
+
+DECL_Array(Ptr);
+DECL_Array(UInt32);
+DECL_Array(Real64);
+
+// MAKE_Array(UInt32);
+// MAKE_Array(uint64_t);
+// MAKE_Array(int64_t);
+// MAKE_Array(int32_t);
+// MAKE_Array(Number);
+// MAKE_Array(float);
+// make array for strings etc later
+
+// Array_top(T) is only defined for value types to keep the number
+// of instantiations (of the "template" Array) down. So void* represents
+// object ptrs of all types. Cast them when you need to deref or do ->
+// etc. self is used to get a void* as a T (usually a SomeType*)
+
+// TODO: StaticArray type with size and array, StaticArray2D/3Detc.
+// since self is not templated, it's your job to send items of the
+// right size, or face the music
+// ASSUMING SIZE IS 8. THAT MEANS NO FLOAT OR UINT32, only sizeof(void*)
+// #define Array_concatCArray(T, Array, arr, count) \
+//     Array_concat_cArray_(Array, arr, count * sizeof(T))
+// TODO: the compiler should optimise away calls to concat if the
+// original arrays can be used one after the other. e.g. concat two
+// arrays then print it can be done by simply printing first then
+// second, no memcpy involved.
+// #define Array_concatArray(T, s1, s2) \
+//     Array_concatArray_(s1, s2, sizeof(T))
+
 #define MAKE_Array(T)                                                      \
   typedef struct Array(T) {                                                \
     T* ref;                                                                \
@@ -96,29 +145,3 @@
 MAKE_Array(Ptr);
 MAKE_Array(UInt32);
 MAKE_Array(Real64);
-
-// MAKE_Array(UInt32);
-// MAKE_Array(uint64_t);
-// MAKE_Array(int64_t);
-// MAKE_Array(int32_t);
-// MAKE_Array(Number);
-// MAKE_Array(float);
-// make array for strings etc later
-
-// Array_top(T) is only defined for value types to keep the number
-// of instantiations (of the "template" Array) down. So void* represents
-// object ptrs of all types. Cast them when you need to deref or do ->
-// etc. self is used to get a void* as a T (usually a SomeType*)
-
-// TODO: StaticArray type with size and array, StaticArray2D/3Detc.
-// since self is not templated, it's your job to send items of the
-// right size, or face the music
-// ASSUMING SIZE IS 8. THAT MEANS NO FLOAT OR UINT32, only sizeof(void*)
-// #define Array_concatCArray(T, Array, arr, count) \
-//     Array_concat_cArray_(Array, arr, count * sizeof(T))
-// TODO: the compiler should optimise away calls to concat if the
-// original arrays can be used one after the other. e.g. concat two
-// arrays then print it can be done by simply printing first then
-// second, no memcpy involved.
-// #define Array_concatArray(T, s1, s2) \
-//     Array_concatArray_(s1, s2, sizeof(T))

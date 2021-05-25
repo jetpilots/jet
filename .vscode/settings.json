@@ -42,7 +42,10 @@
         "__functional_03": "c",
         "__node_handle": "cpp",
         "optional": "cpp",
-        "system_error": "cpp"
+        "system_error": "cpp",
+        "__functional_base_03": "c",
+        "__tuple": "c",
+        "cstddef": "c"
     },
     "Lua.diagnostics.globals": [],
     "Lua.diagnostics.disable": []

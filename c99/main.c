@@ -132,7 +132,7 @@ int main(int argc, char* argv[]) {
   CompilerMode mode = PMEmitC;
   bool stats = false;
   bool forceBuildAll = false;
-
+  bool monolithicBuild = false;
   char* filename = (argc > 1) ? argv[1] : NULL;
 
   // language server mode with no options to jetc
@@ -147,6 +147,8 @@ int main(int argc, char* argv[]) {
       mode = PMLint, stats = (*argv[2] == 'L');
     if (*argv[2] == 't' || *argv[2] == 'T')
       mode = PMTest, stats = (*argv[2] == 'T');
+    if (*argv[2] == 'r' || *argv[2] == 'R')
+      mode = PMRun, monolithicBuild = (*argv[2] == 'R');
   }
   clock_Time t0 = clock_getTime();
   Parser* parser = par_fromFile(filename, true, mode);
@@ -190,13 +192,20 @@ int main(int argc, char* argv[]) {
         mod_emit(mod);
       }
       parser->oelap = clock_clockSpanMicro(t0) / 1.0e3;
-      foreach (Module*, mod, modules) {
-        if (!forceBuildAll && file_newer(mod->out_o, mod->out_c)) continue;
-        // TODO: check if the out_o needs updating and only then run cc
-        const char* cmd[] = { "/usr/bin/gcc", "-I", enginePath, "-c",
-          mod->out_c, "-o", mod->out_o, NULL };
-        Process_launch(cmd);
-      }
+
+      if (!monolithicBuild) foreach (Module*, mod, modules) {
+          if (!forceBuildAll && file_newer(mod->out_o, mod->out_c))
+            continue;
+
+          const char* cmd[] = { //
+            "/usr/bin/gcc", //
+            "-I", enginePath, //
+            "-c", mod->out_c, //
+            "-o", mod->out_o, //
+            NULL
+          };
+          Process_launch(cmd);
+        }
 
       // TODO: do something useful while cc is running
 
@@ -209,12 +218,35 @@ int main(int argc, char* argv[]) {
       } while (proc.pid);
       // par_emit_close(parser);
 
-      // if (parser->mode == PMRun) {
-      //   const char* cmd[]
-      //       = { "/usr/bin/gcc", "-I", enginePath, "-c",
-      //       "engine/jet/rt0.c", NULL };
-      //   Process_launch(cmd);
-      // }
+      if (parser->mode == PMRun) {
+        const char* cmd[] = { //
+          "/usr/bin/gcc", //
+          "-I", enginePath, //
+          "-c", "engine/jet/rt0.c", //
+          "-o", "engine/jet/rt0.o", //
+          NULL
+        };
+        Process_launch(cmd);
+        proc = Process_awaitAny();
+        if (proc.exited && proc.code) unreachable("rt0 failed\n", "");
+
+        PtrArray cmdexe = {};
+        // Array_initWithCArray(Ptr)(&cmdexe, cmd, 1);
+        Array_push(Ptr)(&cmdexe, cmd[0]);
+        foreach (Module*, mod, modules)
+          Array_push(Ptr)(&cmdexe, mod->out_o);
+        Array_push(Ptr)(&cmdexe, "engine/jet/rt0.o");
+        Array_push(Ptr)(&cmdexe, NULL);
+        Process_launch(cmdexe.ref);
+        proc = Process_awaitAny();
+        if (proc.exited && proc.code) unreachable("ld failed\n", "");
+
+        // cmdexe.ref[0] = "echo";
+        // Process_launch(cmdexe.ref);
+
+        Process_awaitAll();
+        Process_launch("./a.out");
+      }
 
     } break;
 

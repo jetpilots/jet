@@ -8,8 +8,6 @@
 #include "_rt/errhandler.h"
 #include "_rt/check.h"
 #include "_rt/stack.h"
-#include "_rt/coverage.h"
-#include "_rt/profiler.h"
 
 // *** This should go in the generated .c file of each module!
 #define DECL_COV_PROF(nlines)                                              \
