@@ -215,9 +215,9 @@ static void expr_prepareInterp(Parser* parser, Expr* expr, Scope* scope) {
 static void expr_setEnumBase(
     Parser* parser, Expr* expr, TypeSpec* spec, Module* mod) {
   switch (expr->kind) {
-  case tkPeriod:
+  case tkPeriod: // replace with tkEnumMember
     if (expr->left) return;
-    expr->left = NEW(Expr);
+    expr->left = NEW(Expr); // instead just set type in expr->elemType
     expr->left->kind = tkIdent;
     expr->left->str
         = spec->typeType == TYObject ? spec->type->name : spec->name;

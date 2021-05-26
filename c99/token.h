@@ -312,17 +312,32 @@ static bool tok_isUnaryAfter(TokenKind tk) {
   return true;
 }
 
+void tok_continuationToken(Token* token, char* start) {
+  while (*token->pos) {
+    // token->pos++;
+    while (*token->pos == ' ') token->pos++;
+    if (*token->pos == '~')
+      while (*token->pos && *token->pos != '\n') token->pos++;
+    if (*token->pos == '\n') {
+      token->line++;
+      token->col = start - token->pos;
+    }
+    if (*token->pos != ' ' && *token->pos != '\n' && *token->pos != '~') {
+      token->pos--;
+      break;
+    }
+  }
+}
+
 static void tok_detect(Token* token) {
   TokenKind tt = tok_getType(token, 0);
-  TokenKind tt_ret = tkUnknown; // = tt;
+  TokenKind tt_ret = tkUnknown;
   static TokenKind tt_last = tkUnknown;
-  // the previous self->token that was found
   static TokenKind tt_lastNonSpace = tkUnknown;
-  // the last non-space self->token found
+
   TokenKind tmp;
   char* start = token->pos;
-  bool found_e = false, found_dot = false; //, found_cmt = false;
-  //    uint8_t found_spc = 0;
+  bool found_e = false, found_dot = false;
 
   switch (tt) {
   case tkStringBoundary:
@@ -384,15 +399,15 @@ static void tok_detect(Token* token) {
     while (tt != tkEOF) {
       tt = tok_getType(token, 1);
       token->pos++;
-      if (tt == tkHash) {
-        while (*token->pos != '\n' && *token->pos != '\0') token->pos++;
+      if (tt == tkTilde) {
+        while (*token->pos != '\n' && *token->pos) token->pos++;
         tt = tok_getType(token, 0);
       }
       if (tt == tkEOL) {
         token->line++;
-        token->col = -1; // strlen(TokenKind_repr[tt_ret]);
+        token->col = start - token->pos;
       }
-      if (tt != tkSpaces && tt != tkEOL && tt != tkHash) break;
+      if (tt != tkSpaces && tt != tkEOL && tt != tkTilde) break;
     }
     break;
 
@@ -409,7 +424,7 @@ static void tok_detect(Token* token) {
 
       if (*token->pos == '\n') {
         token->line++;
-        token->col = 0;
+        token->col = start - token->pos;
       }
       if (*token->pos != ' ' && *token->pos != '\n' && *token->pos != '~') {
         token->pos--;
@@ -444,6 +459,7 @@ static void tok_detect(Token* token) {
 
   case tkAlphabet:
   case tkUnderscore:
+  case tkHash:
     while (tt != tkEOF) {
       tt = tok_getType(token, 1);
       token->pos++;
@@ -452,7 +468,7 @@ static void tok_detect(Token* token) {
         break; /// validate in parser not here
     }
     if (tt == tkExcl) token->pos++; // include it in ident
-    tt_ret = tkIdent;
+    tt_ret = tt == tkHash ? tkEnumMember : tkIdent;
     break;
 
   case tkTilde: // tkExcl:

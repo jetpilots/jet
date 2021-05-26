@@ -44,15 +44,15 @@ type Parser
 end
 
 func slurp(file String) Byte[]
-
+    ans=0
 end
 
 func detect(par Parser) Kinds
     match par.data[par.tok.pos:]
     case '+=', '-=', '*=', '/=', '^=', '%=', '.='
-        ans = .mutops
-    case '+','-','/','*','^','%','.',':','~','#',',',';'
-        ans = .binops
+        ans = .mujtops
+    case '+', '-', '/', '*', '^', '%', '.', ':', '~', '#', ',', ';'
+        ans = .bijnops
     case `\d+\.?\d*([eEdD][+-]\d+)?`
     case `\w+`
     case `".*"`, `'.*'`, `\`.*\``

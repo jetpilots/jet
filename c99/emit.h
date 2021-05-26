@@ -100,7 +100,7 @@ static void expr_genPrintVars(Expr* expr, int level) {
   case tkIdentR:
   case tkVarDefn:
     if (expr->var->visited) break;
-    printf("%.*sprintf(\"    %s = %s\\n\", %s);\n", level, spaces,
+    printf("%.*sprintf(\"  %s = %s\\n\", %s);\n", level, spaces,
         expr->var->name, Typetype_format(expr->typeType, true),
         expr->var->name);
     expr->var->visited = true;
@@ -198,38 +198,33 @@ static void type_genJson(Type* type) {
   printf("static void %s_json_(const %s self, int nspc) {\n", type->name,
       type->name);
 
-  printf("    printf(\"{\\n\");\n");
+  printf("  printf(\"{\\n\");\n");
 
   // TODO: move this part into its own func so that subclasses can ask the
   // superclass to add in their fields inline
   foreachn(Var*, var, vars, type->body->locals) {
     if (!var) continue;
-    printf("    printf(\"%%.*s\\\"%s\\\": \", nspc+4, _spaces_);\n",
-        var->name);
-    const char* valueType = expr_typeName(var->init);
-    printf("    %s_json_(self->%s, nspc+4);\n    printf(\"", valueType,
-        var->name);
+    printf(
+        "  printf(\"%%.*s\\\"%s\\\": \", nspc+4, _spaces_);\n", var->name);
+    printf("  %s_json_(self->%s, nspc+4);\n    printf(\"",
+        spec_name(var->spec), var->name);
     if (vars->next) outl(",");
     outln("\\n\");");
   }
-  printf("    printf(\"%%.*s}\", nspc, _spaces_);\n");
+  printf("  printf(\"%%.*s}\", nspc, _spaces_);\n");
   printf("}\nMAKE_JSON_WRAP_(%s)\n//MAKE_JSON_FILE(%s)\n", type->name,
       type->name);
 }
 
 static void type_genDrop(Type* type) {
   printf("static void %s_drop_(%s self) {\n", type->name, type->name);
-  outln("    if (self->refc_--) return;");
+  outln("  if (self->refc_--) return;");
   foreach (Var*, var, type->body->locals) {
     // FIXME: strings & ranges etc should also be dropped
     // besides, arrayys of numbers too
     if (var->spec->typeType == TYObject && !var->spec->type->isEnum)
       printf("  if (self->%s)", var->name);
-    printf("  %s_drop_(self->%s);\n",
-        var->spec->typeType == TYObject
-            ? var->spec->type->name
-            : Typetype_name(var->spec->typeType),
-        var->name);
+    printf("  %s_drop_(self->%s);\n", spec_name(var->spec), var->name);
   }
   printf("  %s_free_(self);\n}\n", type->name);
 }
@@ -237,15 +232,15 @@ static void type_genDrop(Type* type) {
 static void type_genJsonReader(Type* type) { }
 
 static const char functionEntryStuff_UNESCAPED[]
-    = "    STACKDEPTH_UP; DO_STACK_CHECK;\n";
+    = "  STACKDEPTH_UP; DO_STACK_CHECK;\n";
 
 static const char functionExitStuff_UNESCAPED[]
     = "\n"
-      "    return *ans;\n"
+      "  return DEFAULT_VALUE;\n"
       "uncaught: HANDLE_UNCAUGHT;\n"
       "backtrace: SHOW_BACKTRACE_LINE;\n"
       "return_: STACKDEPTH_DOWN;\n"
-      "    return DEFAULT_VALUE;";
+      "  return DEFAULT_VALUE;";
 
 static void func_printStackUsageDef(size_t stackUsage) {
   // printf("#define MYSTACKUSAGE (%lu + 6*sizeof(void*) + "
@@ -258,7 +253,7 @@ static void type_emit_fieldHead(Type* type) {
   printf("#define FIELDS_%s \\\n", name);
 
   if (type->super) {
-    outl("    FIELDS_");
+    outl("  FIELDS_");
     spec_emit(type->super, 0, false);
     outln(" \\");
   }
@@ -294,12 +289,12 @@ static void type_emit(Type* type, int level) {
     printf("%.*s%s = ", level + STEP, spaces, stmt->var->name);
     expr_emit(stmt->var->init, 0);
     outln(";");
-    if (stmt->var->init->throws) outln("    TRACE_IF_ERROR;");
+    if (stmt->var->init->throws) outln("  TRACE_IF_ERROR;");
   }
   foreach (Var*, var, type->body->locals)
     printf("#undef %s \n", var->name);
 
-  outln("    return self;\n}\n");
+  outln("  return self;\n}\n");
 
   // func_printStackUsageDef(48);
   printf("#define DEFAULT_VALUE NULL\n"
@@ -307,9 +302,9 @@ static void type_emit(Type* type, int level) {
          "IFDEBUG(static const char* sig_ = \"%s()\");\n",
       name, name, name);
   puts(functionEntryStuff_UNESCAPED);
-  printf("    %s ret = %s_alloc_(); %s_init_(ret);\n"
-         "    TRACE_IF_ERROR;\n"
-         "    _err_ = NULL; STACKDEPTH_DOWN; return ret;\n",
+  printf("  %s ret = %s_alloc_(); %s_init_(ret);\n"
+         "  TRACE_IF_ERROR;\n"
+         "  _err_ = NULL; STACKDEPTH_DOWN; return ret;\n",
       name, name, name);
   puts(functionExitStuff_UNESCAPED);
   outln("}\n#undef DEFAULT_VALUE\n");
@@ -359,7 +354,7 @@ static void JetEnum_genh(Type* type, int level) {
   outln("typedef enum {");
 
   foreach (Var*, var, type->body->locals)
-    printf("    %s_%s,\n", name, var->name);
+    printf("  %s_%s,\n", name, var->name);
   printf("} %s;\n", name);
   Expr* ex1 = type->body->stmts->item;
   const char* datType
@@ -369,11 +364,11 @@ static void JetEnum_genh(Type* type, int level) {
         li_count(type->body->locals));
   printf("monostatic const char* %s__fullnames[] ={\n", name);
   foreach (Var*, var, type->body->locals)
-    printf("    \"%s.%s\",\n", name, var->name);
+    printf("  \"%s.%s\",\n", name, var->name);
   outln("};");
   printf("monostatic const char* %s__names[] ={\n", name);
   foreach (Var*, var, type->body->locals)
-    printf("    \".%s\",\n", var->name);
+    printf("  \".%s\",\n", var->name);
   outln("};");
 
   printf("monostatic void %s__init() {\n", name);
@@ -384,7 +379,7 @@ static void JetEnum_genh(Type* type, int level) {
         stmt->left->str);
     expr_emit(stmt->right, 0);
     outln(";");
-    if (stmt->right->throws) outln("    TRACE_IF_ERROR;");
+    if (stmt->right->throws) outln("  TRACE_IF_ERROR;");
   }
   outln("}");
 }
@@ -401,7 +396,7 @@ static void func_emit(Func* func, int level) {
 
   printf("#define DEFAULT_VALUE %s\n", getDefaultValueForType(func->spec));
   // if (!func->isExported) outl("static ");
-  if (func->spec) {
+  if (/*func->spec*/ 1) {
     spec_emit(func->spec, level, false);
   } else {
     outl("void");
@@ -411,19 +406,19 @@ static void func_emit(Func* func, int level) {
     var_emit(arg, level, true);
     printf(args->next ? ", " : "");
   }
-  if (func->spec && func->spec->typeType != TYVoid) {
+  if (/*func->spec*/ 1 && func->spec->typeType != TYVoid) {
     if (func->args) printf(", ");
     spec_emit(func->spec, level, false);
     printf("* ans");
   }
 
   printf("\n#ifdef DEBUG\n"
-         "    %c const char* callsite_ "
+         "  %c const char* callsite_ "
          "\n#endif\n",
       ((func->args && func->args->item ? ',' : ' ')));
 
   outln(") {");
-  printf("    IFDEBUG(static const char* sig_ = \"");
+  printf("  IFDEBUG(static const char* sig_ = \"");
   printf("%s%s(", func->isStmt ? "" : "func ", func->name);
 
   foreachn(Var*, arg, args, func->args) {
@@ -431,7 +426,7 @@ static void func_emit(Func* func, int level) {
     printf(args->next ? ", " : "");
   }
   outl(")");
-  if (func->spec) {
+  if (/*func->spec*/ 1) {
     outl(" ");
     spec_write(func->spec, level);
   }
@@ -441,6 +436,8 @@ static void func_emit(Func* func, int level) {
 
   scope_emit(func->body, level + STEP);
 
+  if (/*func->spec*/ 1 && func->spec->typeType != TYVoid)
+    printf("exitfunc: return *ans;");
   puts(functionExitStuff_UNESCAPED);
   outln("}\n#undef DEFAULT_VALUE");
   // outln("#undef MYSTACKUSAGE");
@@ -449,7 +446,7 @@ static void func_emit(Func* func, int level) {
 static void func_genh(Func* func, int level) {
   if (!func->body || !func->analysed || func->isDeclare) return;
   // if (!func->isExported) outl("static ");
-  if (func->spec) {
+  if (/*func->spec*/ 1) {
     spec_emit(func->spec, level, false);
   } else {
     outl("void");
@@ -459,7 +456,7 @@ static void func_genh(Func* func, int level) {
     var_emit(arg, level, true);
     printf(args->next ? ", " : "");
   }
-  if (func->spec && func->spec->typeType != TYVoid) {
+  if (/*func->spec*/ 1 && func->spec->typeType != TYVoid) {
     if (func->args) printf(", ");
     spec_emit(func->spec, level, false);
     printf("* ans");
@@ -598,7 +595,7 @@ static void expr_emit_tkFuncCallR(Expr* expr, int level) {
 
   if (!expr->func->isDeclare) {
     printf("\n#ifdef DEBUG\n"
-           "      %c \"./\" THISFILE \":%d:%d:\\e[0m ",
+           "    %c \"./\" THISFILE \":%d:%d:\\e[0m ",
         expr->left ? ',' : ' ', expr->line, expr->col);
     expr_write(expr, 0, false, true);
     printf("\"\n"
@@ -711,7 +708,7 @@ static void expr_emit_tkCheck(Expr* expr, int level) {
   outln(")) {");
   printf("%.*sprintf(\"\\n\\n\e[31mruntime error:\e[0m check "
          "failed at \e[36m./%%s:%d:%d:\e[0m\\n    %%s\\n\\n\",\n     "
-         "       "
+         "     "
          "   THISFILE, \"",
       level + STEP, spaces, expr->line, expr->col + 6);
   expr_write(checkExpr, 0, true, true);
@@ -729,7 +726,7 @@ static void expr_emit_tkCheck(Expr* expr, int level) {
         && !ISIN(5, lhsExpr->kind, tkString, tkNumber, tkRawString, tkLE,
             tkLT)) {
       if (lhsExpr->kind != tkIdentR || !lhsExpr->var->visited) {
-        printf("%.*s%s", level + STEP, spaces, "printf(\"    %s = ");
+        printf("%.*s%s", level + STEP, spaces, "printf(\"  %s = ");
         printf("%s", Typetype_format(lhsExpr->typeType, true));
         printf("%s", "\\n\", \"");
         expr_write(lhsExpr, 0, true, true);
@@ -743,7 +740,7 @@ static void expr_emit_tkCheck(Expr* expr, int level) {
   if (rhsExpr->collType == CTYNone //
       && !ISIN(3, rhsExpr->kind, tkString, tkNumber, tkRawString)) {
     if (rhsExpr->kind != tkIdentR || !rhsExpr->var->visited) {
-      printf("%.*s%s", level + STEP, spaces, "printf(\"    %s = ");
+      printf("%.*s%s", level + STEP, spaces, "printf(\"  %s = ");
       printf("%s", Typetype_format(rhsExpr->typeType, true));
       printf("%s", "\\n\", \"");
       expr_write(rhsExpr, 0, true, true);
@@ -1322,7 +1319,7 @@ static void mod_genTests(Module* mod) {
 
   printf("\nvoid tests_run_%s() {\n", mod->name);
   foreach (JetTest*, test, mod->tests)
-    printf("    test_%s();\n", test->name);
+    printf("  test_%s();\n", test->name);
   outln("}");
 }
 
@@ -1341,10 +1338,10 @@ void type_genNameAccessors(Type* type) {
 
   // TODO: skip bitfield members in this loop or it wont compile
   foreach (Var*, var, type->body->locals) /*if (var->used) */ //
-    printf("    if (cstr_eq(name, \"%s\")) return "
+    printf("  if (cstr_eq(name, \"%s\")) return "
            "&(self->%s);\n",
         var->name, var->name);
-  outln("    return NULL;\n}");
+  outln("  return NULL;\n}");
 
   // this func sets bools or ints that may be part of bitfields
   printf("static void %s__setMemberNamed(%s self, char* name, "
@@ -1353,7 +1350,7 @@ void type_genNameAccessors(Type* type) {
       type->name, type->name);
   foreach (Var*, var, type->body->locals) // if (var->used) //
     if (var->spec->typeType >= TYBool && var->spec->typeType <= TYReal64)
-      printf("    if (cstr_eq(name, \"%s\"))  {self->%s = "
+      printf("  if (cstr_eq(name, \"%s\"))  {self->%s = "
              "*(%s*) "
              "&value;return;}\n",
           var->name, var->name, spec_cname(var->spec));

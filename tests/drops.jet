@@ -7,11 +7,14 @@ end
 type Obj2
     var o Obj
 end
-
+bang() :=   ~rtrytf
+      huy
 func start()
-    ans=0
+    ans = 0
     var v = 31
-    var f = "my name is gonsa"
+    var f = [ ~retyy
+    ju,   ~drtdthuihi
+   ji,    "my name is gonsa" ]
     var h = v +6
     ~ if h = 5 ~ this should be implicitly if let x = ...
     ~   ~ this way for x = ... and if x = ... introduce a new var x
