@@ -1,5 +1,8 @@
 /* Jet | jetpilots.dev | github.com/jetpilots/jet | GPLv3 (see LICENSE) */
 
+#ifndef JET_BASE_H
+#define JET_BASE_H
+
 #include <assert.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -9,8 +12,6 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
-
-// #include "jet/include.h"
 
 #ifdef SLEEF
 #include "sleef.h"
@@ -25,9 +26,6 @@
 #ifdef __SSE4_2__
 #include <x86intrin.h>
 #endif
-
-#ifndef FPLUS_BASE_H
-#define FPLUS_BASE_H
 
 #if __GNUC__ >= 3
 #define likely(x) __builtin_expect(!!(x), 1)
@@ -77,37 +75,27 @@
 
 #define countof(x) (sizeof(x) / sizeof(x[0]))
 
-#pragma mark - Heap allocation stuff
-
-#ifndef RELEASE
-
+#ifndef NDEBUG
 monostatic size_t _called_calloc = 0;
 monostatic size_t _called_malloc = 0;
 monostatic size_t _called_realloc = 0;
 monostatic size_t _called_strdup = 0;
 monostatic size_t _called_strlen = 0;
-
 #define malloc(s) (++_called_malloc, malloc(s))
 #define calloc(n, s) (++_called_calloc, calloc(n, s))
 #define realloc(ptr, s) (++_called_realloc, realloc(ptr, s))
 #define strdup(s) (++_called_strdup, strdup(s))
 #define strlen(s) (++_called_strlen, strlen(s))
-
 // This macro should be invoked on each struct defined.
 #define MKSTAT(T) monostatic int _allocTotal_##T = 0;
 #define allocstat(T)                                                       \
   if (1 || _allocTotal_##T)                                                \
     eprintf("*** %-24s %4ld B x %5d = %7ld B\n", #T, sizeof(T),            \
         _allocTotal_##T, _allocTotal_##T * sizeof(T));
-
 #else
-
 #define MKSTAT(T)
 #define allocstat(T)
-
 #endif
-
-#pragma mark - Custom types
 
 typedef char bool;
 static const bool true = 1;
@@ -117,7 +105,6 @@ static const bool no = 0;
 
 typedef int64_t Int;
 typedef unsigned long ulong;
-// typedef double Number;
 typedef double Real;
 typedef char** CStrings;
 
@@ -130,7 +117,6 @@ monostatic ulong min3ul(ulong a, ulong b, ulong c) {
   return a < b ? (a < c ? a : c) : (b < c ? b : c);
 }
 
-// use self in switches to indicate explicit fallthrough
 #define fallthrough
 
 #pragma mark - Variant
@@ -166,20 +152,6 @@ typedef struct Error_Type {
 #define Array_make(A, sz) A
 
 static int _InternalErrs = 0;
-
-#define Array_get_Number(A, i) A[(i)-1]
-//    exit(12);
-
-#pragma mark - Array
-
-//#define DEFAULT0(T) DEFAULT0_##T
-//#define DEFAULT0_double 0.0
-//#define DEFAULT0_float 0.0
-//#define DEFAULT0_uint64_t 0
-//#define DEFAULT0_uint32_t 0
-//#define DEFAULT0_int32_t 0
-//#define DEFAULT0_int64_t 0
-//#define DEFAULT0_voidptr NULL
 
 typedef void* Ptr;
 typedef uint32_t UInt32;
@@ -221,24 +193,15 @@ Real64 randf() { return rand() * __RRANDFMAX; }
 
 // display first "digits" many digits of number plus unit (kilo-exabytes)
 static int human_readable(char* buf, double num) {
-  //    size_t snap = 0;
-  //    size_t orig = num;
-  int unit = 0;
-  while (num >= 1000) {
-    num /= 1024;
-    unit++;
-  }
-  int len;
+  int unit = 0, len;
+  while (num >= 1000) { num /= 1024, unit++; }
   if (unit && num < 100.0)
     len = snprintf(buf, 8, "%.3g", num);
   else
     len = snprintf(buf, 8, "%d", (int)num);
 
-  unit = "\0kMGTPEZY"[unit];
-
-  if (unit) buf[len++] = unit;
-  buf[len++] = 'B';
-  buf[len] = 0;
+  if ((unit = "\0kMGTPEZY"[unit])) buf[len++] = unit;
+  buf[len++] = 'B', buf[len] = 0;
 
   return len;
 }
@@ -270,7 +233,7 @@ static int human_readable(char* buf, double num) {
 //          STACKDEPTH_DOWN;
 // return DEFAULT_VALUE;
 // }
-// -----------
+
 /// This allows a single statement or subexpression to be included only in
 /// debug mode.
 #ifndef NDEBUG
@@ -284,7 +247,6 @@ static int human_readable(char* buf, double num) {
 // FIXME: String will be a proper String type whereas normal C strings
 // are CString. For now ignoring
 typedef double Number;
-// typedef CString String;
 typedef CStrings Strings;
 typedef bool Boolean;
 typedef unsigned char Byte;
@@ -293,12 +255,7 @@ typedef unsigned char Byte;
 static const char* const _fp_bools_tf_[2] = { "false", "true" };
 static const char* const _fp_bools_yn_[2] = { "no", "yes" };
 
-// #define CString_cmp_EQ(a, b) (! strcmp(a, b))
 #define CString_cmp(op, a, b) (strcmp(a, b) op 0)
-// #define CString_cmp_GE(a, b) (strcmp(a, b) >= 0)
-// #define CString_cmp_LE(a, b) (strcmp(a, b) <= 0)
-// #define CString_cmp_GT(a, b) (strcmp(a, b) > 0)
-// #define CString_cmp_LT(a, b) (strcmp(a, b) < 0)
 
 #define Boolean_json_(x, _) printf("%s", _fp_bools_tf_[x])
 #define Number_json_(x, _) printf("%g", x)
@@ -308,12 +265,6 @@ static const char* const _fp_bools_yn_[2] = { "no", "yes" };
 #define Number_json(x) printf("\"%s\": %g\n", #x, x)
 #define CString_json(x)                                                    \
   printf("\"%s\": \"%s\"\n", #x, x) // should be escape(x)
-
-// void Array_Number_print(Array(Number) * arr) {
-//     putc(']', stdout);
-//     for (int i = 0; i < arr->used - 1; i++) printf("%g, ", arr->ref[i]);
-//     printf("%g]\n", arr->ref[arr->used - 1]);
-// }
 
 static const char* _spaces_ = //
     "                                                                    ";
@@ -362,9 +313,6 @@ static const char* _spaces_ = //
 
 MAKE_cmp3way(Number)
 
-// #define DEFAULT_VALUE
-// #define SArray(x) x[]
-
 #include "jet/core/Array.h"
 #include "jet/core/Pool.h"
 #include "jet/core/CString.h"
@@ -402,13 +350,13 @@ MAKE_cmp3way(Number)
 
 // val should be evaluated every time since it could be a func with side
 // effects e.g. random(). BUt if it is not, then it should be cached.
-#define Slice2D_set1_IJ(arr, ri, rj, val)                                  \
-  for (uint32_t ri_ = ri.start; ri_ <= ri.stop; ri_ += ri.step)            \
-    for (uint32_t rj_ = rj.start; ri_ <= rj.stop; ri_ += rj.step)          \
-  Array2D_setAt(arr, ri_, rj_, val)
+// #define Slice2D_set1_IJ(arr, ri, rj, val) \
+//   for (uint32_t ri_ = ri.start; ri_ <= ri.stop; ri_ += ri.step) \
+//     for (uint32_t rj_ = rj.start; ri_ <= rj.stop; ri_ += rj.step) \
+//   Array2D_setAt(arr, ri_, rj_, val)
 
-#define Slice2D_set_IJ(arr, ri, rj, arr2, r2i, r2j)                        \
-  for (uint32_t ri_ = ri.start; ri_ <= ri.stop; ri_ += ri.step)            \
-    for (uint32_t rj_ = rj.start; ri_ <= rj.stop; ri_ += rj.step)          \
-  Array2D_setAt(arr, ri_, rj_, Array2D_getAt(arr2, r2i_, r2j_))
+// #define Slice2D_set_IJ(arr, ri, rj, arr2, r2i, r2j)                        \
+//   for (uint32_t ri_ = ri.start; ri_ <= ri.stop; ri_ += ri.step)            \
+//     for (uint32_t rj_ = rj.start; ri_ <= rj.stop; ri_ += rj.step)          \
+//   Array2D_setAt(arr, ri_, rj_, Array2D_getAt(arr2, r2i_, r2j_))
 #endif
