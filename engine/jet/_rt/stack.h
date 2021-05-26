@@ -38,7 +38,7 @@ __attribute((__noinline__)) bool _stack_grows_up__(char* parentsLocal) {
 // showing "stack overflow" instead of "segmentation fault".
 // --- it may not show segmentation fault.
 
-#ifdef DEBUG
+#ifndef NDEBUG
 #define FUNC_ENTRY_STACK_BLOWN                                             \
   _scPrintAbove_ = _scDepth_ - _btLimit_;                                  \
   printf(                                                                  \
@@ -82,7 +82,7 @@ __attribute((__noinline__)) bool _stack_grows_up__(char* parentsLocal) {
 // #define C_BGRE "\e[47m"
 // #define C_RSET "\e[0m"
 
-#ifdef DEBUG
+#ifndef NDEBUG
 #define SHOW_BACKTRACE_LINE                                                \
   if (_scDepth_ <= _btLimit_ || _scDepth_ > _scPrintAbove_)                \
     printf("\e[90m[%lu] \e[36m%s\n", _scDepth_, callsite_);                \

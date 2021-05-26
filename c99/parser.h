@@ -38,6 +38,10 @@ typedef struct Parser {
 } Parser;
 MKSTAT(Parser)
 
+Parser* Parser_new_() {
+  IFDEBUG(_allocTotal_Parser++);
+  return Pool_alloc(gPool, sizeof(struct Parser));
+}
 // static const int sgr = sizeof(Compiler);
 
 // #define STR(x) STR_(x)

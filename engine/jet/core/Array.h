@@ -80,12 +80,11 @@ DECL_Array(Real64);
 //     Array_concatArray_(s1, s2, sizeof(T))
 
 #define MAKE_Array(T)                                                      \
-  typedef struct Array(T) {                                                \
+  struct Array(T) {                                                        \
     T* ref;                                                                \
     UInt32 used;                                                           \
     UInt32 cap;                                                            \
-  }                                                                        \
-  Array(T);                                                                \
+  };                                                                       \
   monostatic void Array_free(T)(Array(T) * self) {                         \
     if (self->cap) free(self->ref);                                        \
   }                                                                        \

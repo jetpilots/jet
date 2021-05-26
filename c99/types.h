@@ -163,8 +163,7 @@ static const char* Typetype_name(TypeTypes tyty) {
   }
 }
 
-static const char* Typetype_c_name[] = {
-  [TYUnknown] = "<unknown>",
+static const char* Typetype_c_name[] = { [TYUnknown] = "<unknown>",
   [TYVoid] = "void",
   [TYNil] = "(nil)",
   [TYError] = "<invalid>",
@@ -183,7 +182,12 @@ static const char* Typetype_c_name[] = {
   [TYUInt64] = "UInt64",
   [TYReal32] = "Float",
   [TYReal64] = "Double",
-};
+  [TYDateTime] = "DateTime",
+  [TYDateTimeSec] = "DateTimeSec",
+  [TYRange] = "Range",
+  [TYSize2D] = "Size2D",
+  [TYPoint2D] = "Point2D",
+  [TYRect] = "Rect" };
 
 // these are DEFAULTS
 static const char* Typetype_format(TypeTypes tyty, bool quoted) {
@@ -216,10 +220,21 @@ static const char* Typetype_format(TypeTypes tyty, bool quoted) {
   case TYReal64:
     return "%g";
     // Numbers start out with Real64 by default
+  case TYDateTime:
+  case TYDateTimeSec:
+  case TYRange:
+  case TYSize2D:
+  case TYPoint2D:
+  case TYRect:
+  case TYDual32:
+  case TYDual64:
+  case TYActive32:
+  case TYActive64:
+  case TYComplex: return "%s";
   }
 }
 
-// needed to compute stack usage
+// needed to compute stack usage or sort type members
 static unsigned int Typetype_size(TypeTypes tyty) {
   switch (tyty) {
   case TYUnknown:
@@ -241,6 +256,17 @@ static unsigned int Typetype_size(TypeTypes tyty) {
   case TYUInt64: return 8;
   case TYReal32: return 4;
   case TYReal64: return 8;
+  case TYDateTime:
+  case TYDateTimeSec:
+  case TYRange:
+  case TYSize2D:
+  case TYPoint2D:
+  case TYRect: return 8;
+  case TYDual32:
+  case TYDual64:
+  case TYActive32:
+  case TYActive64:
+  case TYComplex: return 16;
   }
 }
 

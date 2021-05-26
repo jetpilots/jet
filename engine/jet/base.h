@@ -243,21 +243,7 @@ static int human_readable(char* buf, double num) {
   return len;
 }
 
-#include "jet/core/Array.h"
-#include "jet/core/Pool.h"
-#include "jet/core/CString.h"
-#include "jet/core/String.h"
-#include "jet/math/Vector.h"
-#include "jet/math/SpVector.h"
-MKSTAT(PtrList)
-#include "jet/core/List.h"
-
-#include "jet/os/clock.h"
-#include "jet/math/random.h"
-
-#include "jet/core/isin.h"
-
-#ifdef DEBUG
+#ifndef NDEBUG
 #define HANDLE_UNCAUGHT eprintf("error: %s\n", _err_);
 #else
 // its the same for now, tweak it
@@ -287,7 +273,7 @@ MKSTAT(PtrList)
 // -----------
 /// This allows a single statement or subexpression to be included only in
 /// debug mode.
-#ifdef DEBUG
+#ifndef NDEBUG
 #define IFDEBUG(s) s
 #define IFDEBUGELSE(s, e) s
 #else
@@ -378,6 +364,20 @@ MAKE_cmp3way(Number)
 
 // #define DEFAULT_VALUE
 // #define SArray(x) x[]
+
+#include "jet/core/Array.h"
+#include "jet/core/Pool.h"
+#include "jet/core/CString.h"
+#include "jet/core/String.h"
+#include "jet/math/Vector.h"
+#include "jet/math/SpVector.h"
+
+#include "jet/core/List.h"
+
+#include "jet/os/clock.h"
+#include "jet/math/random.h"
+
+#include "jet/core/isin.h"
 
 // output funcs: print -> normal print, debug -> only prints (to stderr) in
 // debug mode, error -> print to stderr, fatal -> print to stderr and exit

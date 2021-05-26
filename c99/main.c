@@ -21,8 +21,8 @@ static const char* const spaces = //
 
 #include "lower.h"
 
-#define outln(s) fwrite(s "\n", sizeof(s ""), 1, outfile)
 #define outl(s) fwrite(s "", sizeof(s "") - 1, 1, outfile)
+#define outln(s) outl(s "\n") // fwrite(s "\n", sizeof(s ""), 1, outfile)
 #define iprintf(nspc, fmt, ...)                                            \
   printf("%.*s", nspc, spaces), printf(fmt, __VA_ARGS__)
 #define printf(...) fprintf(outfile, __VA_ARGS__)
@@ -178,7 +178,7 @@ int main(int argc, char* argv[]) {
     switch (parser->mode) {
     case PMRun:
     case PMEmitC: {
-      const char* enginePath = "engine"; // FIXME
+      char* enginePath = "engine"; // FIXME
       // TODO: if (monolithic) printf("#define function static\n");
       // par_emit_open(parser);
       // ^ This is called before including the runtime, so that the
@@ -197,7 +197,7 @@ int main(int argc, char* argv[]) {
           if (!forceBuildAll && file_newer(mod->out_o, mod->out_c))
             continue;
 
-          const char* cmd[] = { //
+          char* cmd[] = { //
             "/usr/bin/gcc", //
             "-I", enginePath, //
             "-c", mod->out_c, //
@@ -213,13 +213,13 @@ int main(int argc, char* argv[]) {
       Process proc;
       do {
         proc = Process_awaitAny();
-        if (proc.exited && proc.code) unreachable("cc failed\n", "");
+        if (proc.exited && proc.code) unreachable("cc failed%s\n", "");
         // here launch 1 more
       } while (proc.pid);
       // par_emit_close(parser);
 
       if (parser->mode == PMRun) {
-        const char* cmd[] = { //
+        char* cmd[] = { //
           "/usr/bin/gcc", //
           "-I", enginePath, //
           "-c", "engine/jet/rt0.c", //
@@ -228,7 +228,7 @@ int main(int argc, char* argv[]) {
         };
         Process_launch(cmd);
         proc = Process_awaitAny();
-        if (proc.exited && proc.code) unreachable("rt0 failed\n", "");
+        if (proc.exited && proc.code) unreachable("rt0 failed%s\n", "");
 
         PtrArray cmdexe = {};
         // Array_initWithCArray(Ptr)(&cmdexe, cmd, 1);
@@ -237,15 +237,15 @@ int main(int argc, char* argv[]) {
           Array_push(Ptr)(&cmdexe, mod->out_o);
         Array_push(Ptr)(&cmdexe, "engine/jet/rt0.o");
         Array_push(Ptr)(&cmdexe, NULL);
-        Process_launch(cmdexe.ref);
+        Process_launch((char**)cmdexe.ref);
         proc = Process_awaitAny();
-        if (proc.exited && proc.code) unreachable("ld failed\n", "");
+        if (proc.exited && proc.code) unreachable("ld failed%s\n", "");
 
         // cmdexe.ref[0] = "echo";
         // Process_launch(cmdexe.ref);
 
         Process_awaitAll();
-        Process_launch("./a.out");
+        Process_launch((char*[]) { "./a.out", NULL });
       }
 
     } break;

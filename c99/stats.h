@@ -59,7 +59,7 @@ static void printstats(Parser* const parser) {
       sPool->usedTotal * 100.0 / sPool->capTotal);
   eputs("-------------------------------------------------------"
         "\n");
-#ifdef DEBUG
+#ifndef NDEBUG
   eputs("Memory-related calls\n");
   eprintf("  calloc: %-7zu | malloc: %-7zu | realloc: %-7zu\n",
       _called_calloc, _called_malloc, _called_realloc);

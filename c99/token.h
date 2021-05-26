@@ -592,7 +592,6 @@ static void tok_advance(Token* token) {
   case tkIdent:
   case tkString:
   case tkNumber:
-  // case tkMultiDotNumber:
   case tkFuncCall:
   case tkSubscript:
   case tkDigit:
@@ -600,7 +599,6 @@ static void tok_advance(Token* token) {
   case tkRawString:
   case tkRegexp:
   case tkUnits:
-  // case tkCheater:
   case tkFor:
   case tkWhile:
   case tkIf:

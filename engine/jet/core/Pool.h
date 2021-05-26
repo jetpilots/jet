@@ -76,12 +76,16 @@ monostatic void Pool_free(Pool* self) {
 monostatic Pool gPool[1] = {};
 monostatic Pool sPool[1] = {};
 
-#ifndef NDEBUG
-#define NEW(T) (++_allocTotal_##T, (T*)Pool_alloc(gPool, sizeof(T)))
+// #ifndef NDEBUG
+#define NEW(T) T##_new_()
+//(++_allocTotal_##T, (T*)Pool_alloc(gPool, sizeof(T)))
 // Use nNEW for contiguous alloc of n objects of type T (for small n!)
-#define nNEW(T, n) (_allocTotal_##T += n, Pool_alloc(gPool, n * sizeof(T)))
-#else
-#define NEW(T) Pool_alloc(gPool, sizeof(T))
+// #define nNEW(T, n) (_allocTotal_##T += n, Pool_alloc(gPool, n *
+// sizeof(T)))
+#define NEWW(T, ...) memcpy(NEW(T), &(T) { __VA_ARGS__ }, sizeof(T))
+
+// #else
+// #define NEW(T) Pool_alloc(gPool, sizeof(T))
 // Use nNEW for contiguous alloc of n objects of type T (for small n!)
-#define nNEW(T, n) Pool_alloc(gPool, n * sizeof(T))
-#endif
+// #define nNEW(T, n) Pool_alloc(gPool, n * sizeof(T))
+// #endif

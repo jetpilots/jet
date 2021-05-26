@@ -45,7 +45,8 @@
         "system_error": "cpp",
         "__functional_base_03": "c",
         "__tuple": "c",
-        "cstddef": "c"
+        "cstddef": "c",
+        "random": "c"
     },
     "Lua.diagnostics.globals": [],
     "Lua.diagnostics.disable": []

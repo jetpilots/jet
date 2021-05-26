@@ -419,10 +419,6 @@ struct Module {
 //         need_SSH : 1, need_Pool : 1;
 // } FPNeedBuiltins;
 
-#pragma mark - Jet IMPORT IMPL.
-
-#pragma mark - Jet UNITS IMPL.
-
 #define List_Expr PtrList
 #define List_Var PtrList
 #define List_Module PtrList
@@ -453,6 +449,43 @@ MKSTAT(List_Scope)
 MKSTAT(List_Import)
 MKSTAT(List_Var)
 static uint32_t exprsAllocHistogram[128];
+
+Expr* Expr_new_() {
+  IFDEBUG(_allocTotal_Expr++);
+  return Pool_alloc(gPool, sizeof(struct Expr));
+}
+Var* Var_new_() {
+  IFDEBUG(_allocTotal_Var++);
+  return Pool_alloc(gPool, sizeof(struct Var));
+}
+TypeSpec* TypeSpec_new_() {
+  IFDEBUG(_allocTotal_TypeSpec++);
+  return Pool_alloc(gPool, sizeof(struct TypeSpec));
+}
+Import* Import_new_() {
+  IFDEBUG(_allocTotal_Import++);
+  return Pool_alloc(gPool, sizeof(struct Import));
+}
+Scope* Scope_new_() {
+  IFDEBUG(_allocTotal_Scope++);
+  return Pool_alloc(gPool, sizeof(struct Scope));
+}
+Module* Module_new_() {
+  IFDEBUG(_allocTotal_Module++);
+  return Pool_alloc(gPool, sizeof(struct Module));
+}
+Type* Type_new_() {
+  IFDEBUG(_allocTotal_Type++);
+  return Pool_alloc(gPool, sizeof(struct Type));
+}
+JetTest* JetTest_new_() {
+  IFDEBUG(_allocTotal_JetTest++);
+  return Pool_alloc(gPool, sizeof(struct JetTest));
+}
+Func* Func_new_() {
+  IFDEBUG(_allocTotal_Func++);
+  return Pool_alloc(gPool, sizeof(struct Func));
+}
 
 static TypeSpec* spec_new(TypeTypes tt, CollectionTypes ct) {
   TypeSpec* ret = NEW(TypeSpec);

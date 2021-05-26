@@ -2,8 +2,6 @@
 #define genCoverage 0
 #define genLineProfile 0
 
-// _Thread_local static FILE* outfile = NULL;
-
 static void imp_emit(Import* import, int level) {
   char* alias = import->aliasOffset + import->name;
   cstr_tr_ip_len(import->name, '.', '_', 0);
@@ -11,36 +9,17 @@ static void imp_emit(Import* import, int level) {
   cstr_tr_ip_len(import->name, '_', '.', 0);
 }
 
-static void imp_undefc(Import* import) {
-  // if (import->alias) printf("#undef %s\n", import->alias);
-}
-
 static void spec_emit(TypeSpec* spec, int level, bool isconst) {
   if (isconst) outl("const ");
-  // TODO: actually this depends on the collType. In general
-  // Array is the default, but in other cases it may be SArray, Array64,
-  // whatever
   if (spec->dims) {
     if (spec->dims > 1)
-      // TODO: this should be TensorND, without type params?
-      // well actually there isn't a TensorND, since its not always
-      // double thats in a tensor but can be Complex, Range,
-      // Reciprocal, Rational, whatever
-      // -- sure, but double (and float) should be enough since
-      // the other types are rarely needed in a tensor form
       printf("SArray%dD(", spec->dims);
     else
       outl("SArray(");
   }
 
   switch (spec->typeType) {
-  case TYObject:
-    // objects are always T* const, if meant to be r/o they are
-    // const T* const. Later we may have a byval flag to embed structs
-    // or pass around by value.
-    // leaving it as is for now
-    printf("%s", spec->type->name);
-    break;
+  case TYObject: printf("%s", spec->type->name); break;
   case TYUnknown:
     unreachable(
         "unresolved: '%s' at %d:%d", spec->name, spec->line, spec->col);
@@ -49,11 +28,8 @@ static void spec_emit(TypeSpec* spec, int level, bool isconst) {
   default: printf("%s", Typetype_name(spec->typeType)); break;
   }
 
-  //     if (isconst ) outl(" const"); // only if a ptr type
-  if (spec->dims /*or spec->typeType == TYObject*/) printf("%s", ")");
-  //        if (status == TSDimensionedNumber) {
-  //            genc(units, level);
-  //        }
+  if (isconst && spec->typeType == TYObject) outl(" const");
+  if (spec->dims) printf("%s", ")");
 }
 
 static void expr_emit(Expr* expr, int level);
@@ -87,15 +63,11 @@ static void expr_unmarkVisited(Expr* expr) {
 }
 
 // given an expr, generate code to print all the resolved vars in it (only
-// scalars). for example in f(x + 4) + m + y[5:6], the following should be
-// generated
-// printf("x = %?\n", x);
-// printf("m = %?\n", m);
-// checks will print the vars involved in the check expr, if the check
-// fails. This routine will be used there.
+// scalars). Used by checks to print the vars involved in the check expr, if
+// the check fails.
 static void expr_genPrintVars(Expr* expr, int level) {
   assert(expr);
-  // what about func args?
+  // TODO: what about func args?
   switch (expr->kind) {
   case tkIdentR:
   case tkVarDefn:
@@ -201,7 +173,7 @@ static void type_genJson(Type* type) {
   printf("  printf(\"{\\n\");\n");
 
   // TODO: move this part into its own func so that subclasses can ask the
-  // superclass to add in their fields inline
+  // superclass to add in their fields inline.
   foreachn(Var*, var, vars, type->body->locals) {
     if (!var) continue;
     printf(
@@ -242,11 +214,11 @@ static const char functionExitStuff_UNESCAPED[]
       "return_: STACKDEPTH_DOWN;\n"
       "  return DEFAULT_VALUE;";
 
-static void func_printStackUsageDef(size_t stackUsage) {
-  // printf("#define MYSTACKUSAGE (%lu + 6*sizeof(void*) + "
-  //        "IFDEBUGELSE(sizeof(char*),0))\n",
-  //     stackUsage);
-}
+// static void func_printStackUsageDef(size_t stackUsage) {
+//   // printf("#define MYSTACKUSAGE (%lu + 6*sizeof(void*) + "
+//   //        "IFDEBUGELSE(sizeof(char*),0))\n",
+//   //     stackUsage);
+// }
 
 static void type_emit_fieldHead(Type* type) {
   const char* const name = type->name;
@@ -262,7 +234,8 @@ static void type_emit_fieldHead(Type* type) {
     // It's not so easy to just skip 'unused' type members.
     // what if I just construct an object and print it?
     // I expect to see the default members. But if they
-    // haven't been otherwise accessed, they are left out.
+    // haven't been otherwise accessed, they are left out. FIX: when a var
+    // of type T is used, all members of T are marked used (recursively).
     var_emit(var, 4, false);
     outln("; \\");
   }
@@ -270,18 +243,18 @@ static void type_emit_fieldHead(Type* type) {
 }
 
 static void type_emit(Type* type, int level) {
-  // if (! type->body or not type->analysed) return;
   const char* const name = type->name;
   printf("\n\nstruct %s {\n  int refc_;\n", name);
 
   printf("  FIELDS_%s\n};\n\n", name);
   printf("static const char* %s_name_ = \"%s\";\n\n", name, name);
-  printf("static %s %s_alloc_() {\n    return Pool_alloc(gPool, "
-         "sizeof(struct %s));\n}\n\n",
-      name, name, name, name);
+  printf("static %s %s_alloc_() {\n"
+         "  return Pool_alloc(gPool, sizeof(struct %s));\n"
+         "}\n\n",
+      name, name, name);
   printf("static %s %s_init_(%s self) {\n", name, name, name);
 
-  foreach (Var*, var, type->body->locals) // if (var->used)
+  foreach (Var*, var, type->body->locals)
     printf("#define %s self->%s\n", var->name, var->name);
 
   foreach (Expr*, stmt, type->body->stmts) {
@@ -296,7 +269,6 @@ static void type_emit(Type* type, int level) {
 
   outln("  return self;\n}\n");
 
-  // func_printStackUsageDef(48);
   printf("#define DEFAULT_VALUE NULL\n"
          "monostatic %s %s_new_(IFDEBUG(const char* callsite_)) {\n"
          "IFDEBUG(static const char* sig_ = \"%s()\");\n",
@@ -308,12 +280,11 @@ static void type_emit(Type* type, int level) {
       name, name, name);
   puts(functionExitStuff_UNESCAPED);
   outln("}\n#undef DEFAULT_VALUE\n");
-  // outln("#undef MYSTACKUSAGE\n}\n");
+
   printf("#define %s_print(p) %s_print__(p, STR(p))\n", name, name);
   printf("monostatic void %s_print__(%s self, const char* name) {\n    "
-         "printf(\"<%s "
-         "'%%s' at %%p size %%luB>\\n\",name, self, sizeof(struct "
-         "%s));\n}\n",
+         "printf(\"<%s '%%s' at %%p size %%luB>\\n\","
+         "  name, self, sizeof(struct %s));\n}\n",
       name, name, name, name);
   outln("");
 
@@ -386,33 +357,22 @@ static void JetEnum_genh(Type* type, int level) {
 
 static void func_emit(Func* func, int level) {
   if (!func->body || !func->analysed || func->isDeclare) return;
-  // declares, default ctors
-
-  // actual stack usage is higher due to stack protection, frame
-  // bookkeeping
-  // ...
-  size_t stackUsage = func_calcSizeUsage(func);
-  func_printStackUsageDef(stackUsage);
 
   printf("#define DEFAULT_VALUE %s\n", getDefaultValueForType(func->spec));
-  // if (!func->isExported) outl("static ");
-  if (/*func->spec*/ 1) {
-    spec_emit(func->spec, level, false);
-  } else {
-    outl("void");
-  }
+
+  spec_emit(func->spec, level, false);
   printf(" %s(", func->sel);
   foreachn(Var*, arg, args, func->args) {
     var_emit(arg, level, true);
     printf(args->next ? ", " : "");
   }
-  if (/*func->spec*/ 1 && func->spec->typeType != TYVoid) {
+  if (func->spec->typeType != TYVoid) {
     if (func->args) printf(", ");
     spec_emit(func->spec, level, false);
     printf("* ans");
   }
 
-  printf("\n#ifdef DEBUG\n"
+  printf("\n#ifndef NDEBUG\n"
          "  %c const char* callsite_ "
          "\n#endif\n",
       ((func->args && func->args->item ? ',' : ' ')));
@@ -426,7 +386,7 @@ static void func_emit(Func* func, int level) {
     printf(args->next ? ", " : "");
   }
   outl(")");
-  if (/*func->spec*/ 1) {
+  if (func->spec->typeType != TYVoid) {
     outl(" ");
     spec_write(func->spec, level);
   }
@@ -436,32 +396,26 @@ static void func_emit(Func* func, int level) {
 
   scope_emit(func->body, level + STEP);
 
-  if (/*func->spec*/ 1 && func->spec->typeType != TYVoid)
-    printf("exitfunc: return *ans;");
+  if (func->spec->typeType != TYVoid) printf("exitfunc: return *ans;");
   puts(functionExitStuff_UNESCAPED);
   outln("}\n#undef DEFAULT_VALUE");
-  // outln("#undef MYSTACKUSAGE");
 }
 
 static void func_genh(Func* func, int level) {
   if (!func->body || !func->analysed || func->isDeclare) return;
   // if (!func->isExported) outl("static ");
-  if (/*func->spec*/ 1) {
-    spec_emit(func->spec, level, false);
-  } else {
-    outl("void");
-  }
+  spec_emit(func->spec, level, false);
   printf(" %s(", func->sel);
   foreachn(Var*, arg, args, func->args) {
     var_emit(arg, level, true);
     printf(args->next ? ", " : "");
   }
-  if (/*func->spec*/ 1 && func->spec->typeType != TYVoid) {
+  if (func->spec->typeType != TYVoid) {
     if (func->args) printf(", ");
     spec_emit(func->spec, level, false);
     printf("* ans");
   }
-  printf("\n#ifdef DEBUG\n    %c const char* callsite_\n#endif\n",
+  printf("\n#ifndef NDEBUG\n    %c const char* callsite_\n#endif\n",
       ((func->args && func->args->item) ? ',' : ' '));
   outln(");\n");
 }
@@ -594,7 +548,7 @@ static void expr_emit_tkFuncCallR(Expr* expr, int level) {
   if (expr->left) expr_emit(expr->left, 0);
 
   if (!expr->func->isDeclare) {
-    printf("\n#ifdef DEBUG\n"
+    printf("\n#ifndef NDEBUG\n"
            "    %c \"./\" THISFILE \":%d:%d:\\e[0m ",
         expr->left ? ',' : ' ', expr->line, expr->col);
     expr_write(expr, 0, false, true);
@@ -713,7 +667,7 @@ static void expr_emit_tkCheck(Expr* expr, int level) {
       level + STEP, spaces, expr->line, expr->col + 6);
   expr_write(checkExpr, 0, true, true);
   outln("\");");
-  printf("#ifdef DEBUG\n%.*sCHECK_HELP_OPEN;\n", level + STEP, spaces);
+  printf("#ifndef NDEBUG\n%.*sCHECK_HELP_OPEN;\n", level + STEP, spaces);
 
   expr_genPrintVars(checkExpr, level + STEP);
   // the `printed` flag on all vars of the expr will be set
@@ -853,11 +807,9 @@ static void expr_emit(Expr* expr, int level) {
         // string, range etc. it could be an arbitrary object in
         // case you are indexing a Dict with keys of that type.
         break;
-      case tkSubscriptR:
-        // arr[arr2[4]] etc.
+      case tkSubscriptR: // arr[arr2[4]] etc.
         break;
-      case tkFuncCallR:
-        // arr[func(x)]
+      case tkFuncCallR: // arr[func(x)]
         break;
       default:
         unreachable("%s\n", TokenKind_names[expr->left->kind]);
@@ -873,14 +825,9 @@ static void expr_emit(Expr* expr, int level) {
     case tkIdent:
       unreachable("unresolved var %s", expr->left->str);
       break;
-      // case tkArgumentLabel:
-      // assert(inFuncArgs);
-      // expr_emit(expr->right, 0);
-      // function call arg label, do not generate ->left
       break;
     case tkString: break;
     default:
-      // error: not a valid lvalue
       // TODO: you should at some point e,g, during resolution
       // check for assignments to invalid lvalues and raise an
       // error
@@ -905,9 +852,6 @@ static void expr_emit(Expr* expr, int level) {
       printf("Array_init(%s)()", "double");
     } else {
       printf("Array_make(((%s[]) {", "double"); // FIXME
-      // TODO: MKARR should be different based on the
-      // CollectionType of the var or arg in question, eg stack
-      // cArray, heap allocated Array, etc.
       expr_emit(expr->right, 0);
       outl("})");
       printf(", %d)", expr_countCommaList(expr->right));
@@ -921,8 +865,8 @@ static void expr_emit(Expr* expr, int level) {
       printf("Dict_init(%s,%s)()", Ktype, Vtype); // FIXME
     else {
       printf("Dict_make(%s,%s)(%d, (%s[]){", Ktype, Vtype,
-          expr_countCommaList(expr->right),
-          Ktype); // FIXME
+          expr_countCommaList(expr->right), Ktype);
+      // ^ FIXME
 
       Expr* p = expr->right;
       while (p && p->kind == tkComma) {
@@ -943,8 +887,7 @@ static void expr_emit(Expr* expr, int level) {
     }
   } break;
 
-  case tkColon: // convert 3:4:5 to range(...)
-                // must do bounds check first!
+  case tkColon: // convert 3:4:5 to range(...) must do bounds check first!
     printf("%s(", expr->left->kind != tkColon ? "range_to" : "range_to_by");
     if (expr->left->kind == tkColon) {
       expr->left->kind = tkComma;
@@ -957,13 +900,12 @@ static void expr_emit(Expr* expr, int level) {
     outl(")");
     break;
 
-  case tkVarDefn: // basically a tkAssign corresponding to a local
-                  // var
+  case tkVarDefn: // basically a tkAssign corresponding to a local var
     // var x as XYZ = abc... -> becomes an Var and an
     // Expr (to keep location). Send it to Var::gen.
     if (expr->var->init != NULL && expr->var->used) {
       var_emit(expr->var, 0, !expr->var->isVar);
-      outl(" = "); //, expr->var->name);
+      outl(" = ");
       expr_emit(expr->var->init, 0);
     } else {
       printf("/* %s %s at line %d */", expr->var->name,
@@ -986,13 +928,6 @@ static void expr_emit(Expr* expr, int level) {
     break;
 
   case tkMatch: {
-    // char* typeName = expr_typeName(expr->left);
-    // if (!typeName)
-    //     unreachable(
-    //         "unresolved type during emit at %d:%d", expr->line,
-    //         expr->col);
-    // if (expr->left->typeType == TYObject)
-    //     typeName = expr_typeName(expr->left);
     printf("{%s __match_cond = ", expr_typeName(expr->left));
     expr_emit(expr->left, 0);
     if (expr->left->typeType > TYInt8
@@ -1000,27 +935,14 @@ static void expr_emit(Expr* expr, int level) {
             && expr_getObjectType(expr->left)->isEnum))
       outln("; switch (__match_cond) {");
     else
-      outln("; { if (0) {}"); // the case will add 'else if's
-    // outln(") {");
+      outln("; { if (0) {}"); // cases will add else ifs
     if (expr->body) scope_emit(expr->body, level);
     printf("%.*s}}", level, spaces);
     break;
   }
 
-    /*
-    This is how you walk a Expr that is a tkComma (left to right):
-        process(cond->left);
-        while (cond->right->kind == tkComma)
-            cond = cond->right, process(cond->left);
-        process(cond->right);
-    */
-
-    // void pro(Expr * c) { }
-    // TODO: generally all comma exprs should be handled like this
-    // iteratively. What if you have a large array with lots of items?
-    // recursion will blow the stack
   case tkCase: {
-    // TODO: maybe make this a macro
+
     Expr* cond = expr->left;
     if (cond->kind == tkComma) {
       if (cond->typeType > TYInt8
@@ -1097,11 +1019,8 @@ static void expr_emit(Expr* expr, int level) {
     break;
 
   case tkPower:
-    outl("pow(");
-    expr_emit(expr->left, 0);
-    outl(",");
-    expr_emit(expr->right, 0);
-    outl(")");
+    outl("pow("), expr_emit(expr->left, 0), outl(","),
+        expr_emit(expr->right, 0), outl(")");
     break;
 
   case tkReturn:
@@ -1365,10 +1284,8 @@ void type_genTypeInfoDecls(Type* type) {
   printf(
       "static const char* const %s__memberNames[] = {\n    ", type->name);
   if (type->body) //
-    foreachn(Var*, var, varn, type->body->locals) {
-      if (!var /*|| !var->used*/) continue;
-      printf("\"%s\", ", var->name);
-      // var_emit(var, level + STEP, false);
+    foreach (Var*, var, type->body->locals) {
+      if (var) printf("\"%s\", ", var->name);
     }
   outln("};");
 }

@@ -4,8 +4,12 @@ struct PtrList {
   void* item;
   PtrList* next;
 };
+MKSTAT(PtrList);
 
-#define NEWW(T, ...) memcpy(NEW(T), &(T) { __VA_ARGS__ }, sizeof(T))
+PtrList* PtrList_new_() {
+  IFDEBUG(_allocTotal_PtrList++);
+  return Pool_alloc(gPool, sizeof(struct PtrList));
+}
 
 monostatic PtrList* li_with(void* item) {
   // TODO: how to get separate alloc counts of List_ASTType
