@@ -26,44 +26,15 @@ static void par__errHeaderWithExpr(Parser* parser, Expr* expr) {
   int len;
   int col = expr->col;
   switch (expr->kind) {
-  case tkFor:
-  case tkWhile:
-  case tkIf:
-  case tkEnd:
-  case tkEnum:
-  case tkMatch:
-  case tkCase:
-  case tkFunc:
-  case tkDecl:
-  case tkTest:
-  case tkCheck:
-  case tkNot:
-  case tkNotin:
-  case tkAnd:
-  case tkYes:
-  case tkNo:
-  case tkNil:
-  case tkOr:
-  case tkIn:
-  case tkDo:
-  case tkThen:
-  case tkAs:
-  case tkElse:
-  case tkElif:
-  case tkType:
-  case tkReturn:
-  case tkYield:
-  case tkExtends:
-  case tkVar:
-  case tkLet:
-  case tkImport: len = strlen(TokenKind_repr[expr->kind]); break;
   case tkIdent:
-  // case tkArgumentLabel:
   case tkFuncCall:
   case tkSubscript:
   case tkObjInit:
-  case tkNumber:
-  case tkString: len = strlen(expr->str); break;
+  case tkNumber: len = strlen(expr->str); break;
+  case tkString:
+  case tkRawString:
+  case tkRegexp: len = strlen(expr->str) + 1; break;
+
   case tkIdentR:
   case tkSubscriptR: len = strlen(expr->var->name); break;
   case tkFuncCallR: len = strlen(expr->func->name); break;
@@ -71,7 +42,39 @@ static void par__errHeaderWithExpr(Parser* parser, Expr* expr) {
     len = 4 + strlen(expr->var->name);
     col -= 3;
     break;
-  default: len = 1;
+
+  //    case tkFor:
+  // case tkWhile:
+  // case tkIf:
+  // case tkEnd:
+  // case tkEnum:
+  // case tkMatch:
+  // case tkCase:
+  // case tkFunc:
+  // case tkDecl:
+  // case tkTest:
+  // case tkCheck:
+  // case tkNot:
+  // case tkNotin:
+  // case tkAnd:
+  // case tkYes:
+  // case tkNo:
+  // case tkNil:
+  // case tkOr:
+  // case tkIn:
+  // case tkDo:
+  // case tkThen:
+  // case tkAs:
+  // case tkElse:
+  // case tkElif:
+  // case tkType:
+  // case tkReturn:
+  // case tkYield:
+  // case tkExtends:
+  // case tkVar:
+  // case tkLet:
+  // case tkImport:
+  default: len = strlen(TokenKind_repr[expr->kind]); break;
   }
   par__errHeaderWithLoc(
       parser, expr->line ? expr->line : parser->token.line, col, len);
@@ -272,6 +275,7 @@ static void warn_unusedType(Parser* parser, Type* type) {
 }
 
 static void warn_sameExpr(Parser* parser, Expr* e1, Expr* e2) {
+  if (!parser->issues.warnUnusedType) return;
   par__warnHeaderWithLoc(parser, e1->line, e1->col, 1);
   eprintf("CSE candidate '%s' for %d:%d\n", TokenKind_repr[e1->kind],
       e2->line, e2->col);
@@ -544,6 +548,16 @@ static void err_typeMismatch(Parser* parser, Expr* e1, Expr* e2) {
   eprintf("type mismatch: '%s' here must be '%s' (from %s%s:%d:%d)\n",
       rightTypeName, leftTypeName, RELF(parser->filename), e1->line,
       e1->col);
+  err_increment(parser);
+}
+
+static void err_typeWrong(Parser* parser, Expr* e1, TypeTypes correct) {
+  const char* leftTypeName = expr_typeName(e1);
+  const char* rightTypeName = Typetype_name(correct);
+  if (noPoison && (*leftTypeName == '<' || *rightTypeName == '<')) return;
+  par__errHeaderWithExpr(parser, e1);
+  eprintf("expected an expression of type '%s', not '%s'\n", rightTypeName,
+      leftTypeName);
   err_increment(parser);
 }
 

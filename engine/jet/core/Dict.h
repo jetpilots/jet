@@ -66,9 +66,11 @@ static const double Dict_HASH_UPPER = 0.77;
 #define Dict_resize(K, V) Dict_resize_##K##_##V
 #define Dict_put(K, V) Dict_put_##K##_##V
 #define Dict_get(K, V) Dict_get_##K##_##V
+#define Dict_putk(K, V) Dict_putk_##K##_##V
+#define Dict_getk(K, V) Dict_getk_##K##_##V
 #define Dict_has(K, V) Dict_has_##K##_##V
-#define Dict_delete(K, V) Dict_del_##K##_##V
-#define Dict_deleteByKey(K, V) Dict_delk_##K##_##V
+#define Dict_del(K, V) Dict_del_##K##_##V
+#define Dict_delk(K, V) Dict_delk_##K##_##V
 
 // TODO: why not void instead of char?
 #define Set(K) Dict(K, char)
@@ -80,6 +82,8 @@ static const double Dict_HASH_UPPER = 0.77;
 #define Set_resize(K) Dict_resize(K, char)
 #define Set_put(K) Dict_put(K, char)
 #define Set_get(K) Dict_get(K, char)
+#define Set_putk(K) Dict_putk(K, char)
+#define Set_getk(K) Dict_getk(K, char)
 #define Set_has(K) Dict_has(K, char)
 #define Set_del(K) Dict_delete(K, char)
 #define Set_delk(K) Dict_deleteByKey(K, char)
@@ -229,7 +233,7 @@ static const double Dict_HASH_UPPER = 0.77;
     }                                                                      \
     return 0;                                                              \
   }                                                                        \
-  Scope UInt32 Dict_put(K, V)(Dict(K, V) * h, K key, int* ret) {           \
+  Scope UInt32 Dict_put(K, V)(Dict(K, V) * h, K key, UInt32 * ret) {       \
     UInt32 x;                                                              \
     if (h->nOccupied >= h->upperBound) { /* update the hash table */       \
       if (h->nBuckets > (h->size << 1)) {                                  \
@@ -287,18 +291,28 @@ static const double Dict_HASH_UPPER = 0.77;
     /* Don't touch h->keys[x] if present and not  Dict__deleted */         \
     return x;                                                              \
   }                                                                        \
-  Scope void Dict_delete(K, V)(Dict(K, V) * h, UInt32 x) {                 \
+  Scope void Dict_del(K, V)(Dict(K, V) * h, UInt32 x) {                    \
     if (x != h->nBuckets && !Dict__emptyOrDel(h->flags, x)) {              \
       Dict__setDeleted(h->flags, x);                                       \
       --h->size;                                                           \
     }                                                                      \
   }                                                                        \
-  Scope void Dict_deleteByKey(K, V)(Dict(K, V) * h, K key) {               \
-    Dict_delete(K, V)(h, Dict_get(K, V)(h, key));                          \
+  Scope void Dict_delk(K, V)(Dict(K, V) * h, K key) {                      \
+    Dict_del(K, V)(h, Dict_get(K, V)(h, key));                             \
+  }                                                                        \
+  Scope void Dict_putk(K, V)(Dict(K, V) * h, K key, V val) {               \
+    UInt32 s = 0, idx = Dict_put(K, V)(h, key, &s);                        \
+    if (s == 1) Dict_val(h, idx) = val;                                    \
+  }                                                                        \
+  Scope V Dict_getk(K, V)(Dict(K, V) * h, K key) {                         \
+    V val = (V)0;                                                          \
+    UInt32 i = Dict_get(K, V)(h, key);                                     \
+    if (i < Dict_end(h)) val = Dict_val(h, i);                             \
+    return val;                                                            \
   }                                                                        \
   Scope Dict(K, V) * Dict_make(K, V)(int size, K keys[], V values[]) {     \
     Dict(K, V)* ret = Dict_init(K, V)();                                   \
-    int p;                                                                 \
+    UInt32 p;                                                              \
     for (int i = 0; i < size; i++) {                                       \
       UInt32 idx = Dict_put(K, V)(ret, keys[i], &p);                       \
       Dict_val(ret, i) = values[i];                                        \

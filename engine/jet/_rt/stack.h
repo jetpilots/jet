@@ -13,7 +13,7 @@ thread_local char* _stack_boundary;
 
 #define _STACK_BLOWN() (&(char) { 0 } < _stack_boundary)
 #define _STACK_GROWS_UP() _stack_grows_up__(&(char) { 0 })
-__attribute((__noinline__)) bool _stack_grows_up__(char* parentsLocal) {
+__attribute((__noinline__)) int _stack_grows_up__(char* parentsLocal) {
   return (uintptr_t)parentsLocal < (uintptr_t)&parentsLocal;
 }
 

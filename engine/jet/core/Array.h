@@ -52,6 +52,8 @@
 DECL_Array(Ptr);
 DECL_Array(UInt32);
 DECL_Array(Real64);
+// DECL_Array(Number);
+// DECL_Array(CString);
 
 // MAKE_Array(UInt32);
 // MAKE_Array(uint64_t);
@@ -144,3 +146,5 @@ DECL_Array(Real64);
 MAKE_Array(Ptr);
 MAKE_Array(UInt32);
 MAKE_Array(Real64);
+// MAKE_Array(Number);
+// MAKE_Array(CString);

@@ -1,12 +1,19 @@
 
-typedef struct {
+typedef struct String {
   char* ref;
   int len, cap;
 } String;
 
+monostatic void String_drop_(String* str) { }
+monostatic void String_free_(String* str) { }
+
 monostatic void String_print(const String* const str) {
   // printf("---[%d]\n%.*s\n---\n", str->len, str->len, str->ref);
   printf("%.*s", str->len, str->ref);
+}
+monostatic void String_json_(const String* const str, int level) {
+  // printf("---[%d]\n%.*s\n---\n", str->len, str->len, str->ref);
+  printf("\"%.*s\"", str->len, str->ref);
 }
 
 #define roundUp32(x)                                                       \

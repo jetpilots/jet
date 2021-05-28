@@ -36,6 +36,7 @@ monostatic CString cstr_clone(const char* str) {
   return cstr_ndup(str, strlen(str));
 }
 
+#define CString_len cstr_length
 monostatic size_t cstr_length(const char* str) { return strlen(str); }
 // monostatic CString cstr_clone(CString str) { return pstrdup(str); }
 // monostatic CString cstr_sysClone(CString str) { return strdup(str); }

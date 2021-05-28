@@ -132,8 +132,9 @@ int main(int argc, char* argv[]) {
   CompilerMode mode = PMEmitC;
   bool stats = false;
   bool forceBuildAll = false;
-  bool monolithicBuild = false;
-  char* filename = (argc > 1) ? argv[1] : NULL;
+  bool monolithicBuild = true;
+
+  char* filename = (argc > 2) ? argv[2] : (argc > 1) ? argv[1] : NULL;
 
   // language server mode with no options to jetc
   // TODO: later this should be REPL mode, with "-s" argument for
@@ -141,14 +142,11 @@ int main(int argc, char* argv[]) {
   if (!filename) return langserver(argc, argv);
 
   if (argc > 2) {
-    if (*argv[2] == 'c' || *argv[2] == 'C')
-      mode = PMEmitC, stats = (*argv[2] == 'C');
-    if (*argv[2] == 'l' || *argv[2] == 'L')
-      mode = PMLint, stats = (*argv[2] == 'L');
-    if (*argv[2] == 't' || *argv[2] == 'T')
-      mode = PMTest, stats = (*argv[2] == 'T');
-    if (*argv[2] == 'r' || *argv[2] == 'R')
-      mode = PMRun, monolithicBuild = (*argv[2] == 'R');
+    char m = argv[1][1]; // -cClLrRtT
+    if (m == 'c' || m == 'C') mode = PMEmitC, stats = (m == 'C');
+    if (m == 'l' || m == 'L') mode = PMLint, stats = (m == 'L');
+    if (m == 't' || m == 'T') mode = PMTest, forceBuildAll = (m == 'T');
+    if (m == 'r' || m == 'R') mode = PMRun, forceBuildAll = (m == 'R');
   }
   clock_Time t0 = clock_getTime();
   Parser* parser = par_fromFile(filename, true, mode);
@@ -157,12 +155,13 @@ int main(int argc, char* argv[]) {
   parser->issues.warnUnusedArg = //
       parser->issues.warnUnusedFunc = //
       parser->issues.warnUnusedType = //
-      parser->issues.warnUnusedVar = 1;
+      parser->issues.warnUnusedVar = (mode != PMRun && mode != PMTest);
 
   List(Module)* modules = NULL;
 
   Module* root = parseModule(parser, &modules, NULL);
   parser->elap = clock_clockSpanMicro(t0) / 1.0e3;
+
   if (_InternalErrs) {
     // nothing
   } else if (parser->mode == PMLint) {
@@ -175,97 +174,157 @@ int main(int argc, char* argv[]) {
     parser->oelap = clock_clockSpanMicro(t0) / 1.0e3;
 
   } else if (!(parser->issues.errCount)) {
-    switch (parser->mode) {
+    Func* fstart = NULL;
+    switch (parser->mode) { // REMOVE THIS SWITCH!! USELESS
     case PMRun:
+      // don't break on the first match, keep looking so that duplicate
+      // starts can be found
+      foreach (Func*, func, root->funcs) {
+        if (!strcmp(func->name, "start")) {
+          if (fstart) err_duplicateFunc(parser, func, fstart);
+          fstart = func;
+          fstart->used++;
+        }
+      }
+      if (!fstart) { // TODO: new error, unless you want to get rid of start
+        eputs("\n\e[31m*** error:\e[0m cannot find function "
+              "\e[33mstart\e[0m.\n");
+        parser->issues.errCount++;
+      }
+      fallthrough;
+    case PMTest:
     case PMEmitC: {
+
       char* enginePath = "engine"; // FIXME
-      // TODO: if (monolithic) printf("#define function static\n");
-      // par_emit_open(parser);
-      // ^ This is called before including the runtime, so that the
-      // runtime can know THISFILE NUMLINES etc.
-      // printf("#include \"jet/runtime.h\"\n");
+
       foreach (Module*, mod, modules) {
-        // for emitting C, test out_o for newness not out_c, since out_c is
-        // updated by clangformat etc. anyway O is the goal.
+        // for emitting C, test out_o for newness not out_c, since out_c
+        // is updated by clangformat etc. anyway O is the goal.
         if (!forceBuildAll && file_newer(mod->out_o, mod->filename))
           continue;
         mod_emit(mod);
       }
       parser->oelap = clock_clockSpanMicro(t0) / 1.0e3;
 
-      if (!monolithicBuild) foreach (Module*, mod, modules) {
-          if (!forceBuildAll && file_newer(mod->out_o, mod->out_c))
-            continue;
-
-          char* cmd[] = { //
-            "/usr/bin/gcc", //
-            "-I", enginePath, //
-            "-c", mod->out_c, //
-            "-o", mod->out_o, //
-            NULL
-          };
-          Process_launch(cmd);
-        }
-
-      // TODO: do something useful while cc is running
-
-      // here count the actual number of valid pids
       Process proc;
+
+      foreachn(Module*, mod, mods, modules) {
+        // For monolithic builds, just compile the last module (root); it
+        // will have pulled in the other source files by #including them.
+        if (monolithicBuild && mods->next) continue;
+
+        // Skip up-to-date object files
+        if (!forceBuildAll && file_newer(mod->out_o, mod->out_c)) continue;
+
+        char* cmd[] = { //
+          "/usr/bin/gcc", //
+          "-g", "-O0", //
+          "-I", enginePath, //
+          "-c", mod->out_c, //
+          "-o", mod->out_o, //
+          NULL
+        };
+        Process_launch(cmd);
+      }
+      // TODO: do something useful while cc is running
+      // here count the actual number of valid pids
       do {
         proc = Process_awaitAny();
-        if (proc.exited && proc.code) unreachable("cc failed%s\n", "");
+        if (proc.exited && proc.code) {
+          unreachable("cc failed%s\n", "");
+          break;
+        }
         // here launch 1 more
       } while (proc.pid);
-      // par_emit_close(parser);
 
       if (parser->mode == PMRun) {
         char* cmd[] = { //
           "/usr/bin/gcc", //
           "-I", enginePath, //
+          "-g", "-O0", //
           "-c", "engine/jet/rt0.c", //
           "-o", "engine/jet/rt0.o", //
           NULL
         };
         Process_launch(cmd);
         proc = Process_awaitAny();
-        if (proc.exited && proc.code) unreachable("rt0 failed%s\n", "");
+        if (proc.exited && proc.code) {
+          unreachable("rt0 failed%s\n", "");
+          break;
+        }
 
         PtrArray cmdexe = {};
-        // Array_initWithCArray(Ptr)(&cmdexe, cmd, 1);
-        Array_push(Ptr)(&cmdexe, cmd[0]);
-        foreach (Module*, mod, modules)
-          Array_push(Ptr)(&cmdexe, mod->out_o);
-        Array_push(Ptr)(&cmdexe, "engine/jet/rt0.o");
-        Array_push(Ptr)(&cmdexe, NULL);
+        arr_push(&cmdexe, cmd[0]);
+        arr_push(&cmdexe, "-g");
+        foreachn(Module*, mod, mods, modules) {
+          if (monolithicBuild && mods->next) continue;
+          arr_push(&cmdexe, mod->out_o);
+        }
+        arr_push(&cmdexe, "engine/jet/rt0.o");
+        arr_push(&cmdexe, NULL);
         Process_launch((char**)cmdexe.ref);
         proc = Process_awaitAny();
-        if (proc.exited && proc.code) unreachable("ld failed%s\n", "");
+        if (proc.exited && proc.code) {
+          unreachable("ld failed%s\n", "");
+          break;
+        }
+        // Process_awaitAll();
 
-        // cmdexe.ref[0] = "echo";
-        // Process_launch(cmdexe.ref);
+        // Process_launch((char*[]) { "./a.out", NULL });
+        // Process_awaitAll();
 
-        Process_awaitAll();
-        Process_launch((char*[]) { "./a.out", NULL });
+      } else if (mode == PMTest) {
+        // see if this code can be shared with PMRun code
+        char* cmd[] = { //
+          "/usr/bin/gcc", //
+          "-I", enginePath, //
+          "-g", "-O0", //
+          cstr_interp_s(256, "-DTENTRY=%s", root->cname), "-c",
+          "engine/jet/test0.c", //
+          "-o", "engine/jet/test0.o", //
+          NULL
+        };
+        Process_launch(cmd);
+        proc = Process_awaitAny();
+        if (proc.exited && proc.code) {
+          unreachable("test0 failed%s\n", "");
+          break;
+        }
+
+        PtrArray cmdexe = {};
+        arr_push(&cmdexe, cmd[0]);
+        arr_push(&cmdexe, "-g");
+        foreachn(Module*, mod, mods, modules) {
+          if (monolithicBuild && mods->next) continue;
+          arr_push(&cmdexe, mod->out_o);
+        }
+        arr_push(&cmdexe, "engine/jet/test0.o");
+        arr_push(&cmdexe, NULL);
+        Process_launch((char**)cmdexe.ref);
+        proc = Process_awaitAny();
+        if (proc.exited && proc.code) {
+          unreachable("ld failed%s\n", "");
+          break;
+        }
+        // Process_awaitAll();
       }
-
     } break;
 
-    case PMTest: {
-      printf("#include \"jet/tester.h\"\n");
-      // TODO : THISFILE must be defined since function callsites need
-      // it, but the other stuff in par_emit_open isn't required.
-      // Besides, THISFILE should be the actual module's file not the
-      // test file
+      // case PMTest: {
+      //   printf("#include \"jet/test0.h\"\n");
+      //   // TODO : THISFILE must be defined since function callsites need
+      //   // it, but the other stuff in par_emit_open isn't required.
+      //   // Besides, THISFILE should be the actual module's file not the
+      //   // test file
 
-      foreach (Module*, mod, modules) { mod_genTests(mod); }
-    } break;
+      //   foreach (Module*, mod, modules) { mod_genTests(mod); }
+      // } break;
 
     default: break;
     }
   }
   parser->elap_tot = clock_clockSpanMicro(t0) / 1.0e3;
   if (stats) printstats(parser);
-  eputs("\n");
   if (parser->issues.warnCount)
     eprintf("\e[33m*** warnings: %d\e[0m\n", parser->issues.warnCount);
   if (parser->issues.errCount)
@@ -273,5 +332,15 @@ int main(int argc, char* argv[]) {
   if (_InternalErrs)
     eputs("\e[31m*** an internal error has ocurred.\e[0m\n");
 
-  return parser->issues.errCount || _InternalErrs;
+  int ret = parser->issues.errCount | _InternalErrs;
+
+  if (!ret && (mode == PMRun || mode == PMTest)) {
+
+    eprintf("\e[90m[ p/c %.2f + e %.1f + cc %.0f ms ]\e[0m\n", parser->elap,
+        parser->oelap - parser->elap, parser->elap_tot - parser->oelap);
+    Process_launch((char*[]) { "./a.out", NULL });
+    Process_awaitAll();
+  }
+
+  return ret;
 }

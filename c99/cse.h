@@ -92,9 +92,10 @@ static void expr_dohash(
     if (expr->kind != tkPeriod
         || (expr->right && expr->right->kind == tkFuncCallR)) {
       // Don't put really simple things like literals into the CSE dict.
-      int status = 0;
-      UInt32 idx = Dict_put(UInt32, Ptr)(cseDict, expr->hash, &status);
-      if (status == 1) Dict_val(cseDict, idx) = expr;
+      Dict_putk(UInt32, Ptr)(cseDict, expr->hash, expr);
+      // int status = 0;
+      // UInt32 idx = Dict_put(UInt32, Ptr)(cseDict, expr->hash, &status);
+      // if (status == 1) Dict_val(cseDict, idx) = expr;
     }
   }
 }
@@ -105,10 +106,11 @@ static void expr_dohash(
 static void expr_checkHashes(
     Parser* parser, Expr* expr, Dict(UInt32, Ptr) * cseDict) {
   if (!expr) return;
-  UInt32 idx = Dict_get(UInt32, Ptr)(cseDict, expr->hash);
 
-  if (idx < Dict_end(cseDict)) {
-    Expr* orig = Dict_val(cseDict, idx);
+  // UInt32 idx = Dict_get(UInt32, Ptr)(cseDict, expr->hash);
+  Expr* orig = Dict_getk(UInt32, Ptr)(cseDict, expr->hash);
+  if (orig /*idx < Dict_end(cseDict)*/) {
+    // Expr* orig = Dict_val(cseDict, idx);
     // unfortunately there ARE collisions, so check again
     if (orig != expr && orig->kind == expr->kind) {
       warn_sameExpr(parser, expr, orig);

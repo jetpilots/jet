@@ -1,0 +1,90 @@
+test "number stuff"
+  var c = 56
+  var f = c + 6
+  check f == 62
+  check 3.1 < 22/7 < 3.2
+end
+
+~ test "complex numbers"
+~   var cmp = 5i
+~   check cmp == 8
+~ end
+
+test "boolean stuff"
+  var c = 3 in [7, 8, 3]
+  check c == yes
+  check 5 < 7
+  check 1 < 1.99 <= 2
+end
+
+test "compare boolean expressions"
+  check 5 > 6 == 7 > 8
+  check (9==8) == (7==6)
+end
+
+decl func len(s String) Number
+
+test "string stuff"
+  var broen = "red"
+  var d = "the quick $broen foe"
+  check d == "the quick red foe"
+  check len(d) == 17
+end
+
+decl func matches(s String, re Regex) Boolean
+
+test "match string"
+  var d = 0
+  match "uioyt"
+  case "poi"
+    d = 9
+  case "ftyyrd", "uioyt", "nimju"
+    d = 8
+  end
+  check d ==8
+
+  match "ident787687"
+  case `[a-z]+`
+    d = 77
+  case `[0-9]+`
+    d = 66
+  end
+  check d == 77
+
+  var reIdent = `^[A-Z][a-z0-9_]*$`
+  check matches("String", re=reIdent)
+
+end
+
+type Obj
+  var c = 0
+end
+
+func t1()
+  ans = 7
+end
+
+func t4()
+  ans = Obj()
+  ans.c = 9
+end
+
+func t5()
+  ans = t4()
+  ans = Obj()
+end
+
+test "ans"
+  var a = t4()
+  check a.c == 9
+  a = t5()
+  check a.c == 0
+  var f = t1()
+  check f == 7
+end
+~ test "arrays"
+~   var d = [4, 3, 2, 1, 5]
+~   check d[1] == 4
+~   var s = ["a", "be", "sea", "deae"]
+~   check s[1] == "a"
+~ end

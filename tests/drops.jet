@@ -2,19 +2,24 @@
 
 type Obj
     var acx Obj
-    var s = ""
+    var s = 22
 end
 type Obj2
     var o Obj
 end
-bang() :=   ~rtrytf
-      huy
+
+test "8 equals itself"
+    check 8 == 8
+end
+
+test "9 equals itself"
+    check 9 == 9
+end
+
 func start()
-    ans = 0
+    ~ ans = 0
     var v = 31
-    var f = [ ~retyy
-    ju,   ~drtdthuihi
-   ji,    "my name is gonsa" ]
+    var f = 66
     var h = v +6
     ~ if h = 5 ~ this should be implicitly if let x = ...
     ~   ~ this way for x = ... and if x = ... introduce a new var x

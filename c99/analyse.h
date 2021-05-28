@@ -928,7 +928,9 @@ monostatic void expr_analyse(Parser* parser, Expr* expr, Scope* scope,
             inFuncArgs
                 && ISIN(3, expr->right->kind, tkComma, tkAssign, tkPeriod));
 
-      if (expr->kind == tkOr && expr->left->typeType != TYBool) {
+      if (expr->kind == tkCheck && expr->right->typeType != TYBool) {
+        err_typeWrong(parser, expr->right, TYBool);
+      } else if (expr->kind == tkOr && expr->left->typeType != TYBool) {
         // Handle the special 'or' keyword used to provide alternatives for
         // a nullable expression.
 
@@ -1185,6 +1187,7 @@ static void func_analyse(Parser* parser, Func* func, Module* mod) {
   func->analysed = true;
 
   // Run the statement-level semantic pass on the function body.
+  // scope_analyse(parser, func->body, mod, func);
   foreach (Expr*, stmt, func->body->stmts)
     expr_analyse(parser, stmt, func->body, mod, func, false);
 
@@ -1195,6 +1198,9 @@ static void func_analyse(Parser* parser, Func* func, Module* mod) {
   if (func->isStmt) setStmtFuncTypeInfo(parser, func);
   // TODO: for normal funcs, expr_analyse should check return statements to
   // have the same type as the declared return type.
+
+  // if you could not infer the type of ans, it must be void
+  if (!func->spec->typeType) func->spec->typeType = TYVoid;
 
   // this is done here so that linter can give hints on what is picked up
   // for CSE. This func should not modify the Jet except marking CSE
@@ -1283,16 +1289,6 @@ void mod_analyse(Parser* parser, Module* mod) {
     getSelector(func);
   }
 
-  Func* fstart = NULL;
-  // don't break on the first match, keep looking so that duplicate starts
-  // can be found
-  foreach (Func*, func, mod->funcs) {
-    if (!strcmp(func->name, "start")) {
-      fstart = func;
-      fstart->used++;
-    }
-  }
-
   // If we are linting,
   //     the whole file must be analysed.this happens
   // regardless of whether start was found or not
@@ -1309,12 +1305,6 @@ void mod_analyse(Parser* parser, Module* mod) {
   foreach (Type*, type, mod->types) { type_analyse(parser, type, mod); }
   foreach (Type*, en, mod->enums) { type_analyse(parser, en, mod); }
   // Check dead code -- unused funcs and types, and report warnings.
-
-  if (!fstart) { // TODO: new error, unless you want to get rid of start
-    eputs("\n\e[31m*** error:\e[0m cannot find function "
-          "\e[33mstart\e[0m.\n");
-    parser->issues.errCount++;
-  }
 
   foreach (Func*, func, mod->funcs) { func_checkRecursion(func); }
 

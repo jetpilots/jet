@@ -896,7 +896,7 @@ static Func* parseFunc(
       .line = func->spec->line, //
       .col = func->spec->col, //
       .isVar = true, //
-      .isMutableArg = true, //
+      // .isMutableArg = true, // NOPE, not needed since it will be returned
       .init = NULL, // FIXME
       .spec = func->spec // NEW(TypeSpec);
   );
@@ -1191,7 +1191,7 @@ static Module* parseModule(
   root->out_h = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.h",
       cstr_dir_ip(cstr_pclone(root->filename)),
       cstr_base(root->filename, '/', l)));
-  root->out_c = cstr_pclone(__cstr_interp__s(512, buf, "%s/.%s.c",
+  root->out_c = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.c",
       cstr_dir_ip(cstr_pclone(root->filename)),
       cstr_base(root->filename, '/', l)));
   root->out_xc = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.x.c",

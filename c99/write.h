@@ -323,7 +323,7 @@ static void expr_write(
     // these seem to add precedence parens aruns expr->right if done as
     // normal binops. so ill do them separately here.
     expr_write(expr->left, 0, spacing, escapeStrings);
-    printf("%s", TokenKind_repr[expr->kind]);
+    printf("%s", TokenKind_srepr[expr->kind]);
     expr_write(expr->right, 0, spacing, escapeStrings);
     break;
 

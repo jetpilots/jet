@@ -1,7 +1,7 @@
 /* Jet | jetpilots.dev | github.com/jetpilots/jet | GPLv3 (see LICENSE) */
 
-#ifndef JET_BASE_H
-#define JET_BASE_H
+#ifndef HAVE_JET_BASE_H
+#define HAVE_JET_BASE_H
 
 #include <assert.h>
 #include <stdlib.h>
@@ -206,6 +206,8 @@ static int human_readable(char* buf, double num) {
   return len;
 }
 
+extern void jet_runTest(int (*f)(void), char* s, int skip);
+
 #ifndef NDEBUG
 #define HANDLE_UNCAUGHT eprintf("error: %s\n", _err_);
 #else
@@ -251,6 +253,7 @@ typedef CStrings Strings;
 typedef bool Boolean;
 typedef unsigned char Byte;
 #define STR(x) #x
+void Number_drop_(Number f) { }
 
 static const char* const _fp_bools_tf_[2] = { "false", "true" };
 static const char* const _fp_bools_yn_[2] = { "no", "yes" };
@@ -316,6 +319,7 @@ MAKE_cmp3way(Number)
 #include "jet/core/Array.h"
 #include "jet/core/Pool.h"
 #include "jet/core/CString.h"
+#include "jet/core/Regex.h"
 #include "jet/core/String.h"
 #include "jet/math/Vector.h"
 #include "jet/math/SpVector.h"

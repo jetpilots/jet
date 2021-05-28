@@ -2,10 +2,10 @@
 #define genCoverage 0
 #define genLineProfile 0
 
-static void imp_emit(Import* import, int level) {
+static void imp_emit(Import* import, int level, char ext) {
   char* alias = import->aliasOffset + import->name;
   cstr_tr_ip_len(import->name, '.', '_', 0);
-  printf("\n#include \"%s.h\"\n", import->name);
+  printf("\n#include \"%s.%c\"\n", import->name, ext);
   cstr_tr_ip_len(import->name, '_', '.', 0);
 }
 
@@ -34,74 +34,32 @@ static void spec_emit(TypeSpec* spec, int level, bool isconst) {
 
 static void expr_emit(Expr* expr, int level);
 
-static void var_emit(Var* var, int level, bool isconst) {
+//-----------------------------------------------------------------------//
+
+static void var_genh(Var* var, int level) {
+  if (!var->init) return;
+  spec_emit(var->spec, level, !var->changed);
+  if (!var->reassigned) printf(" const");
+  printf(" %s = ", var->name);
+  expr_emit(var->init, 0);
+  outln("");
+}
+
+static void var_emit(Var* var, int level) {
   // for C the variables go at the top of the block, without init
   printf("%.*s", level, spaces);
-  if (var->spec) spec_emit(var->spec, level + STEP, isconst);
+  if (var->spec) spec_emit(var->spec, level + STEP, var->changed);
   if (var->isMutableArg) puts("*");
   printf(" %s", var->name);
 }
 
-static void expr_unmarkVisited(Expr* expr) {
-  switch (expr->kind) {
-  case tkIdentR:
-  case tkVarDefn: expr->var->visited = false; break;
-  case tkFuncCallR:
-  case tkFuncCall: // shouldnt happen
-  case tkSubscriptR:
-  case tkSubscript:
-  case tkIf:
-  case tkFor:
-  case tkElse:
-  case tkWhile: expr_unmarkVisited(expr->left); break;
-  default:
-    if (expr->prec) {
-      if (!expr->unary) expr_unmarkVisited(expr->left);
-      expr_unmarkVisited(expr->right);
-    }
-  }
-}
-
-// given an expr, generate code to print all the resolved vars in it (only
-// scalars). Used by checks to print the vars involved in the check expr, if
-// the check fails.
-static void expr_genPrintVars(Expr* expr, int level) {
-  assert(expr);
-  // TODO: what about func args?
-  switch (expr->kind) {
-  case tkIdentR:
-  case tkVarDefn:
-    if (expr->var->visited) break;
-    printf("%.*sprintf(\"  %s = %s\\n\", %s);\n", level, spaces,
-        expr->var->name, Typetype_format(expr->typeType, true),
-        expr->var->name);
-    expr->var->visited = true;
-    break;
-
-  case tkPeriod: break;
-
-  case tkFuncCallR:
-  case tkFuncCall: // shouldnt happen
-  case tkSubscriptR:
-  case tkSubscript:
-  case tkIf:
-  case tkElse:
-  case tkFor:
-  case tkWhile: expr_genPrintVars(expr->left, level); break;
-
-  default:
-    if (expr->prec) {
-      if (!expr->unary) expr_genPrintVars(expr->left, level);
-      expr_genPrintVars(expr->right, level);
-    }
-  }
-}
-
-void var_insertDrop(Var* var, int level) {
+static void var_insertDrop(Var* var, int level) {
   iprintf(level, "DROP(%s,%s,%s,%s);\n", spec_name(var->spec), var->name,
       Collectiontype_nativeName(var->spec->collType),
       StorageClassNames[var->storage]);
 }
+
+//-----------------------------------------------------------------------//
 
 static void scope_emit(Scope* scope, int level) {
 
@@ -166,6 +124,88 @@ static void scope_emit(Scope* scope, int level) {
   // after that subscope and doesn't wait until the very end.
 }
 
+//-----------------------------------------------------------------------//
+
+// todo: stop using these in type_emit, generate actual Funcs for type ctors
+// & helpers. then move them inside func_emit.
+static const char functionEntryStuff_UNESCAPED[]
+    = "  STACKDEPTH_UP; DO_STACK_CHECK;\n";
+
+static const char functionExitStuff_UNESCAPED[]
+    = "\n"
+      "  return DEFAULT_VALUE;\n"
+      "uncaught: HANDLE_UNCAUGHT;\n"
+      "backtrace: SHOW_BACKTRACE_LINE;\n"
+      "return_: STACKDEPTH_DOWN;\n"
+      "  return DEFAULT_VALUE;";
+
+static void func_emit(Func* func, int level) {
+  if (!func->body || !func->analysed || func->isDeclare) return;
+
+  printf("#define DEFAULT_VALUE %s\n", getDefaultValueForType(func->spec));
+
+  spec_emit(func->spec, level, false);
+  printf(" %s(", func->sel);
+  foreachn(Var*, arg, args, func->args) {
+    var_emit(arg, level);
+    printf(args->next ? ", " : "");
+  }
+  if (func->spec->typeType != TYVoid) {
+    if (func->args) printf(", ");
+    spec_emit(func->spec, level, false);
+    printf(" ans");
+  }
+
+  printf("\n#ifndef NDEBUG\n"
+         "  %c const char* callsite_ "
+         "\n#endif\n",
+      ((func->args || func->spec->typeType != TYVoid ? ',' : ' ')));
+
+  outln(") {");
+  printf("  IFDEBUG(static const char* sig_ = \"");
+  printf("%s%s(", func->isStmt ? "" : "func ", func->name);
+
+  foreachn(Var*, arg, args, func->args) {
+    var_write(arg, level);
+    printf(args->next ? ", " : "");
+  }
+  outl(")");
+  if (func->spec->typeType != TYVoid) {
+    outl(" ");
+    spec_write(func->spec, level);
+  }
+  outln("\");");
+
+  puts(functionEntryStuff_UNESCAPED);
+
+  scope_emit(func->body, level + STEP);
+
+  if (func->spec->typeType != TYVoid) printf("exitfunc: return ans;");
+  puts(functionExitStuff_UNESCAPED);
+  outln("}\n#undef DEFAULT_VALUE");
+}
+
+static void func_genh(Func* func, int level) {
+  if (!func->body || !func->analysed || func->isDeclare) return;
+  // if (!func->isExported) outl("static ");
+  spec_emit(func->spec, level, false);
+  printf(" %s(", func->sel);
+  foreachn(Var*, arg, args, func->args) {
+    var_emit(arg, level);
+    printf(args->next ? ", " : "");
+  }
+  if (func->spec->typeType != TYVoid) {
+    if (func->args) printf(", ");
+    spec_emit(func->spec, level, false);
+    printf(" ans");
+  }
+  printf("\n#ifndef NDEBUG\n    %c const char* callsite_\n#endif\n",
+      ((func->args || func->spec->typeType != TYVoid) ? ',' : ' '));
+  outln(");\n");
+}
+
+//-----------------------------------------------------------------------//
+
 static void type_genJson(Type* type) {
   printf("static void %s_json_(const %s self, int nspc) {\n", type->name,
       type->name);
@@ -203,23 +243,6 @@ static void type_genDrop(Type* type) {
 
 static void type_genJsonReader(Type* type) { }
 
-static const char functionEntryStuff_UNESCAPED[]
-    = "  STACKDEPTH_UP; DO_STACK_CHECK;\n";
-
-static const char functionExitStuff_UNESCAPED[]
-    = "\n"
-      "  return DEFAULT_VALUE;\n"
-      "uncaught: HANDLE_UNCAUGHT;\n"
-      "backtrace: SHOW_BACKTRACE_LINE;\n"
-      "return_: STACKDEPTH_DOWN;\n"
-      "  return DEFAULT_VALUE;";
-
-// static void func_printStackUsageDef(size_t stackUsage) {
-//   // printf("#define MYSTACKUSAGE (%lu + 6*sizeof(void*) + "
-//   //        "IFDEBUGELSE(sizeof(char*),0))\n",
-//   //     stackUsage);
-// }
-
 static void type_emit_fieldHead(Type* type) {
   const char* const name = type->name;
   printf("#define FIELDS_%s \\\n", name);
@@ -236,7 +259,7 @@ static void type_emit_fieldHead(Type* type) {
     // I expect to see the default members. But if they
     // haven't been otherwise accessed, they are left out. FIX: when a var
     // of type T is used, all members of T are marked used (recursively).
-    var_emit(var, 4, false);
+    var_emit(var, 4);
     outln("; \\");
   }
   outln("");
@@ -252,6 +275,8 @@ static void type_emit(Type* type, int level) {
          "  return Pool_alloc(gPool, sizeof(struct %s));\n"
          "}\n\n",
       name, name, name);
+  printf("static void %s_free_(%s self) {}\n", name, name);
+
   printf("static %s %s_init_(%s self) {\n", name, name, name);
 
   foreach (Var*, var, type->body->locals)
@@ -304,6 +329,8 @@ static void type_genh(Type* type, int level) {
   printf("typedef struct %s* %s;\nstruct %s;\n", name, name, name);
   printf("static %s %s_alloc_(); \n", name, name);
   printf("static %s %s_init_(%s self);\n", name, name, name);
+  printf("static void %s_drop_(%s self);\n", name, name);
+  printf("static void %s_free_(%s self);\n", name, name);
   printf("%s %s_new_(IFDEBUG(const char* callsite_)); \n", name, name);
   printf("\nDECL_json_wrap_(%s)\n//DECL_json_file(%s)\n", name, name);
   printf("#define %s_json(x) { printf(\"\\\"%%s\\\": \",#x); "
@@ -319,11 +346,73 @@ static void type_genh(Type* type, int level) {
   // adds a leading * in any case.
 }
 
-static void JetEnum_genh(Type* type, int level) {
+// Generates a couple of functions that allow setting an integral member
+// of a type at runtime by name, or getting a pointer to a member by
+// name.
+void type_genNameAccessors(Type* type) {
+  // TODO: instead of a linear search over all members this should
+  // generate a switch for checking using a prefix tree -> see
+  // genrec.c
+  if (!type->analysed || type->isDeclare) return;
+  // type_genMemberRecognizer( type, "Int64 value",  )
+
+  printf("static void* %s__memberNamed(%s self, char* name) {\n",
+      type->name, type->name);
+
+  // TODO: skip bitfield members in this loop or it wont compile
+  foreach (Var*, var, type->body->locals) /*if (var->used) */ //
+    printf("  if (cstr_eq(name, \"%s\")) return "
+           "&(self->%s);\n",
+        var->name, var->name);
+  outln("  return NULL;\n}");
+
+  // this func sets bools or ints that may be part of bitfields
+  printf("static void %s__setMemberNamed(%s self, char* name, "
+         "Int64 value) {\n",
+      type->name, type->name);
+  foreach (Var*, var, type->body->locals) // if (var->used) //
+    if (var->spec->typeType >= TYBool && var->spec->typeType <= TYReal64)
+      printf("  if (cstr_eq(name, \"%s\")) {\n"
+             "    self->%s = *(%s*) &value; return;\n"
+             "  }\n",
+          var->name, var->name, spec_cname(var->spec));
+  outln("}");
+}
+
+// Generates some per-type functions that write out meta info of the
+// type to be used for reflection, serialization, etc.
+void type_genTypeInfoDecls(Type* type) {
+  if (!type->analysed || type->isDeclare) return;
+
+  printf(
+      "static const char* const %s__memberNames[] = {\n    ", type->name);
+  if (type->body) //
+    foreach (Var*, var, type->body->locals) {
+      if (var) printf("\"%s\", ", var->name);
+    }
+  outln("};");
+}
+
+void type_genTypeInfoDefs(Type* type) {
+  // printf("static const char* const %s__memberNames[] = {\n",
+  // type->name); foreachn(Var*, var, varn, type->body->locals)
+  // {
+  //     if (! var) continue;
+  //     printf("\"%s\",\n", var->name);
+  //     // var_emit(var, level + STEP, false);
+  //     outln("}; \\");
+  // }
+}
+
+static void enum_genh(Type* type, int level) {
   if (!type->body || !type->analysed) return;
   const char* const name = type->name;
   outln("typedef enum {");
-
+  if (!type->isMultiEnum) {
+    // multi enums generate 1,2,4,8... but 0 is valid.
+    // single enums generate 1,2,3,4... 0 is invalid or "none".
+    printf("  %s__none_ = 0,\n", name);
+  }
   foreach (Var*, var, type->body->locals)
     printf("  %s_%s,\n", name, var->name);
   printf("} %s;\n", name);
@@ -355,89 +444,77 @@ static void JetEnum_genh(Type* type, int level) {
   outln("}");
 }
 
-static void func_emit(Func* func, int level) {
-  if (!func->body || !func->analysed || func->isDeclare) return;
-
-  printf("#define DEFAULT_VALUE %s\n", getDefaultValueForType(func->spec));
-
-  spec_emit(func->spec, level, false);
-  printf(" %s(", func->sel);
-  foreachn(Var*, arg, args, func->args) {
-    var_emit(arg, level, true);
-    printf(args->next ? ", " : "");
-  }
-  if (func->spec->typeType != TYVoid) {
-    if (func->args) printf(", ");
-    spec_emit(func->spec, level, false);
-    printf("* ans");
-  }
-
-  printf("\n#ifndef NDEBUG\n"
-         "  %c const char* callsite_ "
-         "\n#endif\n",
-      ((func->args && func->args->item ? ',' : ' ')));
-
-  outln(") {");
-  printf("  IFDEBUG(static const char* sig_ = \"");
-  printf("%s%s(", func->isStmt ? "" : "func ", func->name);
-
-  foreachn(Var*, arg, args, func->args) {
-    var_write(arg, level);
-    printf(args->next ? ", " : "");
-  }
-  outl(")");
-  if (func->spec->typeType != TYVoid) {
-    outl(" ");
-    spec_write(func->spec, level);
-  }
-  outln("\");");
-
-  puts(functionEntryStuff_UNESCAPED);
-
-  scope_emit(func->body, level + STEP);
-
-  if (func->spec->typeType != TYVoid) printf("exitfunc: return *ans;");
-  puts(functionExitStuff_UNESCAPED);
-  outln("}\n#undef DEFAULT_VALUE");
-}
-
-static void func_genh(Func* func, int level) {
-  if (!func->body || !func->analysed || func->isDeclare) return;
-  // if (!func->isExported) outl("static ");
-  spec_emit(func->spec, level, false);
-  printf(" %s(", func->sel);
-  foreachn(Var*, arg, args, func->args) {
-    var_emit(arg, level, true);
-    printf(args->next ? ", " : "");
-  }
-  if (func->spec->typeType != TYVoid) {
-    if (func->args) printf(", ");
-    spec_emit(func->spec, level, false);
-    printf("* ans");
-  }
-  printf("\n#ifndef NDEBUG\n    %c const char* callsite_\n#endif\n",
-      ((func->args && func->args->item) ? ',' : ' '));
-  outln(");\n");
-}
-
-static void var_genh(Var* var, int level) {
-  if (!var->init) return;
-  spec_emit(var->spec, level, false);
-  printf(" %s = ", var->name);
-  expr_emit(var->init, 0);
-  outln("");
-}
-
-static void JetTest_emit(
-    JetTest* test) // TODO: should tests not return BOOL?
+static void test_emit(JetTest* test, Module* mod, int idx)
+// TODO: should tests not return BOOL?
 {
   if (!test->body) return;
-  printf("\nstatic void test_%s() {\n", test->name);
+  printf("\nstatic int test_%s_%d() {\n", mod->cname, idx);
   scope_emit(test->body, STEP);
+  outln("  return 0;");
+  outln("  backtrace: return 1;");
   outln("}");
 }
 
-//_____________________________________________________________________________
+//-----------------------------------------------------------------------//
+
+static void expr_unmarkVisited(Expr* expr) {
+  switch (expr->kind) {
+  case tkIdentR:
+  case tkVarDefn: expr->var->visited = false; break;
+  case tkFuncCallR:
+  case tkFuncCall: // shouldnt happen
+  case tkSubscriptR:
+  case tkSubscript:
+  case tkIf:
+  case tkFor:
+  case tkElse:
+  case tkWhile: expr_unmarkVisited(expr->left); break;
+  default:
+    if (expr->prec) {
+      if (!expr->unary) expr_unmarkVisited(expr->left);
+      expr_unmarkVisited(expr->right);
+    }
+  }
+}
+
+// given an expr, generate code to print all the resolved vars in it (only
+// scalars). Used by checks to print the vars involved in the check expr, if
+// the check fails.
+static void expr_genPrintVars(Expr* expr, int level) {
+  assert(expr);
+  // TODO: what about func args?
+  switch (expr->kind) {
+  case tkIdentR:
+  case tkVarDefn:
+    if (expr->var->visited) break;
+    if (!strcasecmp("yes", expr->var->name)) break;
+    if (!strcasecmp("no", expr->var->name)) break;
+    if (!strcasecmp("nil", expr->var->name)) break;
+    printf("%.*sprintf(\"  %s = %s\\n\", %s);\n", level, spaces,
+        expr->var->name, Typetype_format(expr->typeType, true),
+        expr->var->name);
+    expr->var->visited = true;
+    break;
+
+  case tkPeriod: break;
+
+  case tkFuncCallR:
+  case tkFuncCall: // shouldnt happen
+  case tkSubscriptR:
+  case tkSubscript:
+  case tkIf:
+  case tkElse:
+  case tkFor:
+  case tkWhile: expr_genPrintVars(expr->left, level); break;
+
+  default:
+    if (expr->prec) {
+      if (!expr->unary) expr_genPrintVars(expr->left, level);
+      expr_genPrintVars(expr->right, level);
+    }
+  }
+}
+
 /// Emits the equivalent C code for a subscript (that has been resolved to
 /// its corresponding `Variable`). This function does all of the heavy
 /// lifting to decide what the subscript actually does, based on the kind
@@ -526,7 +603,6 @@ static void expr_emit_tkSubscriptR(Expr* expr, int level) {
   }
 }
 
-//_____________________________________________________________________________
 /// Emits the equivalent C code for a function call (that has been
 /// resolved to its corresponding `Func`). Type constructors call a C
 /// function that has `_new` appended to the type name. This function
@@ -534,8 +610,8 @@ static void expr_emit_tkSubscriptR(Expr* expr, int level) {
 /// used to generate accurate backtraces.
 static void expr_emit_tkFuncCallR(Expr* expr, int level) {
   char* tmp = expr->func->sel;
-
-  Expr* arg1 = expr->left;
+  const Func* const func = expr->func;
+  const Expr* arg1 = expr->left;
   const char* tmpc = "";
   if (arg1) {
     if (arg1->kind == tkComma) arg1 = arg1->left;
@@ -547,13 +623,32 @@ static void expr_emit_tkFuncCallR(Expr* expr, int level) {
 
   if (expr->left) expr_emit(expr->left, 0);
 
-  if (!expr->func->isDeclare) {
-    printf("\n#ifndef NDEBUG\n"
-           "    %c \"./\" THISFILE \":%d:%d:\\e[0m ",
-        expr->left ? ',' : ' ', expr->line, expr->col);
+  if (!func->isDeclare) {
+    const bool hasAns = func->spec->typeType != TYVoid && !func->isDefCtor;
+    if (hasAns) { // insert ans
+      if (expr->left) outl(", ");
+      // TODO: if inplacing etc then you can just pass in the target var.
+      // for now passing a new instance.
+      // the user should assume that ans is always an allocated obj ready to
+      // be modified. if you overwrite ans that (possibly optimal) obj is
+      // lost.
+      switch (func->spec->typeType) {
+      case TYObject:
+        if (!func->spec->type->isEnum) {
+          printf("%s_new_(IFDEBUG(THISFILE\":%d:%d: (ans for '%s')\"))",
+              spec_cname(func->spec), expr->line, expr->col, func->psel);
+        } else {
+          outl("0");
+        }
+        break;
+      case TYString: outl("\"\""); break;
+      default: outl("0"); break;
+      }
+    }
+    printf("\n#ifndef NDEBUG\n  %c THISFILE \":%d:%d: ",
+        expr->left || hasAns ? ',' : ' ', expr->line, expr->col);
     expr_write(expr, 0, false, true);
-    printf("\"\n"
-           "#endif\n        ");
+    printf("\"\n#endif\n");
   }
   outl(")");
 }
@@ -562,7 +657,7 @@ char* strchrnul(char* str, char ch) {
   while (*str && *str != ch) str++;
   return str;
 }
-static void astexpr_lineupmultilinestring(Expr* expr, int indent) {
+static void expr_lineupmultilinestring(Expr* expr, int indent) {
   return;
   char* pos = expr->str;
   while (*(pos = strpbrk(pos, "\n"))) {
@@ -581,18 +676,18 @@ static void printmultilstr(char* pos) {
 }
 
 static void expr_emit_tkString(Expr* expr, int level) {
-  astexpr_lineupmultilinestring(expr, level + STEP);
-  outl("String_fromCString(");
+  expr_lineupmultilinestring(expr, level + STEP);
+  // outl("String_fromCString(");
   if (!expr->vars) {
-    outl("(char[]){"); // FIXME: only needed for mutable strings
+    // outl("(char[]){"); // FIXME: only needed for mutable strings
     printmultilstr(expr->str + 1);
-    outl("}");
+    // outl("}");
   } else {
     char *pos = expr->str, *last = pos;
     Var* v;
     PtrList* p = expr->vars;
     Expr* e = p->item;
-    outl("strinterp_h(64, ");
+    outl("cstr_interp_h(64, ");
     while (*pos) {
       while (*pos && *pos != '$') pos++;
       *pos++ = 0;
@@ -616,10 +711,9 @@ static void expr_emit_tkString(Expr* expr, int level) {
     }
     outl(")");
   }
-  outl(")");
+  // outl(")");
 }
 
-//_____________________________________________________________________________
 /// Emits the equivalent C code for a (literal) numeric expression.
 /// Complex numbers follow C99 literal syntax, e.g. 1i generates
 /// `_Complex_I * 1`.
@@ -630,6 +724,7 @@ static void expr_emit_tkNumber(Expr* expr, int level) {
     expr->str[ls - 1] = 0;
   }
   printf("%s", expr->str);
+  if (!strpbrk(expr->str, ".eE")) printf(".0");
 }
 
 static void expr_emit_tkCheck(Expr* expr, int level) {
@@ -660,10 +755,8 @@ static void expr_emit_tkCheck(Expr* expr, int level) {
   // }
   // -------------
   outln(")) {");
-  printf("%.*sprintf(\"\\n\\n\e[31mruntime error:\e[0m check "
-         "failed at \e[36m./%%s:%d:%d:\e[0m\\n    %%s\\n\\n\",\n     "
-         "     "
-         "   THISFILE, \"",
+  printf("%.*sprintf(\"\\n%%s:%d:%d: error: check failed:\\n  %%s\\n\", "
+         "THISFILE, \"",
       level + STEP, spaces, expr->line, expr->col + 6);
   expr_write(checkExpr, 0, true, true);
   outln("\");");
@@ -717,9 +810,9 @@ static void expr_emit(Expr* expr, int level) {
 
   printf("%.*s", level, spaces);
   switch (expr->kind) {
-  case tkNo: outl("no"); break;
-  case tkYes: outl("yes"); break;
-  case tkNil: outl("nil"); break;
+  case tkNo: outl("false"); break;
+  case tkYes: outl("true"); break;
+  case tkNil: outl("NULL"); break;
   case tkIdent: printf("%s", expr->str); break;
   case tkNumber: expr_emit_tkNumber(expr, level); break;
 
@@ -732,7 +825,7 @@ static void expr_emit(Expr* expr, int level) {
     if (expr->var->isMutableArg) outln(")");
     break;
 
-  case tkRegexp: printf("%s", expr->str + 1); break;
+  case tkRegexp: printf("\"%s\"", expr->str + 1); break;
 
   case tkComment: printf("// %s", expr->str); break;
 
@@ -904,7 +997,7 @@ static void expr_emit(Expr* expr, int level) {
     // var x as XYZ = abc... -> becomes an Var and an
     // Expr (to keep location). Send it to Var::gen.
     if (expr->var->init != NULL && expr->var->used) {
-      var_emit(expr->var, 0, !expr->var->isVar);
+      var_emit(expr->var, 0);
       outl(" = ");
       expr_emit(expr->var->init, 0);
     } else {
@@ -965,6 +1058,17 @@ static void expr_emit(Expr* expr, int level) {
         }
         outl(" || !strcmp(__match_cond, ");
         expr_emit(cond->right, 0), outln(")) do {");
+      } else if (cond->typeType == TYRegex) {
+        outl("else if (rex_matches(__match_cond, ");
+        expr_emit(cond->left, 0);
+        outl(")");
+        while (cond->right->kind == tkComma) {
+          cond = cond->right;
+          outl(" || rex_matches(__match_cond, ");
+          expr_emit(cond->left, 0), outl(")");
+        }
+        outl(" || rex_matches(__match_cond, ");
+        expr_emit(cond->right, 0), outln(")) do {");
       } else {
         outl("else if (__match_cond == ");
         expr_emit(cond->left, 0);
@@ -984,6 +1088,10 @@ static void expr_emit(Expr* expr, int level) {
         outln(": {");
       } else if (cond->typeType == TYString) {
         outl("else if (!strcmp(__match_cond, ");
+        expr_emit(cond, 0);
+        outln(")) do {");
+      } else if (cond->typeType == TYRegex) {
+        outl("else if (rex_matches(__match_cond, ");
         expr_emit(cond, 0);
         outln(")) do {");
       } else {
@@ -1019,8 +1127,11 @@ static void expr_emit(Expr* expr, int level) {
     break;
 
   case tkPower:
-    outl("pow("), expr_emit(expr->left, 0), outl(","),
-        expr_emit(expr->right, 0), outl(")");
+    outl("pow(");
+    expr_emit(expr->left, 0);
+    outl(",");
+    expr_emit(expr->right, 0);
+    outl(")");
     break;
 
   case tkReturn:
@@ -1116,7 +1227,7 @@ static void expr_emit(Expr* expr, int level) {
       outl(")");
       break;
     } else if (expr->right->typeType == TYString) {
-      printf("cstr_cmp(%s, ", TokenKind_srepr[expr->kind]);
+      printf("CString_cmp(%s, ", TokenKind_srepr[expr->kind]);
       expr_emit(expr->left, 0);
       outl(", ");
       expr_emit(expr->right, 0);
@@ -1128,9 +1239,12 @@ static void expr_emit(Expr* expr, int level) {
     if (!expr->prec) break;
     // not an operator, but this should be error if you reach here
     bool leftBr
-        = expr->left && expr->left->prec && expr->left->prec < expr->prec;
+        = expr->left && expr->left->prec && (expr->left->prec < expr->prec);
+    //            || (expr->left->prec == expr->prec && !expr->rassoc));
     bool rightBr = expr->right && expr->right->prec
-        && expr->right->kind != tkReturn && expr->right->prec < expr->prec;
+        && expr->right->kind != tkReturn
+        && (expr->right->prec < expr->prec);
+    //            || (expr->right->prec == expr->prec && expr->rassoc));
     // found in 'or return'
 
     char lpo = '(';
@@ -1154,37 +1268,60 @@ static void expr_emit(Expr* expr, int level) {
   }
 }
 
-void type_genTypeInfoDecls(Type* type);
-void type_genTypeInfoDefs(Type* type);
-void type_genNameAccessors(Type* type);
-static void mod_emit(Module* mod) {
+//-----------------------------------------------------------------------//
 
-  // outfile = fopen(mod->out_h, "w");
+static void mod_genTests(Module* mod) {
+  int i = 0;
+  foreach (JetTest*, test, mod->tests)
+    test_emit(test, mod, ++i);
+
+  printf("\nvoid jet_runTests_%s(int runDeps) {\n", mod->cname);
+  printf("  static bool done = 0;\n  if (done) return;\n");
+
+  // Deps run first.
+  outln("  if (runDeps) {");
+  foreach (Import*, imp, mod->imports)
+    if (imp->mod) printf("    jet_runTests_%s(1);\n", imp->mod->cname);
+  outln("  }\n");
+
+  // Now run our own tsts
+  printf("  eputs(\"Testing module %s\\n\");\n", mod->filename);
+  i = 0;
+  foreach (JetTest*, test, mod->tests)
+    printf("  jet_runTest(test_%s_%d, \"%s\", %d);\n", //
+        mod->cname, ++i, test->name, false);
+  outln("eputs(\"\");");
+
+  outln("\n  done = 1;");
+  outln("}");
+}
+
+static void mod_emit(Module* mod) {
 
   if (!(outfile = fopen(mod->out_h, "w"))) {
     eprintf("%s:1:1-1: error: can't open file for writing\n", mod->out_h);
     return;
   }
-  // outln("");
-  printf("#define THISFILE \"%s\"\n", mod->filename);
-  printf("#define NUMLINES %d\n", mod->nlines);
 
   printf("#ifndef HAVE_%s\n#define HAVE_%s\n\n", mod->Cname, mod->Cname);
-  printf("#define THISMODULE %s\n", mod->cname);
   puts("#ifndef HAVE_JET_BASE\n"
        "#include \"jet/runtime.h\"\n"
        "#endif\n");
 
-  puts("DECL_COV_PROF(NUMLINES)\n");
+  // puts("DECL_COV_PROF(NUMLINES)\n");
 
-  foreach (Import*, import, mod->imports) { imp_emit(import, 0); }
+  outln("#ifdef JET_MONOBUILD");
+  foreach (Import*, import, mod->imports) { imp_emit(import, 0, 'c'); }
+  outln("#else");
+  foreach (Import*, import, mod->imports) { imp_emit(import, 0, 'h'); }
+  outln("#endif");
   outln("");
 
   foreach (Var*, var, mod->scope->locals) {
     if (var->used) var_genh(var, 0);
   }
   foreach (Type*, type, mod->enums) {
-    if (type->body && type->analysed) { JetEnum_genh(type, 0); }
+    if (type->body && type->analysed) { enum_genh(type, 0); }
   }
 
   foreach (Type*, type, mod->types) {
@@ -1196,20 +1333,22 @@ static void mod_emit(Module* mod) {
   foreach (Func*, func, mod->funcs) {
     if (func->body && func->analysed) { func_genh(func, 0); }
   }
-  printf("#undef THISMODULE\n");
-  printf("#undef THISFILE\n");
+
   printf("#endif // HAVE_%s\n", mod->Cname);
 
   fclose(outfile);
-
-  // outfile = fopen(mod->out_c, "w");
 
   if (!(outfile = fopen(mod->out_c, "w"))) {
     eprintf("%s:1:1-1: error: can't open file for writing\n", mod->out_c);
     return;
   }
+
   printf("#include \"%s\"\n\n",
       cstr_base(mod->out_h, '/', strlen(mod->out_h)));
+
+  printf("#define THISFILE \"%s\"\n", mod->filename);
+  printf("#define THISMODULE %s\n", mod->cname);
+  printf("#define NUMLINES %d\n", mod->nlines);
 
   foreach (Type*, type, mod->types) {
     if (type->body && type->analysed && !type->isDeclare) {
@@ -1228,75 +1367,12 @@ static void mod_emit(Module* mod) {
     if (func->body && func->analysed) { func_emit(func, 0); }
   }
 
+  // if (genTests)
+  mod_genTests(mod);
+
+  outln("#undef THISMODULE");
+  outln("#undef THISFILE");
+  outln("#undef NUMLINES");
+
   fclose(outfile);
-}
-
-static void mod_genTests(Module* mod) {
-  mod_emit(mod);
-  foreach (JetTest*, test, mod->tests)
-    JetTest_emit(test);
-
-  printf("\nvoid tests_run_%s() {\n", mod->name);
-  foreach (JetTest*, test, mod->tests)
-    printf("  test_%s();\n", test->name);
-  outln("}");
-}
-
-// Generates a couple of functions that allow setting an integral member
-// of a type at runtime by name, or getting a pointer to a member by
-// name.
-void type_genNameAccessors(Type* type) {
-  // TODO: instead of a linear search over all members this should
-  // generate a switch for checking using a prefix tree -> see
-  // genrec.c
-  if (!type->analysed || type->isDeclare) return;
-  // type_genMemberRecognizer( type, "Int64 value",  )
-
-  printf("static void* %s__memberNamed(%s self, char* name) {\n",
-      type->name, type->name);
-
-  // TODO: skip bitfield members in this loop or it wont compile
-  foreach (Var*, var, type->body->locals) /*if (var->used) */ //
-    printf("  if (cstr_eq(name, \"%s\")) return "
-           "&(self->%s);\n",
-        var->name, var->name);
-  outln("  return NULL;\n}");
-
-  // this func sets bools or ints that may be part of bitfields
-  printf("static void %s__setMemberNamed(%s self, char* name, "
-         "Int64 "
-         "value) {\n",
-      type->name, type->name);
-  foreach (Var*, var, type->body->locals) // if (var->used) //
-    if (var->spec->typeType >= TYBool && var->spec->typeType <= TYReal64)
-      printf("  if (cstr_eq(name, \"%s\"))  {self->%s = "
-             "*(%s*) "
-             "&value;return;}\n",
-          var->name, var->name, spec_cname(var->spec));
-  outln("}");
-}
-
-// Generates some per-type functions that write out meta info of the
-// type to be used for reflection, serialization, etc.
-void type_genTypeInfoDecls(Type* type) {
-  if (!type->analysed || type->isDeclare) return;
-
-  printf(
-      "static const char* const %s__memberNames[] = {\n    ", type->name);
-  if (type->body) //
-    foreach (Var*, var, type->body->locals) {
-      if (var) printf("\"%s\", ", var->name);
-    }
-  outln("};");
-}
-
-void type_genTypeInfoDefs(Type* type) {
-  // printf("static const char* const %s__memberNames[] = {\n",
-  // type->name); foreachn(Var*, var, varn, type->body->locals)
-  // {
-  //     if (! var) continue;
-  //     printf("\"%s\",\n", var->name);
-  //     // var_emit(var, level + STEP, false);
-  //     outln("}; \\");
-  // }
 }

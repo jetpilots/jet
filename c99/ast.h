@@ -148,9 +148,9 @@ struct Var {
         isMutableArg : 1, // func arg only: passed by ref (needs extra *)
         storage : 2, // 0,1,2,3: refc/heap/stack/mixed
         isArg : 1, // a function arg, not a local var
-        stackAlloc : 1, // this var is of a ref type, but it will be
-                        // stack allocated. it will be passed around by
-                        // reference as usual.
+        // stackAlloc : 1, // this var is of a ref type, but it will be
+        // stack allocated. it will be passed around by
+        // reference as usual.
         isTarget : 1, // x = f(x,y)
         visited : 1, // for generating checks, used to avoid printing this
                      // var more than once.
@@ -166,6 +166,8 @@ struct Var {
                      // at compile time because inplacing decisions etc.
                      // need surety of var having no other refs outside the
                      // scope
+                     // todo: this will  probably become a count and you
+                     // will at compile time incr/decr it
         obtainedBySerialization : 1, // this is a JSON/XML/YAML obj obtained
                                      // by serializing something. If it is
                                      // passed to functions, warn and
@@ -186,13 +188,14 @@ struct Var {
         reassigned : 1, // this var was reassigned after init. If it is a
                         // non-primitive type, it generally implies this
                         // should be generated as a pointer.
-        resized : 1, // this collection var was resized after init (due to
+        resized : 1; // this collection var was resized after init (due to
                      // resize(), push() etc.) and means that it cannot be
                      // generated as a fixed size array (static if size is
                      // known at compile time).
-        returned : 1; // is a return variable ie. b in
+    // returned : 1; // is a return variable ie. b in
     // function asd(x as Anc) returns (b as Whatever)
     // all args (in/out) are in the same list in func -> args.
+    // no need to mark returned; ans is the var returned
   };
   // uint8_t col;
 };
@@ -309,7 +312,7 @@ struct Type {
   uint16_t line, endline, used;
   uint8_t col;
   bool analysed : 1, needJSON : 1, needXML : 1, needYAML : 1, visited : 1,
-      isValueType : 1, isEnum : 1,
+      isValueType : 1, isEnum : 1, isMultiEnum : 1,
       isDeclare : 1; // all vars of this type will be stack
                      // allocated and passed around by value.
 };
@@ -516,6 +519,7 @@ static const char* spec_cname(TypeSpec* self) {
 static const char* getDefaultValueForType(TypeSpec* type) {
   if (!type) return "";
   switch (type->typeType) {
+  case TYVoid: return "";
   case TYUnknown:
     unreachable(
         "unresolved: '%s' at %d:%d", type->name, type->line, type->col);
@@ -968,7 +972,7 @@ static const char* expr_typeName(const Expr* const self) {
   //     return expr_typeName(self->right);
   case tkPeriod: {
     Type* type = expr_getObjectType(self->left);
-    return (type->isEnum) ? type->name : expr_typeName(self->right);
+    return (type && type->isEnum) ? type->name : expr_typeName(self->right);
   }
   case tkComma: return expr_typeName(self->left);
   default: break;

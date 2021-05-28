@@ -132,9 +132,9 @@ static const char* Typetype_name(TypeTypes tyty) {
   switch (tyty) {
   case TYUnknown: return NULL;
   case TYNil: return "Nil";
-  case TYVoid: return "Void";
+  case TYVoid: return "void";
   case TYError: return "<invalid>";
-  case TYString: return "String";
+  case TYString: return "CString";
   case TYBool: return "Boolean";
   case TYRegex: return "Regex";
   case TYObject: return "";
@@ -282,6 +282,8 @@ static TypeTypes Typetype_byName(const char* spec) {
   // this is default, analysis might change it to
   // more specific
   if (!strcasecmp(spec, "String")) return TYString;
+  if (!strcasecmp(spec, "Regex")) return TYRegex;
+  if (!strcasecmp(spec, "DateTime")) return TYDateTime;
   if (!strcasecmp(spec, "Boolean")) return TYBool;
   // note that Vector, Matrix, etc. are actually types, so they should
   // resolve to TYObject.

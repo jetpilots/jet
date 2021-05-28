@@ -1,6 +1,6 @@
-
+#ifndef HAVE_JET_BASE_H
 #include "jet/base.h"
-
+#endif
 // #include "jet/core/Dict.h"
 #include "jet/os/Ticks.h"
 #include "jet/os/sys.h"
