@@ -58,7 +58,7 @@ static const double Dict_HASH_UPPER = 0.77;
 // then you call  Dict_get again. So just call  Dict_get and do whatever.
 // If you don't really want the index, then its fine to call  Dict_has.
 #define Dict(K, V) Dict_##K##_##V
-#define Dict_init(K, V) Dict_init_##K##_##V
+#define Dict_new(K, V) Dict_init_##K##_##V
 #define Dict_make(K, V) Dict_make_##K##_##V
 #define Dict_free(K, V) Dict_free_##K##_##V
 #define Dict_freedata(K, V) Dict_freedata_##K##_##V
@@ -74,7 +74,7 @@ static const double Dict_HASH_UPPER = 0.77;
 
 // TODO: why not void instead of char?
 #define Set(K) Dict(K, char)
-#define Set_init(K) Dict_init(K, char)
+#define Set_init(K) Dict_new(K, char)
 #define Set_make(K) Dict_make(K, char)
 #define Set_free(K) Dict_free(K, char)
 #define Set_freedata(K) Dict_freedata(K, char)
@@ -98,7 +98,7 @@ static const double Dict_HASH_UPPER = 0.77;
   Dict(K, V);
 
 // #define __DICT_PROTOTYPES(K, V)                                            \
-//      Dict(K, V) *  Dict_init(K, V)();                                        \
+//      Dict(K, V) *  Dict_new(K, V)();                                        \
 //     void  Dict_free(K, V)( Dict(K, V) * h);                                  \
 //     void  Dict_freedata(K, V)( Dict(K, V) * h);                              \
 //     void  Dict_clear(K, V)( Dict(K, V) * h);                                 \
@@ -110,7 +110,7 @@ static const double Dict_HASH_UPPER = 0.77;
 
 // TODO: move the implementation into  runtime.h
 #define __DICT_IMPL(Scope, K, V, IsMap, hash, equal)                       \
-  Scope Dict(K, V) * Dict_init(K, V)() {                                   \
+  Scope Dict(K, V) * Dict_new(K, V)() {                                    \
     return calloc(1, sizeof(Dict(K, V)));                                  \
   }                                                                        \
                                                                            \
@@ -311,12 +311,8 @@ static const double Dict_HASH_UPPER = 0.77;
     return val;                                                            \
   }                                                                        \
   Scope Dict(K, V) * Dict_make(K, V)(int size, K keys[], V values[]) {     \
-    Dict(K, V)* ret = Dict_init(K, V)();                                   \
-    UInt32 p;                                                              \
-    for (int i = 0; i < size; i++) {                                       \
-      UInt32 idx = Dict_put(K, V)(ret, keys[i], &p);                       \
-      Dict_val(ret, i) = values[i];                                        \
-    }                                                                      \
+    Dict(K, V)* ret = Dict_new(K, V)();                                    \
+    for_to(i, size) Dict_putk(K, V)(ret, keys[i], values[i]);              \
     return ret;                                                            \
   }
 
@@ -488,6 +484,7 @@ MAKE_DICT(UInt32, Ptr)
 // MAKE_DICT(UInt32, CString)
 // MAKE_DICT(CString, CString)
 MAKE_DICT(UInt64, Ptr)
+MAKE_DICT(CString, Number)
 MAKE_DICT(CString, Real64)
 
 // MAKE_DICT(Ptr, UInt64)

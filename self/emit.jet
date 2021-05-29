@@ -1,21 +1,21 @@
 var functionExitStuffUNESCAPED = CString "
-    return DEFAULTVALUE
-    uncaught: HANDLEUNCAUGHT
-    backtrace: SHOWBACKTRACELINE
-    return: STACKDEPTHDOWN
-    return DEFAULTVALUE
+  return DEFAULTVALUE
+  uncaught: HANDLEUNCAUGHT
+  backtrace: SHOWBACKTRACELINE
+  return: STACKDEPTHDOWN
+  return DEFAULTVALUE
 "
 var functionEntryStuffUNESCAPED = CString
-    "    STACKDEPTHUP  DOSTACKCHECK "
+  "  STACKDEPTHUP  DOSTACKCHECK "
 
 func emit(imp JetImport, level Number)
-        trip(imp.name, '.', '', 0)
-    print("\n#include \"%s.h\"\n", imp.name)
-    if (imp.alias)
-        print("#define %s %s\n", imp.alias, imp.name)
-    end
+    trip(imp.name, '.', '', 0)
+  print("\n#include \"%s.h\"\n", imp.name)
+  if (imp.alias)
+    print("#define %s %s\n", imp.alias, imp.name)
+  end
 
-    trip(imp.name, '', '.', 0)
+  trip(imp.name, '', '.', 0)
 end
 
 func undefc(imp JetImport)
@@ -23,14 +23,14 @@ end
 
 ~ func emit(typeInfo = TypeInfo, level = Number[CString], isconst = Boolean)
 func emit(typeInfo=TypeInfo, level=Number, isconst=Boolean)
-    print(isconst ? "const " : "")
-    print(typeInfo.dims ? "SArray$(typeInfo.dims)D(" : "SArray(")
-    match typeInfo.typeType
-    case #object do print(typeInfo.typ.name)
-    case #unresolved do print(typeInfo.name or "ErrorType")
-    case do print(value(typeInfo.typeType).name)
-    end
-    print(typeInfo.dims ? ")" : "")
+  print(isconst ? "const " : "")
+  print(typeInfo.dims ? "SArray$(typeInfo.dims)D(" : "SArray(")
+  match typeInfo.typeType
+  case #object do print(typeInfo.typ.name)
+  case #unresolved do print(typeInfo.name or "ErrorType")
+  case do print(value(typeInfo.typeType).name)
+  end
+  print(typeInfo.dims ? ")" : "")
 end
 
 ~ no more var keyword ? even func args look funky with =
@@ -46,1152 +46,1152 @@ x := [] ~ ok for later inference
 for v = [...] do x.push(f(v)) ~ ok sets x type
 
 globVarDict = {
-    "yes" = Var {
-        typeInfo.typeType = #boolean,
-        intrinsic = yes,
-        init = Expr {
-            kind = #number
-        }
+  "yes" = Var {
+    typeInfo.typeType = #boolean,
+    intrinsic = yes,
+    init = Expr {
+      kind = #number
     }
+  }
 }
 
 mWin = Window {
-    ~ have a parseObjectInitScope func which will parse this special kind of
-    ~ scope wherein only tkVarAssign statements are legal. So basically you
-    ~ look at the first token, resolve the name in the passed type scope, and
-    ~ ignore rest of line for invalid member refs. else discard a = and then
-    ~ parseExpr to get the value.
-    ~ Same idea could be applied to parsing dict init bodies,
-    ~ should also have a dump function that serializes objs to this format.
-    title = "My Application"
-    size = 1280x800|px
-    flags = #resizable + #movable + #fullScreen
-    draw = func (c Canvas)
-        c.drawLine(0x0, 120x120|pt)
-        c.fillRoundRect(0x0, 120x120|pt, 5x5|pt)
-    end
-    views = View [
-        Button {
-            label = "Click Me!"
-        }
-        TabPanel {
-            panels = 3
-            titles = ["Manual", "Automatic", "Advanced"]
-        }
-    ]
+  ~ have a parseObjectInitScope func which will parse this special kind of
+  ~ scope wherein only tkVarAssign statements are legal. So basically you
+  ~ look at the first token, resolve the name in the passed type scope, and
+  ~ ignore rest of line for invalid member refs. else discard a = and then
+  ~ parseExpr to get the value.
+  ~ Same idea could be applied to parsing dict init bodies,
+  ~ should also have a dump function that serializes objs to this format.
+  title = "My Application"
+  size = 1280x800|px
+  flags = #resizable + #movable + #fullScreen
+  draw = func (c Canvas)
+    c.drawLine(0x0, 120x120|pt)
+    c.fillRoundRect(0x0, 120x120|pt, 5x5|pt)
+  end
+  views = View [
+    Button {
+      label = "Click Me!"
+    }
+    TabPanel {
+      panels = 3
+      titles = ["Manual", "Automatic", "Advanced"]
+    }
+  ]
 }
 mWin.show()
 
-    func emit(va JetVar, level Number, isconst Boolean)
-        print("%.*s", level, spaces)
-        if (va.typeInfo) emit(va.typeInfo, level + STEP, isconst)
-        print(" %s", va.name)
+  func emit(va JetVar, level Number, isconst Boolean)
+    print("%.*s", level, spaces)
+    if (va.typeInfo) emit(va.typeInfo, level + STEP, isconst)
+    print(" %s", va.name)
+  end
+
+  func mustPromote(name CString)
+    x =~ `ref`
+    if (equals(name, "Arrayanyfilter")) return yes
+    if (equals(name, "Arrayallfilter")) return yes
+    if (equals(name, "Arraycountfilter")) return yes
+    if (equals(name, "Arraywritefilter")) return yes
+    if (equals(name, "Strsprintfilter")) return yes
+    return no
+  end
+
+  func unmarkVisited(expr Expr)
+    match (expr.kind)
+    case #identifierResolved, #varAssign
+      expr.var.visited = no
+    case #functionCallResolved ,.functionCall ,.subscriptResolved ,.subscript , #kif ,.kfor ,.kelse ,.kwhile
+      unmarkVisited(expr.left)
+    default:
+      if (expr.prec)
+        if (not expr.unary) unmarkVisited(expr.left)
+        unmarkVisited(expr.right)
+      end
     end
+  end
 
-    func mustPromote(name CString)
+  func genPrintVars(expr Expr, level Number)
 
-        if (equals(name, "Arrayanyfilter")) return yes
-        if (equals(name, "Arrayallfilter")) return yes
-        if (equals(name, "Arraycountfilter")) return yes
-        if (equals(name, "Arraywritefilter")) return yes
-        if (equals(name, "Strsprintfilter")) return yes
-        return no
+    match (expr.kind)
+    case #identifierResolved, #varAssign
+      if (expr.var.visited)
+      print("%.*sprintf(\"  %s = %s\\n\", %s) \n", level, spaces,
+        expr.var.name, TypeTypeformat(expr.typeType, yes),
+        expr.var.name)
+      expr.var.visited = yes
+
+    case #period
+
+      //~      if (e.var.visited)
+
+    case #functionCallResolved, #functionCall, #subscriptResolved,
+      #subscript, #if, #else, #for, #while
+      genPrintVars(expr.left, level)
+    default:
+      if (expr.prec)
+        if (not expr.unary) genPrintVars(expr.left, level)
+        genPrintVars(expr.right, level)
+      end
     end
+  end
 
-    func unmarkVisited(expr Expr)
-        match (expr.kind)
-        case #identifierResolved, #varAssign
-            expr.var.visited = no
-        case #functionCallResolved ,.functionCall ,.subscriptResolved ,.subscript ,.keywordIf ,.keywordFor ,.keywordElse ,.keywordWhile
-            unmarkVisited(expr.left)
-        default:
-            if (expr.prec)
-                if (not expr.unary) unmarkVisited(expr.left)
-                unmarkVisited(expr.right)
-            end
+  func findPromotionCandidate(expr: Expr) -> Expr
+    ~ assert(expr)
+    result = Expr()
+
+    match (expr.kind)
+    case #functionCallResolved
+      if (expr.left and (ret = findPromotionCandidate(expr.left)))
+        return ret
+      else if (mustPromote(expr.func.selector))
+        return expr
+
+    case #subscriptResolved, #subscript, #if, #for,
+       #else, #elif, #while
+
+      result = findPromotionCandidate(expr.left) or nil
+
+    case #varAssign
+      if ((ret = findPromotionCandidate(*expr.var.init))) return ret
+
+    case #functionCall ~ unresolved
+      unreachable("unresolved call %s\n", expr.string)
+      if ((ret = findPromotionCandidate(*expr.left))) return ret
+
+    default:
+      if (expr.prec)
+        if (expr.right and (ret = findPromotionCandidate(*expr.right)))
+          return ret
+        if (not expr.unary)
+          if ((ret = findPromotionCandidate(*expr.left))) return ret
+      end
+    end
+    return NULL
+  end
+  char* newTmpVarName(num Number, char c)
+    char buf[8]
+    l Number = snprintf(buf, 8, "%c%d", c, num)
+    return CStringpndup(buf, l)
+  end
+
+  func isCtrlExpr(expr Expr)
+    return expr.kind == #if //
+      or expr.kind == #for //
+      or expr.kind == #while //
+      or expr.kind == #else
+  end
+  func isLiteralExpr(expr Expr)  return no  end
+  func isComparatorExpr(expr Expr)  return no  end
+
+  func lowerElementalOps(scope Scope)
+    for (Expr stmt, scope.stmts)
+      if (isCtrlExpr(stmt) and stmt.body) lowerElementalOps(stmt.body)
+      if (not stmt.elemental) continue
+
+      ifblk Expr = NEW(ASTExpr)
+      ifblk.kind = #if
+      ifblk.left = NEW(ASTExpr)
+      ifblk.left.kind = #number
+      ifblk.string = "1"
+
+    end
+  end
+
+  func promoteCandidates(scope=Scope)
+    tmpCount := Number 0
+    pc Expr = NULL
+    List(ASTExpr)* prev = NULL
+    for (Expr stmt, stmts, scope.stmts)
+
+      if (isCtrlExpr(stmt) and stmt.body) promoteCandidates(stmt.body)
+    startloop:
+      if (not (pc = findPromotionCandidate(stmt)))  ~ most likely
+        prev = stmts
+        continue
+      end
+      if (pc == stmt)
+
+        prev = stmts
+        continue
+      end
+      pcClone Expr = NEW(ASTExpr)
+      *pcClone = *pc
+
+      tmpvar Var = NEW(ASTVar)
+      tmpvar.name = newTmpVarName(++tmpCount, 'p')
+      tmpvar.typeInfo = NEW(ASTTypeSpec)
+
+      PtrListappend(scope.vars, tmpvar)
+
+      pc.kind = #identifierResolved
+      pc.prec = 0
+      pc.var = tmpvar
+
+      if (not pcClone.left)
+        pcClone.left = pc
+      else if (pcClone.left.kind != #opComma)
+        com Expr = NEW(ASTExpr)
+        com.prec = TokenKindgetPrecedence(tkOpComma)
+        com.kind = #opComma
+        com.left = pcClone.left
+        com.right = pc
+        pcClone.left = com
+      else
+        argn Expr = pcClone.left
+        while (
+          argn.kind == #opComma and argn.right.kind == #opComma)
+          argn = argn.right
+        com Expr = NEW(ASTExpr)
+        com.prec = TokenKindgetPrecedence(tkOpComma)
+        com.kind = #opComma
+        com.left = argn.right
+        com.right = pc
+        argn.right = com
+      end
+
+      if (not prev)
+        scope.stmts = ptrListWith(pcClone)
+        scope.stmts.next = stmts
+        prev = scope.stmts
+      else
+        prev.next = ptrListWith(pcClone)
+        prev.next.next = stmts
+        prev = prev.next
+      end ~ List(ASTExpr)* insertionPos = prev ? prev.next : self.stmts
+
+      goto startloop  ~ it will continue there if no more promotions are
+
+      prev = stmts
+    end
+  end
+
+  func emit(scope Scope, level Number)
+    for (local, scope.vars)
+      if (local.used)
+        emit(local, level, no)
+        puts(" ")
+      end ~ these will be declared at top and defined within the expr list
+    for (Expr stmt, scope.stmts)
+      if (stmt.kind == #lineComment) continue
+      if (genLineNumbers) print("#line %d\n", stmt.line)
+
+      if (stmt.kind != #varAssign or stmt.var.used)
+
+        if (genCoverage)
+          print("%.*sJETCOVERAGEUP(%d)  \n", level, spaces,
+            stmt.line)
+        if (genLineProfile)
+          print("%.*sJETPROFILELINE(%d) \n", level, spaces,
+            stmt.line)
         end
-    end
-
-    func genPrintVars(expr Expr, level Number)
-
-        match (expr.kind)
-        case #identifierResolved, #varAssign
-            if (expr.var.visited)
-            print("%.*sprintf(\"    %s = %s\\n\", %s) \n", level, spaces,
-                expr.var.name, TypeTypeformat(expr.typeType, yes),
-                expr.var.name)
-            expr.var.visited = yes
-
-        case #period
-
-            //~            if (e.var.visited)
-
-        case #functionCallResolved, #functionCall, #subscriptResolved,
-            #subscript, #keywordIf, #keywordElse, #keywordFor, #keywordWhile
-            genPrintVars(expr.left, level)
-        default:
-            if (expr.prec)
-                if (not expr.unary) genPrintVars(expr.left, level)
-                genPrintVars(expr.right, level)
-            end
-        end
-    end
-
-    func findPromotionCandidate(expr: Expr) -> Expr
-        ~ assert(expr)
-        result = Expr()
-
-        match (expr.kind)
-        case #functionCallResolved
-            if (expr.left and (ret = findPromotionCandidate(expr.left)))
-                return ret
-            else if (mustPromote(expr.func.selector))
-                return expr
-
-        case #subscriptResolved, #subscript, #keywordIf, #keywordFor,
-             #keywordElse, #keywordElif, #keywordWhile
-
-            result = findPromotionCandidate(expr.left) or nil
-
-        case #varAssign
-            if ((ret = findPromotionCandidate(*expr.var.init))) return ret
-
-        case #functionCall ~ unresolved
-            unreachable("unresolved call %s\n", expr.string)
-            if ((ret = findPromotionCandidate(*expr.left))) return ret
-
-        default:
-            if (expr.prec)
-                if (expr.right and (ret = findPromotionCandidate(*expr.right)))
-                    return ret
-                if (not expr.unary)
-                    if ((ret = findPromotionCandidate(*expr.left))) return ret
-            end
-        end
-        return NULL
-    end
-    char* newTmpVarName(num Number, char c)
-        char buf[8]
-        l Number = snprintf(buf, 8, "%c%d", c, num)
-        return CStringpndup(buf, l)
-    end
-
-    func isCtrlExpr(expr Expr)
-        return expr.kind == #keywordIf //
-            or expr.kind == #keywordFor //
-            or expr.kind == #keywordWhile //
-            or expr.kind == #keywordElse
-    end
-    func isLiteralExpr(expr Expr)  return no  end
-    func isComparatorExpr(expr Expr)  return no  end
-
-    func lowerElementalOps(scope Scope)
-        for (Expr stmt, scope.stmts)
-            if (isCtrlExpr(stmt) and stmt.body) lowerElementalOps(stmt.body)
-            if (not stmt.elemental) continue
-
-            ifblk Expr = NEW(ASTExpr)
-            ifblk.kind = #keywordIf
-            ifblk.left = NEW(ASTExpr)
-            ifblk.left.kind = #number
-            ifblk.string = "1"
-
-        end
-    end
-
-    func promoteCandidates(scope=Scope)
-        tmpCount := Number 0
-        pc Expr = NULL
-        List(ASTExpr)* prev = NULL
-        for (Expr stmt, stmts, scope.stmts)
-
-            if (isCtrlExpr(stmt) and stmt.body) promoteCandidates(stmt.body)
-        startloop:
-            if (not (pc = findPromotionCandidate(stmt)))  ~ most likely
-                prev = stmts
-                continue
-            end
-            if (pc == stmt)
-
-                prev = stmts
-                continue
-            end
-            pcClone Expr = NEW(ASTExpr)
-            *pcClone = *pc
-
-            tmpvar Var = NEW(ASTVar)
-            tmpvar.name = newTmpVarName(++tmpCount, 'p')
-            tmpvar.typeInfo = NEW(ASTTypeSpec)
-
-            PtrListappend(scope.vars, tmpvar)
-
-            pc.kind = #identifierResolved
-            pc.prec = 0
-            pc.var = tmpvar
-
-            if (not pcClone.left)
-                pcClone.left = pc
-            else if (pcClone.left.kind != #opComma)
-                com Expr = NEW(ASTExpr)
-                com.prec = TokenKindgetPrecedence(tkOpComma)
-                com.kind = #opComma
-                com.left = pcClone.left
-                com.right = pc
-                pcClone.left = com
-            else
-                argn Expr = pcClone.left
-                while (
-                    argn.kind == #opComma and argn.right.kind == #opComma)
-                    argn = argn.right
-                com Expr = NEW(ASTExpr)
-                com.prec = TokenKindgetPrecedence(tkOpComma)
-                com.kind = #opComma
-                com.left = argn.right
-                com.right = pc
-                argn.right = com
-            end
-
-            if (not prev)
-                scope.stmts = ptrListWith(pcClone)
-                scope.stmts.next = stmts
-                prev = scope.stmts
-            else
-                prev.next = ptrListWith(pcClone)
-                prev.next.next = stmts
-                prev = prev.next
-            end ~ List(ASTExpr)* insertionPos = prev ? prev.next : self.stmts
-
-            goto startloop  ~ it will continue there if no more promotions are
-
-            prev = stmts
-        end
-    end
-
-    func emit(scope Scope, level Number)
-        for (local, scope.vars)
-            if (local.used)
-                emit(local, level, no)
-                puts(" ")
-            end ~ these will be declared at top and defined within the expr list
-        for (Expr stmt, scope.stmts)
-            if (stmt.kind == #lineComment) continue
-            if (genLineNumbers) print("#line %d\n", stmt.line)
-
-            if (stmt.kind != #varAssign or stmt.var.used)
-
-                if (genCoverage)
-                    print("%.*sJETCOVERAGEUP(%d)  \n", level, spaces,
-                        stmt.line)
-                if (genLineProfile)
-                    print("%.*sJETPROFILELINE(%d) \n", level, spaces,
-                        stmt.line)
-                end
-                if (genCoverage or genLineProfile) puts("")  ~ ************/")
-            end
-            emit(stmt, level)
-            if (not isCtrlExpr(stmt) and stmt.kind != #keywordReturn)
-                puts(" ")
-            else
-                puts("")
-
-            sco Scope = scope
-            do {
-                for (var, sco.vars)
-                    if (var.used)
-
-                        if (var.lastUsage == stmt.line)
-                            print("%.*sDROP(%s,%s,%s,%s) \n", level, spaces,
-                                name(var.typeInfo), var.name,
-                                CollectionTypenativeName(
-                                    var.typeInfo.collectionType),
-                                StorageClassNames[var.storage])
-
-                            var.lastUsage
-                                = 0  ~ this means var has been dropped.
-                        end
-                    end
-            end while (not sco.isLoop ~ if loop scope, don't walk up
-                and (sco = sco.parent) ~ walk up to the last loop scope
-                and sco.parent and !sco.parent.isLoop)
-
-            if (throws(stmt)) print("%.*sTRACEIFERROR \n", level, spaces)
-        end
-
-        for (var, scope.vars)
-            if (var.used and var.lastUsage)
-                print("%.*sdrop(%s)  ~ anyway\n", level, spaces, var.name)
-
-    end
-
-    func genJson(typ Type)
-        print("  void %sjson(const %s self, nspc Number) \n", typ.name,
-            typ.name)
-        print("    print(\"{\\n\") \n")
-
-        for (Var : typ.body.vars)
-            if (not var  ) continue
-            print("    print(\"%%.*s\\\"%s\\\": \", nspc+4, spaces) \n",
-                var.name)
-            var valueType CString = typeName(var.init)
-            print("    %sjson(self.%s, nspc+4) \n    print(\"", valueType,
-                var.name)
-            if (vars.next) print(",")
-            print("\\n\") \n")
-        end
-        print("    print(\"%%.*send\", nspc, spaces) \n")
-        print("end\nMAKEjsonwrap(%s)\n//MAKEjsonfile(%s)\n", typ.name,
-            typ.name)
-    end
-
-    func genJsonReader(typ Type)  end
-    var functionEntryStuffUNESCAPED CString
-        = "    STACKDEPTHUP  DOSTACKCHECK \n"
-    var functionExitStuffUNESCAPED CString
-        = "    return DEFAULTVALUE \n"
-          "uncaught: HANDLEUNCAUGHT \n"
-          "backtrace: SHOWBACKTRACELINE \n"
-          "return: STACKDEPTHDOWN \n"
-          "    return DEFAULTVALUE "
-
-    func printStackUsageDef(sizet stackUsage)
-        print("#define MYSTACKUSAGE (%lu + 6*sizeof(void*) + "
-               "IFDEBUGELSE(sizeof(char*),0))\n",
-            stackUsage)
-    end
-
-    func emit(typ Type, level Number)
-        if (not typ.body or !typ.analysed or typ.isDeclare) return
-        var const CString name = typ.name
-        print("#define FIELDS%s \\\n", name)
-        for (var, typ.body.vars)
-            if (not var  ) continue
-
-            emit(var, level + STEP, no)
-            print("  \\\n")
-        end
-        print("\n\nstruct %s {\n", name)
-        if (typ.super)
-            print("    FIELDS")
-            emit(typ.super, level, no)
-            print("\n")
-        end
-        print("    FIELDS%s\nend \n\n", name)
-        print("  const char* %sname = \"%s\" \n\n", name, name)
-        print("  %s %salloc() \n    return Poolalloc(gPool, "
-               "sizeof(struct %s)) \nend\n\n",
-            name, name, name)
-        print("  %s %sinit(%s self) \n", name, name, name)
-        for (Var : typ.body.vars) ~ if (var.used)
-            print("#define %s self.%s\n", var.name, var.name)
-        for (stmt Expr : typ.body.stmts)
-            if (not stmt or stmt.kind != #varAssign or !stmt.var.init)
-                continue
-            print("%.*s%s = ", level + STEP, spaces, stmt.var.name)
-            emit(stmt.var.init, 0)
-            puts(" ")
-            if (throws(stmt.var.init))
-                puts("    if (err == ERRORTRACE) return NULL ")
-        end
-        for (var, typ.body.vars) ~ if (var.used)
-            print("#undef %s \n", var.name)
-        print("    return self \nend\n\n")
-        printStackUsageDef(48)
-        print("#define DEFAULTVALUE NULL\n"
-               "monostatic %s %snew(IFDEBUG(callsite CString)) \n"
-               "IFDEBUG(  var sig CString = \"%s()\") \n",
-            name, name, name)
-        puts(functionEntryStuffUNESCAPED)
-        print("    %s ret = %salloc()  %sinit(ret) \n"
-               "    TRACEIFERROR \n"
-               "    err = NULL  STACKDEPTHDOWN  return ret \n",
-            name, name, name)
-        puts(functionExitStuffUNESCAPED)
-        puts("#undef DEFAULTVALUE\n#undef MYSTACKUSAGE\nend\n")
-        print("#define %sprint(p) %sprint(p, STR(p))\n", name, name)
-        print("monostatic void %sprint(%s self, var name CString) \n    "
-               "print(\"<%s "
-               "'%%s' at %%p size %%luB>\\n\",name, self, sizeof(struct "
-               "%s)) \nend\n",
-            name, name, name, name)
+        if (genCoverage or genLineProfile) puts("")  ~ ************/")
+      end
+      emit(stmt, level)
+      if (not isCtrlExpr(stmt) and stmt.kind != #return)
+        puts(" ")
+      else
         puts("")
-        genJson(typ)
-        genJsonReader(typ)
+
+      sco Scope = scope
+      do {
+        for (var, sco.vars)
+          if (var.used)
+
+            if (var.lastUsage == stmt.line)
+              print("%.*sDROP(%s,%s,%s,%s) \n", level, spaces,
+                name(var.typeInfo), var.name,
+                CollectionTypenativeName(
+                  var.typeInfo.collectionType),
+                StorageClassNames[var.storage])
+
+              var.lastUsage
+                = 0  ~ this means var has been dropped.
+            end
+          end
+      end while (not sco.isLoop ~ if loop scope, don't walk up
+        and (sco = sco.parent) ~ walk up to the last loop scope
+        and sco.parent and !sco.parent.isLoop)
+
+      if (throws(stmt)) print("%.*sTRACEIFERROR \n", level, spaces)
     end
+
+    for (var, scope.vars)
+      if (var.used and var.lastUsage)
+        print("%.*sdrop(%s)  ~ anyway\n", level, spaces, var.name)
+
+  end
+
+  func genJson(typ Type)
+    print("  void %sjson(const %s self, nspc Number) \n", typ.name,
+      typ.name)
+    print("  print(\"{\\n\") \n")
+
+    for (Var : typ.body.vars)
+      if (not var  ) continue
+      print("  print(\"%%.*s\\\"%s\\\": \", nspc+4, spaces) \n",
+        var.name)
+      var valueType CString = typeName(var.init)
+      print("  %sjson(self.%s, nspc+4) \n  print(\"", valueType,
+        var.name)
+      if (vars.next) print(",")
+      print("\\n\") \n")
+    end
+    print("  print(\"%%.*send\", nspc, spaces) \n")
+    print("end\nMAKEjsonwrap(%s)\n//MAKEjsonfile(%s)\n", typ.name,
+      typ.name)
+  end
+
+  func genJsonReader(typ Type)  end
+  var functionEntryStuffUNESCAPED CString
+    = "  STACKDEPTHUP  DOSTACKCHECK \n"
+  var functionExitStuffUNESCAPED CString
+    = "  return DEFAULTVALUE \n"
+      "uncaught: HANDLEUNCAUGHT \n"
+      "backtrace: SHOWBACKTRACELINE \n"
+      "return: STACKDEPTHDOWN \n"
+      "  return DEFAULTVALUE "
+
+  func printStackUsageDef(sizet stackUsage)
+    print("#define MYSTACKUSAGE (%lu + 6*sizeof(void*) + "
+         "IFDEBUGELSE(sizeof(char*),0))\n",
+      stackUsage)
+  end
+
+  func emit(typ Type, level Number)
+    if (not typ.body or !typ.analysed or typ.isDeclare) return
+    var const CString name = typ.name
+    print("#define FIELDS%s \\\n", name)
+    for (var, typ.body.vars)
+      if (not var  ) continue
+
+      emit(var, level + STEP, no)
+      print("  \\\n")
+    end
+    print("\n\nstruct %s {\n", name)
+    if (typ.super)
+      print("  FIELDS")
+      emit(typ.super, level, no)
+      print("\n")
+    end
+    print("  FIELDS%s\nend \n\n", name)
+    print("  const char* %sname = \"%s\" \n\n", name, name)
+    print("  %s %salloc() \n  return Poolalloc(gPool, "
+         "sizeof(struct %s)) \nend\n\n",
+      name, name, name)
+    print("  %s %sinit(%s self) \n", name, name, name)
+    for (Var : typ.body.vars) ~ if (var.used)
+      print("#define %s self.%s\n", var.name, var.name)
+    for (stmt Expr : typ.body.stmts)
+      if (not stmt or stmt.kind != #varAssign or !stmt.var.init)
+        continue
+      print("%.*s%s = ", level + STEP, spaces, stmt.var.name)
+      emit(stmt.var.init, 0)
+      puts(" ")
+      if (throws(stmt.var.init))
+        puts("  if (err == ERRORTRACE) return NULL ")
+    end
+    for (var, typ.body.vars) ~ if (var.used)
+      print("#undef %s \n", var.name)
+    print("  return self \nend\n\n")
+    printStackUsageDef(48)
+    print("#define DEFAULTVALUE NULL\n"
+         "monostatic %s %snew(IFDEBUG(callsite CString)) \n"
+         "IFDEBUG(  var sig CString = \"%s()\") \n",
+      name, name, name)
+    puts(functionEntryStuffUNESCAPED)
+    print("  %s ret = %salloc()  %sinit(ret) \n"
+         "  TRACEIFERROR \n"
+         "  err = NULL  STACKDEPTHDOWN  return ret \n",
+      name, name, name)
+    puts(functionExitStuffUNESCAPED)
+    puts("#undef DEFAULTVALUE\n#undef MYSTACKUSAGE\nend\n")
+    print("#define %sprint(p) %sprint(p, STR(p))\n", name, name)
+    print("monostatic void %sprint(%s self, var name CString) \n  "
+         "print(\"<%s "
+         "'%%s' at %%p size %%luB>\\n\",name, self, sizeof(struct "
+         "%s)) \nend\n",
+      name, name, name, name)
+    puts("")
+    genJson(typ)
+    genJsonReader(typ)
+  end
 
 ~ Writes a header file for the given type.
 func header(typ=Type, level=Number)
-    if not typ.analysed or typ.isDeclare do return
-    print('
-        typedef struct $1* $1;
-        struct $1;
-        $1 $1_alloc();
-        $1 $1_init($1 self);
-        $1 $1_new(IFDEBUG(const char* const __callsite__));
-        DECLjsonwrap($1)
-        //DECLjsonfile($1)
-        #define $1_json(x) print("\"%s\": ", #x)
-        $1_jsonwrap(x);
-        void $1_json(const $1 self, nspc Number)
-    ' % typ.name)
+  if not typ.analysed or typ.isDeclare do return
+  print('
+    typedef struct $1* $1;
+    struct $1;
+    $1 $1_alloc();
+    $1 $1_init($1 self);
+    $1 $1_new(IFDEBUG(const char* const __callsite__));
+    DECLjsonwrap($1)
+    //DECLjsonfile($1)
+    #define $1_json(x) print("\"%s\": ", #x)
+    $1_jsonwrap(x);
+    void $1_json(const $1 self, nspc Number)
+  ' % typ.name)
 end
 
-    func genh(typ Type, level Number)
-        if (not typ.body or !typ.analysed) return
-        var const CString name = typ.name
-        puts("typedef enum {")
-        for (var, typ.body.vars) print("    %s%s,\n", name, var.name)
-        print("end %s \n", name)
-        ex1 Expr = typ.body.stmts.item
-        var datType CString
-            = ex1.kind == #opAssign ? typeName(ex1.right) : NULL
-        if (datType)
-            print("monostatic %s %sdata[%d] \n", datType, name,
-                PtrListcount(typ.body.vars))
-        print("monostatic const char* %sfullnames[] ={\n", name)
-        for (var, typ.body.vars)
-            print("    \"%s.%s\",\n", name, var.name)
-        puts("end ")
-        print("monostatic const char* %snames[] ={\n", name)
-        for (var, typ.body.vars) print("    \".%s\",\n", var.name)
-        puts("end ")
+  func genh(typ Type, level Number)
+    if (not typ.body or !typ.analysed) return
+    var const CString name = typ.name
+    puts("typedef enum {")
+    for (var, typ.body.vars) print("  %s%s,\n", name, var.name)
+    print("end %s \n", name)
+    ex1 Expr = typ.body.stmts.item
+    var datType CString
+      = ex1.kind == #opAssign ? typeName(ex1.right) : NULL
+    if (datType)
+      print("monostatic %s %sdata[%d] \n", datType, name,
+        PtrListcount(typ.body.vars))
+    print("monostatic const char* %sfullnames[] ={\n", name)
+    for (var, typ.body.vars)
+      print("  \"%s.%s\",\n", name, var.name)
+    puts("end ")
+    print("monostatic const char* %snames[] ={\n", name)
+    for (var, typ.body.vars) print("  \".%s\",\n", var.name)
+    puts("end ")
 
-        print("monostatic void %sinit() \n", name)
+    print("monostatic void %sinit() \n", name)
 
-        for (Expr stmt, typ.body.stmts)
-            if (not stmt or stmt.kind != #opAssign) //or !stmt.var.init)
-                continue
-            print("%.*s%sdata[%s%s] = ", level + STEP, spaces, name, name,
-                stmt.left.string)
-            emit(stmt.right, 0)
-            puts(" ")
-            if (throws(stmt.right))
-                puts("    if (err == ERRORTRACE) return NULL ")
-        end
-        puts("end")
-
+    for (Expr stmt, typ.body.stmts)
+      if (not stmt or stmt.kind != #opAssign) //or !stmt.var.init)
+        continue
+      print("%.*s%sdata[%s%s] = ", level + STEP, spaces, name, name,
+        stmt.left.string)
+      emit(stmt.right, 0)
+      puts(" ")
+      if (throws(stmt.right))
+        puts("  if (err == ERRORTRACE) return NULL ")
     end
-    func emit(func Func, level Number)
-        if (not func.body or !func.analysed or func.isDeclare)
-            return  ~ declares, default ctors
+    puts("end")
 
-        sizet stackUsage = calcSizeUsage(func)
-        printStackUsageDef(stackUsage)
-        print("#define DEFAULTVALUE %s\n",
-            getDefaultValueForType(func.returnSpec))
-        if (not func.isExported) print("  ")
-        if (func.returnSpec)
-            emit(func.returnSpec, level, no)
-        else
-            print("void")
-        end
-        print(" %s(", func.selector)
-        for (arg, args, func.args)
-            emit(arg, level, yes)
-            print(args.next ? ", " : "")
-        end
-        print("\n#ifdef DEBUG\n"
-               "    %c var callsite CString "
-               "\n#endif\n",
-            ((func.args and func.args.item ? ',' : ' ')))
+  end
+  func emit(func Func, level Number)
+    if (not func.body or !func.analysed or func.isDeclare)
+      return  ~ declares, default ctors
 
-        puts(") ")
-        print("    IFDEBUG(  var sig CString = \"")
-        print("%s%s(", func.isStmt ? "" : "function ", func.name)
-        for (arg, args, func.args)
-            lint(arg, level)
-            print(args.next ? ", " : "")
-        end
-        print(")")
-        if (func.returnSpec)
-            print(" as ")
-            lint(func.returnSpec, level)
-        end
-        puts("\") ")
-        puts(functionEntryStuffUNESCAPED)
-        emit(func.body, level + STEP)
-        puts(functionExitStuffUNESCAPED)
-        puts("end\n#undef DEFAULTVALUE")
-        puts("#undef MYSTACKUSAGE")
+    sizet stackUsage = calcSizeUsage(func)
+    printStackUsageDef(stackUsage)
+    print("#define DEFAULTVALUE %s\n",
+      getDefaultValueForType(func.returnSpec))
+    if (not func.isExported) print("  ")
+    if (func.returnSpec)
+      emit(func.returnSpec, level, no)
+    else
+      print("void")
     end
+    print(" %s(", func.selector)
+    for (arg, args, func.args)
+      emit(arg, level, yes)
+      print(args.next ? ", " : "")
+    end
+    print("\n#ifdef DEBUG\n"
+         "  %c var callsite CString "
+         "\n#endif\n",
+      ((func.args and func.args.item ? ',' : ' ')))
 
-    func genh(func Func, level Number)
-        if (not func.body or !func.analysed or func.isDeclare) return
-        if (not func.isExported) print("  ")
-        if (func.returnSpec)
-            emit(func.returnSpec, level, no)
-        else
-            print("void")
+    puts(") ")
+    print("  IFDEBUG(  var sig CString = \"")
+    print("%s%s(", func.isStmt ? "" : "function ", func.name)
+    for (arg, args, func.args)
+      lint(arg, level)
+      print(args.next ? ", " : "")
+    end
+    print(")")
+    if (func.returnSpec)
+      print(" as ")
+      lint(func.returnSpec, level)
+    end
+    puts("\") ")
+    puts(functionEntryStuffUNESCAPED)
+    emit(func.body, level + STEP)
+    puts(functionExitStuffUNESCAPED)
+    puts("end\n#undef DEFAULTVALUE")
+    puts("#undef MYSTACKUSAGE")
+  end
+
+  func genh(func Func, level Number)
+    if (not func.body or !func.analysed or func.isDeclare) return
+    if (not func.isExported) print("  ")
+    if (func.returnSpec)
+      emit(func.returnSpec, level, no)
+    else
+      print("void")
+    end
+    print(" %s(", func.selector)
+    for (arg, args, func.args)
+      emit(arg, level, yes)
+      print(args.next ? ", " : "")
+    end
+    print("\n#ifdef DEBUG\n  %c var callsite CString\n#endif\n",
+      ((func.args and func.args.item) ? ',' : ' '))
+    puts(") \n")
+  end
+
+  func genh(Var, level Number)
+
+    if (not var.init) return
+    emit(var.typeInfo, level, no)
+
+    print(" %s = ", var.name)
+    emit(var.init, 0)
+    puts("")
+  end
+
+  func emit(test Test) ~ TODO: should tests not return BOOL?
+  {
+    if (not test.body) return
+    print("\nstatic void test%s() \n", test.name)
+    emit(test.body, STEP)
+    puts("end")
+  end
+  //
+  /~ Emits the equivalent C code for a subscript (that has been resolved to
+  /~ its corresponding `ASTVariable`). This function does all of the heavy
+  /~ lifting to decide what the subscript actually does, based on the kind of
+  /~ the subscript expression, number of dimensions and the context.
+  func emittkSubscriptResolved(expr Expr, level Number)
+    char* name = expr.var.name
+    index Expr = expr.left
+    assert(index)
+    match (index.kind)
+    case #number ~ indexing with a single number, can be a -ve number
+      print("Arrayget%s(%s, %s)", cname(expr.var.typeInfo), name,
+        index.string)
+
+    case #string
+    case #rawString ~ indexing with single string or regex
+      print("DictgetCString%s(%s, %s)", cname(expr.var.typeInfo),
+        name, index.string)
+
+    case #opComma ~ higher dims. validation etc. has been done by this
+
+      print("Tensor%dDget%s(%s, {", expr.var.typeInfo.dims,
+        cname(expr.var.typeInfo), name)
+      emit(index, 0)
+      print("end)")
+
+    case #opColon
+      print("ArraygetSlice%s(%s, ", name(expr.var.typeInfo), name)
+      emit(index, 0)
+      print(")")
+
+    case #opEQ
+    case #opLE
+    case #opGE
+    case #opGT
+    case #opLT
+    case #opNE
+    case #and
+    case #or
+    case #not
+
+      print("Arraycopyfilter%s(%s, ", name(expr.var.typeInfo), name)
+      emit(index, 0)
+      print(")")
+
+    default:
+      unreachable("bad kind: %s", TokenKindsnames[expr.kind])
+    end
+  end
+  //
+  /~ Emits the equivalent C code for a function call (that has been resolved
+  /~ to its corresponding `ASTFunc`). Type constructors call a C function
+  /~ that has `new` appended to the typ name. This function passes a
+  /~ constructed string as the extra argument `callsite` that is used to
+  /~ generate accurate backtraces.
+  func emittkFunctionCallResolved(expr Expr, level Number)
+    char* tmp = expr.func.selector
+    arg1 Expr = expr.left
+    var tmpc CString = ""
+    if (arg1)
+      if (arg1.kind == #opComma) arg1 = arg1.left
+      tmpc = CollectionTypenativeName(arg1.collectionType)
+    end
+    print("%s%s", tmpc, tmp)
+    if (*tmp >= 'A' and *tmp <= 'Z' and !strchr(tmp, '')) print("new")
+    print("(")
+    if (expr.left) emit(expr.left, 0)
+    if (not expr.func.isDeclare)
+      print("\n#ifdef DEBUG\n"
+           "    %c \"./\" THISFILE \":%d:%d:\\e[0m ",
+        expr.left ? ',' : ' ', expr.line, expr.col)
+      lint(expr, 0, no, yes)
+      print("\"\n"
+           "#endif\n    ")
+    end
+    print(")")
+  end
+  char* strchrnul(char* str, char ch)
+    while (*str and *str != ch) str++
+    return str
+  end
+  func lineupmultilinestring(expr Expr, indent Number)
+    return
+    char* pos = expr.string
+    while (*(pos = strpbrk(pos, "\n")))
+      del Number = strspn(pos, " ") - indent
+      if (del <= 0) continue
+    end
+  end
+  func printmultilstr(char* pos)
+    do {
+      p Number = strcspn(pos, "\n")
+      print("\"%.*s", p, pos)
+      pos += p + 1
+      print(*pos ? "\\n\"" : "\"")
+    end while (*pos)
+  end
+  func emittkString(expr Expr, level Number)
+    lineupmultilinestring(expr, level + STEP)
+    if (not expr.vars)
+      printmultilstr(expr.string + 1)
+    else
+      char* pos = expr.string
+      char* last = pos
+      v Var
+      PtrList* p = expr.vars
+      e Expr = p.item
+      print("strinterph(64, ")
+      while (*pos)
+        while (*pos and *pos != '$') pos++
+        *pos++ = 0
+        print("%s", last)
+        pos[-1] = '$'
+        last = pos
+        while (*pos and isalnum(*pos) or *pos == '.') pos++
+
+        if (e)
+          while (e.kind == #period) e = e.right
+          assert(e.kind == #identifierResolved)
+          assert(e.var)
+          print(
+            "%s", TypeTypeformat(e.var.typeInfo.typeType, no))
+          last = pos
+          e = ((p = p.next)) ? p.item : NULL
         end
-        print(" %s(", func.selector)
-        for (arg, args, func.args)
-            emit(arg, level, yes)
-            print(args.next ? ", " : "")
+      end
+      print("\"")
+      for (Expr e, expr.vars)
+        print(", ")
+        emit(e, 0)
+      end
+      print(")")
+    end
+  end
+  //
+  /~ Emits the equivalent C code for a (literal) numeric expression.
+  /~ Complex numbers follow C99 literal syntax, e.g. 1i generates
+  /~ `ComplexI * 1`.
+  func emittkNumber(expr Expr, level Number)
+    sizet ls = CStringlength(expr.string)
+    if (expr.string[ls - 1] == 'i')
+      print("ComplexI*")
+      expr.string[ls - 1] = 0
+    end
+    print("%s", expr.string)
+  end
+  func emittkCheck(expr Expr, level Number)
+
+    Expr* checkExpr = expr.right  ~ now use checkExpr below
+    Expr* lhsExpr = checkExpr.left
+    Expr* rhsExpr = checkExpr.right
+    print("{\n")
+    if (not checkExpr.unary)
+      print("%.*s%s lhs = ", level, spaces, typeName(lhsExpr))
+      emit(lhsExpr, 0)
+      print(" \n")
+    end
+    print("%.*s%s rhs = ", level, spaces, typeName(rhsExpr))
+    emit(rhsExpr, 0)
+    print(" \n")
+    print("%.*sif (not (", level, spaces)
+    emit(checkExpr, 0)
+
+    print(")) \n")
+    print("%.*sprintf(\"\\n\\n\e[31mruntime error:\e[0m check "
+         "failed at \e[36m./%%s:%d:%d:\e[0m\\n  %%s\\n\\n\",\n   "
+         "     "
+         "   THISFILE, \"",
+      level + STEP, spaces, expr.line, expr.col + 6)
+    lint(checkExpr, 0, yes, yes)
+    print("\") \n")
+    print("#ifdef DEBUG\n%.*sCHECKHELPOPEN \n", level + STEP, spaces)
+    genPrintVars(checkExpr, level + STEP)
+
+    if (not checkExpr.unary)
+      if (lhsExpr.collectionType == CTYNone //
+        and lhsExpr.kind != #string //
+        and lhsExpr.kind != #number //
+        and lhsExpr.kind != #rawString //
+        and lhsExpr.kind != #opLE //
+        and lhsExpr.kind != #opLT)
+        if (lhsExpr.kind != #identifierResolved
+          or !lhsExpr.var.visited)
+          print(
+            "%.*s%s", level + STEP, spaces, "print(\"  %s = ")
+          print("%s", TypeTypeformat(lhsExpr.typeType, yes))
+          print("%s", "\\n\", \"")
+          lint(lhsExpr, 0, yes, yes)
+          print("%s", "\", lhs) \n")
         end
-        print("\n#ifdef DEBUG\n    %c var callsite CString\n#endif\n",
-            ((func.args and func.args.item) ? ',' : ' '))
-        puts(") \n")
+
+      end
     end
-
-    func genh(Var, level Number)
-
-        if (not var.init) return
-        emit(var.typeInfo, level, no)
-
-        print(" %s = ", var.name)
-        emit(var.init, 0)
-        puts("")
+    if (rhsExpr.collectionType == CTYNone //
+      and rhsExpr.kind != #string //
+      and rhsExpr.kind != #number //
+      and rhsExpr.kind != #rawString)
+      if (rhsExpr.kind != #identifierResolved or !rhsExpr.var.visited)
+        print("%.*s%s", level + STEP, spaces, "print(\"  %s = ")
+        print("%s", TypeTypeformat(rhsExpr.typeType, yes))
+        print("%s", "\\n\", \"")
+        lint(rhsExpr, 0, yes, yes)
+        print("%s", "\", rhs) \n")
+      end
     end
+    unmarkVisited(checkExpr)
+    print("%.*sCHECKHELPCLOSE \n", level + STEP, spaces)
+    print("#else\n%.*sCHECKHELPDISABLED \n", level + STEP, spaces)
+    print("#endif\n%.*send\n%.*send", level, spaces, level, spaces)
+  end
 
-    func emit(test Test) ~ TODO: should tests not return BOOL?
-    {
-        if (not test.body) return
-        print("\nstatic void test%s() \n", test.name)
-        emit(test.body, STEP)
-        puts("end")
-    end
-    //
-    /~ Emits the equivalent C code for a subscript (that has been resolved to
-    /~ its corresponding `ASTVariable`). This function does all of the heavy
-    /~ lifting to decide what the subscript actually does, based on the kind of
-    /~ the subscript expression, number of dimensions and the context.
-    func emittkSubscriptResolved(expr Expr, level Number)
-        char* name = expr.var.name
-        index Expr = expr.left
-        assert(index)
-        match (index.kind)
-        case #number ~ indexing with a single number, can be a -ve number
-            print("Arrayget%s(%s, %s)", cname(expr.var.typeInfo), name,
-                index.string)
+  /~ This should be a standard dispatcher that does nothing except the
+  /~ actual dispatching (via a function pointer table, not a match).
+  func emit(expr Expr, level Number)
 
+    print("%.*s", level, spaces)
+    match (expr.kind)
+    case #number #number(expr, level)
+    case #no print("no")
+    case #yes print("yes")
+    case #nil print("nil")
+    case #multiDotNumber
+    case #identifier print("%s", expr.string)
+    case #string emittkString(expr, level)
+    case #identifierResolved print("%s", expr.var.name)
+    case #rawString ~ 'raw strings' or 'regexes'
+      print("\"%s\"", expr.string + 1)
+
+    case #regexp ~ inline C code?
+      print("%s", expr.string + 1)
+
+    case #lineComment: ~ TODO skip  comments in generated code
+      print("~ %s", expr.string)
+
+    case #functionCall
+      unreachable("unresolved call to '%s'\n", expr.string)
+
+    case #functionCallResolved
+      emittkFunctionCallResolved(expr, level)
+
+    case #subscript
+      unreachable("unresolved subscript on '%s'\n", expr.string)
+
+    case #subscriptResolved #subscriptResolved(expr, level)
+    case #opAssign
+    case #opPlusEq
+    case #opMinusEq
+    case #opTimesEq
+    case #opSlashEq
+    case #opPowerEq
+    case #opModEq
+      match (expr.left.kind)
+      case #subscriptResolved
+        match (expr.left.left.kind)
+        case #number
         case #string
-        case #rawString ~ indexing with single string or regex
-            print("DictgetCString%s(%s, %s)", cname(expr.var.typeInfo),
-                name, index.string)
+        case #rawString
 
-        case #opComma ~ higher dims. validation etc. has been done by this
-
-            print("Tensor%dDget%s(%s, {", expr.var.typeInfo.dims,
-                cname(expr.var.typeInfo), name)
-            emit(index, 0)
-            print("end)")
+          print("%sset(%s, %s,%s, ", typeName(expr.left),
+            expr.left.var.name, expr.left.left.string,
+            TokenKindrepr(expr.kind, yes))
+          emit(expr.right, 0)
+          print(")")
 
         case #opColon
-            print("ArraygetSlice%s(%s, ", name(expr.var.typeInfo), name)
-            emit(index, 0)
-            print(")")
+          print("%ssetSlice(%s, ", typeName(expr.left),
+            expr.left.var.name)
+          emit(expr.left.left, 0)
+          print(",%s, ", TokenKindrepr(expr.kind, yes))
+          emit(expr.right, 0)
+          print(")")
 
         case #opEQ
-        case #opLE
         case #opGE
-        case #opGT
-        case #opLT
         case #opNE
-        case #keywordAnd
-        case #keywordOr
-        case #keywordNot
+        case #opGT
+        case #opLE
+        case #opLT
+        case #and
+        case #or
+        case #not
+          print("%ssetFiltered(%s, ", typeName(expr.left),
+            expr.left.var.name)
+          emit(expr.left.left, 0)
+          print(",%s, ", TokenKindrepr(expr.kind, yes))
+          emit(expr.right, 0)
+          print(")")
 
-            print("Arraycopyfilter%s(%s, ", name(expr.var.typeInfo), name)
-            emit(index, 0)
-            print(")")
+        case #opComma
 
-        default:
-            unreachable("bad kind: %s", TokenKindsnames[expr.kind])
-        end
-    end
-    //
-    /~ Emits the equivalent C code for a function call (that has been resolved
-    /~ to its corresponding `ASTFunc`). Type constructors call a C function
-    /~ that has `new` appended to the typ name. This function passes a
-    /~ constructed string as the extra argument `callsite` that is used to
-    /~ generate accurate backtraces.
-    func emittkFunctionCallResolved(expr Expr, level Number)
-        char* tmp = expr.func.selector
-        arg1 Expr = expr.left
-        var tmpc CString = ""
-        if (arg1)
-            if (arg1.kind == #opComma) arg1 = arg1.left
-            tmpc = CollectionTypenativeName(arg1.collectionType)
-        end
-        print("%s%s", tmpc, tmp)
-        if (*tmp >= 'A' and *tmp <= 'Z' and !strchr(tmp, '')) print("new")
-        print("(")
-        if (expr.left) emit(expr.left, 0)
-        if (not expr.func.isDeclare)
-            print("\n#ifdef DEBUG\n"
-                   "      %c \"./\" THISFILE \":%d:%d:\\e[0m ",
-                expr.left ? ',' : ' ', expr.line, expr.col)
-            lint(expr, 0, no, yes)
-            print("\"\n"
-                   "#endif\n        ")
-        end
-        print(")")
-    end
-    char* strchrnul(char* str, char ch)
-        while (*str and *str != ch) str++
-        return str
-    end
-    func lineupmultilinestring(expr Expr, indent Number)
-        return
-        char* pos = expr.string
-        while (*(pos = strpbrk(pos, "\n")))
-            del Number = strspn(pos, " ") - indent
-            if (del <= 0) continue
-        end
-    end
-    func printmultilstr(char* pos)
-        do {
-            p Number = strcspn(pos, "\n")
-            print("\"%.*s", p, pos)
-            pos += p + 1
-            print(*pos ? "\\n\"" : "\"")
-        end while (*pos)
-    end
-    func emittkString(expr Expr, level Number)
-        lineupmultilinestring(expr, level + STEP)
-        if (not expr.vars)
-            printmultilstr(expr.string + 1)
-        else
-            char* pos = expr.string
-            char* last = pos
-            v Var
-            PtrList* p = expr.vars
-            e Expr = p.item
-            print("strinterph(64, ")
-            while (*pos)
-                while (*pos and *pos != '$') pos++
-                *pos++ = 0
-                print("%s", last)
-                pos[-1] = '$'
-                last = pos
-                while (*pos and isalnum(*pos) or *pos == '.') pos++
+        case #identifierResolved
 
-                if (e)
-                    while (e.kind == #period) e = e.right
-                    assert(e.kind == #identifierResolved)
-                    assert(e.var)
-                    print(
-                        "%s", TypeTypeformat(e.var.typeInfo.typeType, no))
-                    last = pos
-                    e = ((p = p.next)) ? p.item : NULL
-                end
-            end
-            print("\"")
-            for (Expr e, expr.vars)
-                print(", ")
-                emit(e, 0)
-            end
-            print(")")
-        end
-    end
-    //
-    /~ Emits the equivalent C code for a (literal) numeric expression.
-    /~ Complex numbers follow C99 literal syntax, e.g. 1i generates
-    /~ `ComplexI * 1`.
-    func emittkNumber(expr Expr, level Number)
-        sizet ls = CStringlength(expr.string)
-        if (expr.string[ls - 1] == 'i')
-            print("ComplexI*")
-            expr.string[ls - 1] = 0
-        end
-        print("%s", expr.string)
-    end
-    func emittkCheck(expr Expr, level Number)
-
-        Expr* checkExpr = expr.right  ~ now use checkExpr below
-        Expr* lhsExpr = checkExpr.left
-        Expr* rhsExpr = checkExpr.right
-        print("{\n")
-        if (not checkExpr.unary)
-            print("%.*s%s lhs = ", level, spaces, typeName(lhsExpr))
-            emit(lhsExpr, 0)
-            print(" \n")
-        end
-        print("%.*s%s rhs = ", level, spaces, typeName(rhsExpr))
-        emit(rhsExpr, 0)
-        print(" \n")
-        print("%.*sif (not (", level, spaces)
-        emit(checkExpr, 0)
-
-        print(")) \n")
-        print("%.*sprintf(\"\\n\\n\e[31mruntime error:\e[0m check "
-               "failed at \e[36m./%%s:%d:%d:\e[0m\\n    %%s\\n\\n\",\n     "
-               "       "
-               "   THISFILE, \"",
-            level + STEP, spaces, expr.line, expr.col + 6)
-        lint(checkExpr, 0, yes, yes)
-        print("\") \n")
-        print("#ifdef DEBUG\n%.*sCHECKHELPOPEN \n", level + STEP, spaces)
-        genPrintVars(checkExpr, level + STEP)
-
-        if (not checkExpr.unary)
-            if (lhsExpr.collectionType == CTYNone //
-                and lhsExpr.kind != #string //
-                and lhsExpr.kind != #number //
-                and lhsExpr.kind != #rawString //
-                and lhsExpr.kind != #opLE //
-                and lhsExpr.kind != #opLT)
-                if (lhsExpr.kind != #identifierResolved
-                    or !lhsExpr.var.visited)
-                    print(
-                        "%.*s%s", level + STEP, spaces, "print(\"    %s = ")
-                    print("%s", TypeTypeformat(lhsExpr.typeType, yes))
-                    print("%s", "\\n\", \"")
-                    lint(lhsExpr, 0, yes, yes)
-                    print("%s", "\", lhs) \n")
-                end
-
-            end
-        end
-        if (rhsExpr.collectionType == CTYNone //
-            and rhsExpr.kind != #string //
-            and rhsExpr.kind != #number //
-            and rhsExpr.kind != #rawString)
-            if (rhsExpr.kind != #identifierResolved or !rhsExpr.var.visited)
-                print("%.*s%s", level + STEP, spaces, "print(\"    %s = ")
-                print("%s", TypeTypeformat(rhsExpr.typeType, yes))
-                print("%s", "\\n\", \"")
-                lint(rhsExpr, 0, yes, yes)
-                print("%s", "\", rhs) \n")
-            end
-        end
-        unmarkVisited(checkExpr)
-        print("%.*sCHECKHELPCLOSE \n", level + STEP, spaces)
-        print("#else\n%.*sCHECKHELPDISABLED \n", level + STEP, spaces)
-        print("#endif\n%.*send\n%.*send", level, spaces, level, spaces)
-    end
-
-    /~ This should be a standard dispatcher that does nothing except the
-    /~ actual dispatching (via a function pointer table, not a match).
-    func emit(expr Expr, level Number)
-
-        print("%.*s", level, spaces)
-        match (expr.kind)
-        case #number #number(expr, level)
-        case #keywordNo print("no")
-        case #keywordYes print("yes")
-        case #keywordNil print("nil")
-        case #multiDotNumber
-        case #identifier print("%s", expr.string)
-        case #string emittkString(expr, level)
-        case #identifierResolved print("%s", expr.var.name)
-        case #rawString ~ 'raw strings' or 'regexes'
-            print("\"%s\"", expr.string + 1)
-
-        case #regexp ~ inline C code?
-            print("%s", expr.string + 1)
-
-        case #lineComment: ~ TODO skip  comments in generated code
-            print("~ %s", expr.string)
-
-        case #functionCall
-            unreachable("unresolved call to '%s'\n", expr.string)
+        case #subscriptResolved
 
         case #functionCallResolved
-            emittkFunctionCallResolved(expr, level)
 
-        case #subscript
-            unreachable("unresolved subscript on '%s'\n", expr.string)
-
-        case #subscriptResolved #subscriptResolved(expr, level)
-        case #opAssign
-        case #opPlusEq
-        case #opMinusEq
-        case #opTimesEq
-        case #opSlashEq
-        case #opPowerEq
-        case #opModEq
-            match (expr.left.kind)
-            case #subscriptResolved
-                match (expr.left.left.kind)
-                case #number
-                case #string
-                case #rawString
-
-                    print("%sset(%s, %s,%s, ", typeName(expr.left),
-                        expr.left.var.name, expr.left.left.string,
-                        TokenKindrepr(expr.kind, yes))
-                    emit(expr.right, 0)
-                    print(")")
-
-                case #opColon
-                    print("%ssetSlice(%s, ", typeName(expr.left),
-                        expr.left.var.name)
-                    emit(expr.left.left, 0)
-                    print(",%s, ", TokenKindrepr(expr.kind, yes))
-                    emit(expr.right, 0)
-                    print(")")
-
-                case #opEQ
-                case #opGE
-                case #opNE
-                case #opGT
-                case #opLE
-                case #opLT
-                case #keywordAnd
-                case #keywordOr
-                case #keywordNot
-                    print("%ssetFiltered(%s, ", typeName(expr.left),
-                        expr.left.var.name)
-                    emit(expr.left.left, 0)
-                    print(",%s, ", TokenKindrepr(expr.kind, yes))
-                    emit(expr.right, 0)
-                    print(")")
-
-                case #opComma
-
-                case #identifierResolved
-
-                case #subscriptResolved
-
-                case #functionCallResolved
-
-                default:
-                    unreachable("%s\n", TokenKindsnames[expr.left.kind])
-                    assert(0)
-                end
-            case #identifierResolved
-            case #period
-                emit(expr.left, 0)
-                print("%s", TokenKindrepr(expr.kind, yes))
-                emit(expr.right, 0)
-            case #identifier
-                unreachable("unresolved var %s", expr.left.string)
-            case #argumentLabel
-                emit(expr.right, 0)
-
-            case #string
-            default:
-
-                unreachable(
-                    "found token kind %s\n", TokenKindsnames[expr.left.kind])
-            end
-
-        case #arrayOpen
-
-            if (not expr.right)
-                print("Arrayinit(%s)()", "double")
-            else
-                print("Arraymake(((%s[]) ", "double")  ~ FIXME
-
-                emit(expr.right, 0)
-                print("end)")
-                print(", %d)", countCommaList(expr.right))
-            end
-
-        case #braceOpen {
-            var Ktype CString = "CString"
-            var Vtype CString = "Real64"
-            if (not expr.right)
-                print("Dictinit(%s,%s)()", Ktype, Vtype)  ~ FIXME
-            else {
-                print("Dictmake(%s,%s)(%d, (%s[]){", Ktype, Vtype,
-                    countCommaList(expr.right), Ktype)  ~ FIXME
-                p Expr = expr.right
-                while (p and p.kind == #opComma)
-                    emit(p.left.left, 0)
-                    print(", ")
-                    p = p.right
-                end
-                emit(p.left, 0)
-                print("end, (%s[]){", Vtype)
-                p = expr.right
-                while (p and p.kind == #opComma)
-                    emit(p.left.right, 0)
-                    print(", ")
-                    p = p.right
-                end
-                emit(p.right, 0)
-                print("end)")
-            end
-        end
-        case #opColon: ~ convert 3:45 to range(...)
-            print("%s(",
-                expr.left.kind != #opColon ? "rangeto" : "rangetoby")
-            if (expr.left.kind == #opColon)
-                expr.left.kind = #opComma
-                emit(expr.left, 0)
-                expr.left.kind = #opColon
-            end else
-                emit(expr.left, 0)
-            print(", ")
-            emit(expr.right, 0)
-            print(")")
-
-        case #varAssign ~ basically a #opAssign corresponding to a local
-
-            if (expr.var.init != NULL and expr.var.used)
-                print("%s = ", expr.var.name)
-                emit(expr.var.init, 0)
-            else
-                print(" ", expr.var.name,
-                    expr.var.used ? "null" : "unused", expr.line)
-            end
-
-        case #keywordElse
-            puts("else {")
-            if (expr.body) emit(expr.body, level + STEP)
-            print("%.*send", level, spaces)
-
-        case #keywordElif
-            puts("else if (")
-            emit(expr.left, 0)
-            puts(") ")
-            if (expr.body) emit(expr.body, level + STEP)
-            print("%.*send", level, spaces)
-
-        case #keywordMatch {
-
-            print("{%s matchcond = ", typeName(expr.left))
-            emit(expr.left, 0)
-            if (expr.left.typeType > #int8
-                or (expr.left.typeType == #object
-                    and getObjectType(expr.left).isEnum))
-                puts("  match (matchcond) ")
-            else
-                puts("  { if (0) end")  ~ the case will add 'else if's
-            if (expr.body) emit(expr.body, level)
-            print("%.*sendend", level, spaces)
-        end
-            /*
-            This is how you walk a ASTExpr that is a #opComma (left to right):
-                process(cond.left)
-                while (cond.right.kind == #opComma)
-                    cond = cond.right, process(cond.left)
-                process(cond.right)
-            */
-
-        case #keywordCase {
-            cond Expr = expr.left
-            if (cond.kind == #opComma)
-                if (cond.typeType > #int8
-                    or (cond.typeType == #object and getEnumType(cond)))
-                    print(
-                        "case ")  ~ match has handled the cond with a 'match'
-                    emit(cond.left, 0)
-                    print(": ")
-                    while (cond.right.kind == #opComma)
-                        cond = cond.right
-                        print("case ")
-                        emit(cond.left, 0)
-                        print(": ")
-                    end
-                    print("case ")
-                    emit(cond.right, 0)
-                    puts(": {")
-                end else if (cond.typeType == #string)
-                    print("else if (equals(matchcond, ")
-                    emit(cond.left, 0)
-                    print(")")
-                    while (cond.right.kind == #opComma)
-                        cond = cond.right
-                        print(" or equals(matchcond, ")
-                        emit(cond.left, 0)
-                        print(")")
-                    end
-                    print(" or equals(matchcond, ")
-                    emit(cond.right, 0)
-                    puts(")) do {")
-                else
-                    print("else if (matchcond == ")
-                    emit(cond.left, 0)
-                    while (cond.right.kind == #opComma)
-                        cond = cond.right
-                        print(" or matchcond == (")
-                        emit(cond.left, 0)
-                    end
-                    emit(cond.right, 0)
-                    puts(")) do {")
-                end
-            else
-                if (cond.typeType > #int8
-                    or (cond.typeType == #object and getEnumType(cond)))
-                    print(
-                        "case ")  ~ match has handled the cond with a 'match'
-                    emit(cond, 0)
-                    puts(": {")
-                end else if (cond.typeType == #string)
-                    print("else if (equals(matchcond, ")
-                    emit(cond, 0)
-                    puts(")) do {")
-                else
-                    print("else if (matchcond == (")
-                    emit(cond, 0)
-                    puts(")) do {")
-                end
-            end
-            if (expr.body) emit(expr.body, level)
-            print("%.*send", level, spaces)
-            if (cond.typeType > #int8
-                or (cond.typeType == #object and getEnumType(cond)))
-                print("  ")
-            else
-                print(" while(0)")
-        end
-        case #keywordFor
-        case #keywordIf
-
-        case #keywordWhile
-            if (expr.kind == #keywordFor)
-                print("FOR(")
-            else
-                print("%s (", TokenKindrepr(expr.kind, yes))
-            if (expr.kind == #keywordFor) expr.left.kind = #opComma
-            if (expr.left) emit(expr.left, 0)
-            if (expr.kind == #keywordFor) expr.left.kind = #opAssign
-            puts(") ")
-            if (expr.body) emit(expr.body, level + STEP)
-            print("%.*send", level, spaces)
-
-        case #opPower
-            print("pow(")
-            emit(expr.left, 0)
-            print(",")
-            emit(expr.right, 0)
-            print(")")
-
-        case #keywordReturn
-            print("{err = NULL  STACKDEPTHDOWN  return ")
-            if (expr.right) emit(expr.right, 0)
-            print(" end\n")
-
-        case #keywordCheck #check(expr, 0)
-        case #period
-            emit(expr.left, 0)
-            if (expr.left.typeType == #object
-                and getObjectType(expr.left).isEnum)
-                print("")
-            else
-                print(".")  ~ may be # if right is embedded and not a
-            emit(expr.right, 0)
-
-        case #keywordNotin print("!")  fallthrough
-        case #keywordIn
-
-            match (expr.right.kind)
-            case #arrayOpen
-                if (expr.right.right.kind == #opColon)
-                    goto inRangeOp  ~ x in [a:b]
-
-                {
-                    c Number = countCommaList(expr.right.right)
-
-                    print("%s(%d, ", c <= 64 ? "ISIN" : "isin", c)
-                    emit(expr.left, 0)
-                    print(", ")
-                    emit(expr.right.right, 0)
-                    print(")")
-                end
-
-            case #subscript
-
-            case #opColon: ~ x in ab
-            inRangeOp:
-            default:
-                unreachable("inside in operator: rhs is %s",
-                    TokenKindrepr(expr.right.kind, no))
-            end
-
-        case #opEQ,.opNE,.opGE,.opLE,.opGT,.opLT
-            if expr.kind in [.opLE, #opLT]
-                and expr.left.kind in [.opLE, #opLT]
-
-                print("$1cmp3way$2$3(" % expr.left.right.typeName(),
-                    ascrepr(expr.kind), ascrepr(expr.left.kind))
-                expr.left.left.emit(); print(", ")
-                expr.left.right.emit(); print(", ")
-                expr.right.emit(); print(")")
-
-            else if expr.right.typeType == #string
-                print("CStringcmp(%s, ", TokenKindssrepr[expr.kind])
-                expr.left.emit(); print(", ")
-                expr.right.emit(); print(")")
-            end
-            fallthrough
         default:
-            if (not expr.prec)
-            leftBr Boolean
-                = expr.left and expr.left.prec and expr.left.prec < expr.prec
-            rightBr Boolean = expr.right and expr.right.prec
-                and expr.right.kind != #keywordReturn
-                and expr.right.prec < expr.prec
-
-            char lpo = '('
-            char lpc = ')'
-            if (leftBr) putc(lpo, stdout)
-            if (expr.left) emit(expr.left, 0)
-            if (leftBr) putc(lpc, stdout)
-            if (expr.kind == #arrayOpen)
-                putc('{', stdout)
-            else
-                print("%s", TokenKindrepr(expr.kind, yes))
-            char rpo = '('
-            char rpc = ')'
-            if (rightBr) do putc(rpo, stdout)
-            if (expr.right) do emit(expr.right)
-            if (rightBr) do putc(rpc, stdout)
-            if (expr.kind == #arrayOpen) do putc('end', stdout)
+          unreachable("%s\n", TokenKindsnames[expr.left.kind])
+          assert(0)
         end
-    end
+      case #identifierResolved
+      case #period
+        emit(expr.left, 0)
+        print("%s", TokenKindrepr(expr.kind, yes))
+        emit(expr.right, 0)
+      case #identifier
+        unreachable("unresolved var %s", expr.left.string)
+      case #argumentLabel
+        emit(expr.right, 0)
 
-    func genTypeInfoDecls(typ Type)
-    func genTypeInfoDefs(typ Type)
-    func genNameAccessors(typ Type)
+      case #string
+      default:
+
+        unreachable(
+          "found token kind %s\n", TokenKindsnames[expr.left.kind])
+      end
+
+    case #arrayOpen
+
+      if (not expr.right)
+        print("Arrayinit(%s)()", "double")
+      else
+        print("Arraymake(((%s[]) ", "double")  ~ FIXME
+
+        emit(expr.right, 0)
+        print("end)")
+        print(", %d)", countCommaList(expr.right))
+      end
+
+    case #braceOpen {
+      var Ktype CString = "CString"
+      var Vtype CString = "Real64"
+      if (not expr.right)
+        print("Dictinit(%s,%s)()", Ktype, Vtype)  ~ FIXME
+      else {
+        print("Dictmake(%s,%s)(%d, (%s[]){", Ktype, Vtype,
+          countCommaList(expr.right), Ktype)  ~ FIXME
+        p Expr = expr.right
+        while (p and p.kind == #opComma)
+          emit(p.left.left, 0)
+          print(", ")
+          p = p.right
+        end
+        emit(p.left, 0)
+        print("end, (%s[]){", Vtype)
+        p = expr.right
+        while (p and p.kind == #opComma)
+          emit(p.left.right, 0)
+          print(", ")
+          p = p.right
+        end
+        emit(p.right, 0)
+        print("end)")
+      end
+    end
+    case #opColon: ~ convert 3:45 to range(...)
+      print("%s(",
+        expr.left.kind != #opColon ? "rangeto" : "rangetoby")
+      if (expr.left.kind == #opColon)
+        expr.left.kind = #opComma
+        emit(expr.left, 0)
+        expr.left.kind = #opColon
+      end else
+        emit(expr.left, 0)
+      print(", ")
+      emit(expr.right, 0)
+      print(")")
+
+    case #varAssign ~ basically a #opAssign corresponding to a local
+
+      if (expr.var.init != NULL and expr.var.used)
+        print("%s = ", expr.var.name)
+        emit(expr.var.init, 0)
+      else
+        print(" ", expr.var.name,
+          expr.var.used ? "null" : "unused", expr.line)
+      end
+
+    case #else
+      puts("else {")
+      if (expr.body) emit(expr.body, level + STEP)
+      print("%.*send", level, spaces)
+
+    case #elif
+      puts("else if (")
+      emit(expr.left, 0)
+      puts(") ")
+      if (expr.body) emit(expr.body, level + STEP)
+      print("%.*send", level, spaces)
+
+    case #match {
+
+      print("{%s matchcond = ", typeName(expr.left))
+      emit(expr.left, 0)
+      if (expr.left.typeType > #int8
+        or (expr.left.typeType == #object
+          and getObjectType(expr.left).isEnum))
+        puts("  match (matchcond) ")
+      else
+        puts("  { if (0) end")  ~ the case will add 'else if's
+      if (expr.body) emit(expr.body, level)
+      print("%.*sendend", level, spaces)
+    end
+      /*
+      This is how you walk a ASTExpr that is a #opComma (left to right):
+        process(cond.left)
+        while (cond.right.kind == #opComma)
+          cond = cond.right, process(cond.left)
+        process(cond.right)
+      */
+
+    case #case {
+      cond Expr = expr.left
+      if (cond.kind == #opComma)
+        if (cond.typeType > #int8
+          or (cond.typeType == #object and getEnumType(cond)))
+          print(
+            "case ")  ~ match has handled the cond with a 'match'
+          emit(cond.left, 0)
+          print(": ")
+          while (cond.right.kind == #opComma)
+            cond = cond.right
+            print("case ")
+            emit(cond.left, 0)
+            print(": ")
+          end
+          print("case ")
+          emit(cond.right, 0)
+          puts(": {")
+        end else if (cond.typeType == #string)
+          print("else if (equals(matchcond, ")
+          emit(cond.left, 0)
+          print(")")
+          while (cond.right.kind == #opComma)
+            cond = cond.right
+            print(" or equals(matchcond, ")
+            emit(cond.left, 0)
+            print(")")
+          end
+          print(" or equals(matchcond, ")
+          emit(cond.right, 0)
+          puts(")) do {")
+        else
+          print("else if (matchcond == ")
+          emit(cond.left, 0)
+          while (cond.right.kind == #opComma)
+            cond = cond.right
+            print(" or matchcond == (")
+            emit(cond.left, 0)
+          end
+          emit(cond.right, 0)
+          puts(")) do {")
+        end
+      else
+        if (cond.typeType > #int8
+          or (cond.typeType == #object and getEnumType(cond)))
+          print(
+            "case ")  ~ match has handled the cond with a 'match'
+          emit(cond, 0)
+          puts(": {")
+        end else if (cond.typeType == #string)
+          print("else if (equals(matchcond, ")
+          emit(cond, 0)
+          puts(")) do {")
+        else
+          print("else if (matchcond == (")
+          emit(cond, 0)
+          puts(")) do {")
+        end
+      end
+      if (expr.body) emit(expr.body, level)
+      print("%.*send", level, spaces)
+      if (cond.typeType > #int8
+        or (cond.typeType == #object and getEnumType(cond)))
+        print("  ")
+      else
+        print(" while(0)")
+    end
+    case #for
+    case #if
+
+    case #while
+      if (expr.kind == #for)
+        print("FOR(")
+      else
+        print("%s (", TokenKindrepr(expr.kind, yes))
+      if (expr.kind == #for) expr.left.kind = #opComma
+      if (expr.left) emit(expr.left, 0)
+      if (expr.kind == #for) expr.left.kind = #opAssign
+      puts(") ")
+      if (expr.body) emit(expr.body, level + STEP)
+      print("%.*send", level, spaces)
+
+    case #opPower
+      print("pow(")
+      emit(expr.left, 0)
+      print(",")
+      emit(expr.right, 0)
+      print(")")
+
+    case #return
+      print("{err = NULL  STACKDEPTHDOWN  return ")
+      if (expr.right) emit(expr.right, 0)
+      print(" end\n")
+
+    case #check #check(expr, 0)
+    case #period
+      emit(expr.left, 0)
+      if (expr.left.typeType == #object
+        and getObjectType(expr.left).isEnum)
+        print("")
+      else
+        print(".")  ~ may be # if right is embedded and not a
+      emit(expr.right, 0)
+
+    case #notin print("!")  fallthrough
+    case #in
+
+      match (expr.right.kind)
+      case #arrayOpen
+        if (expr.right.right.kind == #opColon)
+          goto inRangeOp  ~ x in [a:b]
+
+        {
+          c Number = countCommaList(expr.right.right)
+
+          print("%s(%d, ", c <= 64 ? "ISIN" : "isin", c)
+          emit(expr.left, 0)
+          print(", ")
+          emit(expr.right.right, 0)
+          print(")")
+        end
+
+      case #subscript
+
+      case #opColon: ~ x in ab
+      inRangeOp:
+      default:
+        unreachable("inside in operator: rhs is %s",
+          TokenKindrepr(expr.right.kind, no))
+      end
+
+    case #opEQ,.opNE,.opGE,.opLE,.opGT,.opLT
+      if expr.kind in [.opLE, #opLT]
+        and expr.left.kind in [.opLE, #opLT]
+
+        print("$1cmp3way$2$3(" % expr.left.right.typeName(),
+          ascrepr(expr.kind), ascrepr(expr.left.kind))
+        expr.left.left.emit(); print(", ")
+        expr.left.right.emit(); print(", ")
+        expr.right.emit(); print(")")
+
+      else if expr.right.typeType == #string
+        print("CStringcmp(%s, ", TokenKindssrepr[expr.kind])
+        expr.left.emit(); print(", ")
+        expr.right.emit(); print(")")
+      end
+      fallthrough
+    default:
+      if (not expr.prec)
+      leftBr Boolean
+        = expr.left and expr.left.prec and expr.left.prec < expr.prec
+      rightBr Boolean = expr.right and expr.right.prec
+        and expr.right.kind != #return
+        and expr.right.prec < expr.prec
+
+      char lpo = '('
+      char lpc = ')'
+      if (leftBr) putc(lpo, stdout)
+      if (expr.left) emit(expr.left, 0)
+      if (leftBr) putc(lpc, stdout)
+      if (expr.kind == #arrayOpen)
+        putc('{', stdout)
+      else
+        print("%s", TokenKindrepr(expr.kind, yes))
+      char rpo = '('
+      char rpc = ')'
+      if (rightBr) do putc(rpo, stdout)
+      if (expr.right) do emit(expr.right)
+      if (rightBr) do putc(rpc, stdout)
+      if (expr.kind == #arrayOpen) do putc('end', stdout)
+    end
+  end
+
+  func genTypeInfoDecls(typ Type)
+  func genTypeInfoDefs(typ Type)
+  func genNameAccessors(typ Type)
 
 func emit(mod Module)
-    for imp = mod.imports do imp.emit()
-    puts("")
-    for va = mod.scope.vars where var.used do var.genh()
-    for typ = mod.types where typ.body and typ.analysed
-        genh(typ, 0)
-        genTypeInfoDecls(typ)
-    end
-    for fun = mod.funcs where func.body and func.analysed do func.genh()
-    for typ = mod.types where typ.body and typ.analysed
-        emit(typ); genTypeInfoDefs(typ); genNameAccessors(typ)
-    end
-    for fun = mod.funcs where func.body and func.analysed do func.emit()
-    for imp = mod.imports do imp.undefc()
+  for imp = mod.imports do imp.emit()
+  puts("")
+  for va = mod.scope.vars where var.used do var.genh()
+  for typ = mod.types where typ.body and typ.analysed
+    genh(typ, 0)
+    genTypeInfoDecls(typ)
+  end
+  for fun = mod.funcs where func.body and func.analysed do func.genh()
+  for typ = mod.types where typ.body and typ.analysed
+    emit(typ); genTypeInfoDefs(typ); genNameAccessors(typ)
+  end
+  for fun = mod.funcs where func.body and func.analysed do func.emit()
+  for imp = mod.imports do imp.undefc()
 end
 
-    func genTests(mod Module)
-        emit(mod)
-        for (Test test, mod.tests) emit(test)
-        print("\nvoid testsrun%s() \n", mod.name)
-        for (Test test, mod.tests) print("    test%s() \n", test.name)
-        puts("end")
-    end
+  func genTests(mod Module)
+    emit(mod)
+    for (Test test, mod.tests) emit(test)
+    print("\nvoid testsrun%s() \n", mod.name)
+    for (Test test, mod.tests) print("  test%s() \n", test.name)
+    puts("end")
+  end
 
 func genNameAccessors(typ Type)
 
-    if (not typ.analysed or typ.isDeclare) do return
+  if (not typ.analysed or typ.isDeclare) do return
 
-    print("void* $1memberNamed($1 self, name CString) {" % typ.name)
+  print("void* $1memberNamed($1 self, name CString) {" % typ.name)
 
-    for va = typ.body.vars
-        print('  if (!strcmpi(name, "$1")) return (self.$1);' % var.name)
-    end
-    print("  return NULL; }")
+  for va = typ.body.vars
+    print('  if (!strcmpi(name, "$1")) return (self.$1);' % var.name)
+  end
+  print("  return NULL; }")
 
-    print("void $1setMemberNamed($1 self, name CString, Int64 value) {",
-        typ.name)
-    for va = typ.body.vars where va.isNumeric()
-        print('if (!strncmpi(name, "$1")) {
-            self.$1 = *($2*)value; return;
-        }' % var.name, var.cname())
-    end
-    print("end")
+  print("void $1setMemberNamed($1 self, name CString, Int64 value) {",
+    typ.name)
+  for va = typ.body.vars where va.isNumeric()
+    print('if (!strncmpi(name, "$1")) {
+      self.$1 = *($2*)value; return;
+    }' % var.name, var.cname())
+  end
+  print("end")
 end
 
-    func genTypeInfoDecls(typ Type)
-        if (not typ.analysed or typ.isDeclare) return
-        print("  var const CString %smemberNames[] = {\n    ", typ.name)
-        if (typ.body) //
-            for (var, varn, typ.body.vars)
-                if (not var or !var.used) continue
-                print("\"%s\", ", var.name)
-            end
-        print("end \n")
-    end
-    func genTypeInfoDefs(typ Type)
+  func genTypeInfoDecls(typ Type)
+    if (not typ.analysed or typ.isDeclare) return
+    print("  var const CString %smemberNames[] = {\n  ", typ.name)
+    if (typ.body) //
+      for (var, varn, typ.body.vars)
+        if (not var or !var.used) continue
+        print("\"%s\", ", var.name)
+      end
+    print("end \n")
+  end
+  func genTypeInfoDefs(typ Type)
 
-    end
+  end

@@ -13,6 +13,8 @@
 #define Array_pop(T) Array_pop_##T
 #define Array_top(T) Array_top_##T
 #define Array_empty(T) Array_empty_##T
+#define Array_new(T) Array_new_##T
+#define Array_make(T) Array_make_##T
 
 // convenience for manual writing
 #define PtrArray Array(Ptr)
@@ -32,6 +34,7 @@
 
 #define DECL_Array(T)                                                      \
   typedef struct Array(T) Array(T);                                        \
+  monostatic Array(T) * Array_new(T)();                                    \
   monostatic void Array_free(T)(Array(T) * self);                          \
   monostatic void Array_growTo(T)(Array(T) * self, UInt32 size);           \
   monostatic void Array_resize(T)(Array(T) * self, UInt32 size);           \
@@ -39,6 +42,7 @@
   monostatic void Array_concatCArray(T)(                                   \
       Array(T) * self, T * cArray, int count);                             \
   monostatic void Array_concatArray(T)(Array(T) * self, Array(T) * other); \
+  monostatic Array(T) * Array_make(T)(T arr[], int count);                 \
   monostatic void Array_clear(T)(Array(T) * self);                         \
   monostatic void Array_initWithCArray(T)(                                 \
       Array(T) * self, T * cArray, int count);                             \
@@ -49,11 +53,11 @@
   monostatic T Array_top(T)(Array(T) * self);                              \
   monostatic bool Array_empty(T)(Array(T) * self);
 
-DECL_Array(Ptr);
-DECL_Array(UInt32);
-DECL_Array(Real64);
-// DECL_Array(Number);
+// DECL_Array(Ptr);
+// DECL_Array(UInt32);
+// DECL_Array(Real64);
 // DECL_Array(CString);
+// DECL_Array(Number);
 
 // MAKE_Array(UInt32);
 // MAKE_Array(uint64_t);
@@ -82,11 +86,15 @@ DECL_Array(Real64);
 //     Array_concatArray_(s1, s2, sizeof(T))
 
 #define MAKE_Array(T)                                                      \
-  struct Array(T) {                                                        \
-    T* ref;                                                                \
+  typedef struct Array(T) {                                                \
+    T* restrict ref;                                                       \
     UInt32 used;                                                           \
     UInt32 cap;                                                            \
-  };                                                                       \
+  }                                                                        \
+  Array(T);                                                                \
+  monostatic Array(T) * Array_new(T)() {                                   \
+    return calloc(1, sizeof(Array(T)));                                    \
+  }                                                                        \
   monostatic void Array_free(T)(Array(T) * self) {                         \
     if (self->cap) free(self->ref);                                        \
   }                                                                        \
@@ -101,7 +109,7 @@ DECL_Array(Real64);
     self->used = size;                                                     \
   }                                                                        \
   monostatic T Array_get(T)(Array(T) * self, UInt32 index) {               \
-    return self->ref[index];                                               \
+    return self->ref[index - 1];                                           \
   }                                                                        \
   monostatic void Array_concatCArray(T)(                                   \
       Array(T) * self, T * cArray, int count) {                            \
@@ -119,6 +127,11 @@ DECL_Array(Real64);
     Array_clear(T)(self);                                                  \
     Array_concatCArray(T)(self, cArray, count);                            \
   } /* maybe this can be merged with growTo */                             \
+  monostatic Array(T) * Array_make(T)(T arr[], int count) {                \
+    Array(T)* a = Array_new(T)();                                          \
+    Array_initWithCArray(T)(a, arr, count);                                \
+    return a;                                                              \
+  }                                                                        \
   monostatic void Array_grow(T)(Array(T) * self) {                         \
     self->cap = self->cap ? 2 * self->cap : 8;                             \
     self->ref = realloc(self->ref, sizeof(T) * self->cap);                 \
@@ -146,5 +159,5 @@ DECL_Array(Real64);
 MAKE_Array(Ptr);
 MAKE_Array(UInt32);
 MAKE_Array(Real64);
-// MAKE_Array(Number);
-// MAKE_Array(CString);
+MAKE_Array(Number);
+MAKE_Array(CString);

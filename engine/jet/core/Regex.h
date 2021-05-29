@@ -11,6 +11,7 @@ typedef struct {
 } RegexMatch;
 
 typedef char* Regex; // fixme
+typedef const char* const_Regex;
 
 // _RegexProg is not really exposed in F+. why keep it public? Just hide it
 // since regex literals and strings passed in to regex args will be

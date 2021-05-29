@@ -19,7 +19,7 @@ end
 
 test "compare boolean expressions"
   check 5 > 6 == 7 > 8
-  check (9==8) == (7==6)
+  ~ check (9==8) == (7==6)
 end
 
 decl func len(s String) Number
@@ -52,7 +52,7 @@ test "match string"
   check d == 77
 
   var reIdent = `^[A-Z][a-z0-9_]*$`
-  check matches("String", re=reIdent)
+  check matches("-string", re=reIdent)
 
 end
 
@@ -82,9 +82,18 @@ test "ans"
   var f = t1()
   check f == 7
 end
-~ test "arrays"
-~   var d = [4, 3, 2, 1, 5]
-~   check d[1] == 4
-~   var s = ["a", "be", "sea", "deae"]
-~   check s[1] == "a"
-~ end
+
+test "dicts"
+  var d = {
+    "n" = 6,
+    "k" = 8}
+  check d["n"] == 6
+  check d["i"] == 0
+end
+
+test "arrays"
+  var d = [4, 3, 2, 1, 5]
+  check d[1] == 4
+  var s = ["a", "be", "sea", "deae"]
+  check s[1] == "a"
+end

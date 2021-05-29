@@ -9,17 +9,26 @@ static void imp_emit(Import* import, int level, char ext) {
   cstr_tr_ip_len(import->name, '_', '.', 0);
 }
 
-static void spec_emit(TypeSpec* spec, int level, bool isconst) {
-  if (isconst) outl("const ");
+static void spec_emit(
+    TypeSpec* spec, int level, bool isconst, bool isconstptr) {
+  isconst = false, isconstptr = false;
+
   if (spec->dims) {
+    if (isconst) outl("const_");
+
     if (spec->dims > 1)
-      printf("SArray%dD(", spec->dims);
+      printf("Array%dD(", spec->dims);
+    else if (spec->collType == CTYDictS)
+      outl("Dict(CString, ");
     else
-      outl("SArray(");
+      outl("Array(");
   }
 
+  if (isconst) outl("const_");
   switch (spec->typeType) {
-  case TYObject: printf("%s", spec->type->name); break;
+  case TYObject:
+    printf("%s%s", spec->type->name, isconstptr ? "_const" : "");
+    break;
   case TYUnknown:
     unreachable(
         "unresolved: '%s' at %d:%d", spec->name, spec->line, spec->col);
@@ -28,8 +37,7 @@ static void spec_emit(TypeSpec* spec, int level, bool isconst) {
   default: printf("%s", Typetype_name(spec->typeType)); break;
   }
 
-  if (isconst && spec->typeType == TYObject) outl(" const");
-  if (spec->dims) printf("%s", ")");
+  if (spec->dims) printf("%s", ")* restrict");
 }
 
 static void expr_emit(Expr* expr, int level);
@@ -38,7 +46,7 @@ static void expr_emit(Expr* expr, int level);
 
 static void var_genh(Var* var, int level) {
   if (!var->init) return;
-  spec_emit(var->spec, level, !var->changed);
+  spec_emit(var->spec, level, !var->changed, !var->reassigned);
   if (!var->reassigned) printf(" const");
   printf(" %s = ", var->name);
   expr_emit(var->init, 0);
@@ -48,8 +56,9 @@ static void var_genh(Var* var, int level) {
 static void var_emit(Var* var, int level) {
   // for C the variables go at the top of the block, without init
   printf("%.*s", level, spaces);
-  if (var->spec) spec_emit(var->spec, level + STEP, var->changed);
-  if (var->isMutableArg) puts("*");
+  if (var->spec)
+    spec_emit(var->spec, level + STEP, !var->changed, !var->reassigned);
+  if (var->isMutableArg) puts(" * const restrict ");
   printf(" %s", var->name);
 }
 
@@ -144,7 +153,7 @@ static void func_emit(Func* func, int level) {
 
   printf("#define DEFAULT_VALUE %s\n", getDefaultValueForType(func->spec));
 
-  spec_emit(func->spec, level, false);
+  spec_emit(func->spec, level, false, false);
   printf(" %s(", func->sel);
   foreachn(Var*, arg, args, func->args) {
     var_emit(arg, level);
@@ -152,7 +161,7 @@ static void func_emit(Func* func, int level) {
   }
   if (func->spec->typeType != TYVoid) {
     if (func->args) printf(", ");
-    spec_emit(func->spec, level, false);
+    spec_emit(func->spec, level, false, false);
     printf(" ans");
   }
 
@@ -188,7 +197,7 @@ static void func_emit(Func* func, int level) {
 static void func_genh(Func* func, int level) {
   if (!func->body || !func->analysed || func->isDeclare) return;
   // if (!func->isExported) outl("static ");
-  spec_emit(func->spec, level, false);
+  spec_emit(func->spec, level, false, false);
   printf(" %s(", func->sel);
   foreachn(Var*, arg, args, func->args) {
     var_emit(arg, level);
@@ -196,7 +205,7 @@ static void func_genh(Func* func, int level) {
   }
   if (func->spec->typeType != TYVoid) {
     if (func->args) printf(", ");
-    spec_emit(func->spec, level, false);
+    spec_emit(func->spec, level, false, false);
     printf(" ans");
   }
   printf("\n#ifndef NDEBUG\n    %c const char* callsite_\n#endif\n",
@@ -249,7 +258,7 @@ static void type_emit_fieldHead(Type* type) {
 
   if (type->super) {
     outl("  FIELDS_");
-    spec_emit(type->super, 0, false);
+    spec_emit(type->super, 0, false, false);
     outln(" \\");
   }
   foreach (Var*, var, type->body->locals) {
@@ -326,7 +335,12 @@ static void type_genh(Type* type, int level) {
   if (!type->body || !type->analysed || type->isDeclare) return;
 
   const char* const name = type->name;
-  printf("typedef struct %s* %s;\nstruct %s;\n", name, name, name);
+  printf("struct %s;\n", name);
+  printf("typedef struct %s* %s;\n", name, name);
+  printf("typedef const struct %s* restrict const_%s;\n", name, name);
+  printf("typedef const struct %s* restrict %s_const;\n", name, name);
+  printf("typedef const struct %s* const restrict const_%s_const;\n", name,
+      name);
   printf("static %s %s_alloc_(); \n", name, name);
   printf("static %s %s_init_(%s self);\n", name, name, name);
   printf("static void %s_drop_(%s self);\n", name, name);
@@ -370,12 +384,13 @@ void type_genNameAccessors(Type* type) {
   printf("static void %s__setMemberNamed(%s self, char* name, "
          "Int64 value) {\n",
       type->name, type->name);
-  foreach (Var*, var, type->body->locals) // if (var->used) //
-    if (var->spec->typeType >= TYBool && var->spec->typeType <= TYReal64)
-      printf("  if (cstr_eq(name, \"%s\")) {\n"
-             "    self->%s = *(%s*) &value; return;\n"
-             "  }\n",
-          var->name, var->name, spec_cname(var->spec));
+  foreach (Var*, var, type->body->locals)
+    if (var->changed) //
+      if (var->spec->typeType >= TYBool && var->spec->typeType <= TYReal64)
+        printf("  if (cstr_eq(name, \"%s\")) {\n"
+               "    self->%s = *(%s*) &value; return;\n"
+               "  }\n",
+            var->name, var->name, spec_cname(var->spec));
   outln("}");
 }
 
@@ -444,7 +459,7 @@ static void enum_genh(Type* type, int level) {
   outln("}");
 }
 
-static void test_emit(JetTest* test, Module* mod, int idx)
+static void test_emit(Test* test, Module* mod, int idx)
 // TODO: should tests not return BOOL?
 {
   if (!test->body) return;
@@ -532,8 +547,8 @@ static void expr_emit_tkSubscriptR(Expr* expr, int level) {
 
   case tkString:
   case tkRawString: // indexing with single string or regex
-    printf("Dict_get_cstr_%s(%s, %s)", spec_cname(expr->var->spec), name,
-        index->str);
+    printf("Dict_getk_CString_%s(%s, \"%s\")", spec_cname(expr->var->spec),
+        name, index->str + 1);
     break;
 
   case tkComma: // higher dims. validation etc. has been done by this
@@ -624,6 +639,10 @@ static void expr_emit_tkFuncCallR(Expr* expr, int level) {
   if (expr->left) expr_emit(expr->left, 0);
 
   if (!func->isDeclare) {
+    // ------ 8< ------------------------------------------------------
+    // remove this and add an arg from the top expr. this is because only
+    // there you know what the target should be, heap/stack/pool allocated,
+    // another var, etc.
     const bool hasAns = func->spec->typeType != TYVoid && !func->isDefCtor;
     if (hasAns) { // insert ans
       if (expr->left) outl(", ");
@@ -645,6 +664,7 @@ static void expr_emit_tkFuncCallR(Expr* expr, int level) {
       default: outl("0"); break;
       }
     }
+    // ------ 8< ------------------------------------------------------
     printf("\n#ifndef NDEBUG\n  %c THISFILE \":%d:%d: ",
         expr->left || hasAns ? ',' : ' ', expr->line, expr->col);
     expr_write(expr, 0, false, true);
@@ -942,9 +962,10 @@ static void expr_emit(Expr* expr, int level) {
     // here do various things based on whether parent is a =,
     // funcCall, etc.
     if (!expr->right) {
-      printf("Array_init(%s)()", "double");
+      printf("Array_init(%s)()", expr_typeName(expr->right));
     } else {
-      printf("Array_make(((%s[]) {", "double"); // FIXME
+      printf("Array_make(%s)(((%s[]) {", expr_typeName(expr->right),
+          expr_typeName(expr->right)); // FIXME
       expr_emit(expr->right, 0);
       outl("})");
       printf(", %d)", expr_countCommaList(expr->right));
@@ -999,6 +1020,9 @@ static void expr_emit(Expr* expr, int level) {
     if (expr->var->init != NULL && expr->var->used) {
       var_emit(expr->var, 0);
       outl(" = ");
+      // if (expr->var->init->kind == tkFuncCallR) {
+      //   expr_tkFuncCall_pushArg((&Expr){.kind=tkAssign})
+      // }
       expr_emit(expr->var->init, 0);
     } else {
       printf("/* %s %s at line %d */", expr->var->name,
@@ -1057,7 +1081,7 @@ static void expr_emit(Expr* expr, int level) {
           expr_emit(cond->left, 0), outl(")");
         }
         outl(" || !strcmp(__match_cond, ");
-        expr_emit(cond->right, 0), outln(")) do {");
+        expr_emit(cond->right, 0), outln("))   {");
       } else if (cond->typeType == TYRegex) {
         outl("else if (rex_matches(__match_cond, ");
         expr_emit(cond->left, 0);
@@ -1068,7 +1092,7 @@ static void expr_emit(Expr* expr, int level) {
           expr_emit(cond->left, 0), outl(")");
         }
         outl(" || rex_matches(__match_cond, ");
-        expr_emit(cond->right, 0), outln(")) do {");
+        expr_emit(cond->right, 0), outln("))   {");
       } else {
         outl("else if (__match_cond == ");
         expr_emit(cond->left, 0);
@@ -1077,7 +1101,7 @@ static void expr_emit(Expr* expr, int level) {
           outl(" || __match_cond == ("), expr_emit(cond->left, 0);
         }
         expr_emit(cond->right, 0);
-        outln(")) do {");
+        outln("))   {");
       };
 
     } else {
@@ -1089,15 +1113,15 @@ static void expr_emit(Expr* expr, int level) {
       } else if (cond->typeType == TYString) {
         outl("else if (!strcmp(__match_cond, ");
         expr_emit(cond, 0);
-        outln(")) do {");
+        outln("))   {");
       } else if (cond->typeType == TYRegex) {
         outl("else if (rex_matches(__match_cond, ");
         expr_emit(cond, 0);
-        outln(")) do {");
+        outln("))   {");
       } else {
         outl("else if (__match_cond == (");
         expr_emit(cond, 0);
-        outln(")) do {");
+        outln("))   {");
       };
     };
     if (expr->body) scope_emit(expr->body, level);
@@ -1106,7 +1130,7 @@ static void expr_emit(Expr* expr, int level) {
         || (cond->typeType == TYObject && expr_getEnumType(cond)))
       outl(" break");
     else
-      outl(" while(0)");
+      outl("  ");
     break;
   }
   case tkFor:
@@ -1272,7 +1296,7 @@ static void expr_emit(Expr* expr, int level) {
 
 static void mod_genTests(Module* mod) {
   int i = 0;
-  foreach (JetTest*, test, mod->tests)
+  foreach (Test*, test, mod->tests)
     test_emit(test, mod, ++i);
 
   printf("\nvoid jet_runTests_%s(int runDeps) {\n", mod->cname);
@@ -1287,7 +1311,7 @@ static void mod_genTests(Module* mod) {
   // Now run our own tsts
   printf("  eputs(\"Testing module %s\\n\");\n", mod->filename);
   i = 0;
-  foreach (JetTest*, test, mod->tests)
+  foreach (Test*, test, mod->tests)
     printf("  jet_runTest(test_%s_%d, \"%s\", %d);\n", //
         mod->cname, ++i, test->name, false);
   outln("eputs(\"\");");

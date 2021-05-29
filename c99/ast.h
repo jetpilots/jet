@@ -130,7 +130,9 @@ struct Var {
   // THE LINE NUMBER OF THE LJet USE?
   // JetLocation loc[0];
   uint32_t line : 24, col : 8; //
-  uint16_t lastUsage, used, changed;
+  uint16_t lastUsage,
+      // firstUsage,
+      used, changed;
   // ^ YOu canot use the last used line no to decide drops etc. because code
   // motion can rearrange statements and leave the line numbers stale.
   // --- YES YOU CAN if you use == to compare when dropping and not >=. Also
@@ -151,10 +153,17 @@ struct Var {
         // stackAlloc : 1, // this var is of a ref type, but it will be
         // stack allocated. it will be passed around by
         // reference as usual.
+        usedInSameScope : 1,
+        usedInChildScope : 1, // used to mark whether the var could be put
+                              // into an inner scope instead.
+                              // usedInChildScope means it is used in an
+                              // IMMEDIATE child scope (not any level deep).
         isTarget : 1, // x = f(x,y)
         visited : 1, // for generating checks, used to avoid printing this
                      // var more than once.
-        escapes : 1, // does it escape the owning SCOPE?
+        promote : 6, // does it escape the owning SCOPE? then just move
+                     // it up to the required scope
+        escapes : 1, // escapes func? well then heap allocate
         canInplace : 1,
         isPromise : 1, // is it an async var (transparently a Promise<T>)?
         hasRefs : 1, // there are other vars/lets that reference this var or
@@ -348,6 +357,7 @@ struct Func {
           isDeclare : 1, //
           isCalledFromWithinLoop : 1, //
           elemental : 1, //
+          canEval : 1, // constexpr-like, etc
           isDefCtor : 1, //
           intrinsic : 1, // intrinsic: print, describe, json, etc. not to
                          // be output by linter
@@ -372,7 +382,7 @@ struct Func {
 };
 static const size_t szFunc = sizeof(Func);
 
-typedef struct JetTest {
+typedef struct Test {
   char* name;
   Scope* body;
   char* selector;
@@ -382,13 +392,13 @@ typedef struct JetTest {
       uint16_t analysed : 1;
     } flags;
   };
-} JetTest;
+} Test;
 
 struct Module {
 
   Scope scope[1]; // global scope contains vars + exprs
   List(Func) * funcs;
-  List(JetTest) * tests;
+  List(Test) * tests;
   List(Type) * types, *enums;
   List(Import) * imports;
   List(Module) * importedBy; // for dependency graph. also use
@@ -434,7 +444,7 @@ struct Module {
 
 MKSTAT(Expr)
 MKSTAT(Func)
-MKSTAT(JetTest)
+MKSTAT(Test)
 MKSTAT(JetEnum)
 MKSTAT(TypeSpec)
 MKSTAT(Type)
@@ -481,9 +491,9 @@ Type* Type_new_() {
   IFDEBUG(_allocTotal_Type++);
   return Pool_alloc(gPool, sizeof(struct Type));
 }
-JetTest* JetTest_new_() {
-  IFDEBUG(_allocTotal_JetTest++);
-  return Pool_alloc(gPool, sizeof(struct JetTest));
+Test* Test_new_() {
+  IFDEBUG(_allocTotal_Test++);
+  return Pool_alloc(gPool, sizeof(struct Test));
 }
 Func* Func_new_() {
   IFDEBUG(_allocTotal_Func++);
@@ -659,6 +669,33 @@ static size_t scope_calcSizeUsage(Scope* self) {
   return sum;
 }
 
+static bool scope_defines(Scope* self, Var* var) {
+  foreach (Var*, local, self->locals)
+    if (local == var) return true;
+  return false;
+}
+
+// how many scopes up is the var defined?
+// 0 -> same scope. -1 -> var not found.
+static int scope_reachable(Scope* self, Var* var) {
+  int i = 0;
+  do {
+    if (scope_defines(self, var)) return i;
+    i++;
+  } while ((self = self->parent));
+  return -1;
+}
+
+static int scope_reachableNoLoops(Scope* self, Var* var) {
+  int i = 0;
+  do {
+    if (self->isLoop) return 0;
+    if (scope_defines(self, var)) return i;
+    i++;
+  } while ((self = self->parent));
+  return -1;
+}
+
 static Var* scope_getVar(Scope* self, const char* name) {
   // stupid linear search, no dictionary yet
   foreach (Var*, local, self->locals) //
@@ -789,18 +826,24 @@ static bool isCmpOp(Expr* expr) {
 
 ///////////////////////////////////////////////////////////////////////////
 static bool isBoolOp(Expr* expr) {
-  return expr->kind == tkAnd //
-      || expr->kind == tkOr //
-      || expr->kind == tkIn //
-      || expr->kind == tkNotin //
-      || expr->kind == tkNot;
+  return expr->kind > __tk__logicals__begin
+      && expr->kind < __tk__logicals__end;
+  // return expr->kind == tkAnd //
+  //     || expr->kind == tkOr //
+  //     || expr->kind == tkIn //
+  //     || expr->kind == tkNotin //
+  //     || expr->kind == tkNot;
 }
 
 static bool isCtrlExpr(Expr* expr) {
-  return expr->kind == tkIf //
-      || expr->kind == tkFor //
-      || expr->kind == tkWhile //
-      || expr->kind == tkElse;
+  return expr->kind > __tk__ctrlflow__begin
+      && expr->kind < __tk__ctrlflow__end;
+
+  //  expr->kind == tkIf //
+  //     || expr->kind == tkFor //
+  //     || expr->kind == tkWhile //
+  //     || expr->kind == tkElse || expr->kind == tkElif
+  //     || expr->kind == tkCase || expr->kind == tkMatch;
 }
 
 static bool isSelfMutOp(Expr* expr) {

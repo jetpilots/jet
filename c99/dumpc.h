@@ -165,7 +165,7 @@ static void func_dumpc(Func* func, int level) {
   // }
 }
 
-static void JetTest_dumpc(JetTest* test, int level) {
+static void JetTest_dumpc(Test* test, int level) {
   // printf("test '%s'\n", test->name);
   // scope_dumpc(test->body, level + STEP);
   // puts("end\n");
@@ -329,7 +329,7 @@ static void mod_dumpc(Module* mod) {
     printf("static Type enum_%s;\n", en->name);
   foreach (Func*, func, mod->funcs)
     printf("static Func func_%s;\n", func->sel);
-  foreach (JetTest*, test, mod->tests)
+  foreach (Test*, test, mod->tests)
     printf("static Test test_%d;\n", test->line);
   foreach (Var*, var, mod->scope->locals)
     printf("static Var var_%s;\n", var->name);
@@ -338,7 +338,7 @@ static void mod_dumpc(Module* mod) {
   foreach (Type*, type, mod->types) { type_dumpc(type, 0); }
   foreach (Type*, en, mod->enums) { JetEnum_dumpc(en, 0); }
   foreach (Func*, func, mod->funcs) { func_dumpc(func, 0); }
-  foreach (JetTest*, test, mod->tests) { JetTest_dumpc(test, 0); }
+  foreach (Test*, test, mod->tests) { JetTest_dumpc(test, 0); }
   foreach (Var*, var, mod->scope->locals) { var_dumpc(var, 0), puts(""); }
 
   printf("static Module mod_%s = {\n", mod->cname);

@@ -62,7 +62,7 @@ int langserver(int argc, char* argv[]) {
       foreach (Func*, func, root->funcs)
         if (!func->intrinsic)
           printf("%d:%d: %s\n", func->line, func->col, func->psel);
-      foreach (JetTest*, test, root->tests)
+      foreach (Test*, test, root->tests)
         printf("%d:%d: %s\n", test->line, 0, test->name);
     }
     cmd("def") { }

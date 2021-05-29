@@ -116,7 +116,6 @@ add tkUnaryDot "."
 add tkEnumMember "#a"
 add tkExcl "!"
 add tkPipe "|"
-add tkAssign " = " "="
 add tkVarDefn "v=" "v="
 
 add __tk__cmpOps__begin
@@ -161,12 +160,13 @@ add tkDollar "$"
 add tkUnits "|N.m/s"
 
 add __tk__selfMutOps__begin
-    add tkPlusEq " += "
-    add tkMinusEq " -= "
-    add tkSlashEq " /= "
-    add tkTimesEq " *= "
-    add tkColEq " := "
-    add tkModEq " %= "
+    add tkAssign " = " "="
+    add tkPlusEq " += " "+="
+    add tkMinusEq " -= " "-="
+    add tkSlashEq " /= " "/="
+    add tkTimesEq " *= " "*="
+    add tkColEq " := " ":="
+    add tkModEq " %= " "%="
 add __tk__selfMutOps__end
 
 add tkQuestion "?"

@@ -218,7 +218,7 @@ static void func_write(Func* func, int level) {
   }
 }
 
-static void JetTest_write(JetTest* test, int level) {
+static void JetTest_write(Test* test, int level) {
   printf("test '%s'\n", test->name);
   scope_write(test->body, level + STEP);
   puts("end\n");
@@ -404,7 +404,7 @@ static void mod_write(Module* module) {
   foreach (Type*, type, module->types) { type_write(type, 0); }
   foreach (Type*, en, module->enums) { JetEnum_write(en, 0); }
   foreach (Func*, func, module->funcs) { func_write(func, 0); }
-  foreach (JetTest*, test, module->tests) { JetTest_write(test, 0); }
+  foreach (Test*, test, module->tests) { JetTest_write(test, 0); }
 
   fclose(outfile);
 }

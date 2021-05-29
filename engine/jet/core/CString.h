@@ -1,4 +1,3 @@
-typedef char* CString;
 
 monostatic CString cstr_palloc(size_t len) {
   return Pool_alloc(sPool, roundm8(len + 1));

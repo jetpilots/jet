@@ -52,25 +52,25 @@ static void resolveTypeSpec(Parser* parser, TypeSpec* spec, Module* mod) {
 //     end for
 // end function
 
-static void scope_checkUnusedVars(Parser* parser, Scope* scope) {
-  foreach (Var*, var, scope->locals)
-    if (!var->used) warn_unusedVar(parser, var);
+// static void scope_checkUnusedVars(Parser* parser, Scope* scope) {
+//   foreach (Var*, var, scope->locals)
+//     if (!var->used) warn_unusedVar(parser, var);
 
-  foreach (Expr*, stmt, scope->stmts)
-    if (isCtrlExpr(stmt) && stmt->body)
-      scope_checkUnusedVars(parser, stmt->body);
-}
+//   foreach (Expr*, stmt, scope->stmts)
+//     if (isCtrlExpr(stmt) && stmt->body)
+//       scope_checkUnusedVars(parser, stmt->body);
+// }
 
-static void func_checkUnusedVars(Parser* parser, Func* func) {
-  foreach (Var*, arg, func->args)
-    if (!arg->used) warn_unusedArg(parser, arg);
+// static void func_checkUnusedVars(Parser* parser, Func* func) {
+//   foreach (Var*, arg, func->args)
+//     if (!arg->used) warn_unusedArg(parser, arg);
 
-  scope_checkUnusedVars(parser, func->body);
-}
+//   scope_checkUnusedVars(parser, func->body);
+// }
 
-static void JetTest_checkUnusedVars(Parser* parser, JetTest* test) {
-  scope_checkUnusedVars(parser, test->body);
-}
+// static void JetTest_checkUnusedVars(Parser* parser, Test* test) {
+//   scope_checkUnusedVars(parser, test->body);
+// }
 
 // TODO: Btw there should be a module level scope to hold lets (and
 // comments). That will be the root scope which has parent==NULL.
@@ -118,7 +118,14 @@ static void resolveVars(Parser* parser, Expr* expr, Scope* scope,
       expr->kind = ret;
       expr->var = found;
       expr->var->used++;
+      // if (!expr->var->firstUsage) expr->var->firstUsage = expr->line;
       expr->var->lastUsage = expr->line; // see above for a TODO and info
+      if (scope_defines(scope, found)) expr->var->usedInSameScope = true;
+      if (scope->parent && scope_defines(scope->parent, found))
+        expr->var->usedInChildScope = true;
+      // at the end of scope analysis, if you find vars not used in the same
+      // scope and not used in the immediate child scope, it means they can
+      // be moved to an inner scope.
     } else {
       // Import* import = mod_getImportByAlias(mod,
       // expr->str); if (import) {
@@ -228,28 +235,65 @@ static void resolveVars(Parser* parser, Expr* expr, Scope* scope,
       resolveVars(parser, expr->right, scope, inFuncCall);
 
       if (isSelfMutOp(expr)) {
-        Var* var = NULL;
-        Expr* varExpr = expr->left;
-        if (varExpr) {
-          if (varExpr->kind == tkIdentR || //
-              varExpr->kind == tkSubscriptR) {
-            var = varExpr->var;
-          } else if (varExpr->kind == tkPeriod && //
-              varExpr->left && varExpr->left->kind == tkIdentR) {
-            varExpr = varExpr->left;
-            var = varExpr->var;
+        Var* target = NULL;
+        Expr* targetExpr = expr->left;
+        if (targetExpr) {
+          if (targetExpr->kind == tkIdentR || //
+              targetExpr->kind == tkSubscriptR) {
+            target = targetExpr->var;
+          } else if (targetExpr->kind == tkPeriod && //
+              targetExpr->left && targetExpr->left->kind == tkIdentR) {
+            targetExpr = targetExpr->left;
+            target = targetExpr->var;
           }
         }
-        if (var) {
+
+        if (target) {
           // TODO: If you will allow changing the first arg of a
           // function, using an & op or whatever, check for those
           // mutations here BTW this marks entire arrays as used
           // for a.x = ... it marks all of a as used. Instead should
           // traverse the . sequence left to right and check which the
           // first read-only variable in that sequence
-          var->changed++;
-          if (expr->kind == tkAssign) var->reassigned = true;
-          if (!var->isVar) err_readOnlyVar(parser, varExpr);
+          target->changed++;
+          if (expr->kind == tkAssign) target->reassigned = true;
+          if (!target->isVar) err_readOnlyVar(parser, targetExpr);
+
+          // Let's see if the RHS is a var and if the LHS is in a higher
+          // scope relative to it. Then you either promote the RHS var up a
+          // few scopes, or if it escapes the func entirely then heap
+          // allocate it. TODO: set escaping vars to be caller-frame
+          // allocated.
+          // note that one scope may mark a parent scope's var for promotion
+          // to yet another higher scope.
+          Var* source = NULL;
+          Expr* sourceExpr = expr->right;
+          if (sourceExpr) {
+            if (sourceExpr->kind == tkIdentR) {
+              source = sourceExpr->var;
+            } else if (sourceExpr->kind == tkPeriod && //
+                sourceExpr->left && sourceExpr->left->kind == tkIdentR) {
+              sourceExpr = sourceExpr->left;
+              source = sourceExpr->var;
+            }
+          }
+          if (source) {
+            Scope* sourceScope = scope;
+            while (sourceScope && !scope_defines(sourceScope, source))
+              sourceScope = sourceScope->parent;
+            // FIXME: does it need to be no-loops? What if there is a while
+            // on the way how does that make it non-promotable? maybe remoe
+            // the no-loops check and promote anyway
+            // int promote = scope_reachableNoLoops(sourceScope, target);
+            int promote = scope_reachable(sourceScope, target);
+            if (promote < 64
+                && promote > source->promote) { // only have 4 bits. -1 wont
+                                                // happen since
+              // vars exist.
+              source->promote = promote;
+              if (!strcmp(target->name, "ans")) source->escapes = true;
+            }
+          }
         }
       }
     }

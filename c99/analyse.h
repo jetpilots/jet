@@ -11,6 +11,8 @@ static void setStmtFuncTypeInfo(Parser* parser, Func* func) {
 // TODO make sempassModule -> same as mod_analyse now
 static void type_analyse(Parser* parser, Type* type, Module* mod);
 static void func_analyse(Parser* parser, Func* func, Module* mod);
+static void scope_analyse(
+    Parser* parser, Scope* scope, Func* ownerFunc, Module* mod);
 
 static void analyseDictLiteral(Parser* parser, Expr* expr, Module* mod) {
   // check that
@@ -24,8 +26,8 @@ static void analyseDictLiteral(Parser* parser, Expr* expr, Module* mod) {
 
 // TODO: you should have a flag that tells
 // you whether there is any string
-// interpolation at all, and if yes what the expected size might be, and if
-// it can be put on the stack
+// interpolation at all, and if yes what the expected size might be, and
+// if it can be put on the stack
 
 // actually the string may have embedded %s, so you need to process it
 // in any case, unless you plan on doing puts.
@@ -37,10 +39,9 @@ static void expr_prepareInterp(Parser* parser, Expr* expr, Scope* scope) {
   static Array(Ptr) vars;
   assert(expr->kind == tkString || expr->kind == tkRawString);
   PtrList** exprvars = &expr->vars;
-  // at some point you should make it so that only strings with a preceding
-  // $ get scanned for vars.
-  // e.g. $"this is a $kindof day" gets processed but "this is a $kindof
-  // day" remains as is.
+  // at some point you should make it so that only strings with a
+  // preceding $ get scanned for vars. e.g. $"this is a $kindof day" gets
+  // processed but "this is a $kindof day" remains as is.
 
   char* pos = expr->str + 1; // starts with '"'
   int line = expr->line, col = expr->col;
@@ -97,8 +98,8 @@ static void expr_prepareInterp(Parser* parser, Expr* expr, Scope* scope) {
       // col);
       return;
     }
-    // You should have checked for all var refs to be valid in the analysis
-    // phase!
+    // You should have checked for all var refs to be valid in the
+    // analysis phase!
 
     Expr* exdot = NULL;
     Expr* ex = NEWW(Expr, //
@@ -201,7 +202,8 @@ static void expr_prepareInterp(Parser* parser, Expr* expr, Scope* scope) {
 //         if (!expr->unary) expr_prepareInterp(expr->left, scope);
 //         if (expr->right) expr_prepareInterp(expr->right, scope);
 //     } else {
-//         unreachable("unknown token kind %s", TokenKind_str[expr->kind]);
+//         unreachable("unknown token kind %s",
+//         TokenKind_str[expr->kind]);
 //     }
 // }
 
@@ -254,8 +256,9 @@ static void expr_reduceVarUsage(Expr* expr) {
     if (expr->left) expr_reduceVarUsage(expr->left); // fallthru
   case tkVarDefn:
   case tkIdentR:
-    // reduce this var's usage, and if it drops to zero reduce the usage of
-    // all vars in this var's init. Sort of like a compile time ref count.
+    // reduce this var's usage, and if it drops to zero reduce the usage
+    // of all vars in this var's init. Sort of like a compile time ref
+    // count.
     if (!--expr->var->used) {
       if (expr->var->spec->typeType == TYObject)
         expr->var->spec->type->used--;
@@ -311,26 +314,32 @@ static void func_checkRecursion(Func* func) {
 
 monostatic FN_ANALYSE();
 
-// static void expr_analyse_keyword_match(Parser* parser, Expr* expr, Scope*
-// scope,
+// static void expr_analyse_keyword_match(Parser* parser, Expr* expr,
+// Scope* scope,
 //     Module* mod, Func* ownerFunc, bool inFuncArgs)
-SFN_ANALYSE(_keyword_match) {
+void expr_analyse_keyword_match(Parser* parser, Expr* expr, Scope* scope,
+    Module* mod, Func* ownerFunc, bool inFuncArgs) {
   Expr* cond = expr->left;
-  if (cond) {
-    // expr_analyse(parser, cond, scope, mod, ownerFunc, false);
-    ANALYSE(cond, scope, false);
+  if (cond) { // check the match condition. Plus, if it is an enum, go
+              // through the case conditions and set enum base on them.
+    expr_analyse(parser, cond, scope, mod, ownerFunc, false);
     TypeSpec* tsp = expr_getObjectTypeSpec(cond);
     if (expr->body && tsp && tsp->type && tsp->type->isEnum) {
-      // left->typeType == TYObject&&->isEnum) {
       foreach (Expr*, cas, expr->body->stmts)
         if (cas->left) expr_setEnumBase(parser, cas->left, tsp, mod);
     }
   }
+
+  // each stmt in the body of a match is a case stmt. Analyse that and
+  // check type consistency.
   foreach (Expr*, stmt, expr->body->stmts) {
-    // expr_analyse(parser, stmt, expr->body, mod, ownerFunc, false);
-    ANALYSE(stmt, expr->body, false);
-    if (!cond || stmt->kind != tkCase || !stmt->left) {
-      // ignore
+    if (stmt->kind != tkCase) err_unexpectedExpr(parser, stmt);
+
+    expr_analyse(parser, stmt, expr->body, mod, ownerFunc, false);
+    // ^ Case bodies will be analyzed inside (via scope_analyse).
+
+    if (!cond || !stmt->left) {
+      // ignore. a syntax error will have been reported before.
     } else if (cond->typeType == TYString
         && stmt->left->typeType == TYRegex) {
     } else if (cond->typeType == TYRegex
@@ -428,6 +437,7 @@ static void expr_analyse_functionCallResolved(Parser* parser, Expr* expr,
   expr->collType = expr->func->spec ? expr->func->spec->collType
                                     : CTYNone; // should actually be TYVoid
   expr->elemental = expr->func->elemental;
+  expr->canEval = expr->func->canEval;
   if (expr->func->spec) expr->dims = expr->func->spec->dims;
   // isElementalFunc means the func is only defined for (all)
   // Number arguments and another definition for vector args
@@ -532,6 +542,7 @@ static void expr_analyse_braceOpen(Parser* parser, Expr* expr, Scope* scope,
   // somehow.
   analyseDictLiteral(parser, expr->right, mod);
   expr->typeType = expr->right->typeType;
+
   if (expr->typeType == TYObject) {
     // you need to save the exact type of the elements, it's not a
     // primitive type. You'll find it in the first element.
@@ -552,6 +563,8 @@ static void expr_analyse_braceOpen(Parser* parser, Expr* expr, Scope* scope,
     }
   }
   expr->collType = CTYDictS;
+  expr->dims = 1;
+
   // these are only Dicts! Sets are normal [] when you detect they are
   // only used for querying membership.
   // TODO: what were the gazillion Dict subtypes for?
@@ -665,6 +678,7 @@ static void expr_analyse_varAssign(Parser* parser, Expr* expr, Scope* scope,
       spec->collType = init->collType;
       spec->dims = init->collType == CTYTensor ? init->dims
           : init->collType == CTYArray         ? 1
+          : init->collType == CTYDictS         ? 1
                                                : 0;
     } else if (spec->dims != 1 && init->collType == CTYArray) {
       err_initDimsMismatch(parser, expr, 1);
@@ -710,8 +724,10 @@ monostatic void expr_analyse(Parser* parser, Expr* expr, Scope* scope,
   case tkCase: {
     if (expr->left)
       expr_analyse(parser, expr->left, scope, mod, ownerFunc, false);
-    foreach (Expr*, stmt, expr->body->stmts)
-      expr_analyse(parser, stmt, expr->body, mod, ownerFunc, false);
+
+    scope_analyse(parser, expr->body, ownerFunc, mod);
+    // foreach (Expr*, stmt, expr->body->stmts)
+    //   expr_analyse(parser, stmt, expr->body, mod, ownerFunc, false);
   } break;
 
     // -------------------------------------------------- //
@@ -722,11 +738,23 @@ monostatic void expr_analyse(Parser* parser, Expr* expr, Scope* scope,
       err_indexDimsMismatch(parser, expr, nhave);
     // }   if (expr->kind == tkSubscriptR) {
     expr->typeType = expr->var->spec->typeType;
-    expr->collType = expr->var->spec->collType;
+    if (expr->left->elemental) {
+      // expr->collType =CTYSlice;// expr->var->spec->collType;
+      expr->dims = 1; // FIXME: this will be dims of the array - num of
+                      // singular (non-range) indices
+    } else {
+      expr->collType = CTYNone; // expr->var->spec->collType;
+      expr->dims = 0;
+    }
     // TODO: since it is a subscript, if it has no left (i.e. arr[])
     // i'm guessing it is a full array, and therefore can be an
     // elemental op
     expr->elemental = expr->left ? expr->left->elemental : true;
+
+    // eval is possible only when the index AND the var can be eval'd
+    if (expr->var->init && expr->left)
+      expr->canEval = expr->var->init->canEval & expr->left->canEval;
+
     // TODO: check args in the same way as for funcs below, not
     // directly checking expr->left.}
     // TODO: dims is actually a bit complicated here. For each dim
@@ -742,6 +770,7 @@ monostatic void expr_analyse(Parser* parser, Expr* expr, Scope* scope,
   } break; // index expr has already been analyzed before resolution
            // fallthru
   case tkSubscript:
+    expr->typeType = TYError; // must have been resolved
     if (expr->left)
       expr_analyse(parser, expr->left, scope, mod, ownerFunc, false);
     break;
@@ -749,15 +778,26 @@ monostatic void expr_analyse(Parser* parser, Expr* expr, Scope* scope,
   case tkString:
   case tkRawString:
     expr->typeType = TYString;
+    expr->canEval = true;
     expr_prepareInterp(parser, expr, scope);
     break;
 
-  case tkRegexp: expr->typeType = TYRegex; break;
+  case tkRegexp:
+    expr->typeType = TYRegex;
+    expr->canEval = true;
+    expr->extract = true;
+    break;
 
-  case tkNumber: expr->typeType = TYReal64; break;
+  case tkNumber:
+    expr->typeType = TYReal64;
+    expr->canEval = true;
+    break;
 
   case tkYes:
-  case tkNo: expr->typeType = TYBool; break;
+  case tkNo:
+    expr->typeType = TYBool;
+    expr->canEval = true;
+    break;
 
   case tkNil: expr->typeType = TYNil; break;
 
@@ -773,25 +813,32 @@ monostatic void expr_analyse(Parser* parser, Expr* expr, Scope* scope,
     expr->collType = expr->var->spec->collType;
     expr->elemental = expr->collType != CTYNone;
     expr->dims = expr->var->spec->dims;
+    if (expr->var->init) expr->canEval = expr->var->init->canEval;
 
     // this was done just to ensure enums are caught and analysed in
     // non-lint mode. In lint mode they are done anyway.
-    // TODO: remove this, you shouldnt be doing it on each var use it will
-    // be too intensive. let it just be done on each var decl and you figure
-    // out a way to set the enum type on var decls.
+    // TODO: remove this, you shouldnt be doing it on each var use
+    // it will be too intensive. let it just be done on each var
+    // decl and you figure out a way to set the enum type on var
+    // decls.
     if (expr->typeType == TYObject)
       type_analyse(parser, expr->var->spec->type, mod);
     break;
 
   case tkArrayOpen:
-    expr_analyse_arrayOpen(parser, expr, scope, mod, ownerFunc, inFuncArgs);
-
+    if (expr->right) {
+      expr_analyse_arrayOpen(
+          parser, expr, scope, mod, ownerFunc, inFuncArgs);
+      expr->canEval = expr->right->canEval;
+    }
     break;
 
   case tkBraceOpen:
-    if (expr->right)
+    if (expr->right) {
       expr_analyse_braceOpen(
           parser, expr, scope, mod, ownerFunc, inFuncArgs);
+      expr->canEval = expr->right->canEval;
+    }
     break;
 
   case tkPeriod: {
@@ -894,7 +941,9 @@ monostatic void expr_analyse(Parser* parser, Expr* expr, Scope* scope,
     expr->typeType = type->isEnum ? TYObject : expr->right->typeType;
     expr->collType = expr->right->collType;
     expr->elemental = expr->right->elemental;
+    expr->canEval = expr->right->canEval;
     expr->dims = expr->right->dims;
+
   } break;
 
   case tkComment:
@@ -931,8 +980,8 @@ monostatic void expr_analyse(Parser* parser, Expr* expr, Scope* scope,
       if (expr->kind == tkCheck && expr->right->typeType != TYBool) {
         err_typeWrong(parser, expr->right, TYBool);
       } else if (expr->kind == tkOr && expr->left->typeType != TYBool) {
-        // Handle the special 'or' keyword used to provide alternatives for
-        // a nullable expression.
+        // Handle the special 'or' keyword used to provide alternatives
+        // for a nullable expression.
 
         TypeTypes leftType = expr->left ? expr->left->typeType : TYError;
         TypeTypes rightType = expr->right ? expr->right->typeType : TYError;
@@ -962,6 +1011,7 @@ monostatic void expr_analyse(Parser* parser, Expr* expr, Scope* scope,
         if (expr->right) {
           expr->typeType = expr->right->typeType;
           expr->collType = expr->right->collType;
+          expr->canEval = expr->right->canEval;
         }
       }
 
@@ -973,6 +1023,7 @@ monostatic void expr_analyse(Parser* parser, Expr* expr, Scope* scope,
       if (!expr->unary && expr->left) {
         expr->elemental = expr->elemental || expr->left->elemental;
         expr->dims = expr->right->dims;
+        expr->canEval = expr->right->canEval && expr->left->canEval;
         // if (expr->kind == tkColon and expr->right->kind ==
         // tkColon)
         //     expr->right->dims = 0; // temporarily set it to 0 to
@@ -1095,6 +1146,26 @@ monostatic void expr_analyse(Parser* parser, Expr* expr, Scope* scope,
   }
 }
 
+static void scope_analyse(
+    Parser* parser, Scope* scope, Func* ownerFunc, Module* mod) {
+
+  foreach (Expr*, stmt, scope->stmts)
+    expr_analyse(parser, stmt, scope, mod, ownerFunc, false);
+
+  // if (isCtrlExpr(stmt) && stmt->body)
+  //   scope_checkUnusedVars(parser, stmt->body);
+  foreach (Var*, var, scope->locals) {
+    if (!var->used) {
+      warn_unusedVar(parser, var);
+    } else if (!var->usedInSameScope && !var->usedInChildScope) {
+      hint_varRefineScope(parser, var);
+    }
+
+    if (var->escapes) { hint_varEscapes(parser, var); }
+    if (var->promote) { hint_varPromoteScope(parser, var); }
+  }
+}
+
 static void type_analyse(Parser* parser, Type* type, Module* mod) {
   if (type->analysed) return;
   if (type->super) { resolveTypeSpec(parser, type->super, mod); }
@@ -1125,9 +1196,15 @@ static void type_analyse(Parser* parser, Type* type, Module* mod) {
   // in its initializer.
   type->analysed = true;
   // nothing to do for declared/empty types etc. with no body
-  if (type->body) //
-    foreach (Expr*, stmt, type->body->stmts)
-      expr_analyse(parser, stmt, type->body, mod, NULL, false);
+
+  // scope_analyse will report unused vars right away, but you have to scan
+  // the entire module to know all usages and only then you can report
+  // unused type members. so just analyse exprs now & wait for later to
+  // report unused members.
+  // if (type->body) scope_analyse(parser, type->body, NULL, mod);
+  //
+  foreach (Expr*, stmt, type->body->stmts)
+    expr_analyse(parser, stmt, type->body, mod, NULL, false);
 }
 static void func_hashExprs(Parser* parser, Func* func);
 
@@ -1187,17 +1264,20 @@ static void func_analyse(Parser* parser, Func* func, Module* mod) {
   func->analysed = true;
 
   // Run the statement-level semantic pass on the function body.
-  // scope_analyse(parser, func->body, mod, func);
-  foreach (Expr*, stmt, func->body->stmts)
-    expr_analyse(parser, stmt, func->body, mod, func, false);
+  scope_analyse(parser, func->body, func, mod);
+  // foreach (Expr*, stmt, func->body->stmts)
+  //   expr_analyse(parser, stmt, func->body, mod, func, false);
 
   // Check unused variables in the function and report warnings.
-  func_checkUnusedVars(parser, func);
+  // func_checkUnusedVars(parser, func);
+
+  foreach (Var*, arg, func->args)
+    if (!arg->used) warn_unusedArg(parser, arg);
   // Statement functions are written without an explicit return type.
   // Figure out the type (now that the body has been analyzed).
   if (func->isStmt) setStmtFuncTypeInfo(parser, func);
-  // TODO: for normal funcs, expr_analyse should check return statements to
-  // have the same type as the declared return type.
+  // TODO: for normal funcs, expr_analyse should check return statements
+  // to have the same type as the declared return type.
 
   // if you could not infer the type of ans, it must be void
   if (!func->spec->typeType) func->spec->typeType = TYVoid;
@@ -1211,35 +1291,38 @@ static void func_analyse(Parser* parser, Func* func, Module* mod) {
   if (!parser->issues.errCount && parser->mode != PMLint) {
 
     // Handle elemental operations like arr[4:50] = mx[14:60] + 3
-    scope_lowerElementalOps(func->body);
+    scope_scalarize(func->body);
     // Extract subexprs like count(arr[arr<1e-15]) and promote them to
     // full statements corresponding to their C macros e.g.
     // Number _1; Array_count_filter(arr, arr<1e-15, _1);
-    scope_promoteCandidates(func->body);
+    scope_lower(func->body);
   }
 }
 
-static void JetTest_analyse(Parser* parser, JetTest* test, Module* mod) {
+static void test_analyse(Parser* parser, Test* test, Module* mod) {
   if (!test->body) return;
 
   // Check for duplicate test names and report errors.
   // TODO: this should be replaced by a dict query
-  foreach (JetTest*, test2, mod->tests) {
+  foreach (Test*, test2, mod->tests) {
     if (test == test2) break;
     if (!strcasecmp(test->name, test2->name))
       err_duplicateTest(parser, test, test2);
   }
 
   // Run the statement-level semantic pass on the function body.
-  foreach (Expr*, stmt, test->body->stmts)
-    expr_analyse(parser, stmt, test->body, mod, NULL, false);
+  // Don't bother setting visited since tests cannot be recursive (they
+  // can't be called at all)
+  scope_analyse(parser, test->body, NULL, mod);
+  // foreach (Expr*, stmt, test->body->stmts)
+  //   expr_analyse(parser, stmt, test->body, mod, NULL, false);
 
   // Check unused variables in the function and report warnings.
-  JetTest_checkUnusedVars(parser, test);
+  // JetTest_checkUnusedVars(parser, test);
   // Do optimisations or ANY lowering only if there are no errors
   if (!parser->issues.errCount && parser->mode != PMLint) {
-    scope_lowerElementalOps(test->body);
-    scope_promoteCandidates(test->body);
+    scope_scalarize(test->body);
+    scope_lower(test->body);
   }
 }
 
@@ -1298,9 +1381,7 @@ void mod_analyse(Parser* parser, Module* mod) {
   // foreach (Var*, var, mod->scope->locals)
   //     if (var->init)
   //         expr_analyse(parser, var->init, mod->scope, mod, false);
-  foreach (JetTest*, test, mod->tests) {
-    JetTest_analyse(parser, test, mod);
-  }
+  foreach (Test*, test, mod->tests) { test_analyse(parser, test, mod); }
   foreach (Func*, func, mod->funcs) { func_analyse(parser, func, mod); }
   foreach (Type*, type, mod->types) { type_analyse(parser, type, mod); }
   foreach (Type*, en, mod->enums) { type_analyse(parser, en, mod); }
@@ -1329,8 +1410,17 @@ void mod_analyse(Parser* parser, Module* mod) {
   foreach (Type*, type, mod->types)
     if (!type->used || !type->analysed) type_reduceUsage(type);
 
-  foreach (Type*, type, mod->types)
+  foreach (Type*, type, mod->types) {
     if (!type->used || !type->analysed) warn_unusedType(parser, type);
+    if (type->body) foreach (Var*, var, type->body->locals)
+        if (!var->used) warn_unusedVar(parser, var);
+    // actually type membs can be used across modules, but their usage
+    // counts will be set correctly even from usages in other mods. warning
+    // about unused members is unnecessary, when you emit C you can just
+    // skip them. Works because all modules will have been processed by the
+    // time you call emit.
+    // at some point also sort type members by size.
+  }
 
   foreach (Type*, type, mod->enums)
     if (!type->used || !type->analysed) type_reduceUsage(type);
@@ -1340,8 +1430,8 @@ void mod_analyse(Parser* parser, Module* mod) {
 
   // now that funcs are marked recursive you can do a second pass
   // analysis,
-  // which deals with var storage decisions, inlining,  etc. or perhaps this
-  // pass can be called 'optimising'.
+  // which deals with var storage decisions, inlining,  etc. or perhaps
+  // this pass can be called 'optimising'.
 
   // check each stmt in each type to find cycles.
   foreach (Type*, type, mod->types)

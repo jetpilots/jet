@@ -137,7 +137,7 @@ static void expr_checkHashes(
 
 static void func_hashExprs(Parser* parser, Func* func) {
   static Dict(UInt32, Ptr)* cseDict = NULL; // FIXME: will leak
-  if (!cseDict) cseDict = Dict_init(UInt32, Ptr)();
+  if (!cseDict) cseDict = Dict_new(UInt32, Ptr)();
   Dict_clear(UInt32, Ptr)(cseDict);
 
   foreach (Expr*, stmt, func->body->stmts) {

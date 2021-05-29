@@ -22,6 +22,12 @@ static void par__warnHeaderWithLoc(
       col, col + len, ++parser->issues.warnCount);
 }
 
+static void par__hintHeaderWithLoc(
+    Parser* parser, int line, int col, int len) {
+  eprintf("%s%s:%d:%d-%d: hint: #%d;;", RELF(parser->filename), line, col,
+      col + len, ++parser->issues.warnCount);
+}
+
 static void par__errHeaderWithExpr(Parser* parser, Expr* expr) {
   int len;
   int col = expr->col;
@@ -255,15 +261,32 @@ static void warn_unusedArg(Parser* parser, Var* var) {
 
 static void warn_unusedVar(Parser* parser, Var* var) {
   if (!parser->issues.warnUnusedVar) return;
-  par__warnHeaderWithLoc(
-      parser, var->line, var->col - 4, 4 + strlen(var->name));
+  par__warnHeaderWithLoc(parser, var->line, var->col, strlen(var->name));
   eprintf("unused or unnecessary variable '%s'\n", var->name);
+}
+
+static void hint_varRefineScope(Parser* parser, Var* var) {
+  if (!parser->issues.warnUnusedVar) return;
+  par__hintHeaderWithLoc(parser, var->line, var->col, strlen(var->name));
+  eprintf("variable '%s' can be moved to an inner scope\n", var->name);
+}
+
+static void hint_varEscapes(Parser* parser, Var* var) {
+  // if (!parser->issues.hints) return;
+  par__hintHeaderWithLoc(parser, var->line, var->col, strlen(var->name));
+  eprintf("var '%s' escapes func\n", var->name);
+}
+
+static void hint_varPromoteScope(Parser* parser, Var* var) {
+  // if (!parser->issues.hints) return;
+  par__hintHeaderWithLoc(parser, var->line, var->col, strlen(var->name));
+  eprintf("var '%s' escapes scope, will be promoted up %d levels\n",
+      var->name, var->promote);
 }
 
 static void warn_unusedFunc(Parser* parser, Func* func) {
   if (!parser->issues.warnUnusedFunc) return;
-  par__warnHeaderWithLoc(
-      parser, func->line, func->col - 5, 5 + strlen(func->name));
+  par__warnHeaderWithLoc(parser, func->line, func->col, strlen(func->name));
   eprintf("unused or unnecessary function '%s';;selector: '%s'\n",
       func->name, func->sel);
 }
@@ -352,8 +375,7 @@ static void err_duplicateFunc(Parser* parser, Func* func, Func* orig) {
   err_increment(parser);
 }
 
-static void err_duplicateTest(
-    Parser* parser, JetTest* test, JetTest* orig) {
+static void err_duplicateTest(Parser* parser, Test* test, Test* orig) {
   par__errHeaderWithLoc(parser, test->line, 5, strlen(test->name));
   eprintf("duplicate test \"%s\" already declared at %s%s:%d:%d\n",
       test->name, RELF(parser->filename), orig->line, 1);

@@ -19,14 +19,33 @@ end
 func start()
     ~ ans = 0
     var v = 31
+    var d = Obj()
+    ~ d.s=99
+    d.acx=d
+    print(d)
     var f = 66
-    var h = v +6
+    var a = [4, 5]
+    var h = v +6 + a[2] ~ not doing any good
+    var c = 44
+    ans = c
     ~ if h = 5 ~ this should be implicitly if let x = ...
     ~   ~ this way for x = ... and if x = ... introduce a new var x
     ~ end
-    if h==78
-        var b = 45 + v
-        print(b)
+    ~ 4. insert the promoted expr BEFORE the current stmt
+    ~        li_push(prev ? &prev : &self->stmts, pcClone);
+    ~        PtrList* tmp = prev->next;
+    ~ THIS SHOULD BE in PtrList as insertAfter method
+    var mx = 2
+    while h == 0
+        if h==78
+            var b = 45 + v
+            if 5 == 4
+                print(mx)
+                v = b
+            end
+            print(mx)
+            print(b)
+        end
     end
     while h == 7 ~["hj","op"]
         var c = 7 + v
@@ -36,6 +55,13 @@ func start()
                 var mm = 5 + c + ds
             end
         end
+    end
+    match "asd"
+    case "33"
+        var aa = 44
+        print(aa)
+    case "33"
+        var aa = 4
     end
     print(f)
     ~ print(v)

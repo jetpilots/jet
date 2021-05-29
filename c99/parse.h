@@ -549,7 +549,8 @@ static List(Var) * parseArgs(Parser* parser) {
   return args;
 }
 
-static Scope* parseScope(Parser* parser, Scope* parent, bool isTypeBody);
+static Scope* parseScope(
+    Parser* parser, Scope* parent, bool isTypeBody, bool isLoop);
 
 static Scope* parseScopeCases(Parser* parser, Scope* parent) {
 
@@ -567,7 +568,7 @@ static Scope* parseScopeCases(Parser* parser, Scope* parent) {
       tok_advance(&parser->token); // trample null
       if (expr->left) resolveVars(parser, expr->left, scope, false);
 
-      expr->body = parseScope(parser, scope, false);
+      expr->body = parseScope(parser, scope, false, false);
       // match's body is a scope full of cases
       // case's body is a scope
 
@@ -594,7 +595,8 @@ exitloop:
 }
 
 // --------------------------------------------------------------------- //
-static Scope* parseScope(Parser* parser, Scope* parent, bool isTypeBody) {
+static Scope* parseScope(
+    Parser* parser, Scope* parent, bool isTypeBody, bool isLoop) {
   Scope* scope = NEW(Scope);
 
   Var *var = NULL, *orig = NULL;
@@ -603,6 +605,8 @@ static Scope* parseScope(Parser* parser, Scope* parent, bool isTypeBody) {
   Scope* forScope = NULL;
 
   scope->parent = parent;
+  scope->isLoop = isLoop;
+
   bool startedElse = false;
   bool startedCase = false;
 
@@ -719,13 +723,13 @@ static Scope* parseScope(Parser* parser, Scope* parent, bool isTypeBody) {
       } else if (expr->left) {
         resolveVars(parser, expr->left, scope, false);
       }
-      if (tt == tkFor) {
-        expr->body = parseScope(parser, forScope, isTypeBody);
-      } else {
-        expr->body = parseScope(parser, scope, isTypeBody);
-      }
       // Mark the scope as a loop scope if it is a 'for' or 'while'.
-      expr->body->isLoop = tt == tkFor || tkWhile;
+      bool isLoop = tt == tkFor || tt == tkWhile;
+      if (tt == tkFor) {
+        expr->body = parseScope(parser, forScope, isTypeBody, isLoop);
+      } else {
+        expr->body = parseScope(parser, scope, isTypeBody, isLoop);
+      }
 
       if (par_matches(parser, tkElse) || //
           par_matches(parser, tkElif)) {
@@ -909,7 +913,7 @@ static Func* parseFunc(
     funcScope->parent = globScope;
     funcScope->locals = func->args;
     li_shift(&funcScope->locals, ans);
-    func->body = parseScope(parser, funcScope, false);
+    func->body = parseScope(parser, funcScope, false, false);
 
     func->endline = parser->token.line;
     par_consume(parser, tkEnd);
@@ -975,10 +979,10 @@ static Func* parseStmtFunc(Parser* parser, Scope* globScope) {
 }
 
 // --------------------------------------------------------------------- //
-static JetTest* parseTest(Parser* parser, Scope* globScope) {
+static Test* parseTest(Parser* parser, Scope* globScope) {
   par_consume(parser, tkTest);
   par_consume(parser, tkOneSpace);
-  JetTest* test = NEW(JetTest);
+  Test* test = NEW(Test);
 
   test->line = parser->token.line;
 
@@ -989,7 +993,7 @@ static JetTest* parseTest(Parser* parser, Scope* globScope) {
 
   par_consume(parser, tkEOL);
 
-  test->body = parseScope(parser, NULL, false);
+  test->body = parseScope(parser, NULL, false, false);
 
   par_consume(parser, tkEnd);
   par_ignore(parser, tkOneSpace);
@@ -1019,7 +1023,7 @@ static Type* parseType(
   }
   par_ignore(parser, tkEOL);
 
-  type->body = parseScope(parser, globScope, true);
+  type->body = parseScope(parser, globScope, true, false);
 
   type->endline = parser->token.line;
   par_consume(parser, tkEnd);
@@ -1132,6 +1136,7 @@ void analyseModule(Parser* parser, Module* mod);
 static Func* type_makeDefaultCtor(Type* type) {
   Func* ctor = NEW(Func);
   ctor->line = type->line;
+  ctor->col = 6;
   ctor->isDefCtor = true;
   // Ctors must AlWAYS return a new object.
   // even Ctors with args.
@@ -1222,7 +1227,7 @@ static Module* parseModule(
   List(Func)** funcs = &root->funcs;
   List(Import)** imports = &root->imports;
   List(Type)** types = &root->types;
-  List(JetTest)** tests = &root->tests;
+  List(Test)** tests = &root->tests;
   List(JetEnum)** enums = &root->enums;
   Scope* gscope = root->scope;
   List(Var)** gvars = &gscope->locals; // globals

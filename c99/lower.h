@@ -1,6 +1,6 @@
 
 // Extraction scan & Extraction happens AFTER resolving functions!
-static Expr* expr_findExtractionCandidate(Expr* expr) {
+static Expr* expr_getExtractable(Expr* expr) {
   assert(expr);
   Expr* ret;
 
@@ -8,42 +8,43 @@ static Expr* expr_findExtractionCandidate(Expr* expr) {
   switch (expr->kind) {
   case tkFuncCallR:
     // promote innermost first, so check args
-    if (expr->left && (ret = expr_findExtractionCandidate(expr->left)))
+    if (expr->left && (ret = expr_getExtractable(expr->left)))
       return ret;
     else if (expr->extract)
       return expr;
     break;
 
   case tkSubscriptR:
-    return expr_findExtractionCandidate(expr->left);
+    return expr_getExtractable(expr->left);
     // TODO: here see if the subscript itself needs to be promoted up
 
-  case tkSubscript: return expr_findExtractionCandidate(expr->left);
+  case tkSubscript: return expr_getExtractable(expr->left);
 
   case tkIf:
   case tkFor:
   case tkElse:
   case tkElif:
   case tkWhile:
-    if (expr->left) return expr_findExtractionCandidate(expr->left);
+  case tkCase:
+    if (expr->left) return expr_getExtractable(expr->left);
     // body will be handled by parent scope
 
   case tkVarDefn:
-    if ((ret = expr_findExtractionCandidate(expr->var->init))) return ret;
+    if ((ret = expr_getExtractable(expr->var->init))) return ret;
     break;
 
   case tkFuncCall: // unresolved
     // assert(0);
     unreachable("unresolved call %s\n", expr->str);
-    if ((ret = expr_findExtractionCandidate(expr->left))) return ret;
+    if ((ret = expr_getExtractable(expr->left))) return ret;
     break;
 
   default:
     if (expr->prec) {
-      if (expr->right && (ret = expr_findExtractionCandidate(expr->right)))
+      if (expr->right && (ret = expr_getExtractable(expr->right)))
         return ret;
       if (!expr->unary)
-        if ((ret = expr_findExtractionCandidate(expr->left))) return ret;
+        if ((ret = expr_getExtractable(expr->left))) return ret;
     }
   }
   return NULL;
@@ -55,10 +56,10 @@ static char* newTmpVarName(int num, char c) {
   return cstr_pndup(buf, l);
 }
 
-static void scope_lowerElementalOps(Scope* scope) {
+static void scope_scalarize(Scope* scope) {
   foreach (Expr*, stmt, scope->stmts) {
 
-    if (isCtrlExpr(stmt) && stmt->body) scope_lowerElementalOps(stmt->body);
+    if (isCtrlExpr(stmt) && stmt->body) scope_scalarize(stmt->body);
 
     if (!stmt->elemental) continue;
 
@@ -119,19 +120,45 @@ static void scope_lowerElementalOps(Scope* scope) {
   }
 }
 
-static void scope_promoteCandidates(Scope* scope) {
+// MERGE THESE TWO FUNCS!!! promoteVars & extract Vars
+// static void scope_promoteVars(Scope* scope) {
+
+//   foreachn(Expr*, stmt, stmts, scope->stmts) if (isCtrlExpr(stmt)
+//       && stmt->body) scope_promoteVars(stmt->body);
+
+// }
+
+static void scope_lower(Scope* scope) {
   int tmpCount = 0;
   Expr* pc = NULL;
   List(Expr)* prev = NULL;
+
+  foreachn(Var*, var, var_li, scope->locals) {
+    if (!var->promote) continue;
+    // you need to know how far up the var should go!
+    int up = var->promote;
+
+    Scope* targetScope = scope;
+    while (up--
+        && (targetScope = targetScope->isLoop ? NULL : targetScope->parent))
+      ;
+    if (!targetScope) continue;
+
+    // move
+    var_li->item = var_li->next;
+    li_shift(&targetScope->locals, var);
+    var->promote = 0;
+  }
+
   foreachn(Expr*, stmt, stmts, scope->stmts) {
     // TODO:
-    // if (! stmt->promote) {prev=stmts;continue;}
+    // if (! stmt->extract) {prev=stmts;continue;}
 
-    if (isCtrlExpr(stmt) && stmt->body) scope_promoteCandidates(stmt->body);
+    if (isCtrlExpr(stmt) && stmt->body) scope_lower(stmt->body);
 
   startloop:
 
-    if (!(pc = expr_findExtractionCandidate(stmt))) { // most likely
+    if (!(pc = expr_getExtractable(stmt))) { // most likely
       prev = stmts;
       continue;
     }

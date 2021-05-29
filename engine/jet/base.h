@@ -30,9 +30,11 @@
 #if __GNUC__ >= 3
 #define likely(x) __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)
+#define _CTOR_ __attribute__((malloc))
 #else
 #define likely(x) (x)
 #define unlikely(x) (x)
+#define _CTOR_
 #endif
 
 #ifndef thread_local
@@ -149,11 +151,13 @@ typedef struct Error_Type {
 #define SArray(T) T*
 
 // works only for known-size static arrays
-#define Array_make(A, sz) A
+// #define Array_make(A, sz) A
 
 static int _InternalErrs = 0;
 
 typedef void* Ptr;
+typedef char* CString;
+typedef const char* const_CString;
 typedef uint32_t UInt32;
 typedef uint64_t UInt64;
 typedef int32_t Int32;
@@ -249,8 +253,10 @@ extern void jet_runTest(int (*f)(void), char* s, int skip);
 // FIXME: String will be a proper String type whereas normal C strings
 // are CString. For now ignoring
 typedef double Number;
+typedef const double const_Number;
 typedef CStrings Strings;
 typedef bool Boolean;
+typedef const bool const_Boolean;
 typedef unsigned char Byte;
 #define STR(x) #x
 void Number_drop_(Number f) { }
@@ -321,6 +327,7 @@ MAKE_cmp3way(Number)
 #include "jet/core/CString.h"
 #include "jet/core/Regex.h"
 #include "jet/core/String.h"
+#include "jet/core/Dict.h"
 #include "jet/math/Vector.h"
 #include "jet/math/SpVector.h"
 
