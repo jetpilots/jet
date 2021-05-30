@@ -329,10 +329,20 @@ exitloop:
     case tkFuncCall:
     case tkSubscript:
       if (result.used > 0) {
-        arg = arr_pop(&result);
-        if (arg && p->kind == tkSubscript) {
-          // assert(arg->kind == tkArrayOpen);
-          if (arg->kind == tkArrayOpen) arg = arg->right;
+        if ((arg = arr_pop(&result)))
+          if (p->kind == tkSubscript && arg->kind == tkArrayOpen)
+            arg = arg->right; // snap the middleman (TODO: free it)
+        if (p->kind == tkFuncCall) {
+          Expr* cArg = arg;
+          while (cArg) {
+            Expr* wArg = cArg;
+            if (wArg->kind == tkComma) wArg = wArg->left;
+            if (wArg->kind == tkAssign) {
+              wArg->kind = tkArgAssign;
+              wArg->unary = true;
+            }
+            cArg = (cArg->kind == tkComma) ? cArg->right : NULL;
+          }
         }
         p->left = arg;
       }
@@ -1080,6 +1090,8 @@ static Import* parseImport(Parser* parser, Module* ownerMod) {
     return NULL;
   }
   imp->name = parser->token.pos;
+  imp->line = parser->token.line;
+  imp->col = parser->token.col;
 
   char* cend = imp->name;
   while (*cend && (isalnum(*cend) || *cend == '.')) cend++;
@@ -1105,8 +1117,15 @@ static Import* parseImport(Parser* parser, Module* ownerMod) {
         - imp->name;
   }
 
-  char endchar = *parser->token.pos;
-  *parser->token.pos = 0;
+  if (parser->token.kind == tkEOL) {
+    // WHY don't you do self->token advance here?
+    // TODO: if (token->col>80) warning
+    tok_advance(&parser->token);
+    parser->token.line++;
+    parser->token.col = 1; // trampled the nl so 1
+  }
+  // char endchar = *parser->token.pos;
+  // *parser->token.pos = 0;
   if (mod_getImportByAlias(ownerMod, imp->name + imp->aliasOffset)
       || mod_getFuncByName(ownerMod, imp->name + imp->aliasOffset)
       || mod_getVar(ownerMod, imp->name + imp->aliasOffset)) {
@@ -1114,7 +1133,7 @@ static Import* parseImport(Parser* parser, Module* ownerMod) {
         "import name already used: %s", imp->name + imp->aliasOffset);
     imp = NULL;
   }
-  *parser->token.pos = endchar;
+  // *parser->token.pos = endchar;
   // ^ need to restore the nl since it is used for line counting
 
   // par_ignore(parser, tkOneSpace);
@@ -1225,8 +1244,10 @@ static Module* parseModule(
   // time).
 
   List(Func)** funcs = &root->funcs;
+  List(Func)** tfuncs = &root->tfuncs;
   List(Import)** imports = &root->imports;
   List(Type)** types = &root->types;
+  List(Type)** ttypes = &root->ttypes;
   List(Test)** tests = &root->tests;
   List(JetEnum)** enums = &root->enums;
   Scope* gscope = root->scope;
@@ -1268,9 +1289,20 @@ static Module* parseModule(
       }
       break;
 
-    case tkFunc:
-      funcs = li_push(funcs, parseFunc(parser, gscope, true));
-      break;
+    case tkFunc: {
+      bool istpl = false;
+      Func* fn = parseFunc(parser, gscope, true);
+      foreach (Var*, arg, fn->args) {
+        // template if any arg has no spec
+        if (arg->spec->typeType == TYUnknown && !*arg->spec->name)
+          istpl = true;
+        break;
+      }
+      if (istpl)
+        tfuncs = li_push(tfuncs, fn);
+      else
+        funcs = li_push(funcs, fn);
+    } break;
 
     case tkEnum: {
       Type* en = parseEnum(parser, gscope);
@@ -1326,7 +1358,7 @@ static Module* parseModule(
           strcpy(filename, imp->name);
           cstr_tr_ip_len(filename, '.', '/', len - 5);
           strcpy(filename + len - 5, ".jet");
-          eprintf("%s needs %s, parsing\n", root->filename, filename);
+          // eprintf("%s needs %s, parsing\n", root->filename, filename);
           // later you can have a fancier routine that figures out
           // the file name from a module name
           Parser* subParser = par_fromFile(filename, true, parser->mode);
@@ -1338,6 +1370,8 @@ static Module* parseModule(
             if ((imp->mod
                     = parseModule(subParser, existingModulesPtr, NULL)))
               li_shift(&imp->mod->importedBy, root);
+          } else {
+            err_importNotFound(parser, imp);
           }
         }
       }

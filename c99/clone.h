@@ -14,7 +14,9 @@ MKLIST_CLONE(Var)
 #define CLONE(T, v) memcpy(NEW(T), v, sizeof(T))
 
 static Expr* Expr_clone(Expr* expr) {
-  Expr* new = CLONE(Expr, expr);
+  if (!expr) return NULL;
+  Expr* new = NEW(Expr); // CLONE(Expr, expr);
+  *new = *expr;
   switch (new->kind) {
   case tkFuncCall:
   case tkSubscript:
@@ -23,8 +25,10 @@ static Expr* Expr_clone(Expr* expr) {
   case tkString:
   case tkRawString: new->vars = List_clone(Expr)(new->vars);
   default:
-    if (!new->unary&& new->left) new->left = Expr_clone(new->left);
-    if (new->right) new->right = Expr_clone(new->right);
+    if (new->prec) {
+      if (!new->unary&& new->left) new->left = Expr_clone(new->left);
+      if (new->right) new->right = Expr_clone(new->right);
+    }
   }
   return new;
 }
@@ -51,6 +55,7 @@ static Scope* scope_clone(Scope* scope) {
 static Func* func_clone(Func* func) {
   Func* new = NEW(Func);
   *new = *func;
+  func->spec = spec_clone(func->spec);
   func->args = List_clone(Var)(func->args);
   func->body = scope_clone(func->body);
   return new;

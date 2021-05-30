@@ -397,9 +397,9 @@ typedef struct Test {
 struct Module {
 
   Scope scope[1]; // global scope contains vars + exprs
-  List(Func) * funcs;
+  List(Func) * funcs, *tfuncs;
   List(Test) * tests;
-  List(Type) * types, *enums;
+  List(Type) * types, *ttypes, *enums;
   List(Import) * imports;
   List(Module) * importedBy; // for dependency graph. also use
                              // imports[i]->mod over i
@@ -1041,7 +1041,7 @@ static int expr_strarglabels(Expr* self, char* buf, int bufsize) {
     ret += expr_strarglabels(self->left, buf, bufsize);
     ret += expr_strarglabels(self->right, buf + ret, bufsize - ret);
     break;
-  case tkAssign:
+  case tkArgAssign:
     ret += snprintf(buf, bufsize, "_%s", self->left->str);
     break;
   default: break;
@@ -1310,11 +1310,12 @@ monostatic Func* mod_getFuncByTypeMatch(
     //         arg->col, TokenKind_names[cArg->kind], cArg->line,
     //         cArg->col);
     // }
-    // each(arg, VarP, func->args, PtrListP) { printf("%s\n", arg->name); }
+    // each(arg, VarP, func->args, PtrListP) { printf("%s\n", arg->name);
+    // }
 
     zip(cArg, ExprP, arg, VarP, funcCallExpr->left, ExprP, func->args,
         PtrListP) {
-      if (cArg->kind == tkAssign) {
+      if (cArg->kind == tkArgAssign) {
         if (strcasecmp(arg->name, cArg->left->str)) goto nextfunc;
         cArg = cArg->right;
       }
@@ -1334,8 +1335,10 @@ monostatic Func* mod_getFuncByTypeMatch(
     //     Expr* cArg = (currArg->kind == tkComma) ? currArg->left :
     //     currArg; if (cArg->kind == tkAssign) cArg = cArg->right;
     //     // __ this is why you need typeType and typeSubType so that
-    //     // compatible types can be checked by equality ignoring subType.
-    //     // The way it is now, CString and String wont match because they
+    //     // compatible types can be checked by equality ignoring
+    //     subType.
+    //     // The way it is now, CString and String wont match because
+    //     they
     //     // arent strictly equal, although they are perfectly compatible
     //     // for argument passing.
     //     if (ISIN(3, cArg->typeType, TYUnknown, TYError, TYVoid))

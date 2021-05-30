@@ -387,6 +387,10 @@ static void expr_analyse_functionCall(Parser* parser, Expr* expr,
     // the user this may not be what they expected
     warn_unrecognizedSelector(parser, expr, sbuf, found);
   }
+  if (!found && (found = mod_makeFunc(mod, expr))) {
+    warn_templateHit(parser, expr, sbuf, found);
+  }
+
   if (found) {
     expr->kind = tkFuncCallR;
     expr->func = found;
@@ -399,6 +403,7 @@ static void expr_analyse_functionCall(Parser* parser, Expr* expr,
     err_callingFuncWithVoid(parser, expr, arg1);
   else {
     err_unrecognizedFunc(parser, expr, sbuf);
+    expr->typeType = TYError;
 
     if (*buf != '<') // not invalid type
     {

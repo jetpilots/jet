@@ -116,7 +116,8 @@ add tkUnaryDot "."
 add tkEnumMember "#a"
 add tkExcl "!"
 add tkPipe "|"
-add tkVarDefn "v=" "v="
+add tkVarDefn "v="
+add tkArgAssign "a="
 
 add __tk__cmpOps__begin
     add tkEQ " == " "=="

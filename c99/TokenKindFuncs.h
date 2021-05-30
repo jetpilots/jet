@@ -35,6 +35,7 @@ static bool TokenKind_isUnary(TokenKind kind) {
     [tkThrow] = 1,
     [tkCatch] = 1,
     [tkArrayOpen] = 1,
+    [tkArgAssign] = 1, // trick to ignore its left, which is an ident
     [tkCheck] = 1,
     [tkBraceOpen] = 1
   };

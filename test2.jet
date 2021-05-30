@@ -1,0 +1,11 @@
+
+enum Kinds
+  basic
+  notBasic
+  complex
+end
+
+test "enums"
+  var k Kinds = .basic
+  check 6 == 6 ~in [.basic, .complex]
+end

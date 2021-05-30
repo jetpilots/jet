@@ -6,7 +6,7 @@ void jet_runTest(int (*f)(void), char* s, int skip) {
   _total++;
   if (skip) {
     _skip++;
-    eprintf("%s %s skipped\n", s_skp, s);
+    eprintf(" %s  %-48s\n", s_skp, s);
     return;
   }
   pid_t pid = fork();
@@ -20,24 +20,22 @@ void jet_runTest(int (*f)(void), char* s, int skip) {
     char* who = s; // Dict_getk(UInt32, Ptr)(&runDict, w);
     // if (!who) who = "(unknown)";
     if (WIFSIGNALED(t)) {
-      eprintf(
-          "-> %s \"%s\" crashed: %s", s_err, who, strsignal(WTERMSIG(t)));
+      eprintf(" %s  %-48s\n    -> %s", s_err, who, strsignal(WTERMSIG(t)));
       // psignal(WTERMSIG(t), "killed: ");
       ret = WTERMSIG(t);
       _crash++, _fail++;
     } else if (WIFSTOPPED(t)) {
-      eprintf(
-          "-> %s \"%s\" stopped: %s", s_err, who, strsignal(WSTOPSIG(t)));
+      eprintf(" %s  %-48s\n    -> %s", s_err, who, strsignal(WSTOPSIG(t)));
       // psignal(WSTOPSIG(t), "stopped: ");
       ret = WSTOPSIG(t);
       _stop++;
       _fail++;
     } else if (WEXITSTATUS(t)) {
-      eprintf("-> %s \"%s\" failed", s_err, who);
+      eprintf(" %s  %-48s", s_err, who);
       ret = WEXITSTATUS(t);
       _fail++;
     } else {
-      eprintf("-> %s \"%s\"", s_ok, who);
+      eprintf(" %s  %-48s", s_ok, who);
       ret = 0;
       _pass++;
     }
@@ -54,7 +52,7 @@ void jet_runTest(int (*f)(void), char* s, int skip) {
     //   elap /= 60.0;
     //   units = "hr";
     // }
-    eprintf(" (%g %s)\n", elap, units);
+    eprintf(" [%7.1f %s]\n", elap, units);
     // return ret;
     // PIDs may be reused if spawn too many child processes
     // Dict_delk(UInt32, Ptr)(&runDict, pid);

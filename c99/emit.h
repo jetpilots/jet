@@ -3,10 +3,12 @@
 #define genLineProfile 0
 
 static void imp_emit(Import* import, int level, char ext) {
+  if (!import->mod) return;
   char* alias = import->aliasOffset + import->name;
-  cstr_tr_ip_len(import->name, '.', '_', 0);
-  printf("\n#include \"%s.%c\"\n", import->name, ext);
-  cstr_tr_ip_len(import->name, '_', '.', 0);
+  // cstr_tr_ip_len(import->mod->name, '.', '_', 0);
+  printf("\n#include \"%s\"\n",
+      ext == 'c' ? import->mod->out_c : import->mod->out_h);
+  // cstr_tr_ip_len(import->name, '_', '.', 0);
 }
 
 static void spec_emit(
@@ -642,7 +644,7 @@ static void expr_emit_tkFuncCallR(Expr* expr, int level) {
   while (arg) {
     Expr* cArg = arg;
     if (cArg->kind == tkComma) cArg = cArg->left;
-    if (cArg->kind == tkAssign) {
+    if (cArg->kind == tkArgAssign) {
       outl("/* ");
       expr_emit(cArg->left, 0);
       outl("= */ ");
@@ -790,6 +792,8 @@ static void expr_emit_tkCheck(Expr* expr, int level) {
   }
   printf("%.*sif (!(", level, spaces);
   // ----- use lhs rhs cached values instead of the expression
+  // if (rhsExpr) printf("%s_rhs", TokenKind_srepr[checkExpr->kind]);
+
   expr_emit(checkExpr, 0);
   // how are you doing to deal with x < y < z? Repeat all the logic of
   // expr_emit?
@@ -1298,22 +1302,31 @@ static void expr_emit(Expr* expr, int level) {
     //            || (expr->right->prec == expr->prec && expr->rassoc));
     // found in 'or return'
 
-    char lpo = '(';
-    char lpc = ')';
-    if (leftBr) putc(lpo, stdout);
+    // special case for (a==b)==(c==d). Don't want to arbitrarily enable
+    // brackets for all nested binops since C parsers may be recursive
+    // descent.
+    if (expr->kind == tkEQ //
+        && expr->left->kind == tkEQ //
+        && expr->right->kind == tkEQ)
+      leftBr = rightBr = true;
+
+    static const char* po = "(";
+    static const char* pc = ")";
+
+    if (leftBr) puts(po);
     if (expr->left) expr_emit(expr->left, 0);
-    if (leftBr) putc(lpc, stdout);
+    if (leftBr) puts(pc);
 
     if (expr->kind == tkArrayOpen)
       putc('{', stdout);
     else
       printf("%s", TokenKind_srepr[expr->kind]);
 
-    char rpo = '(';
-    char rpc = ')';
-    if (rightBr) putc(rpo, stdout);
+    // static const char *rpo = '(';
+    // static const char* rpc = ')';
+    if (rightBr) puts(po);
     if (expr->right) expr_emit(expr->right, 0);
-    if (rightBr) putc(rpc, stdout);
+    if (rightBr) puts(pc);
 
     if (expr->kind == tkArrayOpen) putc('}', stdout);
   }
@@ -1336,11 +1349,18 @@ static void mod_genTests(Module* mod) {
   outln("  }\n");
 
   // Now run our own tsts
-  printf("  eputs(\"Testing module %s\\n\");\n", mod->filename);
+  outln("  clock_Time t0 = clock_getTime();\n"
+        "  eprintf(\"%.*s\\n\",66, _dashes_);");
+  printf("  eputs(\"\\e[34;1m%s\\e[0m\\n\");\n", mod->filename);
   i = 0;
-  foreach (Test*, test, mod->tests)
+  foreach (Test*, test, mod->tests) {
+    bool skip = *test->name == '-';
+    if (skip) test->name++;
     printf("  jet_runTest(test_%s_%d, \"%s\", %d);\n", //
-        mod->cname, ++i, test->name, false);
+        mod->cname, ++i, test->name, skip);
+  }
+  outln("double elap = clock_clockSpanMicro(t0);");
+  outln("eprintf(\"    %-48s [%7.1f ms]\\n\", \"\", elap / 1e3);");
   outln("eputs(\"\");");
 
   outln("\n  done = 1;");
@@ -1355,7 +1375,7 @@ static void mod_emit(Module* mod) {
   }
 
   printf("#ifndef HAVE_%s\n#define HAVE_%s\n\n", mod->Cname, mod->Cname);
-  puts("#ifndef HAVE_JET_BASE\n"
+  puts("#ifndef HAVE_JET_BASE_H\n"
        "#include \"jet/runtime.h\"\n"
        "#endif\n");
 
@@ -1384,6 +1404,7 @@ static void mod_emit(Module* mod) {
   foreach (Func*, func, mod->funcs) {
     if (func->body && func->analysed) { func_genh(func, 0); }
   }
+  printf("\nvoid jet_runTests_%s(int runDeps);\n", mod->cname);
 
   printf("#endif // HAVE_%s\n", mod->Cname);
 

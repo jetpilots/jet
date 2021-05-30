@@ -18,7 +18,7 @@ static const char* const spaces = //
 #include "token.h"
 #include "ast.h"
 #include "clone.h"
-
+#include "templ.h"
 #include "lower.h"
 
 #define outl(s) fwrite(s "", sizeof(s "") - 1, 1, outfile)
@@ -196,7 +196,7 @@ int main(int argc, char* argv[]) {
     case PMEmitC: {
 
       char* enginePath = "engine"; // FIXME
-
+      char* cc_cmd = "gcc";
       foreach (Module*, mod, modules) {
         // for emitting C, test out_o for newness not out_c, since out_c
         // is updated by clangformat etc. anyway O is the goal.
@@ -216,10 +216,12 @@ int main(int argc, char* argv[]) {
         // Skip up-to-date object files
         if (!forceBuildAll && file_newer(mod->out_o, mod->out_c)) continue;
 
+        char* mono = monolithicBuild ? "-DJET_MONOBUILD" : "";
         char* cmd[] = { //
-          "/usr/bin/gcc", //
+          cc_cmd, //
           "-g", "-O0", //
           "-I", enginePath, //
+          mono, //
           "-c", mod->out_c, //
           "-o", mod->out_o, //
           NULL
@@ -239,7 +241,7 @@ int main(int argc, char* argv[]) {
 
       if (parser->mode == PMRun) {
         char* cmd[] = { //
-          "/usr/bin/gcc", //
+          cc_cmd, //
           "-I", enginePath, //
           "-g", "-O0", //
           "-c", "engine/jet/rt0.c", //
@@ -276,7 +278,7 @@ int main(int argc, char* argv[]) {
       } else if (mode == PMTest) {
         // see if this code can be shared with PMRun code
         char* cmd[] = { //
-          "/usr/bin/gcc", //
+          cc_cmd, //
           "-I", enginePath, //
           "-g", "-O0", //
           cstr_interp_s(256, "-DTENTRY=%s", root->cname), "-c",
@@ -292,7 +294,7 @@ int main(int argc, char* argv[]) {
         }
 
         PtrArray cmdexe = {};
-        arr_push(&cmdexe, cmd[0]);
+        arr_push(&cmdexe, cc_cmd);
         arr_push(&cmdexe, "-g");
         foreachn(Module*, mod, mods, modules) {
           if (monolithicBuild && mods->next) continue;
@@ -306,6 +308,7 @@ int main(int argc, char* argv[]) {
           unreachable("ld failed%s\n", "");
           return 1;
         }
+
         // Process_awaitAll();
       }
     } break;
@@ -338,8 +341,8 @@ int main(int argc, char* argv[]) {
 
     eprintf("\e[90m[ p/c %.2f + e %.1f + cc %.0f ms ]\e[0m\n", parser->elap,
         parser->oelap - parser->elap, parser->elap_tot - parser->oelap);
-    Process_launch((char*[]) { "./a.out", NULL });
-    Process_awaitAll();
+    execv("./a.out", (char*[]) { "./a.out", NULL });
+    // Process_awaitAll();
   }
 
   return ret;

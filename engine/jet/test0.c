@@ -12,6 +12,8 @@
 // #include "os/clock.h"
 typedef uint64_t clock_Time;
 typedef uint64_t PreciseTime;
+static const char* _dashes_ = //
+    "---------------------------------------------------------------------";
 
 PreciseTime clock_clockSpanMicro(clock_Time clockStart);
 clock_Time clock_getTime();
@@ -51,9 +53,10 @@ extern void JETTEST_(TENTRY)();
 
 int main(int argc, char* argv[]) {
   if (isatty(STDERR_FILENO)) {
-    s_err = "[\e[31mERR\e[0m]";
-    s_skp = "[\e[33mSKP\e[0m]";
-    s_ok = "[\e[32mOK!\e[0m]";
+    //✓✕• ✔︎✘⁃
+    s_err = "\e[31m✘\e[0m";
+    s_skp = "\e[33m⁃\e[0m";
+    s_ok = "\e[32m✔︎\e[0m";
   }
 
   clock_Time t0 = clock_getTime();
@@ -73,8 +76,10 @@ int main(int argc, char* argv[]) {
     elap /= 60.0;
     units = "hr";
   }
-  eprintf("\n-> Time elapsed: %g [%s]\n", elap, units);
-  eprintf("   Total |  Passed |  Failed | Skipped | Stopped | Crashed\n");
+  eprintf("%.*s\n", 66, _dashes_);
+  eprintf("   Total |  %s Passed |  %s Failed | %s Skipped | Stopped | "
+          "Crashed\n",
+      s_ok, s_err, s_skp);
   // eputs(
   //     "--------------------------------------------------------------------"
   //     "-------\n");
@@ -83,11 +88,12 @@ int main(int argc, char* argv[]) {
   //     "-------\n");
 #define PCT *100.0 / _total
 
-  eprintf(" %7d | %7d | %7d | %7d | %7d | %7d\n", _total, _pass, _fail,
+  eprintf(" %7d | %9d | %9d | %9d | %7d | %7d\n", _total, _pass, _fail,
       _skip, _stop, _crash);
-  eprintf("         | %6.0f%% | %6.0f%% | %6.0f%% | %6.0f%% | %6.0f%% \n",
+  eprintf("         | %8.0f%% | %8.0f%% | %8.0f%% | %6.0f%% | %6.0f%% \n",
       _pass PCT, _fail PCT, _skip PCT, _stop PCT, _crash PCT);
-
+  eprintf("%.*s\n", 66, _dashes_);
+  eprintf("-> Time elapsed: %g [%s]\n", elap, units);
   // eputs(
   //     "--------------------------------------------------------------------"
   //     "-------\n");

@@ -277,6 +277,8 @@ static const char* const _fp_bools_yn_[2] = { "no", "yes" };
 
 static const char* _spaces_ = //
     "                                                                    ";
+static const char* _dashes_ = //
+    "---------------------------------------------------------------------";
 
 #define DECL_json_wrap_(T) static void T##_json_wrap_(const T this);
 

@@ -232,6 +232,12 @@ static void err_unrecognizedVar(Parser* parser, Expr* expr) {
   err_increment(parser);
 }
 
+static void err_importNotFound(Parser* parser, Import* impo) {
+  par__errHeaderWithLoc(parser, impo->line, impo->col, strlen(impo->name));
+  eprintf("cannot load module '%.*s'\n", 64, impo->name);
+  err_increment(parser);
+}
+
 static void err_unrecognizedMember(Parser* parser, Type* type, Expr* expr) {
   par__errHeaderWithExpr(parser, expr);
   eprintf("%s '%s' has no member '%s';;", type->isEnum ? "enum" : "type",
@@ -414,6 +420,25 @@ static void warn_unrecognizedSelector(
 
   par__printSourceLines(
       parser, expr->line, expr->col, strlen(expr->str), "unknown function");
+
+  // eprintf("info: no function with selector '%s'\n", selector);
+
+  // err_increment(parser);
+}
+
+static void warn_templateHit(
+    Parser* parser, Expr* expr, char* selector, Func* selected) {
+  if (noPoison && *selector == '<') return; // invalid type; already error'd
+  par__warnHeaderWithLoc(parser, expr->line, expr->col, strlen(expr->str));
+
+  eprintf("no exact match for function '%s' with selector '%s', made "
+          "'%s' from template at %s%s:%d:%d\n",
+      expr->str, selector, selected->sel, RELF(parser->filename),
+      selected->line, selected->col);
+
+  // par__printSourceLines(
+  //     parser, expr->line, expr->col, strlen(expr->str), "unknown
+  //     function");
 
   // eprintf("info: no function with selector '%s'\n", selector);
 
