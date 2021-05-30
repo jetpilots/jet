@@ -73,9 +73,8 @@ int main(int argc, char* argv[]) {
     elap /= 60.0;
     units = "hr";
   }
-  eprintf("\n   Total |  Passed |  Failed | Skipped | Stopped | Crashed | "
-          "Elapsed [%s]\n",
-      units);
+  eprintf("\n-> Time elapsed: %g [%s]\n", elap, units);
+  eprintf("   Total |  Passed |  Failed | Skipped | Stopped | Crashed\n");
   // eputs(
   //     "--------------------------------------------------------------------"
   //     "-------\n");
@@ -84,9 +83,9 @@ int main(int argc, char* argv[]) {
   //     "-------\n");
 #define PCT *100.0 / _total
 
-  eprintf(" %7d | %7d | %7d | %7d | %7d | %7d | %11g\n", _total, _pass,
-      _fail, _skip, _stop, _crash, elap);
-  eprintf("         | %6.0f%% | %6.0f%% | %6.0f%% | %6.0f%% | %6.0f%% | \n",
+  eprintf(" %7d | %7d | %7d | %7d | %7d | %7d\n", _total, _pass, _fail,
+      _skip, _stop, _crash);
+  eprintf("         | %6.0f%% | %6.0f%% | %6.0f%% | %6.0f%% | %6.0f%% \n",
       _pass PCT, _fail PCT, _skip PCT, _stop PCT, _crash PCT);
 
   // eputs(

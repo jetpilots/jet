@@ -51,7 +51,7 @@ int rex_contains(_RegexProg prog, char* source) // yes or no
 #define CString_matches_re rex_matches
 
 int rex_matches(char* source, char* pattern) {
-  return rex_contains(rex__compile(pattern, 0, 1), source);
+  return rex_contains(rex__compile(pattern, 1, 1), source);
 }
 /* substitute into one string using the matches from the last regexec() */
 // this needs work, it just works locally on a new buffer, not the original

@@ -8,8 +8,8 @@
             "name": "Debug current file (linter)",
             "program": "${workspaceRoot}/c99/cjet-dbg",
             "args": [
-                "${fileDirname}/${fileBasename}",
-                "l"
+                "-l",
+                "${fileDirname}/${fileBasename}"
             ],
             "cwd": "${fileDirname}",
             "MIMode": "lldb",
@@ -21,8 +21,8 @@
             "name": "Debug current file (coverage)",
             "program": "${workspaceRoot}/c99/cjet-cov",
             "args": [
-                "${fileDirname}/${fileBasename}",
-                "l"
+                "-l",
+                "${fileDirname}/${fileBasename}"
             ],
             "cwd": "${fileDirname}",
             "MIMode": "lldb",
@@ -34,6 +34,7 @@
             "name": "Debug current file (compiler)",
             "program": "${workspaceRoot}/c99/cjet-dbg",
             "args": [
+                "-c",
                 "${fileDirname}/${fileBasename}"
             ],
             "cwd": "${fileDirname}",

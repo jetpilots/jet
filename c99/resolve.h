@@ -137,7 +137,7 @@ static void resolveVars(Parser* parser, Expr* expr, Scope* scope,
       // }
     }
     if (expr->kind == tkSubscriptR || expr->kind == tkSubscript) {
-      resolveVars(parser, expr->left, scope, inFuncCall);
+      resolveVars(parser, expr->left, scope, false);
       // check subscript argument count
       // recheck kind since the var may have failed resolution
       // TODO: handle dims 0 as dims 1 because arr[] is the same as arr[:]
@@ -154,7 +154,7 @@ static void resolveVars(Parser* parser, Expr* expr, Scope* scope,
     break;
 
   case tkPeriod:
-    if (expr->left) resolveVars(parser, expr->left, scope, inFuncCall);
+    if (expr->left) resolveVars(parser, expr->left, scope, false);
     // expr->right is not to be resolved in the same scope, but in
     // the type body of the type of expr->left. So you cannot call
     // resolveVars on expr->right from here. Neither can you assume
@@ -171,7 +171,7 @@ static void resolveVars(Parser* parser, Expr* expr, Scope* scope,
     if (expr->right)
       if (expr->right->kind == tkSubscript
           || expr->right->kind == tkSubscriptR)
-        resolveVars(parser, expr->right->left, scope, inFuncCall);
+        resolveVars(parser, expr->right->left, scope, false);
 
     break;
 
@@ -229,10 +229,11 @@ static void resolveVars(Parser* parser, Expr* expr, Scope* scope,
           // when the functions have been resolved. Maybe this should
           // also be moved there then.
         } else {
-          resolveVars(parser, expr->left, scope, inFuncCall);
+          resolveVars(parser, expr->left, scope, false);
         }
       }
-      resolveVars(parser, expr->right, scope, inFuncCall);
+      resolveVars(
+          parser, expr->right, scope, inFuncCall && expr->kind == tkComma);
 
       if (isSelfMutOp(expr)) {
         Var* target = NULL;

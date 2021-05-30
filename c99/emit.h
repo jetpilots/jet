@@ -499,6 +499,8 @@ static void expr_genPrintVars(Expr* expr, int level) {
   assert(expr);
   // TODO: what about func args?
   switch (expr->kind) {
+  case tkIdent: break; // arg labels etc
+
   case tkIdentR:
   case tkVarDefn:
     if (expr->var->visited) break;
@@ -626,17 +628,33 @@ static void expr_emit_tkSubscriptR(Expr* expr, int level) {
 static void expr_emit_tkFuncCallR(Expr* expr, int level) {
   char* tmp = expr->func->sel;
   const Func* const func = expr->func;
-  const Expr* arg1 = expr->left;
+  Expr* arg = expr->left;
   const char* tmpc = "";
-  if (arg1) {
-    if (arg1->kind == tkComma) arg1 = arg1->left;
-    tmpc = Collectiontype_nativeName(arg1->collType);
+  if (arg) {
+    if (arg->kind == tkComma) arg = arg->left;
+    tmpc = Collectiontype_nativeName(arg->collType);
   }
   printf("%s%s", tmpc, tmp);
   if (*tmp >= 'A' && *tmp <= 'Z' && !strchr(tmp, '_')) outl("_new_");
   outl("(");
 
-  if (expr->left) expr_emit(expr->left, 0);
+  arg = expr->left;
+  while (arg) {
+    Expr* cArg = arg;
+    if (cArg->kind == tkComma) cArg = cArg->left;
+    if (cArg->kind == tkAssign) {
+      outl("/* ");
+      expr_emit(cArg->left, 0);
+      outl("= */ ");
+      cArg = cArg->right;
+    }
+
+    expr_emit(cArg, 0);
+    arg = arg->kind == tkComma ? arg->right : NULL;
+    if (arg) outl(", ");
+  }
+
+  // if (expr->left) expr_emit(expr->left, 0);
 
   if (!func->isDeclare) {
     // ------ 8< ------------------------------------------------------
@@ -751,17 +769,25 @@ static void expr_emit_tkCheck(Expr* expr, int level) {
   // TODO: need llhs and lrhs in case all 3 in 3way are exprs
   // e.g. check a+b < c+d < e+f
   Expr* checkExpr = expr->right; // now use checkExpr below
-  Expr* lhsExpr = checkExpr->left;
-  Expr* rhsExpr = checkExpr->right;
+  Expr *lhsExpr = NULL, *rhsExpr = NULL;
+  // TODO: check exprs must be booleans! ensure that in analyse
+  switch (checkExpr->kind) {
+  case tkIdentR:
+  case tkFuncCallR:
+  case tkSubscriptR: lhsExpr = checkExpr; break;
+  default: lhsExpr = checkExpr->left; rhsExpr = checkExpr->right;
+  }
   outln("{");
-  if (!checkExpr->unary) {
+  if (lhsExpr) { //! checkExpr->unary) {
     printf("%.*s%s _lhs = ", level, spaces, expr_typeName(lhsExpr));
     expr_emit(lhsExpr, 0);
     outln(";");
   }
-  printf("%.*s%s _rhs = ", level, spaces, expr_typeName(rhsExpr));
-  expr_emit(rhsExpr, 0);
-  outln(";");
+  if (rhsExpr) {
+    printf("%.*s%s _rhs = ", level, spaces, expr_typeName(rhsExpr));
+    expr_emit(rhsExpr, 0);
+    outln(";");
+  }
   printf("%.*sif (!(", level, spaces);
   // ----- use lhs rhs cached values instead of the expression
   expr_emit(checkExpr, 0);
@@ -787,24 +813,24 @@ static void expr_emit_tkCheck(Expr* expr, int level) {
   // (genPrintVars uses this to avoid printing the same var
   // twice). This should be unset after every toplevel call to
   // genPrintVars.
-  if (!checkExpr->unary) {
-    // dont print literals or arrays
-    if (lhsExpr->collType == CTYNone
-        && !ISIN(5, lhsExpr->kind, tkString, tkNumber, tkRawString, tkLE,
-            tkLT)) {
-      if (lhsExpr->kind != tkIdentR || !lhsExpr->var->visited) {
-        printf("%.*s%s", level + STEP, spaces, "printf(\"  %s = ");
-        printf("%s", Typetype_format(lhsExpr->typeType, true));
-        printf("%s", "\\n\", \"");
-        expr_write(lhsExpr, 0, true, true);
-        printf("%s", "\", _lhs);\n");
-      }
-      // checks can't have tkVarDefn inside them
-      // if ()
-      //     lhsExpr->var->visited = true;
+  // if (lhsExpr){//!checkExpr->unary) {
+  // dont print literals or arrays
+  if (lhsExpr && lhsExpr->collType == CTYNone
+      && !ISIN(
+          5, lhsExpr->kind, tkString, tkNumber, tkRawString, tkLE, tkLT)) {
+    if (lhsExpr->kind != tkIdentR || !lhsExpr->var->visited) {
+      printf("%.*s%s", level + STEP, spaces, "printf(\"  %s = ");
+      printf("%s", Typetype_format(lhsExpr->typeType, true));
+      printf("%s", "\\n\", \"");
+      expr_write(lhsExpr, 0, true, true);
+      printf("%s", "\", _lhs);\n");
     }
+    // checks can't have tkVarDefn inside them
+    // if ()
+    //     lhsExpr->var->visited = true;
   }
-  if (rhsExpr->collType == CTYNone //
+  // }
+  if (rhsExpr && rhsExpr->collType == CTYNone //
       && !ISIN(3, rhsExpr->kind, tkString, tkNumber, tkRawString)) {
     if (rhsExpr->kind != tkIdentR || !rhsExpr->var->visited) {
       printf("%.*s%s", level + STEP, spaces, "printf(\"  %s = ");
@@ -978,6 +1004,7 @@ static void expr_emit(Expr* expr, int level) {
     if (!expr->right)
       printf("Dict_init(%s,%s)()", Ktype, Vtype); // FIXME
     else {
+      Vtype = expr_typeName(expr->right);
       printf("Dict_make(%s,%s)(%d, (%s[]){", Ktype, Vtype,
           expr_countCommaList(expr->right), Ktype);
       // ^ FIXME

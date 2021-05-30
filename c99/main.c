@@ -232,7 +232,7 @@ int main(int argc, char* argv[]) {
         proc = Process_awaitAny();
         if (proc.exited && proc.code) {
           unreachable("cc failed%s\n", "");
-          break;
+          return 1;
         }
         // here launch 1 more
       } while (proc.pid);
@@ -250,7 +250,7 @@ int main(int argc, char* argv[]) {
         proc = Process_awaitAny();
         if (proc.exited && proc.code) {
           unreachable("rt0 failed%s\n", "");
-          break;
+          return 1;
         }
 
         PtrArray cmdexe = {};
@@ -266,7 +266,7 @@ int main(int argc, char* argv[]) {
         proc = Process_awaitAny();
         if (proc.exited && proc.code) {
           unreachable("ld failed%s\n", "");
-          break;
+          return 1;
         }
         // Process_awaitAll();
 
@@ -288,7 +288,7 @@ int main(int argc, char* argv[]) {
         proc = Process_awaitAny();
         if (proc.exited && proc.code) {
           unreachable("test0 failed%s\n", "");
-          break;
+          return 1;
         }
 
         PtrArray cmdexe = {};
@@ -304,7 +304,7 @@ int main(int argc, char* argv[]) {
         proc = Process_awaitAny();
         if (proc.exited && proc.code) {
           unreachable("ld failed%s\n", "");
-          break;
+          return 1;
         }
         // Process_awaitAll();
       }

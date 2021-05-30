@@ -52,7 +52,7 @@ test "match string"
   check d == 77
 
   var reIdent = `^[A-Z][a-z0-9_]*$`
-  check matches("-string", re=reIdent)
+  check matches("Type", re=  reIdent)
 
 end
 
