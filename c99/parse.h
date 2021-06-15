@@ -451,6 +451,8 @@ error:
   return NULL;
 }
 
+static List(TypeSpec) * parseParams(Parser* parser);
+
 // --------------------------------------------------------------------- //
 static TypeSpec* parseTypeSpec(Parser* parser) {
   parser->token.mergeArrayDims = true;
@@ -466,6 +468,8 @@ static TypeSpec* parseTypeSpec(Parser* parser) {
 
   spec->name = parseIdent(parser);
 
+  if (par_matches(parser, tkLT)) spec->params = parseParams(parser);
+
   if (par_matches(parser, tkArrayDims)) {
     if (isalpha(*parser->token.pos)) {
       // Dict
@@ -477,8 +481,20 @@ static TypeSpec* parseTypeSpec(Parser* parser) {
     }
     tok_advance(&parser->token);
   }
+  if (par_ignore(parser, tkColon)) {
+    int c = parser->token.col;
+    char* cty = parseIdent(parser);
+    spec->collType = Collectiontype_byName(cty);
+    if (!spec->collType) {
+      unreachable(
+          "unknown collection type at %d:%d\n", parser->token.line, c);
+    } else {
+      spec->dims = 1;
+      // want higher dims? you should use [:,:,:] not a named coll type
+    }
+  }
 
-  par_ignore(parser, tkUnits);
+  if (par_ignore(parser, tkUnits)) { }
 
   assert(parser->token.kind != tkUnits);
   assert(parser->token.kind != tkArrayDims);
@@ -847,16 +863,19 @@ exitloop:
 }
 
 // --------------------------------------------------------------------- //
-static List(Var) * parseParams(Parser* parser) {
-  par_consume(parser, tkLT);
-  List(Var) * params;
-  Var* param;
+static List(TypeSpec) * parseParams(Parser* parser) {
+  tok_advance(&parser->token);
+  // par_consume(parser, tkLT);
+  List(TypeSpec)* params = NULL;
+  List(TypeSpec)** paramsp = &params;
+  // Var* param;
   do {
-    param = NEW(Var);
-    param->name = parseIdent(parser);
-    if (par_ignore(parser, tkAs)) param->spec = parseTypeSpec(parser);
-    if (par_ignore(parser, tkAssign)) param->init = parseExpr(parser);
-    li_push(&params, param);
+    // param = parseTypeSpec(parser);
+    //  NEW(Var);
+    // if (par_ignore(parser, tkAs)) param->spec =
+    // param->name = parseIdent(parser);
+    // if (par_ignore(parser, tkAssign)) param->init = parseExpr(parser);
+    paramsp = li_push(paramsp, parseTypeSpec(parser));
   } while (par_ignore(parser, tkComma));
   par_consume(parser, tkGT);
   return params;
@@ -882,6 +901,8 @@ static Func* parseFunc(
   bool mutator = func->name[func->nameLen - 1] == '!';
   if (mutator) func->nameLen--;
   // par_ignore(parser, tkExcl);
+
+  if (par_matches(parser, tkLT)) func->params = parseParams(parser);
 
   func->args = parseArgs(parser);
   func->argCount = li_count(func->args);
@@ -938,6 +959,7 @@ static Func* parseStmtFunc(Parser* parser, Scope* globScope) {
   Func* func = NEW(Func);
 
   func->line = parser->token.line;
+  func->col = parser->token.col;
   func->isStmt = true;
 
   func->nameLen = parser->token.matchlen;
@@ -965,10 +987,11 @@ static Func* parseStmtFunc(Parser* parser, Scope* globScope) {
   func->spec->col = parser->token.col;
   func->spec->name = "";
 
-  Expr* ret = exprFromCurrentToken(parser);
+  Expr* ret = par_match(parser, tkColEq);
 
   // if you have toplevel code (eg func call) it tends to reach here
-  if (ret->kind != tkColEq) return NULL;
+  // if (ret->kind != tkColEq) {err_expectedToken(parser,)
+  if (!ret) return NULL;
 
   ret->kind = tkReturn;
   ret->unary = true;
@@ -1003,7 +1026,7 @@ static Test* parseTest(Parser* parser, Scope* globScope) {
 
   par_consume(parser, tkEOL);
 
-  test->body = parseScope(parser, NULL, false, false);
+  test->body = parseScope(parser, globScope, false, false);
 
   par_consume(parser, tkEnd);
   par_ignore(parser, tkOneSpace);
@@ -1013,7 +1036,24 @@ static Test* parseTest(Parser* parser, Scope* globScope) {
 }
 
 // --------------------------------------------------------------------- //
-static JetUnits* parseUnits(Parser* parser) { return NULL; }
+// typedef struct {
+//   struct {
+//     int m : 4, s : 4, kg : 4, K : 4, cd : 4, A : 4, K : 4;
+//   } order;
+//   struct {
+//     double m, s, kg, K, cd, A, K;
+//   } scale;
+// } Units;
+
+// #define MKUNITS(n, ...) static const Units Units__##n = { __VA_ARGS__ };
+// MKUNITS(kg, .order.kg = 1)
+// MKUNITS(m, .L = 1)
+// MKUNITS(s, .T = 1)
+// MKUNITS(K, .K = 1)
+
+//     static JetUnits* parseUnits(Parser* parser) {
+//   return NULL;
+// }
 
 // --------------------------------------------------------------------- //
 static Type* parseType(
@@ -1027,9 +1067,13 @@ static Type* parseType(
   type->col = parser->token.col;
   type->name = parseIdent(parser);
 
+  if (par_matches(parser, tkLT)) type->params = parseParams(parser);
+
   if (par_ignore(parser, tkOneSpace) && par_ignore(parser, tkExtends)) {
     par_consume(parser, tkOneSpace);
     type->super = parseTypeSpec(parser);
+    if (type->super->typeType == TYObject)
+      li_shift(&type->super->type->derivedTypes, type);
   }
   par_ignore(parser, tkEOL);
 
@@ -1201,6 +1245,7 @@ static Module* parseModule(
     Parser* parser, PtrList** existingModulesPtr, Module* importer) {
   FUNC_ENTRY
   Module* root = NEW(Module); // FIXME RENAME ROOT TO MOD, IT IS NOT ROOT!
+  bool isPrivate = false;
 
   // ret->noext = cstr_noext(cstr_clone(filename));
   root->name
@@ -1215,9 +1260,15 @@ static Module* parseModule(
   root->out_h = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.h",
       cstr_dir_ip(cstr_pclone(root->filename)),
       cstr_base(root->filename, '/', l)));
-  root->out_c = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.c",
+  root->out_hh = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.hh",
       cstr_dir_ip(cstr_pclone(root->filename)),
       cstr_base(root->filename, '/', l)));
+
+  root->out_c = cstr_pclone(root->out_h);
+  root->out_c[strlen(root->out_c) - 1] = 'c';
+  // root->out_c = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.c",
+  //     cstr_dir_ip(cstr_pclone(root->filename)),
+  //     cstr_base(root->filename, '/', l)));
   root->out_xc = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.x.c",
       cstr_dir_ip(cstr_clone(root->filename)),
       cstr_base(root->filename, '/', l)));
@@ -1274,17 +1325,24 @@ static Module* parseModule(
 
     switch (parser->token.kind) {
 
+    case tkPrivate:
+      isPrivate = true;
+      tok_advance(&parser->token);
+      break;
+
     case tkDecl:
       tok_advance(&parser->token);
       par_consume(parser, tkOneSpace);
       if (parser->token.kind == tkFunc) {
         Func* func = parseFunc(parser, gscope, false);
         func->isDeclare = true;
+        func->private = isPrivate;
         funcs = li_push(funcs, func);
       }
       if (parser->token.kind == tkType) {
         Type* type = parseType(parser, gscope, false);
         type->isDeclare = true;
+        type->private = isPrivate;
         types = li_push(types, type);
       }
       break;
@@ -1292,12 +1350,15 @@ static Module* parseModule(
     case tkFunc: {
       bool istpl = false;
       Func* fn = parseFunc(parser, gscope, true);
+      fn->private = isPrivate;
+
       foreach (Var*, arg, fn->args) {
         // template if any arg has no spec
         if (arg->spec->typeType == TYUnknown && !*arg->spec->name)
           istpl = true;
         break;
       }
+      if (fn->params) istpl = true;
       if (istpl)
         tfuncs = li_push(tfuncs, fn);
       else
@@ -1306,6 +1367,7 @@ static Module* parseModule(
 
     case tkEnum: {
       Type* en = parseEnum(parser, gscope);
+      en->private = isPrivate;
       enums = li_push(enums, en);
       // add a global of the corresponding type so that it can be used
       // to access members.
@@ -1327,10 +1389,12 @@ static Module* parseModule(
 
     case tkType: {
       Type* type = parseType(parser, gscope, true);
+      type->private = isPrivate;
       types = li_push(types, type);
 
       // create default constructor
       Func* ctor = type_makeDefaultCtor(type);
+      ctor->private = isPrivate;
       funcs = li_push(funcs, ctor);
 
       // create some extra function declares
@@ -1340,6 +1404,7 @@ static Module* parseModule(
         Func* func = func_createDeclWithArg(defFuncs[i], NULL, type->name);
         func->line = type->line;
         func->intrinsic = true;
+        func->private = isPrivate;
         funcs = li_push(funcs, func);
       }
     } break;
@@ -1385,6 +1450,7 @@ static Module* parseModule(
       {
         int col = parser->token.col + parser->token.matchlen;
         Var *var = parseVar(parser), *orig;
+        var->private = isPrivate;
         if (!var) {
           tok_advance(&parser->token);
           continue;
@@ -1427,7 +1493,8 @@ static Module* parseModule(
     case tkOneSpace: tok_advance(&parser->token); break;
     case tkIdent: // stmt funcs: f(x) := f(y, w = 4) etc.
       if (tok_peekCharAfter(&parser->token) == '(') {
-        funcs = li_push(funcs, parseStmtFunc(parser, gscope));
+        Func* sfn = parseStmtFunc(parser, gscope);
+        if (sfn) funcs = li_push(funcs, sfn);
         break;
       }
     default:

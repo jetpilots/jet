@@ -13,6 +13,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "_ext/strcasecmp.h"
+
 #ifdef SLEEF
 #include "sleef.h"
 #else

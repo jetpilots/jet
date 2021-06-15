@@ -47,10 +47,11 @@ end
 ~ back to the file-scheme. that should cause the least carnage and still be a
 ~ clear warning
 func schemeFix(scheme String, strict Boolean) String
-    if (not scheme and not strict)
-        return 'file'
+    if not scheme and not strict
+        ans = 'file'
+    else
+        ans = scheme
     end
-    return scheme
 end
 
 ~ implements a bit of https://tools.ietf.org/html/rfc3986#section-5
@@ -62,12 +63,11 @@ func referenceResolution(scheme String, path String) String
     ~ see https://tools.ietf.org/html/rfc3986#section-5.1.4
     if scheme in ['https', 'http', 'file']
         if not path
-            path = '/'
-        else if path[0] != '/'
-            path = "$slash$path"
+            ans = '/'
+        else if path[1] != '/'
+            ans = "/$path"
         end
     end
-    ans = path
 end
 
 var empty = ''

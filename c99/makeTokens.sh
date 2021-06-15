@@ -72,6 +72,7 @@ add __tk__keywords__begin
     add tkAs " as "
     add tkType "type "
     add tkReturn "return "
+    add tkPrivate "private"
     add tkBreak "break "
     add tkContinue "continue "
     add tkThrow "throw "

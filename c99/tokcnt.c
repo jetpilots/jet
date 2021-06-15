@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include "jet/base.h"
 #include "signal.h"
 #include "types.h"

@@ -1,0 +1,28 @@
+for x = 7:9
+...
+end
+->
+for_Range(Tx, x, Range(7,9)) {...}
+
+for x = a
+->
+for_Array(Tx, x, a) {...}
+
+for x = [9, 8, 7, 7]
+->
+Array(Ttmp) tmp = {9, 8, 7, 7}
+for_Array(Tx, x, Ttmp, tmp) {...}
+
+for (k, v) = dict
+->
+for_Dict(Tk, k, Tv, v, dict)
+
+for x = somefn(n)
+->
+for_Iterator(Tx, x, somefn, n) {...}
+
+for (x, y) = zip(a, b)
+->
+for_zip(Tx, x, Ty, y, a, b) {...}
+OR
+for_Iterator(Tx, x, Ty, y, zip, a, b) {...}

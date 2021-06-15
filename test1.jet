@@ -29,13 +29,13 @@ decl func len(s String) Number
 func temp(a,b)
   if 4 == 8
   ans = b
-  else
-    ans = a
+  ~ else
+  ~   ans = a
   end
   end
 
 test "template funcs"
-  check temp(6,b="io") == "io"
+  check temp(6, b="io") == "io"
 end
 
 test "string stuff"

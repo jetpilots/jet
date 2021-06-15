@@ -15,15 +15,17 @@ static void spec_emit(
     TypeSpec* spec, int level, bool isconst, bool isconstptr) {
   isconst = false, isconstptr = false;
 
-  if (spec->dims) {
+  if (spec->collType) {
     if (isconst) outl("const_");
 
-    if (spec->dims > 1)
-      printf("Array%dD(", spec->dims);
-    else if (spec->collType == CTYDictS)
-      outl("Dict(CString, ");
-    else
-      outl("Array(");
+    if (spec->collType) {
+      if (spec->collType == CTYDict)
+        // TODO: define DictS and DictU as string & uint dicts then you wont
+        // need this special treatment
+        outl("Dict(CString, ");
+      else
+        printf("%s(", Collectiontype_name(spec->collType));
+    }
   }
 
   if (isconst) outl("const_");
@@ -39,7 +41,7 @@ static void spec_emit(
   default: printf("%s", Typetype_name(spec->typeType)); break;
   }
 
-  if (spec->dims) printf("%s", ")* restrict");
+  if (spec->collType) printf("%s", ")* restrict");
 }
 
 static void expr_emit(Expr* expr, int level);
@@ -66,7 +68,7 @@ static void var_emit(Var* var, int level) {
 
 static void var_insertDrop(Var* var, int level) {
   iprintf(level, "DROP(%s,%s,%s,%s);\n", spec_name(var->spec), var->name,
-      Collectiontype_nativeName(var->spec->collType),
+      Collectiontype_name(var->spec->collType),
       StorageClassNames[var->storage]);
 }
 
@@ -165,6 +167,12 @@ static void func_emit(Func* func, int level) {
     if (func->args) printf(", ");
     spec_emit(func->spec, level, false, false);
     printf(" ans");
+  }
+  if (func->yields) {
+    if (func->args) printf(", ");
+    outl(" void (*yield)(");
+    spec_emit(func->spec, level, false, false);
+    outl(")");
   }
 
   printf("\n#ifndef NDEBUG\n"
@@ -634,7 +642,7 @@ static void expr_emit_tkFuncCallR(Expr* expr, int level) {
   const char* tmpc = "";
   if (arg) {
     if (arg->kind == tkComma) arg = arg->left;
-    tmpc = Collectiontype_nativeName(arg->collType);
+    tmpc = Collectiontype_name(arg->collType);
   }
   printf("%s%s", tmpc, tmp);
   if (*tmp >= 'A' && *tmp <= 'Z' && !strchr(tmp, '_')) outl("_new_");
@@ -1132,7 +1140,7 @@ static void expr_emit(Expr* expr, int level) {
           outl(" || __match_cond == ("), expr_emit(cond->left, 0);
         }
         expr_emit(cond->right, 0);
-        outln("))   {");
+        outln(")) {");
       };
 
     } else {
@@ -1164,20 +1172,33 @@ static void expr_emit(Expr* expr, int level) {
       outl("  ");
     break;
   }
-  case tkFor:
+
+  case tkFor: {
+    if (expr->left->right->kind == tkFuncCallR
+        && expr->left->right->func->yields) {
+      // this should just generate a call to the iterator w/ a ptr to a
+      // func generated using the loop body
+    } else {
+      const char* ctypename
+          = Collectiontype_name(expr->left->right->collType);
+      printf("%s_for(%s, %s, ", ctypename, expr_typeName(expr->left->right),
+          expr->left->var->name);
+      expr_emit(expr->left->right, 0);
+      outl(") {");
+      scope_emit(expr->body, level + STEP);
+      printf("%.*s}", level, spaces);
+    }
+  } break;
+
   case tkIf:
-    //    case tkElif:
-    //    case tkElse:
   case tkWhile:
-    if (expr->kind == tkFor)
-      outl("FOR(");
-    else
-      printf("%s (", TokenKind_repr[expr->kind]);
-    if (expr->kind == tkFor) expr->left->kind = tkComma;
-    if (expr->left) expr_emit(expr->left, 0);
-    if (expr->kind == tkFor) expr->left->kind = tkAssign;
+    // if (expr->kind == tkFor)
+    //   outl("FOR(");
+    // else
+    printf("%s (", TokenKind_repr[expr->kind]);
+    expr_emit(expr->left, 0);
     outln(") {");
-    if (expr->body) scope_emit(expr->body, level + STEP);
+    scope_emit(expr->body, level + STEP);
     printf("%.*s}", level, spaces);
     break;
 
@@ -1196,6 +1217,8 @@ static void expr_emit(Expr* expr, int level) {
     break;
 
   case tkCheck: expr_emit_tkCheck(expr, 0); break;
+
+  case tkYield: outln("yield(ans);"); break;
 
   case tkPeriod: {
     if (expr->right->kind == tkFuncCallR) {
@@ -1367,11 +1390,14 @@ static void mod_genTests(Module* mod) {
   outln("}");
 }
 
-static void mod_emit(Module* mod) {
+int file_hash_equal(char* file1, char* file2);
+bool file_move(char* src, char* target) { return rename(src, target); }
 
-  if (!(outfile = fopen(mod->out_h, "w"))) {
-    eprintf("%s:1:1-1: error: can't open file for writing\n", mod->out_h);
-    return;
+static int mod_emit(Module* mod) {
+
+  if (!(outfile = fopen(mod->out_hh, "w"))) {
+    eprintf("%s:1:1-1: error: can't open file for writing\n", mod->out_hh);
+    return 1;
   }
 
   printf("#ifndef HAVE_%s\n#define HAVE_%s\n\n", mod->Cname, mod->Cname);
@@ -1410,14 +1436,29 @@ static void mod_emit(Module* mod) {
 
   fclose(outfile);
 
+  if (!file_hash_equal(mod->out_h, mod->out_hh)) {
+    // header has changed, mark it so deps
+    // can be recompiled
+    // eprintf("%s: header updated\n", mod->out_h);
+    mod->hmodified = true;
+    if (!file_move(mod->out_hh, mod->out_h)) {
+      eprintf("%s:1:1-1: error: can't update file\n", mod->out_h);
+      return 1;
+    }
+  } else
+    unlink(mod->out_hh);
+
+  // C file -------------------------------------------------------------
+
   if (!(outfile = fopen(mod->out_c, "w"))) {
     eprintf("%s:1:1-1: error: can't open file for writing\n", mod->out_c);
-    return;
+    return 1;
   }
 
   printf("#include \"%s\"\n\n",
       cstr_base(mod->out_h, '/', strlen(mod->out_h)));
 
+  printf("#line 1 \"%s\"\n", mod->filename);
   printf("#define THISFILE \"%s\"\n", mod->filename);
   printf("#define THISMODULE %s\n", mod->cname);
   printf("#define NUMLINES %d\n", mod->nlines);
@@ -1447,4 +1488,6 @@ static void mod_emit(Module* mod) {
   outln("#undef NUMLINES");
 
   fclose(outfile);
+
+  return 0;
 }

@@ -18,17 +18,48 @@
 //         errorUnrecognized(spec, parser = parser)
 // end function
 
-static void resolveTypeSpec(Parser* parser, TypeSpec* spec, Module* mod) {
+static void resolveTypeSpec(Parser* parser, TypeSpec* spec, Module* mod,
+    List(TypeSpec) * definedParams) {
   // TODO: disallow a type that derives from itself!
   if (spec->typeType != TYUnknown) return;
   if (!*spec->name) return;
 
   // TODO: DO THIS IN PARSE... stuff!!
 
+  foreach (TypeSpec*, spec, spec->params)
+    resolveTypeSpec(parser, spec, mod, definedParams);
+
+  if (definedParams) {
+    // params have been passed in while analysing a func or type. types will
+    // now be checked first against the defined params. If match found,
+    // great, leave it as is and it will be concretized when the template is
+    // instantiated. If not, look it up normally, it might be a concrete
+    // type.
+    foreach (TypeSpec*, dparam, definedParams) {
+      if (!strcasecmp(dparam->name, spec->name)) {
+        if (dparam->typeType == TYUnknown) return;
+        // ^ if dparam is (yet) unknown just match & leave it as is. this is
+        // so you dont leave undefined params without reporting anything
+        else {
+          // resolved param, likely during instantiating a template. so copy
+          // over the typespec info.
+          spec->typeType = dparam->typeType;
+          if (spec->typeType == TYObject) {
+            spec->type = dparam->type;
+            spec->type->used++;
+            return;
+          }
+        }
+      }
+    }
+  }
+
   TypeTypes tyty = Typetype_byName(spec->name);
   if (tyty) { // can be member of TypeSpec!
     spec->typeType = tyty;
   } else {
+    // TODO: make type from template if not found. & lookup based on params
+    // not just name
     Type* type = mod_getType(mod, spec->name);
     if (type) {
       spec->typeType = TYObject;
@@ -39,6 +70,7 @@ static void resolveTypeSpec(Parser* parser, TypeSpec* spec, Module* mod) {
     err_unrecognizedType(parser, spec);
     return;
   }
+
   if (spec->dims) {
     // set collection type, etc.
     // for this we will need info about the var and its usage

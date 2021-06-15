@@ -67,6 +67,7 @@ struct TypeSpec {
   union {
     Type* type;
     char* name;
+    Func* proto; // for func ptrs
     Interval* intv;
     // ^ e.g. var x in [1:250]
     // this does not make x integer. it only provides a constraint, you need
@@ -77,13 +78,10 @@ struct TypeSpec {
     // simply a check/multiply op. in tthe Jet | is a tkDimensionedExpr, or
     // simply every expr has a JetUnits* member.
   };
+  List(TypeSpec) * params;
   struct { // todo: this must be named TypeInfo & reused in Expr not copy
            // pasted
-    uint16_t dims; // more than 65535 dims will not be handled at compile
-                   // time (size check, shape check etc) but at runtime. if
-                   // collType is tensor but dims is 0, it means too
-                   // many dims or ct-unknown dims, in any case it is then
-                   // the generic ArrayND.
+    uint16_t dims;
     CollectionTypes collType : 6;
     bool hasRange : 1, //
         hasUnits : 1;
@@ -91,7 +89,7 @@ struct TypeSpec {
     bool nullable : 1;
   };
   // JetLocation loc[0];
-  uint32_t line : 24, col, : 8;
+  uint32_t line : 24, col : 8;
 };
 static const size_t szSpec = sizeof(TypeSpec);
 
@@ -147,6 +145,7 @@ struct Var {
     char //
         isLet : 1, //
         isVar : 1, //
+        private : 1, //
         isMutableArg : 1, // func arg only: passed by ref (needs extra *)
         storage : 2, // 0,1,2,3: refc/heap/stack/mixed
         isArg : 1, // a function arg, not a local var
@@ -307,11 +306,13 @@ struct Scope {
 
 struct Type {
   char* name;
-  /// [unused] supertype. Jet does not have inheritance, perhaps for good.
+  List(TypeSpec) * params;
+
   TypeSpec* super;
+
   /// The other types that are used in this type (i.e. types of member
   /// variables)
-  List(Type) * usedTypes, *usedByTypes;
+  List(Type) * derivedTypes, *usedTypes, *usedByTypes;
   /// The other types that use this type.
   /// The body of the type, as a scope. In effect it can have any
   /// expressions, but most kinds are disallowed by the parsing routine.
@@ -321,9 +322,8 @@ struct Type {
   uint16_t line, endline, used;
   uint8_t col;
   bool analysed : 1, needJSON : 1, needXML : 1, needYAML : 1, visited : 1,
-      isValueType : 1, isEnum : 1, isMultiEnum : 1,
-      isDeclare : 1; // all vars of this type will be stack
-                     // allocated and passed around by value.
+      isValueType : 1, isEnum : 1, isMultiEnum : 1, private : 1,
+      isDeclare : 1;
 };
 
 // typedef struct JetEnum {
@@ -338,6 +338,7 @@ struct Func {
   char* name;
   Scope* body;
   List(Var) * args;
+  List(TypeSpec) * params;
   List(Func) * callers, *callees;
   TypeSpec* spec;
   char *sel, *psel;
@@ -350,9 +351,10 @@ struct Func {
 
           // usesNet : 1,usesIO : 1, usesGUI : 1,
           mutator : 1, // usesSerialisation : 1, //
-          isExported : 1, //
+          private : 1, //
           usesReflection : 1, //
-          nodispatch : 1, //
+          dispatch : 1, // generate dispatcher for this vfunc
+          yields : 1, // iterator, not normal func
           isStmt : 1, //
           isDeclare : 1, //
           isCalledFromWithinLoop : 1, //
@@ -404,8 +406,12 @@ struct Module {
   List(Module) * importedBy; // for dependency graph. also use
                              // imports[i]->mod over i
   char *name, *cname, *Cname, *filename;
-  char *out_x, *out_xc, *out_c, *out_o, *out_h, *out_jet;
+  char *out_x, *out_xc, *out_c, *out_o, *out_h, *out_hh, *out_jet;
   int nlines;
+  bool modified,
+      hmodified; // hmodified means a public func/type has been modified,so
+                 // regenerate the header & recompile deps. not relevant in
+                 // monolithic mode
 
   // DiagnosticReporter reporter;
 
@@ -724,6 +730,7 @@ static Func* func_createDeclWithArg(
     char* name, char* retType, char* arg1Type) {
   Func* func = NEW(Func);
   func->name = name;
+  func->nameLen = strlen(name);
   func->isDeclare = true;
   if (retType) {
     func->spec = NEW(TypeSpec);
@@ -759,15 +766,21 @@ static void getSelector(Func* func) {
     int remain = 128, wrote = 0;
     char buf[128];
     buf[127] = 0;
-    char* bufp = buf;
+    char *bufp = buf, *collName = "";
 
     Var* arg1 = (Var*)func->args->item;
-    wrote = snprintf(bufp, remain, "%s_", spec_name(arg1->spec));
+    if (arg1->spec->collType)
+      collName = cstr_interp_s(
+          256, "_%s", Collectiontype_name(arg1->spec->collType));
+    wrote
+        = snprintf(bufp, remain, "%s%s_", spec_name(arg1->spec), collName);
     selLen += wrote;
     bufp += wrote;
     remain -= wrote;
 
-    wrote = snprintf(bufp, remain, "%s", func->name);
+    int l = func->nameLen;
+    if (!l) l = strlen(func->name);
+    wrote = snprintf(bufp, remain, "%.*s", func->nameLen, func->name);
     selLen += wrote;
     bufp += wrote;
     remain -= wrote;
@@ -790,7 +803,7 @@ static void getSelector(Func* func) {
     bufp += wrote;
     remain -= wrote;
 
-    wrote = snprintf(bufp, remain, "%s", spec_name(arg1->spec));
+    wrote = snprintf(bufp, remain, "%s%s", spec_name(arg1->spec), collName);
     selLen += wrote;
     bufp += wrote;
     remain -= wrote;

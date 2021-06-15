@@ -15,15 +15,30 @@ MKLIST_CLONE(Var)
 
 static Expr* Expr_clone(Expr* expr) {
   if (!expr) return NULL;
-  Expr* new = NEW(Expr); // CLONE(Expr, expr);
-  *new = *expr;
+  Expr* new = CLONE(Expr, expr);
+
+  // unresolve resolved stuff and clone referenced items
   switch (new->kind) {
-  case tkFuncCall:
-  case tkSubscript:
+  case tkIdentR:
+    new->kind = tkIdent;
+    new->str = new->var->name;
+    break;
+
   case tkFuncCallR:
+    new->kind = tkFuncCall;
+    new->str = new->func->name;
+    fallthrough;
+  case tkFuncCall: new->left = Expr_clone(new->left); break;
+
+  case tkSubscript:
+    new->kind = tkSubscript;
+    new->str = new->var->name;
+    fallthrough;
   case tkSubscriptR: new->left = Expr_clone(new->left); break;
+
   case tkString:
-  case tkRawString: new->vars = List_clone(Expr)(new->vars);
+  case tkRawString: new->vars = List_clone(Expr)(new->vars); break;
+
   default:
     if (new->prec) {
       if (!new->unary&& new->left) new->left = Expr_clone(new->left);

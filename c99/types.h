@@ -86,6 +86,7 @@ typedef enum TypeTypes {
   TYNil, // passes type validation with anything. be careful!
   TYObject, // resolved to an Type
   // primitives that can be printed or represented with no fuss
+  TYFuncPtr,
   TYError, // use this to poison an expr which has a type error
   // and the error has been reported, to avoid
   // reporting the same error for all parents, as the
@@ -136,6 +137,7 @@ static const char* Typetype_name(TypeTypes tyty) {
   case TYError: return "<invalid>";
   case TYString: return "CString";
   case TYBool: return "Boolean";
+  case TYFuncPtr: return "func";
   case TYRegex: return "Regex";
   case TYObject: return "";
   case TYPtrInt:
@@ -171,6 +173,7 @@ static const char* Typetype_c_name[] = { [TYUnknown] = "<unknown>",
   [TYBool] = "bool",
   [TYRegex] = "Regex",
   [TYObject] = "<object>",
+  [TYFuncPtr] = "<func>",
   [TYPtrInt] = "SizeT",
   [TYInt8] = "Int8",
   [TYUInt8] = "UInt8",
@@ -196,6 +199,7 @@ static const char* Typetype_format(TypeTypes tyty, bool quoted) {
   case TYVoid:
   case TYNil:
   case TYError: return NULL;
+  case TYFuncPtr:
   case TYObject: return "%p";
   case TYPtrInt: // this is actually uintptr_t, since actual ptrs are
                  // TYObjects. maybe rename it
@@ -241,6 +245,7 @@ static unsigned int Typetype_size(TypeTypes tyty) {
   case TYVoid:
   case TYNil:
   case TYError: return 0;
+  case TYFuncPtr:
   case TYObject: return sizeof(void*);
   case TYPtrInt: return sizeof(size_t);
   case TYRegex: return sizeof(char*);
@@ -297,7 +302,7 @@ typedef enum CollectionTypes {
   CTYArray,
   CTYList,
   CTYDList,
-  CTYDictS,
+  CTYDict,
   CTYDictU,
   CTYOrderedDictS, // String keys
   CTYSortedDictS, // UInt/Int/Ptr keys
@@ -307,6 +312,7 @@ typedef enum CollectionTypes {
   CTYOrderedSet,
   CTYSortedSet,
   CTYTensor, // will need to store dims. includes vector/matrix/tensor
+  CTYIterator, // funcs that yield
   CTYDataFrame,
   CTYStackArray, // computed size from init. can get later using countof()
   CTYStackArray8, // these are NOT in BYTES, but sizeof(whatever), so
@@ -322,22 +328,57 @@ typedef enum CollectionTypes {
   CTYStackArray4096, // really? you need any larger?
 } CollectionTypes;
 
-static const char* Collectiontype_nativeName(CollectionTypes coty) {
+#define TRYMATCH(s)                                                        \
+  if (!strncasecmp(#s, name, strlen(#s))) return CTY##s;
+
+CollectionTypes Collectiontype_byName(char* name) {
+  TRYMATCH(None) // N
+  TRYMATCH(Array)
+  TRYMATCH(List)
+  TRYMATCH(DList)
+  TRYMATCH(Dict)
+  TRYMATCH(DictU)
+  TRYMATCH(OrderedDictS)
+  TRYMATCH(SortedDictS)
+  TRYMATCH(OrderedDictU)
+  TRYMATCH(SortedDictU)
+  TRYMATCH(Set)
+  TRYMATCH(OrderedSet)
+  TRYMATCH(SortedSet)
+  TRYMATCH(Tensor) // wil
+  TRYMATCH(DataFrame)
+  TRYMATCH(Iterator)
+  TRYMATCH(StackArray) //
+  TRYMATCH(StackArray8)
+  TRYMATCH(StackArray16)
+  TRYMATCH(StackArray32)
+  TRYMATCH(StackArray64)
+  TRYMATCH(StackArray128)
+  TRYMATCH(StackArray256)
+  TRYMATCH(StackArray512)
+  TRYMATCH(StackArray1024)
+  TRYMATCH(StackArray2048)
+  TRYMATCH(StackArray4096)
+  return CTYNone;
+}
+
+static const char* Collectiontype_name(CollectionTypes coty) {
   switch (coty) {
   case CTYNone: return "";
-  case CTYArray: return "Array_";
-  case CTYList: return "List_";
-  case CTYDList: return "DList_";
-  case CTYDictS: return "DictS_";
-  case CTYDictU: return "DictU_";
-  case CTYOrderedDictS: return "_o";
+  case CTYArray: return "Array";
+  case CTYList: return "List";
+  case CTYDList: return "DList";
+  case CTYDict: return "Dict";
+  case CTYDictU: return "DictU";
+  case CTYOrderedDictS: return "OrderedDict";
   case CTYSortedDictS: return "_s";
   case CTYOrderedDictU: return "_O";
   case CTYSortedDictU: return "_S";
-  case CTYSet: return "Set_";
-  case CTYOrderedSet: return "OSet_";
-  case CTYSortedSet: return "SSet_";
-  case CTYTensor: return "Tensor_";
+  case CTYSet: return "Set";
+  case CTYOrderedSet: return "OSet";
+  case CTYSortedSet: return "SSet";
+  case CTYTensor: return "Tensor";
+  case CTYIterator: return "Iterator";
   case CTYDataFrame: return "_F";
   case CTYStackArray: return "[]";
   case CTYStackArray8: return "[8]";
@@ -351,4 +392,37 @@ static const char* Collectiontype_nativeName(CollectionTypes coty) {
   case CTYStackArray2048: return "[2048]";
   case CTYStackArray4096: return "[4096]";
   }
+  return "CTY";
 }
+
+// static int Collectiontype_dims(CollectionTypes coty) {
+//   switch (coty) {
+//   case CTYNone: return 0;
+//   case CTYArray: return 1;
+//   case CTYList: return 1;
+//   case CTYDList: return 1;
+//   case CTYDictS: return 1;
+//   case CTYDictU: return 1;
+//   case CTYOrderedDictS: return 1;
+//   case CTYSortedDictS: return 1;
+//   case CTYOrderedDictU: return 1;
+//   case CTYSortedDictU: return 1;
+//   case CTYSet: return 1;
+//   case CTYOrderedSet: return 1;
+//   case CTYSortedSet: return 1;
+//   case CTYTensor: return "Tensor_";
+//   case CTYDataFrame: return "_F";
+//   case CTYStackArray: return "[]";
+//   case CTYStackArray8: return "[8]";
+//   case CTYStackArray16: return "[16]";
+//   case CTYStackArray32: return "[32]";
+//   case CTYStackArray64: return "[64]";
+//   case CTYStackArray128: return "[128]";
+//   case CTYStackArray256: return "[256]";
+//   case CTYStackArray512: return "[512]";
+//   case CTYStackArray1024: return "[1024]";
+//   case CTYStackArray2048: return "[2048]";
+//   case CTYStackArray4096: return "[4096]";
+//   }
+//   return "CTY";
+// }

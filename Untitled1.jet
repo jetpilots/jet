@@ -1,0 +1,210 @@
+~ decl type T end
+~ decl type A end
+
+~ type Array ~<T>
+~   var ref A
+~   var cap = 0
+~   var used = 0
+~ end
+
+~ decl func set(ptr Number, val, at Number)
+
+~ decl func realloc(ptr A, sz Number) A
+
+~ len(a Array) := a.used
+
+~ func get(a Array, i Number)
+~   ans = a.ref[i]
+~ end
+
+~ func grow2x!(a Array)
+~   a.ref = realloc(a.ref, sz=a.cap*2)
+~ end
+
+~ func push!(a Array, v T)
+~   if a.used == a.cap
+~     grow2x!(a)
+~   end
+~   ~ set(a.ref, val=v, at=a.used)
+~   a.ref[a.used] = v
+~   a.used += 1
+~ end
+
+~ func pop!(a Array)
+~   if a.used == 0
+~     throw "pop from empty array"
+~   end
+~   ans = a.ref[a.used]
+~   a.used -= 1
+~ end
+
+~ ~ arg typespecs should just point to the typespec that the func param is pointing to. that way when param is substiyuted the args are also. trick is how to infer T  in order to substitute it.
+~ ~ walk the args to see which one is T, then subst T when you find a match. then check resulting func signature against the types passed in. if it matches then this is the templ to instantiate. if not reset the func params and try next func. generalize for  any num of params
+~ ~ what if you have f(Array:T, Array:T) ie no arg is T? how to infer T?
+~ ~ you can resolve the Array part ie it resolves to type Array with parameter set to T not a new typespec. that means 1 Aray type will be cloned just for this func declaration. 2 for 2 args. their params point to the same typespec.
+
+~ type ArrayT<T>
+~   func push(v T)
+~   end
+~   func pop() T
+~   end
+~ end
+
+
+~ Array<T>
+  ~ push(v T)
+  ~ pop()
+
+
+
+~ type T end
+
+
+
+
+
+
+type Array<T>
+  ~ var ref T[]
+  var len = 0
+  var cap = 0
+end
+
+func push<T>(a Array<T>, v T)
+~ T in f<T>(...) will always be inferred at callsites, not specified
+end
+
+func pop<T>(a Array<T>) T
+
+end
+
+~ func set<K, V>(d Dict<K, V>, k K, v V)
+
+~ end
+
+decl func settop!(a Number:Array, v Number)
+decl func lenup!(a Number:Array)
+
+func push!(a Number:Array, b Number)
+  settop!(a, v=b)
+  lenup!(a)
+  ~ if a.len == a.cap
+  ~   grow2x!(a)
+  ~ end
+  ~ a.ref[a.len] = b.ki
+  ~ a.len += 1
+end
+
+func push(a String:Array, b String)
+  var it = a[1]
+end
+
+
+
+var g = ["9"]
+var d = push(g, b="8")
+
+
+
+
+~ decl type T extends Expr end
+
+~ type Array
+~   var ref T
+~ end
+~ set(ptr, val, at) ^^
+~ realloc(ptr, sz) ^^
+
+~ Array
+~ - ref = 0x0
+~ - cap = 0
+~ - used = 0
+~ - len() := a.used
+~ - getaddr(i) := a.ref + i
+~ - grow2x()
+~     a.ref = realloc(a.ref, a.cap*2)
+~ - push(v)
+~     a.used == a.cap ? grow2x!()
+~     set(a.ref, val=v, at=a.used)
+~     a.ref[a.used] = v
+~     a.used += 1
+~ - top() := a.ref[a.used] or throw "pop from empty array"
+~ - pop!()
+~     ans = top()
+~     a.used -= 1
+~ + fromString(str) := str.bytes
+
+~ ~ String
+~ ~ - buf = 0x0
+~ ~ - cap = 0
+~ ~ - len = 0
+~ ~ - trim()
+
+~ List<T> : Collection<T>
+~   item = 0x0
+~   next = 0x0
+~   clone()
+~     ans = List {item = item, next = next}
+~   shift(ni T)
+~     next = clone()
+~     item = ni
+
+~ base.List<T> +
+~   push(ni T)
+~     temp = self
+~     while (temp.next) do temp = temp.next
+~     temp.next = List {item = ni}
+
+~ List
+~ - item = 0x0
+~ - next = 0x0
+~ - clone() := List {item = item, next = next}
+~ - shift(ni)
+~     next = clone()
+~     item = ni
+~ - push(ni)
+~     temp = self
+~     while (temp.next) do temp = temp.next
+~     temp.next = List {item = ni}
+
+
+~ ~ module-level executable code. no func defs
+~ v = ask()
+~ print("Hello $v")
+
+~ -- ~ now only defs.
+
+~ Array {
+~   ref = 0
+~   cap = 0
+~   used = 0
+~ }
+
+~ arr = Array()
+
+~ arr = Array {
+~   cap = 5
+~ }
+
+~ arr = Expr [
+~   expr2
+~   expr1
+~   expr0
+~ ]
+
+~ arr = fun(sth, se=sth2)
+
+~ print(arr)
+
+~ Enum {
+~   #one
+~   #two
+~   #three
+~ }
+
+~ ev := Enum #one
+
+~ fun(sth XYZ, se Enum) Misc {
+~   es := sth.next
+~   ans = 22
+~ }

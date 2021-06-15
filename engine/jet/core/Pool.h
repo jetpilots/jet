@@ -13,8 +13,8 @@ monostatic void* Pool_alloc(Pool* self, size_t reqd) {
   // This is a pool for single objects, not arrays or large strings.
   // dont ask for a big fat chunk larger than 16KB (or up to 256KB
   // depending on how much is already there) all at one time.
-  if (self->used + reqd > self->cap) {
-    if (self->ref) {
+  if (unlikely(self->used + reqd > self->cap)) {
+    if (likely(self->ref)) {
       Array_push(Ptr)(&self->ptrs, self->ref);
       Array_push(UInt32)(&self->caps, self->cap);
     }

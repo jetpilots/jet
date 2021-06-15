@@ -31,6 +31,8 @@ monostatic Func* mod_makeFunc(Module* module, Expr* funcCallExpr) {
     }
 
     li_shift(&module->funcs, ret);
+    module->modified
+        = true; // it must be recompiled if in non-monolithic mode
     return ret;
   nextfunc:;
   }

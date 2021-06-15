@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L
 #include <signal.h>
 
 #include "jet/base.h"
@@ -69,6 +70,7 @@ static const char* CompilerMode__str[] = { //
 #include "parse.h"
 
 #include "serv.h"
+#include "filehash.h"
 
 static void par_emit_open(Parser* parser) {
   // printf("#define THISFILE \"%s\"\n", parser->filename);
@@ -95,11 +97,9 @@ bool file_newer(const char* file, const char* than) {
   struct stat sb1 = {}, sb2 = {};
   if (stat(file, &sb1) + stat(than, &sb2)) return false;
   // ^ one or both file(s) not found or other error
-  if (sb1.st_mtimespec.tv_sec > sb2.st_mtimespec.tv_sec) return true;
-  size_t time1
-      = sb1.st_mtimespec.tv_sec * ONE_NANO + sb1.st_mtimespec.tv_nsec;
-  size_t time2
-      = sb2.st_mtimespec.tv_sec * ONE_NANO + sb2.st_mtimespec.tv_nsec;
+  if (sb1.st_mtime > sb2.st_mtime) return true;
+  size_t time1 = sb1.st_mtime * ONE_NANO + sb1.st_mtimensec;
+  size_t time2 = sb2.st_mtime * ONE_NANO + sb2.st_mtimensec;
   return time1 > time2;
 }
 
@@ -162,6 +162,8 @@ int main(int argc, char* argv[]) {
   Module* root = parseModule(parser, &modules, NULL);
   parser->elap = clock_clockSpanMicro(t0) / 1.0e3;
 
+  // int b = file_hash_equal("/usr/bin/gcc", "/usr/bin/yes");
+  // printf("---- %d\n", b);
   if (_InternalErrs) {
     // nothing
   } else if (parser->mode == PMLint) {
@@ -200,7 +202,8 @@ int main(int argc, char* argv[]) {
       foreach (Module*, mod, modules) {
         // for emitting C, test out_o for newness not out_c, since out_c
         // is updated by clangformat etc. anyway O is the goal.
-        if (!forceBuildAll && file_newer(mod->out_o, mod->filename))
+        if (!forceBuildAll && !mod->modified
+            && file_newer(mod->out_o, mod->filename))
           continue;
         mod_emit(mod);
       }
@@ -213,8 +216,18 @@ int main(int argc, char* argv[]) {
         // will have pulled in the other source files by #including them.
         if (monolithicBuild && mods->next) continue;
 
+        bool anyDependencyHModified = false;
+        foreach (Import*, imp, mod->imports) {
+          if (imp->mod && imp->used && imp->mod->hmodified)
+            anyDependencyHModified = true;
+          // public interface of some dep has changed, this mod will need t
+          // be recompiled.
+          break;
+        }
         // Skip up-to-date object files
-        if (!forceBuildAll && file_newer(mod->out_o, mod->out_c)) continue;
+        if (!forceBuildAll && !anyDependencyHModified
+            && file_newer(mod->out_o, mod->out_c))
+          continue;
 
         char* mono = monolithicBuild ? "-DJET_MONOBUILD" : "";
         char* cmd[] = { //
@@ -337,10 +350,10 @@ int main(int argc, char* argv[]) {
 
   int ret = parser->issues.errCount | _InternalErrs;
 
-  if (!ret && (mode == PMRun || mode == PMTest)) {
+  eprintf("\e[90m[ p/c %.2f + e %.1f + cc %.0f ms ]\e[0m\n", parser->elap,
+      parser->oelap - parser->elap, parser->elap_tot - parser->oelap);
 
-    eprintf("\e[90m[ p/c %.2f + e %.1f + cc %.0f ms ]\e[0m\n", parser->elap,
-        parser->oelap - parser->elap, parser->elap_tot - parser->oelap);
+  if (!ret && (mode == PMRun || mode == PMTest)) {
     execv("./a.out", (char*[]) { "./a.out", NULL });
     // Process_awaitAll();
   }

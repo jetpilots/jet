@@ -358,7 +358,7 @@ static void expr_analyse_functionCall(Parser* parser, Expr* expr,
     Scope* scope, Module* mod, Func* ownerFunc, bool inFuncArgs) {
   char buf[256] = {}, sbuf[256] = {};
   char* bufp = buf;
-  const char* collName = "";
+  char* collName = "";
   if (expr->left)
     expr_analyse(parser, expr->left, scope, mod, ownerFunc, true);
 
@@ -366,16 +366,21 @@ static void expr_analyse_functionCall(Parser* parser, Expr* expr,
   Expr* arg1 = expr->left;
   if (arg1 && arg1->kind == tkComma) arg1 = arg1->left;
   Type* type = expr_getObjectType(arg1);
-  if (arg1) collName = Collectiontype_nativeName(arg1->collType);
+
+  if (arg1 && arg1->collType)
+    collName
+        = cstr_interp_s(256, "_%s", Collectiontype_name(arg1->collType));
   if (arg1) *bufp++ = '_'; // += sprintf(bufp, "_", typeName);
 
-  bufp += sprintf(bufp, "%s", expr->str);
+  int l = strlen(expr->str);
+  if (expr->str[l - 1] == '!') l--;
+  bufp += sprintf(bufp, "%.*s", l, expr->str);
   if (expr->left)
     expr_strarglabels(expr->left, bufp, 256 - ((int)(bufp - buf)));
   Func* found = NULL;
   // if (arg1->typeType == TYObject) {
   do { // fast path when arg labels given
-    sprintf(sbuf, "%s%s", expr_typeName(arg1), buf);
+    sprintf(sbuf, "%s%s%s", expr_typeName(arg1), collName, buf);
     sbuf[255] = 0;
     found = mod_getFunc(mod, sbuf);
     if (type) type = type->super ? type->super->type : NULL;
@@ -567,7 +572,7 @@ static void expr_analyse_braceOpen(Parser* parser, Expr* expr, Scope* scope,
       // expr->elementType = first->var->spec->type;break;
     }
   }
-  expr->collType = CTYDictS;
+  expr->collType = CTYDict;
   expr->dims = 1;
 
   // these are only Dicts! Sets are normal [] when you detect they are
@@ -580,7 +585,9 @@ static void expr_analyse_varAssign(Parser* parser, Expr* expr, Scope* scope,
   Expr* const init = expr->var->init;
   TypeSpec* const spec = expr->var->spec;
 
-  if (spec->typeType == TYUnknown) resolveTypeSpec(parser, spec, mod);
+  if (spec->typeType == TYUnknown)
+    resolveTypeSpec(parser, spec, mod,
+        ownerFunc ? ownerFunc->params : NULL); // what if its an owner type?
 
   if (!init) {
     // if the typespec is given, generate the init expr yourself
@@ -683,7 +690,7 @@ static void expr_analyse_varAssign(Parser* parser, Expr* expr, Scope* scope,
       spec->collType = init->collType;
       spec->dims = init->collType == CTYTensor ? init->dims
           : init->collType == CTYArray         ? 1
-          : init->collType == CTYDictS         ? 1
+          : init->collType == CTYDict          ? 1
                                                : 0;
     } else if (spec->dims != 1 && init->collType == CTYArray) {
       err_initDimsMismatch(parser, expr, 1);
@@ -721,9 +728,14 @@ monostatic void expr_analyse(Parser* parser, Expr* expr, Scope* scope,
         parser, expr, scope, mod, ownerFunc, inFuncArgs);
     break;
 
+  case tkFor: {
+    if (expr->left)
+      expr_analyse(parser, expr->left->right, scope, mod, ownerFunc, false);
+    scope_analyse(parser, expr->body, ownerFunc, mod);
+  } break;
+
   case tkElse:
   case tkIf:
-  case tkFor:
   case tkElif:
   case tkWhile:
   case tkCase: {
@@ -892,6 +904,8 @@ monostatic void expr_analyse(Parser* parser, Expr* expr, Scope* scope,
     if (!(member
             && (base->var->spec->typeType == TYObject
                 || ISIN(2, member->kind, tkFuncCall, tkFuncCallR)))) {
+      unreachable("invalid operands for . operator at %d:%d\n", expr->line,
+          expr->col);
       expr->typeType = TYError;
       break;
     }
@@ -955,6 +969,15 @@ monostatic void expr_analyse(Parser* parser, Expr* expr, Scope* scope,
     break;
 
     // case tkArgumentLabel: break;
+
+  case tkYield:
+    if (expr->right)
+      expr_analyse(parser, expr->right, scope, mod, ownerFunc, false);
+
+    // how to deal with multiple return values?
+    ownerFunc->yields = true;
+    ownerFunc->spec->collType = CTYIterator;
+    break;
 
   default:
     if (expr->prec) {
@@ -1173,7 +1196,12 @@ static void scope_analyse(
 
 static void type_analyse(Parser* parser, Type* type, Module* mod) {
   if (type->analysed) return;
-  if (type->super) { resolveTypeSpec(parser, type->super, mod); }
+  if (type->super) {
+    resolveTypeSpec(parser, type->super, mod, type->params);
+  }
+
+  // foreach (TypeSpec*, spec, type->params)
+  //   if (mod_getType(spec->name))err_duplicateType(parser,);
 
   foreach (Type*, type2, mod->types) {
     if (type2 == type) break;
@@ -1371,9 +1399,11 @@ void mod_analyse(Parser* parser, Module* mod) {
   // not set the resolved flag on the func -- that is done by the
   // semantic pass)
   foreach (Func*, func, mod->funcs) {
+    // foreach (TypeSpec*, spec, func->params)
+    //   if (mod_getType(spec->name))err_duplicateType(parser,);
     foreach (Var*, arg, func->args)
-      resolveTypeSpec(parser, arg->spec, mod);
-    if (func->spec) resolveTypeSpec(parser, func->spec, mod);
+      resolveTypeSpec(parser, arg->spec, mod, func->params);
+    if (func->spec) resolveTypeSpec(parser, func->spec, mod, func->params);
     getSelector(func);
   }
 

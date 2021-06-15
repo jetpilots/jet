@@ -44,6 +44,16 @@
             "preLaunchTask": "Run make cjet-dbg"
         },
         {
+            "name": "Debug C file (gcc)",
+            "program": "${fileDirname}/a.out",
+            "args": [],
+            "cwd": "${fileDirname}",
+            "MIMode": "lldb",
+            "request": "launch",
+            "type": "cppdbg",
+            "preLaunchTask": "gcc build current"
+        },
+        {
             "name": "Debug cjet-dbg",
             "type": "cppdbg",
             "request": "launch",

@@ -146,7 +146,7 @@ monostatic int cstr_getSomeOccurences(
   return 0;
 }
 
-#include "jet/_ext/strcasecmp.h"
+// #include "jet/_ext/strcasecmp.h"
 
 #define cstr_endsWith(str, lenstr, suffix, lensuffix)                      \
   !strncmp(str + lenstr - lensuffix, suffix, lensuffix)

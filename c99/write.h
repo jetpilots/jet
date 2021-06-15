@@ -13,7 +13,7 @@ static void spec_write(TypeSpec* spec, int level) {
   }
 
   switch (spec->collType) {
-  case CTYDictS: printf("[DICTK]"); break;
+  case CTYDict: printf("[DICTK]"); break;
   case CTYArray: printf("[]"); break;
   case CTYTensor:
     if (spec->dims) {

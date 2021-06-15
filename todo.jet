@@ -1,0 +1,299 @@
+~ This file contains code to test all of Jet's features.
+
+~~ Variables
+~ types need not be specified, the linter will add them if absent and if it
+~ is not obvious from the initializing expression. For instance, if the var
+~ is initialized with a literal or constructor, no annotation is needed.
+var globNum = 2
+var globStr = "hello"
+var globYes = yes
+var globFwdDecl = fowardDefinedFunc()
+~ ^ this should be var globFwdDecl Number = ..., the linter will fix it.
+
+~~ Functions
+
+~ Functions can be forward-defined.
+func fowardDefinedFunc()
+  ~ ans is the special variable that holds the result.
+  ~ The function's return type can be deduced from assignments to ans.
+  ans = 3
+end
+
+~ Arguments must have types specified. Return type may be omitted.
+func someFunc(n Number, str String) String
+  ans = str
+end
+
+func another()
+  ans = someFunc(4, str="wow")
+  ~ in function calls, all arguments except the first are annotated
+  ~ with the argument name. They need not be written out by the user;
+  ~ the linter will automatically add them.
+  ans = someFunc(4, "wow") ~ works, but the linter will add the annotation
+end
+
+~ Some funcs can be just 'declared' ie they are implemented in C.
+~ This is for god mode only (not exposed to users, yet)
+decl func ask() String
+decl func num(s String) Number
+
+~ Iterators
+func zip(a, b)
+  for i = 1:len(a)
+    yield a, bc
+  end
+end
+
+~ Tests
+
+test "basic test"
+  ~ unit tests have a string name. They are run automatically when you
+  ~ do `jet -t <filename>`.
+  var fortyTwo = 40 + 2
+end
+
+~ Checks
+
+test "checks"
+  ~ Checks are the basic way to assert some condition or stop the program
+  ~ when the assertion fails. Checks are not simple assertions as you may
+  ~ know them from other languages. They are instead rich and detailed and
+  ~ print out subexpression values on failure. Besides, checks are taken
+  ~ into account at compile time to inform the compiler about the user's
+  ~ expectations of the program.
+  var n = num(ask())
+  check 0 < n < 1
+  ~ past this point, the compiler will assume the value of n to be within
+  ~ [0 1] and treat it as a fact.
+end
+
+~ Types
+type MyType
+  var member1 = "stringy"
+  var member2 = 92883
+end
+
+var globMT = MyType()
+
+~ Templates (god mode only)
+
+~ There are two forms, as yet undecided which one will make it in.
+type SomeType<T>
+  var memb T = nil
+end
+func sfunc<T>(n T, s SomeType<T>, b Number)
+end
+
+~ the other form is less general, where the compiler controls the only
+~ templated types available. In this form only funcs can be templated.
+~ the available templated types are Array, List, DList, Dict, and a few
+~ others. May be faster to implement and may help the goal of not exposing
+~ this stuff to users.
+func sfn(n Number:Array, s String)
+end
+
+~ Operator overloading (perhaps)
+
+~ Subclassing
+
+type Base
+  var v = 2
+  var d = "s"
+end
+
+type Derived extends Base
+  var c = 32
+end
+
+~ Virtual dispatch
+
+func callf(b Base)
+  print('in base')
+end
+
+func callf(d Derived)
+  print('in derived')
+end
+
+test "virtual dispatch"
+  var d = ask()
+  ~ runtime dependency ensures call is not optimized to static dispatch
+  var ret Base
+  if d == "base"
+    ret = Base()
+  else
+    ret = Derived()
+  end
+  callf(ret)
+end
+
+~ Array notation
+
+var a = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+test "array slicing"
+  var sl = a[2:4]
+  print(sl)
+end
+
+test "array selection"
+  var ss = a[[2, 4, 3, 1]]
+  print(ss)
+end
+
+test "array filtering"
+  var sf = a[a%2==0]
+  print(sf)
+end
+
+test "scalarization"
+  var nx = num(ask()) or 350
+  var other = 1:695
+  var arr = 1:nx
+  var scale = 2.1
+  var offset = 1.3e2
+  arr[:] += other[1:min(nx,695)] * scale + offset
+end
+
+~ Range arithmetic
+~ test "range arithmetic"
+  ~ var r = </1:6/>
+~ end
+
+
+~ Complex numbers
+test "complex numbers"
+  var c = 1 + 2i
+  var sc = conj(c)
+  print(sc)
+end
+
+~ String formatting
+test "string interp"
+  var n = 23
+  var s = "wert"
+  print("hey how are you $s with $n")
+end
+
+~ I/O
+
+~ Regex matching
+
+~ Control Flow
+
+func factorials(max Number) ~ generator function
+  var ffact = 1
+  for i = 1:max
+    ffact *= i
+    yield ffact
+  end
+end
+
+test "conditionals"
+  var o = 0
+  if 2 == 4
+    o = 1
+  else if 2 == 1
+    o = 2
+  else if 4 == 2
+    o = 3
+  else
+    o = 4
+  end
+  check o == 4
+
+  while o
+    o -= 1
+  end
+  check not o
+end
+
+test "match case for strings"
+  var s = "43"
+  match s
+  case "asd"
+  case "ert"
+  case "srtrt"
+  end
+end
+
+test "match case for regexps"
+  var s = "43"
+  match s
+  case `[0-9]+`
+  case `[a-z]+`
+  case `are|you|ready`
+  end
+end
+
+test "match case for mixed strings/regexps"
+  var s = "43"
+  match s
+  case "asd"
+  case `[a-zA-Z0-9]+`
+  case "ert"
+  case `are|you|ready`
+  case "srtrt"
+  end
+end
+
+test "match case where condition is regexp"
+  var r = `[a-z]+`
+  match r
+  case "asd"
+  case "234"
+  case "---=++"
+  end
+end
+
+test "for loop over range"
+  for i = 1:4
+  end
+end
+
+test "for loop over generator"
+  for x = factorials(5)
+  end
+end
+
+test "for loop over zip"
+  for (n, s) = zip([1,2,3], ["a","b","c"])
+  end
+end
+
+test "for loop over numbered (default)"
+  var arr = ["a", "b", "c"]
+  for (i, e) = arr
+    print("$i $e")
+  end
+end
+
+test "for loop over Dict"
+  var dict = {"a" = 2, "b" = 3, "c" = 1}
+  for (k, v) = dict
+    print(k)
+  end
+end
+
+test "for loop over type's fields (compile time)"
+  var t = MyType()
+  for (k, v) = fields(t)
+    print(k)
+  end
+end
+
+test "for loop over array"
+  for x = [1, 2, 3, 4, 5]
+    print(x)
+  end
+end
+
+test "for loop over list"
+  var l = [1, 2, 4, 5]
+  ~ at user level there is no way to specify array vs. list. But an
+  ~ insert call marks the variable as list.
+  insert!(l, value=3, at=3)
+  for x = l
+    print(x)
+  end
+end

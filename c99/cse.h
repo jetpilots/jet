@@ -88,7 +88,9 @@ static void expr_dohash(
       // the typeinfo as well
     }
   }
-  if (!ISIN(4, expr->kind, tkNumber, tkIdentR, tkVarDefn, tkComment)) {
+  if (!ISIN(6, expr->kind, tkNumber, tkString, tkRawString, tkIdentR,
+          tkVarDefn, tkComment)
+      && !isCtrlExpr(expr)) {
     if (expr->kind != tkPeriod
         || (expr->right && expr->right->kind == tkFuncCallR)) {
       // Don't put really simple things like literals into the CSE dict.
