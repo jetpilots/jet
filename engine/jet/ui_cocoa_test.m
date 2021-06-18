@@ -14,6 +14,10 @@ void drawFunc(View* v) {
   fillOval(100,100,80,100);
 }
 
+void bclick(Button*b){
+    MsgBox("Click!","Bhabru");
+}
+
 void start(IFDEBUG(const char* callsite_)) {
   Window* w = Window_new();
   Window_setTitle(w,"My App RBCK");
@@ -29,4 +33,18 @@ void start(IFDEBUG(const char* callsite_)) {
   // View_rotate(v,-15);
 
   MsgBox("wahoo!","Yonza");
+
+  Button* b = Button_new("Kecks");
+  Button_setTitle(b,"Jackdaws");
+  Button_setOnClick(b, bclick);
+  Window_addSubview(w, b);
+  View_move(b, 200,150);
+
+  Label*l=Label_new("Dingbats:");
+  Window_addSubview(w, l);
+
+  TextField*t=TextField_new("Wonk");
+  Window_addSubview(w, t);
+  View_move(t, 72,0);
+
 }

@@ -1,0 +1,11 @@
+
+func start()
+  var w = Window()
+
+  ~ events can be defined inline
+  event w closing()
+    msgBox(w.title) ~ w can be accessed directly. It's actually *not* the
+    ~ var w but an implicit parameter from when this open handler will be
+    ~ called.
+  end
+end

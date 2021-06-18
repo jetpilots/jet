@@ -1,7 +1,7 @@
 #include "Cocoa/Cocoa.h"
 
 extern void start(IFDEBUG(const char* callsite_));
-
+#define NSStr(s) [NSString stringWithUTF8String:s]
 /*** APP DELEGATE -------------------------------------------------------*/
 
 @interface App : NSResponder <NSApplicationDelegate> {
@@ -55,7 +55,7 @@ void App_start() {
 @end
 @implementation View
 - (BOOL)isFlipped {return YES;}
-- (void)setDrawFunc:(void(*)(View* )) func {
+- (void)setDrawFunc:(void(*)(View* ))func {
     ondrawrect=func;
 }
 - (id)initWithTrackingInFrame:(NSRect)frame {
@@ -93,36 +93,38 @@ void App_start() {
 @end
 
 void View_setDrawFunc(View* v, void (*ondraw)(View* )) {
+  // if (v->ondrawrect) return; // raise error
 [v setDrawFunc:ondraw];
 }
 
-void View_resize(View* v, int width, int height) {
+// typedef void id
+void View_resize(id v, int width, int height) {
   NSRect f = [v frame];
   if (width) { f.size.width = width; }
   if (height) { f.size.height = height; };
   [v setFrameSize:f.size];
 }
 
-void View_grow(View* v, int dw, int dh) {
+void View_grow(id v, int dw, int dh) {
   NSRect f = [v frame];
   f.size.width += dw;
   f.size.height += dh;
   [v setFrameSize:f.size];
 }
 
-void View_move(View* v, int dx, int dy) {
+void View_move(id v, int dx, int dy) {
   NSRect f = [v frame];
   f.origin.x += dx;
   f.origin.y += dy;
   [v setFrameOrigin:f.origin];
 }
 
-void View_rotate(View* v, int deg) {
+void View_rotate(id v, int deg) {
   double d = [v frameRotation];
   [v setFrameRotation:d+deg];
 }
 
-void View_reposition(View* v, int left, int top) {
+void View_reposition(id v, int left, int top) {
   // NSRect f = [w->win frame];
 
   //   f.origin.x=left;
@@ -132,7 +134,7 @@ void View_reposition(View* v, int left, int top) {
   // [w->win setFrame:f display:NO animate:YES];
 }
 
-void View_wrapInEffect(View* v) {
+void View_wrapInEffect(id v) {
   NSVisualEffectView* vs = [[NSVisualEffectView alloc]
       initWithFrame:[v frame]];
   [vs setAutoresizesSubviews:YES];
@@ -141,11 +143,11 @@ void View_wrapInEffect(View* v) {
   [vs addSubview:v];
 }
 
-double View_height(View* v){
+double View_height(id v){
   NSRect r = [v frame];
   return r.size.height;
 }
-double View_width(View* v){
+double View_width(id v){
   NSRect r = [v frame];
   return r.size.width;
 }
@@ -166,7 +168,7 @@ void Window_setDrawFunc(Window* w, void (*ondraw)( View* )) {
 }
 
 void Window_setTitle(Window* w, char* s) {
-  [w setTitle:[NSString stringWithCString:s encoding:NSUTF8StringEncoding]];
+  [w setTitle:NSStr(s)];
 }
 
 void Window_resize(Window* w, int width, int height) {
@@ -198,7 +200,7 @@ void Window_setEffect(Window* w) {
   [w setContentView:v];
 }
 
-void Window_addSubview(Window* w, View* v){
+void Window_addSubview(Window* w, id v){
   [[w contentView] addSubview:v];
 }
 
@@ -230,14 +232,109 @@ Window* Window_new() {
 //    [w makeKeyAndOrderFront:nil];
 //  }
 
+/*** BUTTON -------------------------------------------------------------*/
+
+@interface Button : NSButton {
+@public
+void (*onclick)(Button*);
+}
+@end
+@implementation Button
+- (void)clicked { if (onclick) onclick(self); }
+@end
+
+Button* Button_new(char* s ) {
+Button* ret= [Button buttonWithTitle: NSStr(s)
+                         target:  nil
+                         action: @selector(clicked)];
+                         ret.target=ret;
+                         return ret;
+}
+
+void Button_setOnClick(Button* b, void (*fn)(Button*)){b->onclick=fn;}
+
+
+// TODO: this should be Control_setTitle & others just call that. Many funcs are like this & would be a pain to repeat wrappers. In Jet you have a parallel hierarchy & Label is a Control (as is Button, Checkbox, etc) & setTitle(c Control) is defined & derived types just use that (via dispatcher -- but that will optimise to the right call).
+// setTitle(c Control) or title!(c Control) or c.title = "..."?
+void Button_setTitle(Button* b, char* s) {
+  [b setTitle:NSStr(s)];
+  // [b sizeToFit];
+}
+
+/*** SLIDER -------------------------------------------------------------*/
+
+@interface Slider : NSSlider {
+@public
+void (*onchange)(Slider*);
+}
+@end
+@implementation Slider
+- (void)changed { if (onchange) onchange(self); }
+@end
+
+Slider* Slider_new( double min, double max, double val) {
+Slider* ret= [Slider sliderWithValue: val
+                       minValue: min
+                       maxValue: max
+                         target: nil
+                         action: @selector(changed)];
+                         ret.target=ret;
+                         return ret;
+}
+
+double Slider_value(Slider* s ){ return s.doubleValue;}
+void Slider_setValue(Slider* s , double v){ s.doubleValue = v;}
+
+/*** TEXTFIELD ----------------------------------------------------------*/
+
+@interface TextField : NSTextField {
+@public
+void (*onchange)(TextField*);
+}
+@end
+@implementation TextField
+- (void)changed { if (onchange) onchange(self); }
+@end
+
+TextField* TextField_new( char* s) {
+TextField* ret= [TextField textFieldWithString:NSStr(s)];
+return ret;
+}
+
+void TextField_setOnChange(TextField* b, void (*fn)(TextField*)){b->onchange=fn;}
+
+void TextField_setText(TextField* f, char* s) {
+  f.stringValue = NSStr(s);
+  // [f sizeToFit];
+}
+
+/*** LABEL --------------------------------------------------------------*/
+
+@interface Label : NSTextField
+@end
+@implementation Label
+@end
+
+Label* Label_new(char*s ) {
+Label* ret= [Label labelWithString: NSStr(s)];
+                        //  ret.target=ret;
+return ret;
+}
+
+// void Button_setOnClick(Button* b, void (*fn)(Button*)){b->onclick=fn;}
+
+void Label_setTitle(Label* l, char* s) {
+  l.stringValue = NSStr(s);
+  // [l sizeToFit];
+}
 
 /*** GLOBALS ------------------------------------------------------------*/
 
 void MsgBox(const char* text, const char* subtext) {
     NSAlert* alert = [[NSAlert alloc] init];
-    alert.messageText = [NSString stringWithUTF8String:text];
+    alert.messageText = NSStr(text);
     alert.alertStyle = NSAlertStyleInformational;
-    alert.informativeText = [NSString stringWithUTF8String:subtext];
+    alert.informativeText = NSStr(subtext);
     [alert runModal];
 }
 
