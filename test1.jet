@@ -32,7 +32,7 @@ func temp(a,b)
   ~ else
   ~   ans = a
   end
-  end
+end
 
 test "template funcs"
   check temp(6, b="io") == "io"

@@ -26,6 +26,7 @@ typedef struct Parser {
 
   bool generateCommentExprs; // set to false when compiling, set to
                              // true when linting
+	bool godMode; //(only for me) inline C using unaryminus, etc
 
   // set these whenever use is detected (e.g. during resolveTypes or parsing
   // literals)
@@ -80,6 +81,8 @@ long recordNewlines(Parser* parser) {
   }
   return lines;
 }
+
+
 
 static Parser* par_fromFile(
     char* filename, bool skipws, CompilerMode mode) {
@@ -142,6 +145,8 @@ static Parser* par_fromFile(
     ret->data = data;
     ret->end = ret->data + size - 2;
     ret->orig = (PtrArray) {};
+		ret->godMode = 1;
+		
     arr_push(&ret->orig, strndup(data, size));
     ret->token = (Token) { //
       .pos = ret->data,
@@ -172,4 +177,6 @@ static Parser* par_fromFile(
   }
   return ret;
 }
+
 static bool par_matches(Parser* parser, TokenKind expected);
+ 

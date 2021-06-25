@@ -15,7 +15,11 @@ void drawFunc(View* v) {
 }
 
 void bclick(Button*b){
-    MsgBox("Click!","Bhabru");
+  Window* w = View_window(b);
+  static int i=0;
+  if (i++) Window_resize(w,900,800);
+  else Window_reposition(w, 10, 10);
+    // MsgBox("Click!","Bhabru");
 }
 
 void start(IFDEBUG(const char* callsite_)) {

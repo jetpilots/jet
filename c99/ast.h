@@ -319,7 +319,7 @@ struct Type {
   /// Variable declarations and invariant checks are what you should mostly
   /// expect to see inside type bodies, not much else.
   Scope* body;
-  uint16_t line, endline, used;
+  uint16_t line, endline, used, id;
   uint8_t col;
   bool analysed : 1, needJSON : 1, needXML : 1, needYAML : 1, visited : 1,
       isValueType : 1, isEnum : 1, isMultiEnum : 1, private : 1,

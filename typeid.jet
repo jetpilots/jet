@@ -1,0 +1,32 @@
+type Turb end
+
+type KEps extends RANS end
+type KOmega extends RANS end
+type RANS extends Turb end
+type SpalartAlmaras extends Turb end
+type RSM extends Turb end
+type WALE extends LES end
+type LES extends Turb end
+
+func f(t Turb)
+end
+
+func f(t KEps)
+end
+
+func f(t WALE)
+end
+
+func f(t RANS)
+end
+
+~ yui
+
+func start()
+  var t = RSM()
+  f(t) ~ -> f(Turb)
+  ~ 'printf("hi");'
+  t = LES()
+	f ~ 5
+  f(t) ~ error for now, later when poly vars are inferred it should be f(RANS)
+end

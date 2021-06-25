@@ -1007,6 +1007,9 @@ monostatic void expr_analyse(Parser* parser, Expr* expr, Scope* scope,
 
       if (expr->kind == tkCheck && expr->right->typeType != TYBool) {
         err_typeWrong(parser, expr->right, TYBool);
+      } else if (expr->kind == tkUnaryMinus && expr->right->typeType < TYInt8 ) {
+				if (!(parser->godMode && expr->right->typeType==TYString))
+	        err_typeWrong(parser, expr->right, TYReal64);					
       } else if (expr->kind == tkOr && expr->left->typeType != TYBool) {
         // Handle the special 'or' keyword used to provide alternatives
         // for a nullable expression.

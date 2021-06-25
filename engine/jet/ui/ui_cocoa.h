@@ -31,6 +31,13 @@ void App_start() {
   }
 }
 
+/*** VIBRANT VIEW -------------------------------------------------------*/
+
+@interface VibrantView : NSVisualEffectView @end
+@implementation VibrantView
+- (BOOL)isFlipped {return YES;}
+@end
+
 /*** VIEW ---------------------------------------------------------------*/
 
 @interface View : NSView {
@@ -125,36 +132,37 @@ void View_rotate(id v, int deg) {
 }
 
 void View_reposition(id v, int left, int top) {
-  // NSRect f = [w->win frame];
+  NSRect ref;
+  if ([v superview]) ref = [v superview].frame;
+  else ref = [v window].contentView.frame;
 
-  //   f.origin.x=left;
+  NSRect f = [v frame];
+  f.origin.x = left + ref.origin.x;
+  f.origin.y = ref.size.height - f.size.height - top;
 
-  //   f.origin.y +=    f.size.height-height;
-
-  // [w->win setFrame:f display:NO animate:YES];
+  [v setFrame:f display:NO animate:YES];
 }
 
-void View_wrapInEffect(id v) {
-  NSVisualEffectView* vs = [[NSVisualEffectView alloc]
-      initWithFrame:[v frame]];
+void View_wrapInEffect(View* v) {
+  VibrantView* vs = [VibrantView.alloc initWithFrame:[v frame]];
   [vs setAutoresizesSubviews:YES];
-  [vs setAutoresizingMask:NSViewHeightSizable | NSViewWidthSizable];
-  [[v superview] addSubview:vs positioned:NSWindowBelow relativeTo:v];
+  // [vs setAutoresizingMask:NSViewHeightSizable | NSViewWidthSizable];
+  [vs setAutoresizingMask:[v autoresizingMask]];
+  id sup = [v superview];
+  if (!sup) sup = [v window].contentView;
+  [sup addSubview:vs positioned:NSWindowBelow relativeTo:v];
   [vs addSubview:v];
 }
 
-double View_height(id v){
-  NSRect r = [v frame];
-  return r.size.height;
-}
-double View_width(id v){
-  NSRect r = [v frame];
-  return r.size.width;
-}
+double View_height(id v) { return [v frame].size.height; }
+double View_width(id v) { return [v frame].size.width; }
+View* View_parent(id v) { return (View*) [v superview]; }
+
+// Returns Window* */
+id View_window(id v) { return [v window]; }
 
 View* View_new() {
-  View* v = [[View alloc] initWithFrame:NSMakeRect(0, 0, 500, 400) ];
-  return v;
+  return [View.alloc initWithFrame:NSMakeRect(0, 0, 500, 400)];
 }
 
 /*** WINDOW -------------------------------------------------------------*/
@@ -164,7 +172,7 @@ View* View_new() {
 @end
 
 void Window_setDrawFunc(Window* w, void (*ondraw)( View* )) {
-  [[w contentView] setDrawFunc:ondraw];
+  [w.contentView setDrawFunc:ondraw];
 }
 
 void Window_setTitle(Window* w, char* s) {
@@ -172,7 +180,7 @@ void Window_setTitle(Window* w, char* s) {
 }
 
 void Window_resize(Window* w, int width, int height) {
-  NSRect f = [w frame];
+  NSRect f = w.frame;
   if (width) { f.size.width = width; }
   if (height) {
     f.origin.y += f.size.height - height;
@@ -182,26 +190,25 @@ void Window_resize(Window* w, int width, int height) {
 }
 
 void Window_reposition(Window* w, int left, int top) {
-  // NSRect f = [w frame];
-
-  //   f.origin.x=left;
-
-  //   f.origin.y +=    f.size.height-height;
-
-  // [w setFrame:f display:NO animate:YES];
+  NSRect f = w.frame;
+  NSRect sf = w.screen.frame;
+    f.origin.x=left + sf.origin.x;
+    // NOPE: you need to know the screen height here.
+    f.origin.y = sf.size.height -f.size.height-top;
+  [w setFrame:f display:NO animate:YES];
 }
 
 void Window_setEffect(Window* w) {
-  NSVisualEffectView* v =
-      [[NSVisualEffectView alloc] initWithFrame:[[w contentView] frame]];
+  VibrantView* v =
+      [VibrantView.alloc initWithFrame:w.contentView.frame];
   [v setAutoresizesSubviews:YES];
   [v setAutoresizingMask:NSViewHeightSizable | NSViewWidthSizable];
-  [v addSubview:[w contentView]];
+  [v addSubview:w.contentView];
   [w setContentView:v];
 }
 
 void Window_addSubview(Window* w, id v){
-  [[w contentView] addSubview:v];
+  [w.contentView addSubview:v];
 }
 
 Window* Window_new() {
@@ -220,7 +227,7 @@ Window* Window_new() {
   [w makeKeyAndOrderFront:nil];
 
 // replace the contentView (NSView) with a View
-  [w setContentView:[[View alloc] initWithFrame:[[w contentView] frame]]];
+  [w setContentView:[View.alloc initWithFrame:w.contentView.frame]];
 
   // w.onload = NULL;
   // puts("new Win");

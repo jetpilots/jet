@@ -341,16 +341,29 @@ static void type_emit(Type* type, int level) {
   type_genJsonReader(type);
 }
 
+// TODO: move this to global (after all modules have been processed) aand
+// combine types from all modules. It should go into its own header file.
+// each type generates an exter int _TypeID_xxx which will resolve to the
+// enum member (or a static const int since you have assigned id already).
+static void type_genID(Type* type) {
+  static int _id = 0;
+  if (type->id) return;
+  if (type->super && type->super->typeType == TYObject)
+    type_genID(type->super->type);
+  type->id = ++_id;
+  printf("  _TypeID_%s,\n", type->name);
+}
+
 static void type_genh(Type* type, int level) {
   if (!type->body || !type->analysed || type->isDeclare) return;
 
   const char* const name = type->name;
-  printf("struct %s;\n", name);
+  // printf("struct %s;\n", name);
   printf("typedef struct %s* %s;\n", name, name);
-  printf("typedef const struct %s* restrict const_%s;\n", name, name);
-  printf("typedef const struct %s* restrict %s_const;\n", name, name);
-  printf("typedef const struct %s* const restrict const_%s_const;\n", name,
-      name);
+  // printf("typedef const struct %s* restrict const_%s;\n", name, name);
+  // printf("typedef const struct %s* restrict %s_const;\n", name, name);
+  // printf("typedef const struct %s* const restrict const_%s_const;\n",
+  // name, name);
   printf("static %s %s_alloc_(); \n", name, name);
   printf("static %s %s_init_(%s self);\n", name, name, name);
   printf("static void %s_drop_(%s self);\n", name, name);
@@ -1285,6 +1298,17 @@ static void expr_emit(Expr* expr, int level) {
       // for anything else, figure it out.
     }
     break;
+	
+  case tkUnaryMinus:
+		if (expr->right && expr->right->typeType==TYString) {
+			// special case (in god mode): inline C
+			puts(expr->right->str+1);
+		} else {
+			// hope you checked for the operand being numeric in the analysis step
+			puts("-");
+			expr_emit(expr->right,0);
+		}
+		break;
 
   case tkEQ:
   case tkNE:
@@ -1420,6 +1444,10 @@ static int mod_emit(Module* mod) {
   foreach (Type*, type, mod->enums) {
     if (type->body && type->analysed) { enum_genh(type, 0); }
   }
+
+  printf("typedef enum {\n");
+  foreach (Type*, type, mod->types) { type_genID(type); }
+  printf("} _TypeID;\n");
 
   foreach (Type*, type, mod->types) {
     if (type->body && type->analysed) {
