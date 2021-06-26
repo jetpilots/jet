@@ -67,9 +67,8 @@ monostatic void String_push(String* str, char ch) {
   String_justPush(str, ch);
 }
 
-typedef enum { TextEncoding_ascii, TextEncoding_utf8 } TextEncoding;
-monostatic String* String_iconv(
-    String* str, TextEncoding from, TextEncoding to) {
+typedef enum { Charset_ascii, Charset_utf8 } Charset;
+monostatic String* String_iconv(String* str, Charset from, Charset to) {
   return NULL;
 }
 

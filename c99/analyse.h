@@ -36,7 +36,7 @@ static void analyseDictLiteral(Parser* parser, Expr* expr, Module* mod) {
 // 2. compute a guess for the size
 // 3. keep a stack of vars that are in the string in the right order
 static void expr_prepareInterp(Parser* parser, Expr* expr, Scope* scope) {
-  static Array(Ptr) vars;
+  static Array(VPtr) vars;
   assert(expr->kind == tkString || expr->kind == tkRawString);
   PtrList** exprvars = &expr->vars;
   // at some point you should make it so that only strings with a
@@ -1007,9 +1007,10 @@ monostatic void expr_analyse(Parser* parser, Expr* expr, Scope* scope,
 
       if (expr->kind == tkCheck && expr->right->typeType != TYBool) {
         err_typeWrong(parser, expr->right, TYBool);
-      } else if (expr->kind == tkUnaryMinus && expr->right->typeType < TYInt8 ) {
-				if (!(parser->godMode && expr->right->typeType==TYString))
-	        err_typeWrong(parser, expr->right, TYReal64);					
+      } else if (expr->kind == tkUnaryMinus
+          && expr->right->typeType < TYInt8) {
+        if (!(parser->godMode && expr->right->typeType == TYString))
+          err_typeWrong(parser, expr->right, TYReal64);
       } else if (expr->kind == tkOr && expr->left->typeType != TYBool) {
         // Handle the special 'or' keyword used to provide alternatives
         // for a nullable expression.

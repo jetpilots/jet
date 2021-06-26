@@ -32,7 +32,7 @@ clock_Time clock_getTime();
 // }
 
 #define eprintf(...) fprintf(stderr, __VA_ARGS__)
-// static Dict(UInt32, Ptr) runDict;
+// static Dict(UInt32, VPtr) runDict;
 
 monostatic thread_local const char* _err_ = NULL;
 

@@ -211,6 +211,7 @@ int main(int argc, char* argv[]) {
 
       Process proc;
 
+      const bool cocoaUI = true;
       foreachn(Module*, mod, mods, modules) {
         // For monolithic builds, just compile the last module (root); it
         // will have pulled in the other source files by #including them.
@@ -229,12 +230,14 @@ int main(int argc, char* argv[]) {
             && file_newer(mod->out_o, mod->out_c))
           continue;
 
-        char* mono = monolithicBuild ? "-DJET_MONOBUILD" : "";
+        // char* mono = monolithicBuild ? "-DJET_MONOBUILD" : "";
         char* cmd[] = { //
           cc_cmd, //
           "-g", "-O0", //
           "-I", enginePath, //
-          mono, //
+          monolithicBuild ? "-DJET_MONOBUILD" : "-DJET_INCRBUILD", //
+          cocoaUI ? "-DGUI_COCOA" : "-DGUI_NONE", //
+          "-x", cocoaUI ? "objective-c" : "c", //
           "-c", mod->out_c, //
           "-o", mod->out_o, //
           NULL
@@ -256,8 +259,11 @@ int main(int argc, char* argv[]) {
         char* cmd[] = { //
           cc_cmd, //
           "-I", enginePath, //
+          "-x", cocoaUI ? "objective-c" : "c", //
           "-g", "-O0", //
-          "-c", "engine/jet/rt0.c", //
+          cocoaUI ? "-DGUI_COCOA" : "-DGUI_NONE", //
+          "-c", // cocoaUI ? "engine/jet/rt0.m" :
+          "engine/jet/rt0.c", //
           "-o", "engine/jet/rt0.o", //
           NULL
         };
@@ -276,6 +282,10 @@ int main(int argc, char* argv[]) {
           arr_push(&cmdexe, mod->out_o);
         }
         arr_push(&cmdexe, "engine/jet/rt0.o");
+        if (cocoaUI) {
+          arr_push(&cmdexe, "-framework");
+          arr_push(&cmdexe, "Cocoa");
+        }
         arr_push(&cmdexe, NULL);
         Process_launch((char**)cmdexe.ref);
         proc = Process_awaitAny();
@@ -352,7 +362,7 @@ int main(int argc, char* argv[]) {
 
   eprintf("\e[90m[ p/c %.2f + e %.1f + cc %.0f ms ]\e[0m\n", parser->elap,
       parser->oelap - parser->elap, parser->elap_tot - parser->oelap);
-
+  eprintf("\e[90m%.*s\e[0m\n", 72, _dashes_);
   if (!ret && (mode == PMRun || mode == PMTest)) {
     execv("./a.out", (char*[]) { "./a.out", NULL });
     // Process_awaitAll();

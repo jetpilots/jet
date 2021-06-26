@@ -9,7 +9,7 @@ static uint32_t var_hash(Var* var) {
 }
 
 static void expr_dohash(
-    Parser* parser, Expr* expr, Dict(UInt32, Ptr) * cseDict) {
+    Parser* parser, Expr* expr, Dict(UInt32, VPtr) * cseDict) {
   if (!expr) {
     unreachable("%s", "expr is NULL");
     return;
@@ -94,9 +94,9 @@ static void expr_dohash(
     if (expr->kind != tkPeriod
         || (expr->right && expr->right->kind == tkFuncCallR)) {
       // Don't put really simple things like literals into the CSE dict.
-      Dict_putk(UInt32, Ptr)(cseDict, expr->hash, expr);
+      Dict_putk(UInt32, VPtr)(cseDict, expr->hash, expr);
       // int status = 0;
-      // UInt32 idx = Dict_put(UInt32, Ptr)(cseDict, expr->hash, &status);
+      // UInt32 idx = Dict_put(UInt32, VPtr)(cseDict, expr->hash, &status);
       // if (status == 1) Dict_val(cseDict, idx) = expr;
     }
   }
@@ -106,11 +106,11 @@ static void expr_dohash(
 // the hashes have been generated in expr_dohash (which is bottom-up, so
 // checking cannot happen inline).
 static void expr_checkHashes(
-    Parser* parser, Expr* expr, Dict(UInt32, Ptr) * cseDict) {
+    Parser* parser, Expr* expr, Dict(UInt32, VPtr) * cseDict) {
   if (!expr) return;
 
-  // UInt32 idx = Dict_get(UInt32, Ptr)(cseDict, expr->hash);
-  Expr* orig = Dict_getk(UInt32, Ptr)(cseDict, expr->hash);
+  // UInt32 idx = Dict_get(UInt32, VPtr)(cseDict, expr->hash);
+  Expr* orig = Dict_getk(UInt32, VPtr)(cseDict, expr->hash);
   if (orig /*idx < Dict_end(cseDict)*/) {
     // Expr* orig = Dict_val(cseDict, idx);
     // unfortunately there ARE collisions, so check again
@@ -138,9 +138,9 @@ static void expr_checkHashes(
 }
 
 static void func_hashExprs(Parser* parser, Func* func) {
-  static Dict(UInt32, Ptr)* cseDict = NULL; // FIXME: will leak
-  if (!cseDict) cseDict = Dict_new(UInt32, Ptr)();
-  Dict_clear(UInt32, Ptr)(cseDict);
+  static Dict(UInt32, VPtr)* cseDict = NULL; // FIXME: will leak
+  if (!cseDict) cseDict = Dict_new(UInt32, VPtr)();
+  Dict_clear(UInt32, VPtr)(cseDict);
 
   foreach (Expr*, stmt, func->body->stmts) {
     expr_dohash(parser, stmt, cseDict);

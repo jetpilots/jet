@@ -474,20 +474,20 @@ static inline UInt32 __ac_Wang_hash(UInt32 key) {
 // MAKE_SET(UInt32)
 // // MAKE_SET(Real64)
 // MAKE_SET(CString)
-// // MAKE_SET(Ptr)
+// // MAKE_SET(VPtr)
 
 // MAKE_DICT(UInt32, UInt32)
 // MAKE_DICT(CString, UInt32)
 
-MAKE_DICT(UInt32, Ptr)
-// MAKE_DICT(CString, Ptr)
+MAKE_DICT(UInt32, VPtr)
+// MAKE_DICT(CString, VPtr)
 // MAKE_DICT(UInt32, CString)
 // MAKE_DICT(CString, CString)
-MAKE_DICT(UInt64, Ptr)
+MAKE_DICT(UInt64, VPtr)
 MAKE_DICT(CString, Number)
 MAKE_DICT(CString, Real64)
 
-// MAKE_DICT(Ptr, UInt64)
-// MAKE_DICT(Ptr, Ptr)
+// MAKE_DICT(VPtr, UInt64)
+// MAKE_DICT(VPtr, VPtr)
 
 #endif /* HAVE_DICT */

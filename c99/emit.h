@@ -175,9 +175,9 @@ static void func_emit(Func* func, int level) {
     outl(")");
   }
 
-  printf("\n#ifndef NDEBUG\n"
+  printf(" IFDEBUG("
          "  %c const char* callsite_ "
-         "\n#endif\n",
+         ")",
       ((func->args || func->spec->typeType != TYVoid ? ',' : ' ')));
 
   outln(") {");
@@ -218,7 +218,7 @@ static void func_genh(Func* func, int level) {
     spec_emit(func->spec, level, false, false);
     printf(" ans");
   }
-  printf("\n#ifndef NDEBUG\n    %c const char* callsite_\n#endif\n",
+  printf(" IFDEBUG(%c const char* callsite_)",
       ((func->args || func->spec->typeType != TYVoid) ? ',' : ' '));
   outln(");\n");
 }
@@ -661,7 +661,26 @@ static void expr_emit_tkFuncCallR(Expr* expr, int level) {
   if (*tmp >= 'A' && *tmp <= 'Z' && !strchr(tmp, '_')) outl("_new_");
   outl("(");
 
+  // arg = expr->left;
+  // if (arg) {
+  //       if (arg->kind == tkComma) arg = arg->left;
+  //   // arg is now the first argument (receiver, self, this,...)
+  //   // if it is not exactly the expected type, means this is a parent
+  //   type's
+  //   // func that is being called because a more specific one wasnt
+  //   defined.
+  //   // In C all types are distinct so passing A for B is a warning (even
+  //   if
+  //   // Jet knows that B extends A). So silence the warning with a cast.
+  //   if
+  //   // it really is some unexpected type, then analysis would have caught
+  //   it
+  //   // and raised an error. if (arg->typeType==TYObject
+  //   !=func->args->item) printf("(%s)", expr_typeName(arg));
+  // }
+
   arg = expr->left;
+  List(Var*)* fArgL = func->args;
   while (arg) {
     Expr* cArg = arg;
     if (cArg->kind == tkComma) cArg = cArg->left;
@@ -672,9 +691,14 @@ static void expr_emit_tkFuncCallR(Expr* expr, int level) {
       cArg = cArg->right;
     }
 
+    // Cast it so that (Jet-level) upcasts dont result in warnings
+    TypeSpec* fSpec = ((Var*)fArgL->item)->spec;
+    printf("(%s)", spec_name(fSpec));
+
     expr_emit(cArg, 0);
     arg = arg->kind == tkComma ? arg->right : NULL;
     if (arg) outl(", ");
+    fArgL = fArgL->next; // analyse will have picked up mismatches
   }
 
   // if (expr->left) expr_emit(expr->left, 0);
@@ -706,10 +730,10 @@ static void expr_emit_tkFuncCallR(Expr* expr, int level) {
       }
     }
     // ------ 8< ------------------------------------------------------
-    printf("\n#ifndef NDEBUG\n  %c THISFILE \":%d:%d: ",
+    printf(" IFDEBUG(%c THISFILE \":%d:%d: ",
         expr->left || hasAns ? ',' : ' ', expr->line, expr->col);
     expr_write(expr, 0, false, true);
-    printf("\"\n#endif\n");
+    printf("\")");
   }
   outl(")");
 }
@@ -1298,17 +1322,17 @@ static void expr_emit(Expr* expr, int level) {
       // for anything else, figure it out.
     }
     break;
-	
+
   case tkUnaryMinus:
-		if (expr->right && expr->right->typeType==TYString) {
-			// special case (in god mode): inline C
-			puts(expr->right->str+1);
-		} else {
-			// hope you checked for the operand being numeric in the analysis step
-			puts("-");
-			expr_emit(expr->right,0);
-		}
-		break;
+    if (expr->right && expr->right->typeType == TYString) {
+      // special case (in god mode): inline C
+      puts(expr->right->str + 1);
+    } else {
+      // hope you checked for the operand being numeric in the analysis step
+      puts("-");
+      expr_emit(expr->right, 0);
+    }
+    break;
 
   case tkEQ:
   case tkNE:
@@ -1486,7 +1510,7 @@ static int mod_emit(Module* mod) {
   printf("#include \"%s\"\n\n",
       cstr_base(mod->out_h, '/', strlen(mod->out_h)));
 
-  printf("#line 1 \"%s\"\n", mod->filename);
+  if (genLineNumbers) printf("#line 1 \"%s\"\n", mod->filename);
   printf("#define THISFILE \"%s\"\n", mod->filename);
   printf("#define THISMODULE %s\n", mod->cname);
   printf("#define NUMLINES %d\n", mod->nlines);

@@ -146,6 +146,10 @@ static Expr* parseExpr(Parser* parser) {
       // for empty Obj {} push null for no args
       break;
 
+    case tkTab:
+      err_unexpectedToken(parser, "tab character is not allowed");
+      break;
+
     case tkParenClose:
     case tkArrayClose:
     case tkBraceClose:

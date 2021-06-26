@@ -6,7 +6,7 @@ static const uint8_t TokenKindTable[256] = {
   /* 0 */ tkEOF, /* 1 */ tkUnknown, /* 2 */ tkUnknown,
   /* 3 */ tkUnknown, /* 4 */ tkUnknown, /* 5 */ tkUnknown,
   /* 6 */ tkUnknown, /* 7 */ tkUnknown, /* 8 */ tkUnknown,
-  /* 9 */ tkUnknown, /* 10 */ tkEOL, /* 11 */ tkUnknown,
+  /* 9 */ tkTab, /* 10 */ tkEOL, /* 11 */ tkUnknown,
   /* 12 */ tkUnknown, /* 13 */ tkUnknown, /* 14 */ tkUnknown,
   /* 15 */ tkUnknown, /* 16 */ tkUnknown, /* 17 */ tkUnknown,
   /* 18 */ tkUnknown, /* 19 */ tkUnknown, /* 20 */ tkUnknown,

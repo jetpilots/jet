@@ -25,8 +25,7 @@ end
 func start()
   var t = RSM()
   f(t) ~ -> f(Turb)
-  ~ 'printf("hi");'
+  -'printf("hi\n")'
   t = LES()
-	f ~ 5
   f(t) ~ error for now, later when poly vars are inferred it should be f(RANS)
 end

@@ -157,7 +157,7 @@ typedef struct Error_Type {
 
 static int _InternalErrs = 0;
 
-typedef void* Ptr;
+typedef void* VPtr;
 typedef char* CString;
 typedef const char* const_CString;
 typedef uint32_t UInt32;
@@ -245,7 +245,7 @@ extern void jet_runTest(int (*f)(void), char* s, int skip);
 /// This allows a single statement or subexpression to be included only in
 /// debug mode.
 #ifndef NDEBUG
-#define IFDEBUG(s) s
+#define IFDEBUG(...) __VA_ARGS__
 #define IFDEBUGELSE(s, e) s
 #else
 #define IFDEBUG(s)
@@ -257,7 +257,9 @@ extern void jet_runTest(int (*f)(void), char* s, int skip);
 typedef double Number;
 typedef const double const_Number;
 typedef CStrings Strings;
+#ifndef GUI_COCOA
 typedef bool Boolean;
+#endif
 typedef const bool const_Boolean;
 typedef unsigned char Byte;
 #define STR(x) #x

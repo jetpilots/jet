@@ -4,14 +4,14 @@ extern void start(IFDEBUG(const char* callsite_));
 #define NSStr(s) [NSString stringWithUTF8String:s]
 /*** APP DELEGATE -------------------------------------------------------*/
 
-@interface App : NSResponder <NSApplicationDelegate> {
+@interface App_ : NSResponder <NSApplicationDelegate> {
   BOOL autoQuit;
   @private
   NSMenu* menu;
 }
 @end
 
-@implementation App
+@implementation App_
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:
     (NSApplication*)sender {
   return autoQuit;
@@ -26,23 +26,23 @@ extern void start(IFDEBUG(const char* callsite_));
 void App_start() {
   @autoreleasepool {
     [NSApplication sharedApplication];
-    [NSApp setDelegate:[[App alloc] init]];
+    [NSApp setDelegate:[[App_ alloc] init]];
     [NSApp run];
   }
 }
 
 /*** VIBRANT VIEW -------------------------------------------------------*/
 
-@interface VibrantView : NSVisualEffectView @end
-@implementation VibrantView
+@interface VibrantView_ : NSVisualEffectView @end
+@implementation VibrantView_
 - (BOOL)isFlipped {return YES;}
 @end
 
 /*** VIEW ---------------------------------------------------------------*/
 
-@interface View : NSView {
+@interface View_ : NSView {
 @private
-    void (*ondrawrect)(View* v );
+    void (*ondrawrect)(View_* v );
     void (*ondraw)();
     void (*ondrop)();
     void (*onload)();
@@ -60,9 +60,9 @@ void App_start() {
     NSTrackingArea* trackingArea;
 }
 @end
-@implementation View
+@implementation View_
 - (BOOL)isFlipped {return YES;}
-- (void)setDrawFunc:(void(*)(View* ))func {
+- (void)setDrawFunc:(void(*)(View_* ))func {
     ondrawrect=func;
 }
 - (id)initWithTrackingInFrame:(NSRect)frame {
@@ -99,7 +99,7 @@ void App_start() {
 }
 @end
 
-void View_setDrawFunc(View* v, void (*ondraw)(View* )) {
+void View_setDrawFunc(View_* v, void (*ondraw)(View_* )) {
   // if (v->ondrawrect) return; // raise error
 [v setDrawFunc:ondraw];
 }
@@ -143,8 +143,8 @@ void View_reposition(id v, int left, int top) {
   [v setFrame:f display:NO animate:YES];
 }
 
-void View_wrapInEffect(View* v) {
-  VibrantView* vs = [VibrantView.alloc initWithFrame:[v frame]];
+void View_wrapInEffect(View_* v) {
+  VibrantView_* vs = [VibrantView_.alloc initWithFrame:[v frame]];
   [vs setAutoresizesSubviews:YES];
   // [vs setAutoresizingMask:NSViewHeightSizable | NSViewWidthSizable];
   [vs setAutoresizingMask:[v autoresizingMask]];
@@ -156,30 +156,30 @@ void View_wrapInEffect(View* v) {
 
 double View_height(id v) { return [v frame].size.height; }
 double View_width(id v) { return [v frame].size.width; }
-View* View_parent(id v) { return (View*) [v superview]; }
+View_* View_parent(id v) { return (View_*) [v superview]; }
 
-// Returns Window* */
+// Returns Window_* */
 id View_window(id v) { return [v window]; }
 
-View* View_new() {
-  return [View.alloc initWithFrame:NSMakeRect(0, 0, 500, 400)];
+View_* View_new() {
+  return [View_.alloc initWithFrame:NSMakeRect(0, 0, 500, 400)];
 }
 
 /*** WINDOW -------------------------------------------------------------*/
 
-@interface Window : NSWindow {} @end
-@implementation Window
+@interface Window_ : NSWindow {} @end
+@implementation Window_
 @end
 
-void Window_setDrawFunc(Window* w, void (*ondraw)( View* )) {
+void Window_setDrawFunc(Window_* w, void (*ondraw)( View_* )) {
   [w.contentView setDrawFunc:ondraw];
 }
 
-void Window_setTitle(Window* w, char* s) {
+void Window_setTitle(Window_* w, char* s) {
   [w setTitle:NSStr(s)];
 }
 
-void Window_resize(Window* w, int width, int height) {
+void Window_resize(Window_* w, int width, int height) {
   NSRect f = w.frame;
   if (width) { f.size.width = width; }
   if (height) {
@@ -189,7 +189,7 @@ void Window_resize(Window* w, int width, int height) {
   [w setFrame:f display:NO animate:YES];
 }
 
-void Window_reposition(Window* w, int left, int top) {
+void Window_reposition(Window_* w, int left, int top) {
   NSRect f = w.frame;
   NSRect sf = w.screen.frame;
     f.origin.x=left + sf.origin.x;
@@ -198,21 +198,21 @@ void Window_reposition(Window* w, int left, int top) {
   [w setFrame:f display:NO animate:YES];
 }
 
-void Window_setEffect(Window* w) {
-  VibrantView* v =
-      [VibrantView.alloc initWithFrame:w.contentView.frame];
+void Window_setEffect(Window_* w) {
+  VibrantView_* v =
+      [VibrantView_.alloc initWithFrame:w.contentView.frame];
   [v setAutoresizesSubviews:YES];
   [v setAutoresizingMask:NSViewHeightSizable | NSViewWidthSizable];
   [v addSubview:w.contentView];
   [w setContentView:v];
 }
 
-void Window_addSubview(Window* w, id v){
+void Window_addSubview(Window_* w, id v){
   [w.contentView addSubview:v];
 }
 
-Window* Window_new() {
-  Window* w = [[Window alloc]
+Window_* Window_new() {
+  Window_* w = [[Window_ alloc]
     initWithContentRect: NSMakeRect(0, 0, 500, 400)
               styleMask: NSWindowStyleMaskTitled
                        | NSWindowStyleMaskResizable
@@ -226,8 +226,8 @@ Window* Window_new() {
   [w cascadeTopLeftFromPoint:NSMakePoint(20, 20)];
   [w makeKeyAndOrderFront:nil];
 
-// replace the contentView (NSView) with a View
-  [w setContentView:[View.alloc initWithFrame:w.contentView.frame]];
+// replace the contentView (NSView) with a View_
+  [w setContentView:[View_.alloc initWithFrame:w.contentView.frame]];
 
   // w.onload = NULL;
   // puts("new Win");
@@ -235,52 +235,52 @@ Window* Window_new() {
 }
 
 // theres strange behaviour if you dont call this. so let's just add it in
-// Window_new void Window_show(Window* w) {
+// Window_new void Window_show(Window_* w) {
 //    [w makeKeyAndOrderFront:nil];
 //  }
 
 /*** BUTTON -------------------------------------------------------------*/
 
-@interface Button : NSButton {
+@interface Button_ : NSButton {
 @public
-void (*onclick)(Button*);
+void (*onclick)(Button_*);
 }
 @end
-@implementation Button
+@implementation Button_
 - (void)clicked { if (onclick) onclick(self); }
 @end
 
-Button* Button_new(char* s ) {
-Button* ret= [Button buttonWithTitle: NSStr(s)
+Button_* Button_new(char* s ) {
+Button_* ret= [Button_ buttonWithTitle: NSStr(s)
                          target:  nil
                          action: @selector(clicked)];
                          ret.target=ret;
                          return ret;
 }
 
-void Button_setOnClick(Button* b, void (*fn)(Button*)){b->onclick=fn;}
+void Button_setOnClick(Button_* b, void (*fn)(Button_*)){b->onclick=fn;}
 
 
-// TODO: this should be Control_setTitle & others just call that. Many funcs are like this & would be a pain to repeat wrappers. In Jet you have a parallel hierarchy & Label is a Control (as is Button, Checkbox, etc) & setTitle(c Control) is defined & derived types just use that (via dispatcher -- but that will optimise to the right call).
+// TODO: this should be Control_setTitle & others just call that. Many funcs are like this & would be a pain to repeat wrappers. In Jet you have a parallel hierarchy & Label_ is a Control (as is Button_, Checkbox, etc) & setTitle(c Control) is defined & derived types just use that (via dispatcher -- but that will optimise to the right call).
 // setTitle(c Control) or title!(c Control) or c.title = "..."?
-void Button_setTitle(Button* b, char* s) {
+void Button_setTitle(Button_* b, char* s) {
   [b setTitle:NSStr(s)];
   // [b sizeToFit];
 }
 
 /*** SLIDER -------------------------------------------------------------*/
 
-@interface Slider : NSSlider {
+@interface Slider_ : NSSlider {
 @public
-void (*onchange)(Slider*);
+void (*onchange)(Slider_*);
 }
 @end
-@implementation Slider
+@implementation Slider_
 - (void)changed { if (onchange) onchange(self); }
 @end
 
-Slider* Slider_new( double min, double max, double val) {
-Slider* ret= [Slider sliderWithValue: val
+Slider_* Slider_new( double min, double max, double val) {
+Slider_* ret= [Slider_ sliderWithValue: val
                        minValue: min
                        maxValue: max
                          target: nil
@@ -289,55 +289,55 @@ Slider* ret= [Slider sliderWithValue: val
                          return ret;
 }
 
-double Slider_value(Slider* s ){ return s.doubleValue;}
-void Slider_setValue(Slider* s , double v){ s.doubleValue = v;}
+double Slider_value(Slider_* s ){ return s.doubleValue;}
+void Slider_setValue(Slider_* s , double v){ s.doubleValue = v;}
 
 /*** TEXTFIELD ----------------------------------------------------------*/
 
-@interface TextField : NSTextField {
+@interface TextField_ : NSTextField {
 @public
-void (*onchange)(TextField*);
+void (*onchange)(TextField_*);
 }
 @end
-@implementation TextField
+@implementation TextField_
 - (void)changed { if (onchange) onchange(self); }
 @end
 
-TextField* TextField_new( char* s) {
-TextField* ret= [TextField textFieldWithString:NSStr(s)];
+TextField_* TextField_new( char* s) {
+TextField_* ret= [TextField_ textFieldWithString:NSStr(s)];
 return ret;
 }
 
-void TextField_setOnChange(TextField* b, void (*fn)(TextField*)){b->onchange=fn;}
+void TextField_setOnChange(TextField_* b, void (*fn)(TextField_*)){b->onchange=fn;}
 
-void TextField_setText(TextField* f, char* s) {
+void TextField_setText(TextField_* f, char* s) {
   f.stringValue = NSStr(s);
   // [f sizeToFit];
 }
 
 /*** LABEL --------------------------------------------------------------*/
 
-@interface Label : NSTextField
+@interface Label_ : NSTextField
 @end
-@implementation Label
+@implementation Label_
 @end
 
-Label* Label_new(char*s ) {
-Label* ret= [Label labelWithString: NSStr(s)];
+Label_* Label_new(char*s ) {
+Label_* ret= [Label_ labelWithString: NSStr(s)];
                         //  ret.target=ret;
 return ret;
 }
 
-// void Button_setOnClick(Button* b, void (*fn)(Button*)){b->onclick=fn;}
+// void Button_setOnClick(Button_* b, void (*fn)(Button_*)){b->onclick=fn;}
 
-void Label_setTitle(Label* l, char* s) {
+void Label_setTitle(Label_* l, char* s) {
   l.stringValue = NSStr(s);
   // [l sizeToFit];
 }
 
 /*** GLOBALS ------------------------------------------------------------*/
 
-void MsgBox(const char* text, const char* subtext) {
+void msgBox(const char* text, const char* subtext) {
     NSAlert* alert = [[NSAlert alloc] init];
     alert.messageText = NSStr(text);
     alert.alertStyle = NSAlertStyleInformational;

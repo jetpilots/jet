@@ -10,7 +10,7 @@
 typedef uint64_t clock_Time;
 typedef uint64_t PreciseTime;
 #ifndef NDEBUG
-#define IFDEBUG(s) s
+#define IFDEBUG(...) __VA_ARGS__
 #define IFDEBUGELSE(s, e) s
 #else
 #define IFDEBUG(s)

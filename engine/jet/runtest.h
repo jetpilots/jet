@@ -2,7 +2,7 @@ static int _total, _pass, _fail, _skip, _stop, _crash;
 static const char *s_err = "[ERR]", *s_ok = "[OK!]", *s_skp = "[SKP]";
 
 void jet_runTest(int (*f)(void), char* s, int skip) {
-  // Dict_putk(UInt32, Ptr)(&runDict, pid, s);
+  // Dict_putk(UInt32, VPtr)(&runDict, pid, s);
   _total++;
   if (skip) {
     _skip++;
@@ -17,7 +17,7 @@ void jet_runTest(int (*f)(void), char* s, int skip) {
     double elap = clock_clockSpanMicro(t0) / 1e3;
     // ^ FIME inaccurate timing. child should measure n communicate. BUT
     // what if child crashes
-    char* who = s; // Dict_getk(UInt32, Ptr)(&runDict, w);
+    char* who = s; // Dict_getk(UInt32, VPtr)(&runDict, w);
     // if (!who) who = "(unknown)";
     if (WIFSIGNALED(t)) {
       eprintf(" %s  %-48s\n    -> %s", s_err, who, strsignal(WTERMSIG(t)));
@@ -55,7 +55,7 @@ void jet_runTest(int (*f)(void), char* s, int skip) {
     eprintf(" [%7.1f %s]\n", elap, units);
     // return ret;
     // PIDs may be reused if spawn too many child processes
-    // Dict_delk(UInt32, Ptr)(&runDict, pid);
+    // Dict_delk(UInt32, VPtr)(&runDict, pid);
   } else { // child
     exit(f());
   }

@@ -305,7 +305,7 @@ typedef enum CollectionTypes {
   CTYDict,
   CTYDictU,
   CTYOrderedDictS, // String keys
-  CTYSortedDictS, // UInt/Int/Ptr keys
+  CTYSortedDictS, // UInt/Int/VPtr keys
   CTYOrderedDictU,
   CTYSortedDictU,
   CTYSet,

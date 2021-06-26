@@ -1,7 +1,7 @@
 typedef struct Pool {
   void* ref;
   UInt32 cap, capTotal; // BYTES
-  Array(Ptr) ptrs;
+  Array(VPtr) ptrs;
   Array(UInt32) caps;
   UInt32 used, usedTotal; // used BYTES, unlike in Array!
 } Pool;
@@ -15,7 +15,7 @@ monostatic void* Pool_alloc(Pool* self, size_t reqd) {
   // depending on how much is already there) all at one time.
   if (unlikely(self->used + reqd > self->cap)) {
     if (likely(self->ref)) {
-      Array_push(Ptr)(&self->ptrs, self->ref);
+      Array_push(VPtr)(&self->ptrs, self->ref);
       Array_push(UInt32)(&self->caps, self->cap);
     }
     self->cap
@@ -46,7 +46,7 @@ monostatic SmallPtr Pool_allocs(Pool* self, size_t reqd) {
   // dont ask for a big fat chunk larger than 16KB (or up to 256KB
   // depending on how much is already there) all at one time.
   if (self->used + reqd > self->cap) {
-    if (self->ref) Array_push(Ptr)(&self->ptrs, self->ref);
+    if (self->ref) Array_push(VPtr)(&self->ptrs, self->ref);
     self->cap = (self->cap > 64 KB ? 256 KB : 4 KB);
     self->capTotal += self->cap;
     self->ref = calloc(1, self->cap);

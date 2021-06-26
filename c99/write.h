@@ -268,7 +268,8 @@ static void expr_write(
       foreachn(Var*, var, listp, expr->func->args) {
         if (!carg) break;
         Expr* arg = (carg->kind == tkComma) ? carg->left : carg;
-        if (arg->kind != tkAssign && listp != expr->func->args)
+        if (arg->kind == tkArgAssign) arg = arg->right;
+        if (/*arg->kind != tkAssign &&*/ listp != expr->func->args)
           printf("%s=", var->name);
         expr_write(arg, 0, false, escapeStrings);
         if (listp->next) printf(", ");

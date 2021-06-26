@@ -350,6 +350,7 @@ static void err_typeInheritsSelf(Parser* parser, Type* type) {
 }
 
 static void err_ctorHasType(Parser* parser, Func* func, Type* orig) {
+  return;
   par__errHeader(parser);
   eprintf("constructor needs no return "
           "type: %s at %s%s:%d:%d\n"
@@ -692,8 +693,8 @@ static void err_argLabelMismatch(Parser* parser, Expr* expr, Var* var) {
 static void err_unexpectedToken(Parser* parser, char* msg) {
   par__errHeader(parser);
 
-  eprintf("unexpected token '%.*s'\n", parser->token.matchlen,
-      parser->token.pos);
+  eprintf("unexpected token '%.*s' (%s)\n", parser->token.matchlen,
+      parser->token.pos, TokenKind_names[parser->token.kind]);
 
   par__printSourceLines(parser, parser->token.line, parser->token.col,
       parser->token.matchlen, msg);

@@ -1,0 +1,153 @@
+
+decl type Window
+var contentView View
+end
+func Window(width Number, height Number) Window
+  -'
+  Window w = [[Window_ alloc]
+    initWithContentRect: NSMakeRect(0, 0, width, height)
+              styleMask: NSWindowStyleMaskTitled
+                       | NSWindowStyleMaskResizable
+                       | NSWindowStyleMaskMiniaturizable
+                       | NSWindowStyleMaskClosable
+                backing: NSBackingStoreBuffered
+                  defer: YES]; // autorelease];
+  [w setReleasedWhenClosed:YES];
+  [w setTitle:@"Untitled"];
+
+  [w cascadeTopLeftFromPoint:NSMakePoint(20, 20)];
+  [w makeKeyAndOrderFront:nil];
+
+  // replace the contentView (NSView) with a View_
+  [w setContentView:[View_.alloc initWithFrame:w.contentView.frame]];
+
+  return w;
+  '
+end
+
+decl type View end
+func View(w Number, h Number) View
+  -'
+  View v = [View_.alloc initWithFrame:NSMakeRect(0, 0, 500, 400)];
+  View_resize_w_h(v, w, h IFDEBUG(,""));
+  return v;
+  '
+end
+func resize(v View, w Number, h Number)
+  -'
+  NSRect f = [v frame];
+  if (w) { f.size.width = w; }
+  if (h) { f.size.height = h; };
+  [v setFrameSize:f.size];
+  '
+end
+func move(v View, dx Number, dy Number)
+  -'
+  NSRect f = [v frame];
+  f.origin.x += dx;
+  f.origin.y += dy;
+  [v setFrameOrigin:f.origin];
+  '
+end
+
+decl type App end
+decl type Button extends View end
+func Button(title String) Button
+  - '
+  Button ret= [Button_ buttonWithTitle: NSStr(title)
+                          target: nil
+                          action: @selector(clicked)];
+  ret.target=ret;
+  return ret;
+  '
+end
+func set(b Button, title String)
+- '[b setTitle:NSStr(title)]'
+end
+
+decl type Slider end
+
+decl type TextField extends View end
+func TextField(s String) TextField
+-'return [TextField_ textFieldWithString:NSStr(s)]'
+end
+
+decl type Label end
+func Label(init String) Label
+-'return [Label_ labelWithString: NSStr(init)]'
+end
+func set(w Window, title String)
+-'[w setTitle:NSStr(title)]'
+end
+func add(v View, subview View)
+  -'[v addSubview:subview]'
+end
+func add(w Window, subview View)
+  -'[w.contentView addSubview:subview]'
+end
+
+func effect(w Window)
+  -'
+  VibrantView v =
+    [VibrantView_.alloc initWithFrame:w.contentView.frame];
+  [v setAutoresizesSubviews:YES];
+  [v setAutoresizingMask:NSViewHeightSizable | NSViewWidthSizable];
+  [v addSubview:w.contentView];
+  [w setContentView:v];
+  '
+end
+func resize(w Window, width Number, height Number)
+  -'
+  NSRect f = w.frame;
+  if (width) { f.size.width = width; }
+  if (height) {
+    f.origin.y += f.size.height - height;
+    f.size.height = height;
+  };
+  [w setFrame:f display:NO animate:YES];
+  '
+end
+
+~ FIXME: duplicate arg names are not caught
+
+func msgBox(text String, subtext String)
+  -'
+  NSAlert* alert = [[NSAlert alloc] init];
+  alert.messageText = NSStr(text);
+  alert.alertStyle = NSAlertStyleInformational;
+  alert.informativeText = NSStr(subtext);
+  [alert runModal];
+  '
+end
+
+func start()
+  var w = Window(640,480)
+  set(w, title="My App RBCK")
+  effect(w)
+  ~ show(w)
+  resize(w,width=800,height=600)
+
+  var v = View(320,240)
+  ~ resize(v,400,300)
+  ~ move(v,100,100)
+  ~ setDrawFunc(v, drawFunc)
+  add(w, subview=v)
+  ~ rotate(v,-15)
+
+  msgBox("wahoo!", subtext="Yonza")
+
+  var b = Button("Kecks")
+  set(b, title="Jackdaws")
+  ~ setOnClick(b, bclick)
+  add(w, subview=b)
+  move(b, dx=200, dy=150)
+
+  var l = Label("Dingbats:")
+  add(w, subview=l)
+
+  var t = TextField("Wonk")
+  add(w, subview=t)
+  move(t, 72, 0)
+
+end
+

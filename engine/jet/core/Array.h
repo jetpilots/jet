@@ -17,19 +17,19 @@
 #define Array_make(T) Array_make_##T
 
 // convenience for manual writing
-#define PtrArray Array(Ptr)
-// #define arr_free Array_free(Ptr)
-// #define arr_growTo Array_growTo(Ptr)
-// #define arr_concatCArray Array_concatCArray(Ptr)
-// #define arr_concatArray Array_concatArray(Ptr)
-// #define arr_grow Array_grow(Ptr)
-#define arr_push Array_push(Ptr)
-// #define arr_clear Array_clear(Ptr)
-// #define arr_initWithCArray Array_initWithCArray(Ptr)
-// #define arr_justPush Array_justPush(Ptr)
-#define arr_pop Array_pop(Ptr)
-#define arr_top Array_top(Ptr)
-#define arr_empty Array_empty(Ptr)
+#define PtrArray Array(VPtr)
+// #define arr_free Array_free(VPtr)
+// #define arr_growTo Array_growTo(VPtr)
+// #define arr_concatCArray Array_concatCArray(VPtr)
+// #define arr_concatArray Array_concatArray(VPtr)
+// #define arr_grow Array_grow(VPtr)
+#define arr_push Array_push(VPtr)
+// #define arr_clear Array_clear(VPtr)
+// #define arr_initWithCArray Array_initWithCArray(VPtr)
+// #define arr_justPush Array_justPush(VPtr)
+#define arr_pop Array_pop(VPtr)
+#define arr_top Array_top(VPtr)
+#define arr_empty Array_empty(VPtr)
 #define arr_topAs(T, self) ((T)arr_top(self))
 
 #define DECL_Array(T)                                                      \
@@ -53,7 +53,7 @@
   monostatic T Array_top(T)(Array(T) * self);                              \
   monostatic bool Array_empty(T)(Array(T) * self);
 
-// DECL_Array(Ptr);
+// DECL_Array(VPtr);
 // DECL_Array(UInt32);
 // DECL_Array(Real64);
 // DECL_Array(CString);
@@ -156,7 +156,7 @@
     return self->used == 0;                                                \
   }
 
-MAKE_Array(Ptr);
+MAKE_Array(VPtr);
 MAKE_Array(UInt32);
 MAKE_Array(Real64);
 MAKE_Array(Number);
