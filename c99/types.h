@@ -163,6 +163,7 @@ static const char* Typetype_name(TypeTypes tyty) {
   case TYRange: return "Range";
   case TYComplex: return "Complex";
   }
+  return "<unknown>";
 }
 
 static const char* Typetype_c_name[] = { [TYUnknown] = "<unknown>",
@@ -236,6 +237,7 @@ static const char* Typetype_format(TypeTypes tyty, bool quoted) {
   case TYActive64:
   case TYComplex: return "%s";
   }
+  return "%p";
 }
 
 // needed to compute stack usage or sort type members
@@ -273,6 +275,7 @@ static unsigned int Typetype_size(TypeTypes tyty) {
   case TYActive64:
   case TYComplex: return 16;
   }
+  return 0;
 }
 
 // If we get entirely rid of type annotation, the process for determining

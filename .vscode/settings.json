@@ -49,5 +49,6 @@
         "random": "c"
     },
     "Lua.diagnostics.globals": [],
-    "Lua.diagnostics.disable": []
+    "Lua.diagnostics.disable": [],
+    "editor.formatOnSave": true
 }

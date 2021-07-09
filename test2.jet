@@ -1,11 +1,28 @@
 
 enum Kinds
-  basic
-  notBasic
-  complex
+basic
+notBasic
+complex
 end
 
 test "enums"
-  var k Kinds = .basic
-  check 6 == 6 ~in [.basic, .complex]
+var k Kinds = .basic
+  check 6 == 6
+if k in [.basic, .complex]
+  print("OK")
+end
+check k in [.basic, .complex]
+end
+
+decl func matches(s String, re Regex) Boolean
+test "strings"
+var s = "There never more"
+  var r = `he.e`
+if matches("s", re=`.`)
+  print("match")
+else
+  print("no match")
+  end
+print("Done well")
+ check matches("s", re=`.`)
 end

@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 #include <signal.h>
+#include <errno.h>
 
 #include "jet/base.h"
 #include "jet/os/Process.h"
@@ -149,7 +150,10 @@ int main(int argc, char* argv[]) {
     if (m == 'r' || m == 'R') mode = PMRun, forceBuildAll = (m == 'R');
   }
   clock_Time t0 = clock_getTime();
-  Parser* parser = par_fromFile(filename, true, mode);
+
+  Parser* parser = strcmp(filename, "-")
+      ? par_fromFile(filename, true, mode)
+      : par_fromStdin(true, mode);
   if (!parser) return 2;
 
   parser->issues.warnUnusedArg = //
@@ -161,6 +165,7 @@ int main(int argc, char* argv[]) {
 
   Module* root = parseModule(parser, &modules, NULL);
   parser->elap = clock_clockSpanMicro(t0) / 1.0e3;
+  int modifiedMods = 0;
 
   // int b = file_hash_equal("/usr/bin/gcc", "/usr/bin/yes");
   // printf("---- %d\n", b);
@@ -199,6 +204,8 @@ int main(int argc, char* argv[]) {
 
       char* enginePath = "engine"; // FIXME
       char* cc_cmd = "gcc";
+      const bool cocoaUI = true;
+
       foreach (Module*, mod, modules) {
         // for emitting C, test out_o for newness not out_c, since out_c
         // is updated by clangformat etc. anyway O is the goal.
@@ -206,12 +213,13 @@ int main(int argc, char* argv[]) {
             && file_newer(mod->out_o, mod->filename))
           continue;
         mod_emit(mod);
+        modifiedMods++;
+        eprintf("modified: %s %d\n", mod->filename, mod->modified);
       }
       parser->oelap = clock_clockSpanMicro(t0) / 1.0e3;
 
       Process proc;
 
-      const bool cocoaUI = true;
       foreachn(Module*, mod, mods, modules) {
         // For monolithic builds, just compile the last module (root); it
         // will have pulled in the other source files by #including them.
@@ -274,24 +282,26 @@ int main(int argc, char* argv[]) {
           return 1;
         }
 
-        PtrArray cmdexe = {};
-        arr_push(&cmdexe, cmd[0]);
-        arr_push(&cmdexe, "-g");
-        foreachn(Module*, mod, mods, modules) {
-          if (monolithicBuild && mods->next) continue;
-          arr_push(&cmdexe, mod->out_o);
-        }
-        arr_push(&cmdexe, "engine/jet/rt0.o");
-        if (cocoaUI) {
-          arr_push(&cmdexe, "-framework");
-          arr_push(&cmdexe, "Cocoa");
-        }
-        arr_push(&cmdexe, NULL);
-        Process_launch((char**)cmdexe.ref);
-        proc = Process_awaitAny();
-        if (proc.exited && proc.code) {
-          unreachable("ld failed%s\n", "");
-          return 1;
+        if (modifiedMods) {
+          PtrArray cmdexe = {};
+          arr_push(&cmdexe, cmd[0]);
+          arr_push(&cmdexe, "-g");
+          foreachn(Module*, mod, mods, modules) {
+            if (monolithicBuild && mods->next) continue;
+            arr_push(&cmdexe, mod->out_o);
+          }
+          arr_push(&cmdexe, "engine/jet/rt0.o");
+          if (cocoaUI) {
+            arr_push(&cmdexe, "-framework");
+            arr_push(&cmdexe, "Cocoa");
+          }
+          arr_push(&cmdexe, NULL);
+          Process_launch((char**)cmdexe.ref);
+          proc = Process_awaitAny();
+          if (proc.exited && proc.code) {
+            unreachable("ld failed%s\n", "");
+            return 1;
+          }
         }
         // Process_awaitAll();
 
@@ -300,6 +310,7 @@ int main(int argc, char* argv[]) {
 
       } else if (mode == PMTest) {
         // see if this code can be shared with PMRun code
+
         char* cmd[] = { //
           cc_cmd, //
           "-I", enginePath, //
@@ -315,21 +326,22 @@ int main(int argc, char* argv[]) {
           unreachable("test0 failed%s\n", "");
           return 1;
         }
-
-        PtrArray cmdexe = {};
-        arr_push(&cmdexe, cc_cmd);
-        arr_push(&cmdexe, "-g");
-        foreachn(Module*, mod, mods, modules) {
-          if (monolithicBuild && mods->next) continue;
-          arr_push(&cmdexe, mod->out_o);
-        }
-        arr_push(&cmdexe, "engine/jet/test0.o");
-        arr_push(&cmdexe, NULL);
-        Process_launch((char**)cmdexe.ref);
-        proc = Process_awaitAny();
-        if (proc.exited && proc.code) {
-          unreachable("ld failed%s\n", "");
-          return 1;
+        if (modifiedMods) {
+          PtrArray cmdexe = {};
+          arr_push(&cmdexe, cc_cmd);
+          arr_push(&cmdexe, "-g");
+          foreachn(Module*, mod, mods, modules) {
+            if (monolithicBuild && mods->next) continue;
+            arr_push(&cmdexe, mod->out_o);
+          }
+          arr_push(&cmdexe, "engine/jet/test0.o");
+          arr_push(&cmdexe, NULL);
+          Process_launch((char**)cmdexe.ref);
+          proc = Process_awaitAny();
+          if (proc.exited && proc.code) {
+            unreachable("ld failed%s\n", "");
+            return 1;
+          }
         }
 
         // Process_awaitAll();
@@ -360,10 +372,14 @@ int main(int argc, char* argv[]) {
 
   int ret = parser->issues.errCount | _InternalErrs;
 
-  eprintf("\e[90m[ p/c %.2f + e %.1f + cc %.0f ms ]\e[0m\n", parser->elap,
-      parser->oelap - parser->elap, parser->elap_tot - parser->oelap);
+  eprintf("\e[90m[ p/c %.2f + e %.1f + cc %.0f ms ] %.0f ms\e[0m\n",
+      parser->elap, parser->oelap - parser->elap,
+      parser->elap_tot - parser->oelap, parser->elap_tot);
   eprintf("\e[90m%.*s\e[0m\n", 72, _dashes_);
   if (!ret && (mode == PMRun || mode == PMTest)) {
+    // execv on macos has about 80-100ms overhead. why?
+    // not just on first run of a.out
+    // -- it is forst run, because you regenerate a.out every time
     execv("./a.out", (char*[]) { "./a.out", NULL });
     // Process_awaitAll();
   }

@@ -8,7 +8,7 @@
 // #include "jet/base.h"
 // #endif
 #define monostatic
-#define thread_local _Thread_local
+#define thread_local
 // #include "os/clock.h"
 typedef uint64_t clock_Time;
 typedef uint64_t PreciseTime;
@@ -55,6 +55,7 @@ int main(int argc, char* argv[]) {
   if (isatty(STDERR_FILENO)) {
     //✓✕• ✔︎✘⁃
     s_err = "\e[31m✘\e[0m";
+    s_crash = "\e[31m!\e[0m";
     s_skp = "\e[33m⁃\e[0m";
     s_ok = "\e[32m✔︎\e[0m";
   }
@@ -78,8 +79,8 @@ int main(int argc, char* argv[]) {
   }
   eprintf("%.*s\n", 66, _dashes_);
   eprintf("   Total |  %s Passed |  %s Failed | %s Skipped | Stopped | "
-          "Crashed\n",
-      s_ok, s_err, s_skp);
+          "%s Crash\n",
+      s_ok, s_err, s_skp, s_crash);
   // eputs(
   //     "--------------------------------------------------------------------"
   //     "-------\n");

@@ -1439,7 +1439,7 @@ static void mod_genTests(Module* mod) {
 }
 
 int file_hash_equal(char* file1, char* file2);
-bool file_move(char* src, char* target) { return rename(src, target); }
+bool file_move(char* src, char* target) { return !rename(src, target); }
 
 static int mod_emit(Module* mod) {
 
@@ -1469,9 +1469,11 @@ static int mod_emit(Module* mod) {
     if (type->body && type->analysed) { enum_genh(type, 0); }
   }
 
-  printf("typedef enum {\n");
-  foreach (Type*, type, mod->types) { type_genID(type); }
-  printf("} _TypeID;\n");
+  // FIXME: typeIDs should be generated over ALL types in all modules
+  // printf("typedef enum {\n  TypeID_Null,");
+  // // FIXME: add basic types here
+  // foreach (Type*, type, mod->types) { type_genID(type); }
+  // printf("  TypeID__end\n} _TypeID;\n");
 
   foreach (Type*, type, mod->types) {
     if (type->body && type->analysed) {
@@ -1493,8 +1495,10 @@ static int mod_emit(Module* mod) {
     // can be recompiled
     // eprintf("%s: header updated\n", mod->out_h);
     mod->hmodified = true;
+    unlink(mod->out_h);
     if (!file_move(mod->out_hh, mod->out_h)) {
-      eprintf("%s:1:1-1: error: can't update file\n", mod->out_h);
+      eprintf("%s:1:1-1: error: can't update file: %s\n", mod->out_h,
+          strerror(errno));
       return 1;
     }
   } else

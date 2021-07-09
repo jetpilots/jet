@@ -7,6 +7,13 @@ test "number stuff"
   check 3.1 < 22/7 < 3.2
 end
 
+func start()
+  var c = 56
+  var f = c + 6
+  check f == 62
+  check 3.1 < 22/7 < 3.2
+end
+
 ~ test "complex numbers"
 ~   var cmp = 5i
 ~   check cmp == 8

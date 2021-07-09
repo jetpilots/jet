@@ -85,7 +85,7 @@ __attribute((__noinline__)) int _stack_grows_up__(char* parentsLocal) {
 #ifndef NDEBUG
 #define SHOW_BACKTRACE_LINE                                                \
   if (_scDepth_ <= _btLimit_ || _scDepth_ > _scPrintAbove_)                \
-    printf("\e[90m[%lu] \e[36m%s\n", _scDepth_, callsite_);                \
+    printf("\e[90m[%lu] \e[36m%s\e[0m\n", _scDepth_, callsite_);           \
   else if (_scDepth_ == _scPrintAbove_)                                    \
     printf("\e[90m... truncated ...\e[0m\n");
 #else

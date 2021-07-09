@@ -1247,7 +1247,7 @@ static Module* par_lookupModule(PtrList* existingModules, char* name) {
 
 static Module* parseModule(
     Parser* parser, PtrList** existingModulesPtr, Module* importer) {
-  FUNC_ENTRY
+  // FUNC_ENTRY
   Module* root = NEW(Module); // FIXME RENAME ROOT TO MOD, IT IS NOT ROOT!
   bool isPrivate = false;
 

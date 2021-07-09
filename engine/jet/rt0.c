@@ -45,7 +45,7 @@ int main(int argc, char* argv[]) {
 
   if (_err_ == ERROR_TRACE) {
     printf("Terminated due to an unhandled error.\n");
-    IFDEBUG(printf("(run in debug mode to see a backtrace)\n"));
+    IFDEBUGELSE(;, printf("(run in debug mode to see a backtrace)\n"));
   } else if (_err_ == NULL) {
     ;
   }

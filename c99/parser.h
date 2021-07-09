@@ -26,7 +26,7 @@ typedef struct Parser {
 
   bool generateCommentExprs; // set to false when compiling, set to
                              // true when linting
-	bool godMode; //(only for me) inline C using unaryminus, etc
+  bool godMode; //(only for me) inline C using unaryminus, etc
 
   // set these whenever use is detected (e.g. during resolveTypes or parsing
   // literals)
@@ -82,8 +82,6 @@ long recordNewlines(Parser* parser) {
   return lines;
 }
 
-
-
 static Parser* par_fromFile(
     char* filename, bool skipws, CompilerMode mode) {
   size_t flen = cstr_length(filename);
@@ -117,13 +115,10 @@ static Parser* par_fromFile(
 
   FILE* file = fopen(filename, "r");
   assert(file);
-
-  Parser* ret = NEW(Parser);
-
-  ret->filename = filename;
   fseek(file, 0, SEEK_END);
   const size_t size = ftell(file) + 2;
 
+  Parser* ret = NULL;
   // 2 null chars, so we can always lookahead
   if (size < FILE_SIZE_MAX) {
     char* data = malloc(size);
@@ -140,13 +135,12 @@ static Parser* par_fromFile(
     fclose(file);
 
     ret = NEW(Parser);
-
     ret->filename = filename;
     ret->data = data;
     ret->end = ret->data + size - 2;
     ret->orig = (PtrArray) {};
-		ret->godMode = 1;
-		
+    ret->godMode = 1;
+
     arr_push(&ret->orig, strndup(data, size));
     ret->token = (Token) { //
       .pos = ret->data,
@@ -178,5 +172,56 @@ static Parser* par_fromFile(
   return ret;
 }
 
+static Parser* par_fromStdin(bool skipws, CompilerMode mode) {
+
+  FILE* file = stdin;
+
+  size_t bread = 0;
+
+  char* data = malloc(64 KB);
+  String str = {};
+  do {
+    bread = fread(data, 1, 64 KB, file);
+    String_appendChars(&str, data, bread);
+  } while (bread == 64 KB);
+
+  Parser* ret = NEW(Parser);
+  ret->filename = "stdin";
+  ret->data = str.ref;
+  ret->end = ret->data + str.len - 2;
+  ret->orig = (PtrArray) {};
+  ret->godMode = 1;
+
+  arr_push(&ret->orig, strndup(data, str.len + 1));
+  ret->token = (Token) { //
+    .pos = ret->data,
+    .skipWhiteSpace = skipws,
+    .mergeArrayDims = false,
+    .kind = tkUnknown,
+    .line = 1,
+    .col = 1
+  };
+  ret->issues = (IssueMgr) { .errLimit = 50000 };
+  ret->mode = mode;
+  ret->generateCommentExprs = (ret->mode == PMLint);
+
+  // If you ar not linting, even a single error is enough to stop and tell
+  // the user to LINT THE DAMN FILE FIRST.
+  if (ret->mode != PMLint) ret->issues.errLimit = 1;
+  recordNewlines(ret);
+
+  if (ret->orig.used > 65535) {
+    eprintf("stdin: error: too many lines (%u); limit is 65000\n",
+        ret->orig.used);
+    par_fini(ret);
+    ret = NULL;
+  }
+  if (str.len >= 1 << 24) {
+    eprintf("stdin: error: input %d B exceeds 16 MB limit\n", str.len);
+    par_fini(ret);
+    ret = NULL;
+  }
+  return ret;
+}
+
 static bool par_matches(Parser* parser, TokenKind expected);
- 
