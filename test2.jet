@@ -11,7 +11,7 @@ var k Kinds = .basic
 if k in [.basic, .complex]
   print("OK")
 end
-check k in [.basic, .complex]
+~ check k in [.basic, .complex]
 end
 
 decl func matches(s String, re Regex) Boolean

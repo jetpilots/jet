@@ -42,17 +42,17 @@ __attribute((__noinline__)) int _stack_grows_up__(char* parentsLocal) {
 #define FUNC_ENTRY_STACK_BLOWN                                             \
   _scPrintAbove_ = _scDepth_ - _btLimit_;                                  \
   printf(                                                                  \
-      "\e[31mfatal: stack overflow at call depth %lu.\n    in %s\e[0m\n",  \
-      _scDepth_, sig_);                                                    \
+    "\e[31mfatal: stack overflow at call depth %lu.\n    in %s\e[0m\n",    \
+    _scDepth_, sig_);                                                      \
   printf("\e[90mBacktrace (innermost first):\n");                          \
   if (_scDepth_ > 2 * _btLimit_)                                           \
     printf("    limited to %d outer and %d inner entries.\n", _btLimit_,   \
-        _btLimit_);                                                        \
+      _btLimit_);                                                          \
   printf("[%lu] \e[36m%s\n", _scDepth_, callsite_);
 #else
 #define FUNC_ENTRY_STACK_BLOWN                                             \
   printf(                                                                  \
-      "\e[31mfatal: stack overflow at call depth %lu.\e[0m\n", _scDepth_);
+    "\e[31mfatal: stack overflow at call depth %lu.\e[0m\n", _scDepth_);
 #endif
 
 #ifndef NOSTACKCHECK
@@ -85,9 +85,9 @@ __attribute((__noinline__)) int _stack_grows_up__(char* parentsLocal) {
 #ifndef NDEBUG
 #define SHOW_BACKTRACE_LINE                                                \
   if (_scDepth_ <= _btLimit_ || _scDepth_ > _scPrintAbove_)                \
-    printf("\e[90m[%lu] \e[36m%s\e[0m\n", _scDepth_, callsite_);           \
+    eprintf("\e[90m[%lu] \e[36m%s\e[0m\n", _scDepth_, callsite_);          \
   else if (_scDepth_ == _scPrintAbove_)                                    \
-    printf("\e[90m... truncated ...\e[0m\n");
+    eprintf("\e[90m... %s ...\e[0m\n", "truncated");
 #else
 #define SHOW_BACKTRACE_LINE
 #endif

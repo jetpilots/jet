@@ -7,3 +7,5 @@ AllowShortLoopsOnASingleLine: true
 AllowShortIfStatementsOnASingleLine: true
 AllowShortFunctionsOnASingleLine: true
 AllowShortCaseLabelsOnASingleLine: true
+ContinuationIndentWidth: 2
+AlignTrailingComments: true

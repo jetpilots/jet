@@ -8,7 +8,7 @@
 // #include "jet/base.h"
 // #endif
 #define monostatic
-#define thread_local
+#define thread_local _Thread_local
 // #include "os/clock.h"
 typedef uint64_t clock_Time;
 typedef uint64_t PreciseTime;
@@ -34,7 +34,7 @@ clock_Time clock_getTime();
 #define eprintf(...) fprintf(stderr, __VA_ARGS__)
 // static Dict(UInt32, VPtr) runDict;
 
-monostatic thread_local const char* _err_ = NULL;
+thread_local const char* _err_ = NULL;
 
 #include "runtest.h"
 
@@ -68,14 +68,14 @@ int main(int argc, char* argv[]) {
   if (elap > 1000.0) {
     elap /= 1000;
     units = "s";
-  }
-  if (elap > 60.0) {
-    elap /= 60.0;
-    units = "min";
-  }
-  if (elap > 60.0) {
-    elap /= 60.0;
-    units = "hr";
+    if (elap > 60.0) {
+      elap /= 60.0;
+      units = "min";
+      if (elap > 60.0) {
+        elap /= 60.0;
+        units = "hr";
+      }
+    }
   }
   eprintf("%.*s\n", 66, _dashes_);
   eprintf("   Total |  %s Passed |  %s Failed | %s Skipped | Stopped | "

@@ -19,7 +19,7 @@ end
 ~   check cmp == 8
 ~ end
 
-test "-boolean stuff"
+test "boolean stuff"
   var c = 3 in [7, 8, 3]
   check c
   check 5 < 7
@@ -34,7 +34,7 @@ end
 decl func len(s String) Number
 
 func temp(a,b)
-  if 4 == 8
+  if 4 != 8
   ans = b
   ~ else
   ~   ans = a

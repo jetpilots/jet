@@ -27,7 +27,7 @@ extern size_t sys_stackSize();
 
 extern void start(IFDEBUG(const char* callsite_));
 
-monostatic thread_local const char* _err_ = NULL;
+thread_local const char* _err_ = NULL;
 #include "runtest.h"
 
 #ifdef GUI_COCOA

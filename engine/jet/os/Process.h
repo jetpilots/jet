@@ -71,12 +71,26 @@ typedef struct {
 // ping example shows pipe.
 // speaking of ping, you should have a function ping
 
-monostatic Process Process_launch(char* args[]) {
-  pid_t pid;
+monostatic Process Process_launchIn(char* args[], char* dir) {
+  pid_t pid = fork();
+  if (pid == -1) return (Process) {};
+  if (!pid) {
+    if (dir) chdir(dir);
+    execvp(args[0], args); // noreturn
+  }
+  return (Process) { .pid = pid };
   // spawnp won't allow for creating a pipe.
-  int ret = posix_spawnp(&pid, args[0], NULL, NULL, args, environ);
-  if (ret) printf("error spawning '%s': %s\n", args[0], strerror(ret));
-  return (Process) { .pid = ret ? 0 : pid };
+  // int ret = posix_spawnp(&pid, args[0], NULL, NULL, args, environ);
+  // if (ret) printf("error spawning '%s': %s\n", args[0], strerror(ret));
+  // return (Process) { .pid = ret ? 0 : pid };
+}
+monostatic Process Process_launch(char* args[]) {
+  return Process_launchIn(args, NULL);
+  // pid_t pid;
+  // // spawnp won't allow for creating a pipe.
+  // int ret = posix_spawnp(&pid, args[0], NULL, NULL, args, environ);
+  // if (ret) printf("error spawning '%s': %s\n", args[0], strerror(ret));
+  // return (Process) { .pid = ret ? 0 : pid };
 }
 
 // I guess the only need for a pipe is to actually read the output as a
@@ -208,6 +222,21 @@ monostatic void Process_update(Process* proc) {
   proc->code = WEXITSTATUS(status);
   proc->exited = WIFEXITED(status);
 }
+
+#define Process_execIn(dir, ...)                                           \
+  Process_execIn_((char*[]) { __VA_ARGS__, NULL }, dir)
+monostatic int Process_execIn_(char* args[], char* dir) {
+  Process p = Process_launchIn(args, dir);
+  Process_await(&p);
+  return p.code;
+}
+
+#define Process_exec(...) Process_execIn(NULL, __VA_ARGS__)
+// monostatic int Process_exec_(char* args[]) {
+//   Process p = Process_launch(args);
+//   Process_await(&p);
+//   return p.code;
+// }
 
 monostatic void test_posix_spawn(void) {
 #define TOT 2000

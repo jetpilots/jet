@@ -14,7 +14,7 @@ static int _lastFuncLen;
 #define JOIN(x, y) x##y
 #define NAME_CLASS(T) const char* JOIN(T, _typeName) = #T;
 static const char* const spaces = //
-    "                                                                     ";
+  "                                                                     ";
 
 #include "types.h"
 #include "token.h"
@@ -43,12 +43,12 @@ static thread_local FILE* outfile = NULL;
 
 typedef enum CompilerMode {
   PMTokenize, // just tokenize (debug only)
-  PMLint, // format on stdout, ALL errors on stderr
-  PMEmitC, // parse, stop on first error, or emit C
+  PMLint,     // format on stdout, ALL errors on stderr
+  PMEmitC,    // parse, stop on first error, or emit C
   // PMBuildO, // generate the object file
   PMMake, // run make and build the target
-  PMRun, // run the executable in debug mode (build it first)
-  PMTest // generate test code and run it
+  PMRun,  // run the executable in debug mode (build it first)
+  PMTest  // generate test code and run it
 } CompilerMode;
 
 static const char* CompilerMode__str[] = { //
@@ -87,9 +87,9 @@ static void alloc_stat() { }
 static void sighandler(int sig, siginfo_t* si, void* unused) {
   write(2, _lastFunc, _lastFuncLen);
   write(2,
-      ":1:1-1: error: internal error: this file caused a segmentation "
-      "fault (unknown location)\n",
-      88);
+    ":1:1-1: error: internal error: this file caused a segmentation "
+    "fault (unknown location)\n",
+    88);
   _exit(1);
 }
 
@@ -133,7 +133,7 @@ int main(int argc, char* argv[]) {
   CompilerMode mode = PMEmitC;
   bool stats = false;
   bool forceBuildAll = false;
-  bool monolithicBuild = true;
+  bool monoBuild = true;
 
   char* filename = (argc > 2) ? argv[2] : (argc > 1) ? argv[1] : NULL;
 
@@ -152,26 +152,28 @@ int main(int argc, char* argv[]) {
   clock_Time t0 = clock_getTime();
 
   Parser* parser = strcmp(filename, "-")
-      ? par_fromFile(filename, true, mode)
-      : par_fromStdin(true, mode);
+    ? par_fromFile(filename, true, mode)
+    : par_fromStdin(true, mode);
   if (!parser) return 2;
 
-  parser->issues.warnUnusedArg = //
-      parser->issues.warnUnusedFunc = //
-      parser->issues.warnUnusedType = //
-      parser->issues.warnUnusedVar = (mode != PMRun && mode != PMTest);
+  parser->issues.warnUnusedArg =    //
+    parser->issues.warnUnusedFunc = //
+    parser->issues.warnUnusedType = //
+    parser->issues.warnUnusedVar =  //
+    (mode != PMRun && mode != PMTest);
 
   List(Module)* modules = NULL;
 
   Module* root = parseModule(parser, &modules, NULL);
   parser->elap = clock_clockSpanMicro(t0) / 1.0e3;
   int modifiedMods = 0;
+  char* exeName = cstr_pclone(
+    cstr_interp_s(512, "%s.%s.ex", cstr_dir_ip(cstr_pclone(root->filename)),
+      cstr_base(root->filename, '/', strlen(root->filename))));
 
-  // int b = file_hash_equal("/usr/bin/gcc", "/usr/bin/yes");
-  // printf("---- %d\n", b);
-  if (_InternalErrs) {
-    // nothing
-  } else if (parser->mode == PMLint) {
+  if (_InternalErrs) goto end;
+
+  if (parser->mode == PMLint) {
     if (parser->issues.hasParseErrors) {
       /* TODO: fallback to token-based linter (formatter)*/
     } else {
@@ -179,188 +181,116 @@ int main(int argc, char* argv[]) {
       foreach (Module*, mod, modules) { mod_dumpc(mod); }
     }
     parser->oelap = clock_clockSpanMicro(t0) / 1.0e3;
+    goto end;
+  }
 
-  } else if (!(parser->issues.errCount)) {
+  if (parser->issues.errCount) goto end;
+  // ^ TODO: module should hold its err count, not parser. that way you can
+  // still build the err-free mods
+
+  if (parser->mode == PMRun) {
     Func* fstart = NULL;
-    switch (parser->mode) { // REMOVE THIS SWITCH!! USELESS
-    case PMRun:
-      // don't break on the first match, keep looking so that duplicate
-      // starts can be found
-      foreach (Func*, func, root->funcs) {
-        if (!strcmp(func->name, "start")) {
-          if (fstart) err_duplicateFunc(parser, func, fstart);
-          fstart = func;
-          fstart->used++;
-        }
+    // don't break on the first match, keep looking so that duplicate
+    // starts can be found. (even overloaded starts should be error)
+    foreach (Func*, func, root->funcs) {
+      if (!strcmp(func->name, "start")) {
+        if (fstart) err_duplicateFunc(parser, func, fstart);
+        fstart = func;
+        fstart->used++;
       }
-      if (!fstart) { // TODO: new error, unless you want to get rid of start
-        eputs("\n\e[31m*** error:\e[0m cannot find function "
-              "\e[33mstart\e[0m.\n");
-        parser->issues.errCount++;
-      }
-      fallthrough;
-    case PMTest:
-    case PMEmitC: {
-
-      char* enginePath = "engine"; // FIXME
-      char* cc_cmd = "gcc";
-      const bool cocoaUI = true;
-
-      foreach (Module*, mod, modules) {
-        // for emitting C, test out_o for newness not out_c, since out_c
-        // is updated by clangformat etc. anyway O is the goal.
-        if (!forceBuildAll && !mod->modified
-            && file_newer(mod->out_o, mod->filename))
-          continue;
-        mod_emit(mod);
-        modifiedMods++;
-        eprintf("modified: %s %d\n", mod->filename, mod->modified);
-      }
-      parser->oelap = clock_clockSpanMicro(t0) / 1.0e3;
-
-      Process proc;
-
-      foreachn(Module*, mod, mods, modules) {
-        // For monolithic builds, just compile the last module (root); it
-        // will have pulled in the other source files by #including them.
-        if (monolithicBuild && mods->next) continue;
-
-        bool anyDependencyHModified = false;
-        foreach (Import*, imp, mod->imports) {
-          if (imp->mod && imp->used && imp->mod->hmodified)
-            anyDependencyHModified = true;
-          // public interface of some dep has changed, this mod will need t
-          // be recompiled.
-          break;
-        }
-        // Skip up-to-date object files
-        if (!forceBuildAll && !anyDependencyHModified
-            && file_newer(mod->out_o, mod->out_c))
-          continue;
-
-        // char* mono = monolithicBuild ? "-DJET_MONOBUILD" : "";
-        char* cmd[] = { //
-          cc_cmd, //
-          "-g", "-O0", //
-          "-I", enginePath, //
-          monolithicBuild ? "-DJET_MONOBUILD" : "-DJET_INCRBUILD", //
-          cocoaUI ? "-DGUI_COCOA" : "-DGUI_NONE", //
-          "-x", cocoaUI ? "objective-c" : "c", //
-          "-c", mod->out_c, //
-          "-o", mod->out_o, //
-          NULL
-        };
-        Process_launch(cmd);
-      }
-      // TODO: do something useful while cc is running
-      // here count the actual number of valid pids
-      do {
-        proc = Process_awaitAny();
-        if (proc.exited && proc.code) {
-          unreachable("cc failed%s\n", "");
-          return 1;
-        }
-        // here launch 1 more
-      } while (proc.pid);
-
-      if (parser->mode == PMRun) {
-        char* cmd[] = { //
-          cc_cmd, //
-          "-I", enginePath, //
-          "-x", cocoaUI ? "objective-c" : "c", //
-          "-g", "-O0", //
-          cocoaUI ? "-DGUI_COCOA" : "-DGUI_NONE", //
-          "-c", // cocoaUI ? "engine/jet/rt0.m" :
-          "engine/jet/rt0.c", //
-          "-o", "engine/jet/rt0.o", //
-          NULL
-        };
-        Process_launch(cmd);
-        proc = Process_awaitAny();
-        if (proc.exited && proc.code) {
-          unreachable("rt0 failed%s\n", "");
-          return 1;
-        }
-
-        if (modifiedMods) {
-          PtrArray cmdexe = {};
-          arr_push(&cmdexe, cmd[0]);
-          arr_push(&cmdexe, "-g");
-          foreachn(Module*, mod, mods, modules) {
-            if (monolithicBuild && mods->next) continue;
-            arr_push(&cmdexe, mod->out_o);
-          }
-          arr_push(&cmdexe, "engine/jet/rt0.o");
-          if (cocoaUI) {
-            arr_push(&cmdexe, "-framework");
-            arr_push(&cmdexe, "Cocoa");
-          }
-          arr_push(&cmdexe, NULL);
-          Process_launch((char**)cmdexe.ref);
-          proc = Process_awaitAny();
-          if (proc.exited && proc.code) {
-            unreachable("ld failed%s\n", "");
-            return 1;
-          }
-        }
-        // Process_awaitAll();
-
-        // Process_launch((char*[]) { "./a.out", NULL });
-        // Process_awaitAll();
-
-      } else if (mode == PMTest) {
-        // see if this code can be shared with PMRun code
-
-        char* cmd[] = { //
-          cc_cmd, //
-          "-I", enginePath, //
-          "-g", "-O0", //
-          cstr_interp_s(256, "-DTENTRY=%s", root->cname), "-c",
-          "engine/jet/test0.c", //
-          "-o", "engine/jet/test0.o", //
-          NULL
-        };
-        Process_launch(cmd);
-        proc = Process_awaitAny();
-        if (proc.exited && proc.code) {
-          unreachable("test0 failed%s\n", "");
-          return 1;
-        }
-        if (modifiedMods) {
-          PtrArray cmdexe = {};
-          arr_push(&cmdexe, cc_cmd);
-          arr_push(&cmdexe, "-g");
-          foreachn(Module*, mod, mods, modules) {
-            if (monolithicBuild && mods->next) continue;
-            arr_push(&cmdexe, mod->out_o);
-          }
-          arr_push(&cmdexe, "engine/jet/test0.o");
-          arr_push(&cmdexe, NULL);
-          Process_launch((char**)cmdexe.ref);
-          proc = Process_awaitAny();
-          if (proc.exited && proc.code) {
-            unreachable("ld failed%s\n", "");
-            return 1;
-          }
-        }
-
-        // Process_awaitAll();
-      }
-    } break;
-
-      // case PMTest: {
-      //   printf("#include \"jet/test0.h\"\n");
-      //   // TODO : THISFILE must be defined since function callsites need
-      //   // it, but the other stuff in par_emit_open isn't required.
-      //   // Besides, THISFILE should be the actual module's file not the
-      //   // test file
-
-      //   foreach (Module*, mod, modules) { mod_genTests(mod); }
-      // } break;
-
-    default: break;
+    }
+    if (!fstart) { // TODO: new error, unless you want to get rid of start
+      eputs("\n\e[31m*** error:\e[0m cannot find function "
+            "\e[33mstart\e[0m.\n");
+      parser->issues.errCount++;
     }
   }
+
+  char* enginePath = "engine"; // FIXME
+  char* cc_cmd = "gcc";
+  const bool cocoaUI = true;
+
+  foreach (Module*, mod, modules) {
+    // for emitting C, test out_o for newness not out_c, since out_c
+    // is updated by clangformat etc. anyway O is the goal.
+    if (!forceBuildAll  //
+      && !mod->modified //
+      && file_newer(mod->out_o, mod->filename))
+      continue;
+
+    eprintf("emitting: %s %d\n", mod->filename, mod->modified);
+    mod_emit(mod);
+    modifiedMods++;
+  }
+  parser->oelap = clock_clockSpanMicro(t0) / 1.0e3;
+
+  // Monolithic builds don't need the .o for each module.
+  foreachn(Module*, mod, mods, modules) {
+    if (monoBuild && mods->next) continue;
+
+    bool anyDependencyHModified = false;
+    foreach (Import*, imp, mod->imports) {
+      if (imp->mod && imp->used && imp->mod->hmodified) {
+        anyDependencyHModified = true;
+        // public interface of some dep has changed, this mod will need
+        // t be recompiled.
+        break;
+      }
+    }
+    // Skip up-to-date object files
+    if (!forceBuildAll           //
+      && !anyDependencyHModified //
+      && file_newer(mod->out_o, mod->out_c))
+      continue;
+
+    if (Process_exec(cc_cmd, "-g", "-O0", "-I", enginePath,    //
+          "-D", monoBuild ? "JET_MONOBUILD" : "JET_INCRBUILD", //
+          "-D", cocoaUI ? "GUI_COCOA" : "GUI_NONE",            //
+          "-x", cocoaUI ? "objective-c" : "c",                 //
+          "-c", mod->out_c, "-o", mod->out_o)) {
+      unreachable("cc failed for: %s\n", mod->filename);
+    }
+  }
+
+  if (_InternalErrs) goto end; // cc can fail
+
+  if (parser->mode == PMRun || parser->mode == PMTest) {
+    bool istest = parser->mode == PMTest;
+
+    if (Process_execIn("engine/jet",                          //
+          cc_cmd, "-g", "-O0", "-I", enginePath,              //
+          "-x", cocoaUI ? "objective-c" : "c",                //
+          "-D", cocoaUI ? "GUI_COCOA" : "GUI_NONE",           //
+          "-D", cstr_interp_s(256, "TENTRY=%s", root->cname), //
+          "-c", istest ? "test0.c" : "rt0.c",                 //
+          "-o", istest ? "test0.o" : "rt0.o")) {
+      unreachable("rt0 failed%s\n", "");
+      goto end;
+    }
+
+    if (modifiedMods) {
+      PtrArray cmdexe = {};
+      arr_push(&cmdexe, cc_cmd), arr_push(&cmdexe, "-g");
+      foreachn(Module*, mod, mods, modules) {
+        if (monoBuild && mods->next) continue;
+        arr_push(&cmdexe, mod->out_o);
+      }
+      arr_push(&cmdexe, istest ? "engine/jet/test0.o" : "engine/jet/rt0.o");
+      if (cocoaUI) {
+        arr_push(&cmdexe, "-framework"), arr_push(&cmdexe, "Cocoa");
+      }
+      arr_push(&cmdexe, "-o"), arr_push(&cmdexe, exeName);
+      arr_push(&cmdexe, NULL);
+
+      if (Process_execIn_((char**)cmdexe.ref, NULL)) {
+        unreachable("ld failed%s\n", "");
+        goto end;
+      }
+    }
+  }
+
+end:
+
   parser->elap_tot = clock_clockSpanMicro(t0) / 1.0e3;
   if (stats) printstats(parser);
   if (parser->issues.warnCount)
@@ -370,19 +300,17 @@ int main(int argc, char* argv[]) {
   if (_InternalErrs)
     eputs("\e[31m*** an internal error has ocurred.\e[0m\n");
 
-  int ret = parser->issues.errCount | _InternalErrs;
-
   eprintf("\e[90m[ p/c %.2f + e %.1f + cc %.0f ms ] %.0f ms\e[0m\n",
-      parser->elap, parser->oelap - parser->elap,
-      parser->elap_tot - parser->oelap, parser->elap_tot);
+    parser->elap, //
+    parser->oelap - parser->elap,
+    parser->elap_tot - parser->oelap, //
+    parser->elap_tot);
   eprintf("\e[90m%.*s\e[0m\n", 72, _dashes_);
-  if (!ret && (mode == PMRun || mode == PMTest)) {
-    // execv on macos has about 80-100ms overhead. why?
-    // not just on first run of a.out
-    // -- it is forst run, because you regenerate a.out every time
-    execv("./a.out", (char*[]) { "./a.out", NULL });
-    // Process_awaitAll();
-  }
 
-  return ret;
+  int ret = parser->issues.errCount | _InternalErrs;
+  if (!ret && (mode == PMRun || mode == PMTest)) {
+    execv(exeName, (char*[]) { exeName, NULL });
+  } else {
+    return -1;
+  }
 }
