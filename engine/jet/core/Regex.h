@@ -17,7 +17,8 @@ typedef const char* const_Regex;
 // since regex literals and strings passed in to regex args will be
 // transparently wrapped into a RegexProg_new call. take care to "optimise"
 // literals, replace char classes e.g. \d \D etc.
-_RegexProg rex__compile(const char* str, int matchCase, int justMatch) {
+monostatic _RegexProg rex__compile(
+  const char* str, int matchCase, int justMatch) {
   regex_t reg;
   matchCase = (!matchCase) * REG_ICASE;
   justMatch = (!!justMatch) * REG_NOSUB;
@@ -31,7 +32,7 @@ static const long sza = sizeof(RegexMatch);
 static const long szv = sizeof(_RegexProg);
 static const long sze = sizeof(regmatch_t);
 
-RegexMatch rex_match(_RegexProg prog, char* source) {
+monostatic RegexMatch rex_match(_RegexProg prog, char* source) {
   RegexMatch match = {};
   int err;
   if ((err = regexec(&prog.prog, source, REX_MAX_SUBMATCH, match.sub, 0)))
@@ -39,7 +40,7 @@ RegexMatch rex_match(_RegexProg prog, char* source) {
   return match;
 }
 
-int rex_contains(_RegexProg prog, char* source) // yes or no
+monostatic int rex_contains(_RegexProg prog, char* source) // yes or no
 {
   RegexMatch match = {};
   int err;
@@ -50,14 +51,14 @@ int rex_contains(_RegexProg prog, char* source) // yes or no
 
 #define CString_matches_re rex_matches
 
-int rex_matches(char* source, char* pattern) {
+monostatic int rex_matches(char* source, char* pattern) {
   return rex_contains(rex__compile(pattern, 1, 1), source);
 }
 /* substitute into one string using the matches from the last regexec() */
 // this needs work, it just works locally on a new buffer, not the original
 // source string
 static size_t _regsub(
-    char* replacement, char* buf, int dlen, regmatch_t* match, int nmatch) {
+  char* replacement, char* buf, int dlen, regmatch_t* match, int nmatch) {
   char* origSource = replacement;
   char* origDest = buf;
   char *start, *end;
@@ -108,11 +109,12 @@ static size_t _regsub(
 
 #define Text char*
 // be careful regsub does not allocate or check buffer size
-Text rex_replace(RegexMatch match, char* source, char* replacement) {
+monostatic Text rex_replace(
+  RegexMatch match, char* source, char* replacement) {
   Text str = malloc(1 /* FIXME */);
   size_t written = _regsub(source, str, 1, match.sub, REX_MAX_SUBMATCH);
 
   return "";
 }
 
-int maisan() { return 0; }
+monostatic int maisan() { return 0; }

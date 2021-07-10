@@ -55,13 +55,13 @@ pthread_t Thread_runDetached(void* (*f)(void*), void* arg) {
   return ret;
 }
 
-void threads_init() {
+void threads_init(void) {
   pthread_attr_init(pthread_attr_detached_default);
   pthread_attr_init(pthread_attr_joinable_default);
   pthread_attr_setdetachstate(
-      pthread_attr_detached_default, PTHREAD_CREATE_DETACHED);
+    pthread_attr_detached_default, PTHREAD_CREATE_DETACHED);
   pthread_attr_setdetachstate(
-      pthread_attr_joinable_default, PTHREAD_CREATE_JOINABLE);
+    pthread_attr_joinable_default, PTHREAD_CREATE_JOINABLE);
   pthread_attr_setstacksize(pthread_attr_joinable_default, 512 * 1024);
   pthread_attr_setstacksize(pthread_attr_detached_default, 512 * 1024);
 }
@@ -72,7 +72,7 @@ void threads_init() {
     clock_Time t0 = clock_getTime();                                       \
     expr;                                                                  \
     printf(                                                                \
-        "%s:%d: elapsed: %.9g s\n", f, l, clock_clockSpanNano(t0) / 1e9);  \
+      "%s:%d: elapsed: %.9g s\n", f, l, clock_clockSpanNano(t0) / 1e9);    \
   }
 // static double nums[10000];
 #include <math.h>
@@ -151,7 +151,7 @@ void avgsqrt(int n, double* sum) {
     for (int j = 0; j < n; j++)
       d += sqrt(frand(&rst)); // sqrt(rand() / (1.0 * RAND_MAX)); //
   printf("thread %p: elapsed: %.9g s ", pthread_self(),
-      clock_clockSpanNano(t0) / 1e9);
+    clock_clockSpanNano(t0) / 1e9);
   *sum = d / n;
   printf("wrote at %p: %f\n", sum, *sum);
 }

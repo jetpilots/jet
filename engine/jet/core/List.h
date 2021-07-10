@@ -6,7 +6,7 @@ struct PtrList {
 };
 MKSTAT(PtrList);
 
-PtrList* PtrList_new_() {
+monostatic PtrList* PtrList_new_(void) {
   IFDEBUG(_allocTotal_PtrList++);
   return Pool_alloc(gPool, sizeof(struct PtrList));
 }

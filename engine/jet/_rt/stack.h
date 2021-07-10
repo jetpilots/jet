@@ -1,19 +1,17 @@
 
-// *** These should be thread local
-// thread_local size_t _scSize_; // size of stack
-thread_local size_t _scDepth_ = 0;
+extern thread_local size_t _scDepth_;
 // current depth, updated in each function
-// thread_local size_t _scUsage_ = 0;
-// current depth, updated in each function
-thread_local size_t _scPrintAbove_ = 0;
+extern thread_local size_t _scPrintAbove_;
 // used for truncating long backtraces
-// static const char* _scStart_; // start of stack, set in main()
-thread_local char* _stack_boundary;
-// ^ FIXME THESE MUST BE EXTERN! THEY ARE PER EXECUTABLE NOT PER MODULE
+extern thread_local char* _stack_boundary;
 
-#define _STACK_BLOWN() (&(char) { 0 } < _stack_boundary)
+// #define _DBG_STACKP printf("%p %p\n", &(char) { 0 }, _stack_boundary),
+#define _DBG_STACKP
+#define _STACK_BLOWN() (_DBG_STACKP(&(char) { 0 } < _stack_boundary))
+
 #define _STACK_GROWS_UP() _stack_grows_up__(&(char) { 0 })
-__attribute((__noinline__)) int _stack_grows_up__(char* parentsLocal) {
+monostatic __attribute((__noinline__)) int _stack_grows_up__(
+  char* parentsLocal) {
   return (uintptr_t)parentsLocal < (uintptr_t)&parentsLocal;
 }
 
@@ -22,13 +20,7 @@ __attribute((__noinline__)) int _stack_grows_up__(char* parentsLocal) {
 // for fast mode, NOSTACKCHECK is defined globally, so these will not be
 // used.
 #define STACKDEPTH_UP _scDepth_++
-//   {
-//     _scUsage_ += MYSTACKUSAGE;
-//   }
 #define STACKDEPTH_DOWN _scDepth_--
-//   {
-//     _scUsage_ -= MYSTACKUSAGE;
-//   }
 #else
 #define STACKDEPTH_UP
 #define STACKDEPTH_DOWN
@@ -36,28 +28,25 @@ __attribute((__noinline__)) int _stack_grows_up__(char* parentsLocal) {
 // what is the point of a separate NOSTACKCHECK option if release mode
 // doesn't track ANY info (stack depth, function name etc.) other than
 // showing "stack overflow" instead of "segmentation fault".
-// --- it may not show segmentation fault.
+// --- it may not show the segmentation fault.
 
 #ifndef NDEBUG
 #define FUNC_ENTRY_STACK_BLOWN                                             \
   _scPrintAbove_ = _scDepth_ - _btLimit_;                                  \
-  printf(                                                                  \
-    "\e[31mfatal: stack overflow at call depth %lu.\n    in %s\e[0m\n",    \
+  printf("fatal: stack overflow at call depth %lu.\n    in %s\n",          \
     _scDepth_, sig_);                                                      \
-  printf("\e[90mBacktrace (innermost first):\n");                          \
+  printf("Backtrace (innermost first):\n");                                \
   if (_scDepth_ > 2 * _btLimit_)                                           \
     printf("    limited to %d outer and %d inner entries.\n", _btLimit_,   \
       _btLimit_);                                                          \
-  printf("[%lu] \e[36m%s\n", _scDepth_, callsite_);
+  printf("[%lu] %s\n", _scDepth_, callsite_);
 #else
 #define FUNC_ENTRY_STACK_BLOWN                                             \
-  printf(                                                                  \
-    "\e[31mfatal: stack overflow at call depth %lu.\e[0m\n", _scDepth_);
+  printf("fatal: stack overflow at call depth %lu.\n", _scDepth_);
 #endif
 
 #ifndef NOSTACKCHECK
 #define DO_STACK_CHECK                                                     \
-  /*if (_scUsage_ >= _scSize_) */                                          \
   if (_STACK_BLOWN()) {                                                    \
     FUNC_ENTRY_STACK_BLOWN;                                                \
     DONE;                                                                  \
@@ -85,9 +74,9 @@ __attribute((__noinline__)) int _stack_grows_up__(char* parentsLocal) {
 #ifndef NDEBUG
 #define SHOW_BACKTRACE_LINE                                                \
   if (_scDepth_ <= _btLimit_ || _scDepth_ > _scPrintAbove_)                \
-    eprintf("\e[90m[%lu] \e[36m%s\e[0m\n", _scDepth_, callsite_);          \
+    eprintf("[%lu] %s\n", _scDepth_, callsite_);                           \
   else if (_scDepth_ == _scPrintAbove_)                                    \
-    eprintf("\e[90m... %s ...\e[0m\n", "truncated");
+    eprintf("... %s ...\n", "truncated");
 #else
 #define SHOW_BACKTRACE_LINE
 #endif

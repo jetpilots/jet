@@ -92,7 +92,7 @@
     UInt32 cap;                                                            \
   }                                                                        \
   Array(T);                                                                \
-  monostatic Array(T) * Array_new(T)() {                                   \
+  monostatic Array(T) * Array_new(T)(void) {                                   \
     return calloc(1, sizeof(Array(T)));                                    \
   }                                                                        \
   monostatic void Array_free(T)(Array(T) * self) {                         \

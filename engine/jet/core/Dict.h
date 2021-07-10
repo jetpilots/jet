@@ -48,7 +48,7 @@
 
 #define roundUp32(x)                                                       \
   (--(x), (x) |= (x) >> 1, (x) |= (x) >> 2, (x) |= (x) >> 4,               \
-      (x) |= (x) >> 8, (x) |= (x) >> 16, ++(x))
+    (x) |= (x) >> 8, (x) |= (x) >> 16, ++(x))
 
 static const double Dict_HASH_UPPER = 0.77;
 
@@ -110,7 +110,7 @@ static const double Dict_HASH_UPPER = 0.77;
 
 // TODO: move the implementation into  runtime.h
 #define __DICT_IMPL(Scope, K, V, IsMap, hash, equal)                       \
-  Scope Dict(K, V) * Dict_new(K, V)() {                                    \
+  Scope Dict(K, V) * Dict_new(K, V)(void) {                                \
     return calloc(1, sizeof(Dict(K, V)));                                  \
   }                                                                        \
                                                                            \
@@ -125,7 +125,7 @@ static const double Dict_HASH_UPPER = 0.77;
   Scope void Dict_clear(K, V)(Dict(K, V) * h) {                            \
     if (h && h->flags) {                                                   \
       memset(                                                              \
-          h->flags, 0xAA, Dict__flagsSize(h->nBuckets) * sizeof(UInt32));  \
+        h->flags, 0xAA, Dict__flagsSize(h->nBuckets) * sizeof(UInt32));    \
       h->size = h->nOccupied = 0;                                          \
     }                                                                      \
   }                                                                        \
@@ -137,7 +137,7 @@ static const double Dict_HASH_UPPER = 0.77;
       i = k & mask;                                                        \
       last = i;                                                            \
       while (!Dict__empty(h->flags, i)                                     \
-          && (Dict__deleted(h->flags, i) || !equal(h->keys[i], key))) {    \
+        && (Dict__deleted(h->flags, i) || !equal(h->keys[i], key))) {      \
         i = (i + (++step)) & mask;                                         \
         if (i == last) return h->nBuckets;                                 \
       }                                                                    \
@@ -150,9 +150,9 @@ static const double Dict_HASH_UPPER = 0.77;
     return x < h->nBuckets && Dict_exist(h, x);                            \
   }                                                                        \
   Scope int Dict_resize(K, V)(Dict(K, V) * h,                              \
-      UInt32 nnBuckets) { /* This function uses 0.25*nBuckets bytes of     \
-                             working space instead of                      \
-                             [sizeof(key_t+val_t)+.25]*nBuckets. */        \
+    UInt32 nnBuckets) { /* This function uses 0.25*nBuckets bytes of       \
+                           working space instead of                        \
+                           [sizeof(key_t+val_t)+.25]*nBuckets. */          \
     UInt32* nFlags = 0;                                                    \
     UInt32 j = 1;                                                          \
     {                                                                      \
@@ -160,7 +160,7 @@ static const double Dict_HASH_UPPER = 0.77;
       if (nnBuckets < 4) nnBuckets = 4;                                    \
       if (h->size >= (UInt32)(nnBuckets * Dict_HASH_UPPER + 0.5))          \
         j = 0; /* requested size is too small */                           \
-      else { /* size to be changed (shrink or expand); rehash */           \
+      else {   /* size to be changed (shrink or expand); rehash */         \
         nFlags = malloc(Dict__flagsSize(nnBuckets) * sizeof(UInt32));      \
         if (!nFlags) return -1;                                            \
         memset(nFlags, 0xAA, Dict__flagsSize(nnBuckets) * sizeof(UInt32)); \
@@ -259,7 +259,7 @@ static const double Dict_HASH_UPPER = 0.77;
       else {                                                               \
         last = i;                                                          \
         while (!Dict__empty(h->flags, i)                                   \
-            && (Dict__deleted(h->flags, i) || !equal(h->keys[i], key))) {  \
+          && (Dict__deleted(h->flags, i) || !equal(h->keys[i], key))) {    \
           if (Dict__deleted(h->flags, i)) site = i;                        \
           i = (i + (++step)) & mask;                                       \
           if (i == last) {                                                 \
@@ -373,19 +373,19 @@ static uint32_t FNV1A_Hash_Yorikke_v3(const char* str, uint32_t wrdlen) {
   for (; wrdlen > 2 * sizeof(uint32_t);
        wrdlen -= 2 * sizeof(uint32_t), p += 2 * sizeof(uint32_t)) {
     hash32
-        = (_rotl_KAZE(hash32, ROLInBits) ^ (*(uint32_t*)(p + 0))) * PRIME;
+      = (_rotl_KAZE(hash32, ROLInBits) ^ (*(uint32_t*)(p + 0))) * PRIME;
     hash32
-        = (_rotl_KAZE(hash32, ROLInBits) ^ (*(uint32_t*)(p + 4))) * PRIME;
+      = (_rotl_KAZE(hash32, ROLInBits) ^ (*(uint32_t*)(p + 4))) * PRIME;
   }
   // Here 'wrdlen' is 1..8
   PADDEDby8 = _PADr_KAZE(*(uint64_t*)(p + 0),
-      (8 - wrdlen) << 3); // when (8-8) the QWORD remains intact
-  hash32 = (_rotl_KAZE(hash32, ROLInBits)
-               ^ *(uint32_t*)((char*)&PADDEDby8 + 0))
-      * PRIME;
-  hash32 = (_rotl_KAZE(hash32, ROLInBits)
-               ^ *(uint32_t*)((char*)&PADDEDby8 + 4))
-      * PRIME;
+    (8 - wrdlen) << 3); // when (8-8) the QWORD remains intact
+  hash32
+    = (_rotl_KAZE(hash32, ROLInBits) ^ *(uint32_t*)((char*)&PADDEDby8 + 0))
+    * PRIME;
+  hash32
+    = (_rotl_KAZE(hash32, ROLInBits) ^ *(uint32_t*)((char*)&PADDEDby8 + 4))
+    * PRIME;
   return hash32 ^ (hash32 >> 16);
 }
 // Last touch: 2019-Oct-03, Kaze

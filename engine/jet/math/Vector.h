@@ -291,13 +291,13 @@ monostatic Real64 Vector_countnz_tol(Vector* vec, Real64 tol) {
 monostatic Real64 Vector_minnz_tol(Vector* vec, Real64 tol) {
   Real64 ret = __DBL_MAX__;
   Vector_foreachptr(v, vec) if (*v < ret && isnonzero_tol(*v, tol)) ret
-      = *v;
+    = *v;
   return vec->used ? ret : 0;
 }
 monostatic Real64 Vector_maxnz_tol(Vector* vec, Real64 tol) {
   Real64 ret = -__DBL_MAX__;
   Vector_foreachptr(v, vec) if (*v > ret && isnonzero_tol(*v, tol)) ret
-      = *v;
+    = *v;
   return vec->used ? ret : 0;
 }
 
@@ -329,7 +329,7 @@ monostatic void Vector_fillzero(Vector* vec) { Vector_fillval(vec, 0); }
 #define Vector_applyfn(vec, out, func)                                     \
   for_to(_i, (vec)->used)(out)->ref[_i] = func((vec)->ref[_i]);
 
-double exp10(double x) {
+monostatic double exp10(double x) {
   static const double p10[] = { 1e-15, 1e-14, 1e-13, 1e-12, 1e-11, 1e-10,
     1e-9, 1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3,
     1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15 };
@@ -401,7 +401,7 @@ monostatic void Vector_cumsum(Vector* vec, Vector* out) { }
 // }
 
 monostatic void Vector__linspace_step_count(
-    Real64 start, Real64 end, Real64 step, UInt32 count, Vector* out) {
+  Real64 start, Real64 end, Real64 step, UInt32 count, Vector* out) {
   Vector_resize(out, count);
   Real64 cumsum1 = start;
   for_to(i, count - 1) {
@@ -411,12 +411,12 @@ monostatic void Vector__linspace_step_count(
   out->ref[count - 1] = end;
 }
 monostatic void Vector_linspace_count(
-    Real64 start, Real64 end, UInt32 count, Vector* out) {
+  Real64 start, Real64 end, UInt32 count, Vector* out) {
   Real64 step = (end - start) / (count - 1);
   Vector__linspace_step_count(start, end, step, count, out);
 }
 monostatic void Vector_linspace_step(
-    Real64 start, Real64 end, Real64 step, Vector* out) {
+  Real64 start, Real64 end, Real64 step, Vector* out) {
   UInt32 count = 1 + floor((end - start) / step);
   Vector__linspace_step_count(start, end, step, count, out);
 }
@@ -425,18 +425,18 @@ monostatic void Vector_linspace(Real64 start, Real64 end, Vector* out) {
 }
 
 monostatic void Vector_log10space(
-    Real64 start, Real64 end, UInt32 count, Vector* out) {
+  Real64 start, Real64 end, UInt32 count, Vector* out) {
   Vector_linspace_count(log10(start), log10(end), count, out);
   Vector_exp10(out, out);
 }
 
 monostatic void Vector_log2space(
-    Real64 start, Real64 end, UInt32 count, Vector* out) {
+  Real64 start, Real64 end, UInt32 count, Vector* out) {
   Vector_linspace_count(log2(start), log2(end), count, out);
   Vector_exp2(out, out);
 }
 monostatic void Vector_logspace(
-    Real64 start, Real64 end, UInt32 count, Vector* out) {
+  Real64 start, Real64 end, UInt32 count, Vector* out) {
   Vector_linspace_count(log(start), log(end), count, out);
   Vector_exp(out, out);
 }

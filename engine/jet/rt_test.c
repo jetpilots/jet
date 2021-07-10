@@ -1,20 +1,31 @@
-#ifndef HAVE_JET_BASE_H
-#include "runtime.h"
-#endif
+#include <stdio.h>
+
+#include "jet/os/clock.h"
+
 #include "runtest.h"
 #include "_rt/globals.h"
+
+#ifndef eprintf
+#define eprintf(s, ...) fprintf(stderr, s, __VA_ARGS__)
+#endif
 
 #ifdef GUI_COCOA
 #include "ui/ui_cocoa.h"
 #endif
 
+#ifndef JET_ENTRY
+#error specify the name of the entry function with -DJET_ENTRY=(name)
+#endif
+
+void (*const _jet_entry_test_)(int runDeps) = JET_ENTRY;
+
 int main(int argc, char* argv[]) {
-  if (isatty(STDERR_FILENO)) {
-    s_err = "\e[31m✘\e[0m";
-    s_crash = "\e[31m✽\e[0m";
-    s_skp = "\e[33m⁃\e[0m";
-    s_ok = "\e[32m✔︎\e[0m";
-  }
+  // if (isatty(STDERR_FILENO)) {
+  //   s_err = "\e[31m✘\e[0m";
+  //   s_crash = "\e[31m✽\e[0m";
+  //   s_skp = "\e[33m⁃\e[0m";
+  //   s_ok = "\e[32m✔︎\e[0m";
+  // }
 
   int runDeps = !(argc > 1 && argv[1][0] == '-');
 

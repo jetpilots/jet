@@ -84,7 +84,7 @@ struct TypeSpec {
     uint16_t dims;
     CollectionTypes collType : 6;
     bool hasRange : 1, //
-        hasUnits : 1;
+      hasUnits : 1;
     TypeTypes typeType : 7;
     bool nullable : 1;
   };
@@ -129,8 +129,8 @@ struct Var {
   // JetLocation loc[0];
   uint32_t line : 24, col : 8; //
   uint16_t lastUsage,
-      // firstUsage,
-      used, changed;
+    // firstUsage,
+    used, changed;
   // ^ YOu canot use the last used line no to decide drops etc. because code
   // motion can rearrange statements and leave the line numbers stale.
   // --- YES YOU CAN if you use == to compare when dropping and not >=. Also
@@ -142,30 +142,30 @@ struct Var {
   // buffer T x__buf[N*sizeof(T)] in that case where N is an initial guess.
   // you need a separate drop function for each kind of storage.
   struct {
-    char //
-        isLet : 1, //
-        isVar : 1, //
-        private : 1, //
-        isMutableArg : 1, // func arg only: passed by ref (needs extra *)
-        storage : 2, // 0,1,2,3: refc/heap/stack/mixed
-        isArg : 1, // a function arg, not a local var
-        // stackAlloc : 1, // this var is of a ref type, but it will be
-        // stack allocated. it will be passed around by
-        // reference as usual.
-        usedInSameScope : 1,
-        usedInChildScope : 1, // used to mark whether the var could be put
-                              // into an inner scope instead.
-                              // usedInChildScope means it is used in an
-                              // IMMEDIATE child scope (not any level deep).
-        isTarget : 1, // x = f(x,y)
-        visited : 1, // for generating checks, used to avoid printing this
-                     // var more than once.
-        promote : 6, // does it escape the owning SCOPE? then just move
-                     // it up to the required scope
-        escapes : 1, // escapes func? well then heap allocate
-        canInplace : 1,
-        isPromise : 1, // is it an async var (transparently a Promise<T>)?
-        hasRefs : 1, // there are other vars/lets that reference this var or
+    char                //
+      isLet : 1,        //
+      isVar : 1,        //
+      private : 1,      //
+      isMutableArg : 1, // func arg only: passed by ref (needs extra *)
+      storage : 2,      // 0,1,2,3: refc/heap/stack/mixed
+      isArg : 1,        // a function arg, not a local var
+      // stackAlloc : 1, // this var is of a ref type, but it will be
+      // stack allocated. it will be passed around by
+      // reference as usual.
+      usedInSameScope : 1,
+      usedInChildScope : 1, // used to mark whether the var could be put
+                            // into an inner scope instead.
+                            // usedInChildScope means it is used in an
+                            // IMMEDIATE child scope (not any level deep).
+      isTarget : 1,         // x = f(x,y)
+      visited : 1, // for generating checks, used to avoid printing this
+                   // var more than once.
+      promote : 6, // does it escape the owning SCOPE? then just move
+                   // it up to the required scope
+      escapes : 1, // escapes func? well then heap allocate
+      canInplace : 1,
+      isPromise : 1, // is it an async var (transparently a Promise<T>)?
+      hasRefs : 1,   // there are other vars/lets that reference this var or
                      // overlap with its storage. e.g. simply pointers that
                      // refer to this var, or slices or filters taken if
                      // this is an array/dataframe etc, or StringRefs, etc.
@@ -176,30 +176,30 @@ struct Var {
                      // scope
                      // todo: this will  probably become a count and you
                      // will at compile time incr/decr it
-        obtainedBySerialization : 1, // this is a JSON/XML/YAML obj obtained
-                                     // by serializing something. If it is
-                                     // passed to functions, warn and
-                                     // recommend passing the object instead
-                                     // and calling JSON/XML/YAML in that
-                                     // func. This is so that calls like
-                                     // print(YAML(xyz)) can be optim to
-                                     // print_YAML(xyz) (i.e. not generating
-                                     // an actual YAML tree just for print)
-        usedAsIndex : 1, // if ys, should be converted to  a pointer rather
-                         // than offset, and arr[b] should be converted to
-                         // *b to avoid a + op.
-                         // someone has to pay the price somewhere: if you
-                         // e.g. print the loop variable user expects to see
-                         // the offset, so there you have to -.
-                         // generated loops can be done w/ ptrs
-                         // e.g. a[:,:] = random()
-        reassigned : 1, // this var was reassigned after init. If it is a
-                        // non-primitive type, it generally implies this
-                        // should be generated as a pointer.
-        resized : 1; // this collection var was resized after init (due to
-                     // resize(), push() etc.) and means that it cannot be
-                     // generated as a fixed size array (static if size is
-                     // known at compile time).
+      obtainedBySerialization : 1, // this is a JSON/XML/YAML obj obtained
+                                   // by serializing something. If it is
+                                   // passed to functions, warn and
+                                   // recommend passing the object instead
+                                   // and calling JSON/XML/YAML in that
+                                   // func. This is so that calls like
+                                   // print(YAML(xyz)) can be optim to
+                                   // print_YAML(xyz) (i.e. not generating
+                                   // an actual YAML tree just for print)
+      usedAsIndex : 1, // if ys, should be converted to  a pointer rather
+                       // than offset, and arr[b] should be converted to
+                       // *b to avoid a + op.
+                       // someone has to pay the price somewhere: if you
+                       // e.g. print the loop variable user expects to see
+                       // the offset, so there you have to -.
+                       // generated loops can be done w/ ptrs
+                       // e.g. a[:,:] = random()
+      reassigned : 1,  // this var was reassigned after init. If it is a
+                       // non-primitive type, it generally implies this
+                       // should be generated as a pointer.
+      resized : 1;     // this collection var was resized after init (due to
+                       // resize(), push() etc.) and means that it cannot be
+                       // generated as a fixed size array (static if size is
+                       // known at compile time).
     // returned : 1; // is a return variable ie. b in
     // function asd(x as Anc) returns (b as Whatever)
     // all args (in/out) are in the same list in func -> args.
@@ -210,7 +210,7 @@ struct Var {
 static const size_t szVar = sizeof(Var);
 
 static const char* const StorageClassNames[]
-    = { "refcounted", "heap", "stack", "mixed" };
+  = { "refcounted", "heap", "stack", "mixed" };
 // when does something escape a scope?
 // -- if it is assigned to a variable outside the scope
 //    -- for func toplevels, one such var is the return var: anything
@@ -224,25 +224,25 @@ struct Expr {
       struct {
         uint16_t typeType : 8, // typeType of this expression -> must
                                // match for ->left and ->right
-            collType : 4, // collType of this expr -> the
-                          // higher dim-type of left's and right's
-                          // collType.
-            nullable : 1, // is this expr nullable (applies only when
-                          // typeType is object.) generally will be set
-                          // on idents and func calls etc. since
-                          // arithmetic ops are not relevant to objects.
-                          // the OR expr may unset nullable: e.g.
-                          // `someNullabeFunc(..) or MyType()` is NOT
-                          // nullable.
-            impure : 1, // is this expr impure, has side effects?
-                        // propagates: true if if either left or right
-                        // is impure.
-            elemental : 1, // whether this expr is elemental.
-                           // propagates: true if either left or right
-                           // is elemental.
-            throws : 1; // whether this expr may throw an error.
-                        // propagates: true if either left or right
-                        // throws.
+          collType : 4,        // collType of this expr -> the
+                               // higher dim-type of left's and right's
+                               // collType.
+          nullable : 1,        // is this expr nullable (applies only when
+                               // typeType is object.) generally will be set
+                               // on idents and func calls etc. since
+          // arithmetic ops are not relevant to objects.
+          // the OR expr may unset nullable: e.g.
+          // `someNullabeFunc(..) or MyType()` is NOT
+          // nullable.
+          impure : 1,    // is this expr impure, has side effects?
+                         // propagates: true if if either left or right
+                         // is impure.
+          elemental : 1, // whether this expr is elemental.
+                         // propagates: true if either left or right
+                         // is elemental.
+          throws : 1;    // whether this expr may throw an error.
+                         // propagates: true if either left or right
+                         // throws.
       };
       uint16_t allTypeInfo; // set this to set everything about the type
     };
@@ -252,17 +252,17 @@ struct Expr {
     uint8_t dims : 5, // hack for now so you can set upto 32 dims. figure it
                       // out later how to have a common typeinfo struct
                       // between astexpr & astvar
-        extract : 1, // should this expr be extracted to a var, e.g.
-                     // count(arr[arr<34]) or sum{arr[3:9]}. does not
-                     // propagate.
-        canEval : 1, // the value is known (computable) at compile time,
-                     // either by jetc or by backend cc.
-        didEval : 1; //
+      extract : 1,    // should this expr be extracted to a var, e.g.
+                      // count(arr[arr<34]) or sum{arr[3:9]}. does not
+                      // propagate.
+      canEval : 1,    // the value is known (computable) at compile time,
+                      // either by jetc or by backend cc.
+      didEval : 1;    //
     uint8_t prec : 6, // operator precedence for this expr
-        unary : 1, // for an operator, is it unary (negation, not,
-                   // return, check, array literal, ...)
-        rassoc : 1; // is this a right-associative operator e.g.
-                    // exponentiation
+      unary : 1,      // for an operator, is it unary (negation, not,
+                      // return, check, array literal, ...)
+      rassoc : 1;     // is this a right-associative operator e.g.
+                      // exponentiation
     uint8_t col;
     TokenKind kind : 8;
   };
@@ -279,8 +279,8 @@ struct Expr {
   union {
     Expr* right;
     char* str;
-    Func* func; // for functioncall
-    Var* var; // for array subscript, or a tkVarDefn
+    Func* func;  // for functioncall
+    Var* var;    // for array subscript, or a tkVarDefn
     Scope* body; // for if/for/while
     Import* imp; // for imports tkImport
   };
@@ -322,8 +322,8 @@ struct Type {
   uint16_t line, endline, used, id;
   uint8_t col;
   bool analysed : 1, needJSON : 1, needXML : 1, needYAML : 1, visited : 1,
-      isValueType : 1, isEnum : 1, isMultiEnum : 1, private : 1,
-      isDeclare : 1;
+    isValueType : 1, isEnum : 1, isMultiEnum : 1, private : 1,
+    isDeclare : 1;
 };
 
 // typedef struct JetEnum {
@@ -346,30 +346,30 @@ struct Func {
     uint16_t line, endline, used, col;
     struct {
       uint16_t throws : 1,
-          recursivity : 2, // 0:unchecked,1:no,2:direct,3:indirect
-          visited : 1, // used while checking cycles
+        recursivity : 2, // 0:unchecked,1:no,2:direct,3:indirect
+        visited : 1,     // used while checking cycles
 
-          // usesNet : 1,usesIO : 1, usesGUI : 1,
-          mutator : 1, // usesSerialisation : 1, //
-          private : 1, //
-          usesReflection : 1, //
-          dispatch : 1, // generate dispatcher for this vfunc
-          yields : 1, // iterator, not normal func
-          isStmt : 1, //
-          isDeclare : 1, //
-          isCalledFromWithinLoop : 1, //
-          elemental : 1, //
-          canEval : 1, // constexpr-like, etc
-          isDefCtor : 1, //
-          intrinsic : 1, // intrinsic: print, describe, json, etc. not to
-                         // be output by linter
-          analysed : 1, // semantic pass has been done, don't repeat
-          isCalledAsync : 1, // is this func called async at least once?
-          returnsNewObjectSometimes : 1,
-          returnsNewObjectAlways : 1; // what this func returns is an
-                                      // object that was obtained by a
-                                      // constructor. Useful for checking
-                                      // cycles in types.
+        // usesNet : 1,usesIO : 1, usesGUI : 1,
+        mutator : 1,                // usesSerialisation : 1, //
+        private : 1,                //
+        usesReflection : 1,         //
+        dispatch : 1,               // generate dispatcher for this vfunc
+        yields : 1,                 // iterator, not normal func
+        isStmt : 1,                 //
+        isDeclare : 1,              //
+        isCalledFromWithinLoop : 1, //
+        elemental : 1,              //
+        canEval : 1,                // constexpr-like, etc
+        isDefCtor : 1,              //
+        intrinsic : 1,     // intrinsic: print, describe, json, etc. not to
+                           // be output by linter
+        analysed : 1,      // semantic pass has been done, don't repeat
+        isCalledAsync : 1, // is this func called async at least once?
+        returnsNewObjectSometimes : 1,
+        returnsNewObjectAlways : 1; // what this func returns is an
+                                    // object that was obtained by a
+                                    // constructor. Useful for checking
+                                    // cycles in types.
       // Constructors ALWAYS return a new object. This means if you call a
       // constructor of a type from within the default constructor of
       // another type, and this chain has a cycle, you need to report
@@ -406,20 +406,20 @@ struct Module {
   List(Module) * importedBy; // for dependency graph. also use
                              // imports[i]->mod over i
   char *name, *cname, *Cname, *filename;
-  char *out_x, *out_xc, *out_c, *out_o, *out_h, *out_hh, *out_jet;
+  char *out_x, *out_xc, *out_c, *out_o, *out_h, *out_hh, *out_jet, *out_w;
   int nlines;
-  bool modified,
-      hmodified; // hmodified means a public func/type has been modified,so
-                 // regenerate the header & recompile deps. not relevant in
-                 // monolithic mode
+  bool isRoot, emitted, modified,
+    hmodified; // hmodified means a public func/type has been modified,so
+               // regenerate the header & recompile deps. not relevant in
+               // monolithic mode
 
   // DiagnosticReporter reporter;
 
   struct {
     bool complex : 1, json : 1, yaml : 1, xml : 1, html : 1, http : 1,
-        ftp : 1, imap : 1, pop3 : 1, smtp : 1, frpc : 1, fml : 1, fbin : 1,
-        rational : 1, polynomial : 1, regex : 1, datetime : 1, colour : 1,
-        range : 1, table : 1, gui : 1;
+      ftp : 1, imap : 1, pop3 : 1, smtp : 1, frpc : 1, fml : 1, fbin : 1,
+      rational : 1, polynomial : 1, regex : 1, datetime : 1, colour : 1,
+      range : 1, table : 1, gui : 1;
   } requires;
 };
 
@@ -538,7 +538,7 @@ static const char* getDefaultValueForType(TypeSpec* type) {
   case TYVoid: return "";
   case TYUnknown:
     unreachable(
-        "unresolved: '%s' at %d:%d", type->name, type->line, type->col);
+      "unresolved: '%s' at %d:%d", type->name, type->line, type->col);
     return "ERROR_ERROR_ERROR";
   case TYString: return "\"\"";
   default: return "0";
@@ -667,7 +667,7 @@ static size_t scope_calcSizeUsage(Scope* self) {
     size = Typetype_size(var->spec->typeType);
     if (!size)
       eprintf("warning: cannot find size for '%s' at %d:%d\n", var->name,
-          var->line, var->col);
+        var->line, var->col);
     if (var->used) sum += size;
   }
   // add the largest size among the sizes of the sub-scopes
@@ -727,7 +727,7 @@ static Var* type_getVar(Type* self, const char* name) {
 /// specified. This way you can create declared functions such as `print`,
 /// `json`, etc. of each new type defined in source code.
 static Func* func_createDeclWithArg(
-    char* name, char* retType, char* arg1Type) {
+  char* name, char* retType, char* arg1Type) {
   Func* func = NEW(Func);
   func->name = name;
   func->nameLen = strlen(name);
@@ -771,9 +771,9 @@ static void getSelector(Func* func) {
     Var* arg1 = (Var*)func->args->item;
     if (arg1->spec->collType)
       collName = cstr_interp_s(
-          256, "_%s", Collectiontype_name(arg1->spec->collType));
+        256, "_%s", Collectiontype_name(arg1->spec->collType));
     wrote
-        = snprintf(bufp, remain, "%s%s_", spec_name(arg1->spec), collName);
+      = snprintf(bufp, remain, "%s%s_", spec_name(arg1->spec), collName);
     selLen += wrote;
     bufp += wrote;
     remain -= wrote;
@@ -830,17 +830,17 @@ static void getSelector(Func* func) {
 ///////////////////////////////////////////////////////////////////////////
 static bool isCmpOp(Expr* expr) {
   return expr->kind == tkLE //
-      || expr->kind == tkLT //
-      || expr->kind == tkGT //
-      || expr->kind == tkGE //
-      || expr->kind == tkEQ //
-      || expr->kind == tkNE;
+    || expr->kind == tkLT   //
+    || expr->kind == tkGT   //
+    || expr->kind == tkGE   //
+    || expr->kind == tkEQ   //
+    || expr->kind == tkNE;
 }
 
 ///////////////////////////////////////////////////////////////////////////
 static bool isBoolOp(Expr* expr) {
   return expr->kind > __tk__logicals__begin
-      && expr->kind < __tk__logicals__end;
+    && expr->kind < __tk__logicals__end;
   // return expr->kind == tkAnd //
   //     || expr->kind == tkOr //
   //     || expr->kind == tkIn //
@@ -850,7 +850,7 @@ static bool isBoolOp(Expr* expr) {
 
 static bool isCtrlExpr(Expr* expr) {
   return expr->kind > __tk__ctrlflow__begin
-      && expr->kind < __tk__ctrlflow__end;
+    && expr->kind < __tk__ctrlflow__end;
 
   //  expr->kind == tkIf //
   //     || expr->kind == tkFor //
@@ -861,7 +861,7 @@ static bool isCtrlExpr(Expr* expr) {
 
 static bool isSelfMutOp(Expr* expr) {
   return expr->kind > __tk__selfMutOps__begin
-      && expr->kind < __tk__selfMutOps__end;
+    && expr->kind < __tk__selfMutOps__end;
   //  expr->kind == tkPlusEq //
   //     || expr->kind == tkMinusEq //
   //     || expr->kind == tkSlashEq //
@@ -873,7 +873,7 @@ static bool isSelfMutOp(Expr* expr) {
 
 static bool isArithOp(Expr* expr) {
   return expr->kind > __tk__arithOps__begin
-      && expr->kind < __tk__arithOps__end;
+    && expr->kind < __tk__arithOps__end;
   // == tkPlusEq //
   //     || expr->kind == tkMinusEq //
   //     || expr->kind == tkSlashEq //
@@ -1009,7 +1009,7 @@ static const char* expr_typeName(const Expr* const self) {
   if (!self) return "";
   const char* ret = Typetype_name(self->typeType);
   if (!ret) return "<unknown>"; // unresolved
-  if (*ret) return ret; // primitive type
+  if (*ret) return ret;         // primitive type
 
   // all that is left is object
   switch (self->kind) {
@@ -1148,14 +1148,14 @@ monostatic Expr* expr_getExpr(Expr* expr, int col) {
     ret = expr_getExpr(expr->right, col);
     if (ret) return ret;
     if (expr->col <= col
-        && col <= expr->col + strlen(TokenKind_repr[expr->kind]))
+      && col <= expr->col + strlen(TokenKind_repr[expr->kind]))
       return expr;
   }
   return NULL;
 }
 
 monostatic Expr* scope_getExpr(
-    Scope* scope, int line, int col, Scope** owner) {
+  Scope* scope, int line, int col, Scope** owner) {
   Expr* ret;
   foreach (Expr*, stmt, scope->stmts) {
     switch (stmt->kind) {
@@ -1186,7 +1186,7 @@ monostatic Expr* scope_getExpr(
 }
 
 monostatic Expr* mod_getExpr(Module* mod, int line, int col,
-    Func** ownerFunc, Scope** ownerScope, Type** ownerType) {
+  Func** ownerFunc, Scope** ownerScope, Type** ownerType) {
   foreach (Func*, func, mod->funcs) {
     if (func->line <= line && line <= func->endline) {
       Expr* ret = scope_getExpr(func->body, line, col, ownerScope);
@@ -1257,8 +1257,7 @@ monostatic bool downcastable(Type* type, Type* target) {
             for (; BOTHOK(_it1, _en1, _it2, _en2);                         \
                  movenext(T1, _it1), movenext(T2, _it2))                   \
               if (item1 = get(T1, _it1), nxt1 = getu(T1, next(T1, _it1)),  \
-                  item2 = get(T2, _it2), nxt2 = getu(T2, next(T2, _it2)),  \
-                  1)
+                item2 = get(T2, _it2), nxt2 = getu(T2, next(T2, _it2)), 1)
 
 #define zip(item1, E1, item2, E2, coll1, T1, coll2, T2)                    \
   zipn(item1, __nxt1__, E1, item2, __nxt2__, E2, coll1, T1, coll2, T2)
@@ -1311,7 +1310,7 @@ typedef PtrListP PtrListP_Iter;
 typedef Var* VarP;
 
 monostatic Func* mod_getFuncByTypeMatch(
-    Module* module, Expr* funcCallExpr) {
+  Module* module, Expr* funcCallExpr) {
   foreach (Func*, func, module->funcs) {
     if (strcasecmp(funcCallExpr->str, func->name)) continue;
     if (expr_countCommaList(funcCallExpr->left) != func->argCount) continue;
@@ -1327,16 +1326,16 @@ monostatic Func* mod_getFuncByTypeMatch(
     // }
 
     zip(cArg, ExprP, arg, VarP, funcCallExpr->left, ExprP, func->args,
-        PtrListP) {
+      PtrListP) {
       if (cArg->kind == tkArgAssign) {
         if (strcasecmp(arg->name, cArg->left->str)) goto nextfunc;
         cArg = cArg->right;
       }
       if (ISIN(3, cArg->typeType, TYUnknown, TYError, TYVoid)) return NULL;
       if (cArg->typeType == arg->spec->typeType
-          && cArg->collType == arg->spec->collType) {
+        && cArg->collType == arg->spec->collType) {
         if (cArg->typeType == TYObject
-            && !upcastable(expr_getTypeOrEnum(cArg), arg->spec->type))
+          && !upcastable(expr_getTypeOrEnum(cArg), arg->spec->type))
           goto nextfunc;
       } else {
         if (cArg->typeType != TYUnknown) goto nextfunc;

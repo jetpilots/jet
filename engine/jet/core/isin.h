@@ -64,8 +64,9 @@
 #define ISIN_64(x, a1, ...) (x) == (a1) || ISIN_63(x, __VA_ARGS__)
 
 #define ISIN(n, x, ...) (ISIN_##n(x, __VA_ARGS__))
+#define S_ISIN(n, x, ...) (S_ISIN_##n(x, __VA_ARGS__))
 
-int strsame(char* a, char* b) { return a == b || !strcmp(a, b); }
+monostatic int strsame(char* a, char* b) { return a == b || !strcmp(a, b); }
 
 #define S_ISIN_1(x, ...) strsame(x, __VA_ARGS__)
 #define S_ISIN_2(x, a1, ...) strsame(x, a1) || S_ISIN_1(x, __VA_ARGS__)
@@ -140,7 +141,7 @@ int strsame(char* a, char* b) { return a == b || !strcmp(a, b); }
 // in a way that's best for and relevant to the collection's implementation.
 // Also remember that Jet generates case #a, #b, #c not with the isin call
 // but rather as case _a: case _b: case _c: etc. which is far better.
-int isin(int n, int x, int arr[]) {
+monostatic int isin(int n, int x, int arr[]) {
   for (int i = 0; i < n; i++)
     if (arr[i] == x) return 1;
   return 0;

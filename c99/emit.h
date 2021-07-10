@@ -5,14 +5,19 @@
 static void imp_emit(Import* import, int level, char ext) {
   if (!import->mod) return;
   char* alias = import->aliasOffset + import->name;
-  // cstr_tr_ip_len(import->mod->name, '.', '_', 0);
-  printf("\n#include \"%s\"\n",
-      ext == 'c' ? import->mod->out_c : import->mod->out_h);
-  // cstr_tr_ip_len(import->name, '_', '.', 0);
+  if (ext == 'c') {
+    printf("#include \"%s\"\n", import->mod->out_c);
+  } else {
+    printf( //
+      "#ifndef HAVE_%s_H\n"
+      "#include \"%s\"\n"
+      "#endif\n",
+      import->mod->Cname, import->mod->out_h);
+  }
 }
 
 static void spec_emit(
-    TypeSpec* spec, int level, bool isconst, bool isconstptr) {
+  TypeSpec* spec, int level, bool isconst, bool isconstptr) {
   isconst = false, isconstptr = false;
 
   if (spec->collType) {
@@ -35,7 +40,7 @@ static void spec_emit(
     break;
   case TYUnknown:
     unreachable(
-        "unresolved: '%s' at %d:%d", spec->name, spec->line, spec->col);
+      "unresolved: '%s' at %d:%d", spec->name, spec->line, spec->col);
     printf("%s", *spec->name ? spec->name : "Error_Type");
     break;
   default: printf("%s", Typetype_name(spec->typeType)); break;
@@ -68,8 +73,8 @@ static void var_emit(Var* var, int level) {
 
 static void var_insertDrop(Var* var, int level) {
   iprintf(level, "DROP(%s,%s,%s,%s);\n", spec_name(var->spec), var->name,
-      Collectiontype_name(var->spec->collType),
-      StorageClassNames[var->storage]);
+    Collectiontype_name(var->spec->collType),
+    StorageClassNames[var->storage]);
 }
 
 //-----------------------------------------------------------------------//
@@ -110,10 +115,10 @@ static void scope_emit(Scope* scope, int level) {
           var_insertDrop(var, level);
           var->lastUsage = 0; // this means var has been dropped.
         }
-    } while (!sco->isLoop // if loop scope, don't walk up
-        && (sco = sco->parent) // walk up to the last loop scope
-        && sco->parent && !sco->parent->isLoop // until you hit a loop
-        && sco->parent->parent); // or until you hit 1 below globscope
+    } while (!sco->isLoop    // if loop scope, don't walk up
+      && (sco = sco->parent) // walk up to the last loop scope
+      && sco->parent && !sco->parent->isLoop // until you hit a loop
+      && sco->parent->parent); // or until you hit 1 below globscope
 
     // TODO:
     // Maybe scope should have a lineno. If a loop scope has the lastUsage
@@ -142,15 +147,15 @@ static void scope_emit(Scope* scope, int level) {
 // todo: stop using these in type_emit, generate actual Funcs for type ctors
 // & helpers. then move them inside func_emit.
 static const char functionEntryStuff_UNESCAPED[]
-    = "  STACKDEPTH_UP; DO_STACK_CHECK;\n";
+  = "  STACKDEPTH_UP; DO_STACK_CHECK;\n";
 
 static const char functionExitStuff_UNESCAPED[]
-    = "\n"
-      "  return DEFAULT_VALUE;\n"
-      "uncaught: HANDLE_UNCAUGHT;\n"
-      "backtrace: SHOW_BACKTRACE_LINE;\n"
-      "return_: STACKDEPTH_DOWN;\n"
-      "  return DEFAULT_VALUE;";
+  = "\n"
+    "  return DEFAULT_VALUE;\n"
+    "uncaught: HANDLE_UNCAUGHT;\n"
+    "backtrace: SHOW_BACKTRACE_LINE;\n"
+    "return_: STACKDEPTH_DOWN;\n"
+    "  return DEFAULT_VALUE;";
 
 static void func_emit(Func* func, int level) {
   if (!func->body || !func->analysed || func->isDeclare) return;
@@ -178,7 +183,7 @@ static void func_emit(Func* func, int level) {
   printf(" IFDEBUG("
          "  %c const char* callsite_ "
          ")",
-      ((func->args || func->spec->typeType != TYVoid ? ',' : ' ')));
+    ((func->args || func->spec->typeType != TYVoid ? ',' : ' ')));
 
   outln(") {");
   printf("  IFDEBUG(static const char* sig_ = \"");
@@ -219,7 +224,7 @@ static void func_genh(Func* func, int level) {
     printf(" ans");
   }
   printf(" IFDEBUG(%c const char* callsite_)",
-      ((func->args || func->spec->typeType != TYVoid) ? ',' : ' '));
+    ((func->args || func->spec->typeType != TYVoid) ? ',' : ' '));
   outln(");\n");
 }
 
@@ -227,7 +232,7 @@ static void func_genh(Func* func, int level) {
 
 static void type_genJson(Type* type) {
   printf("static void %s_json_(const %s self, int nspc) {\n", type->name,
-      type->name);
+    type->name);
 
   printf("  printf(\"{\\n\");\n");
 
@@ -236,15 +241,15 @@ static void type_genJson(Type* type) {
   foreachn(Var*, var, vars, type->body->locals) {
     if (!var) continue;
     printf(
-        "  printf(\"%%.*s\\\"%s\\\": \", nspc+4, _spaces_);\n", var->name);
+      "  printf(\"%%.*s\\\"%s\\\": \", nspc+4, _spaces_);\n", var->name);
     printf("  %s_json_(self->%s, nspc+4);\n    printf(\"",
-        spec_name(var->spec), var->name);
+      spec_name(var->spec), var->name);
     if (vars->next) outl(",");
     outln("\\n\");");
   }
   printf("  printf(\"%%.*s}\", nspc, _spaces_);\n");
   printf("}\nMAKE_JSON_WRAP_(%s)\n//MAKE_JSON_FILE(%s)\n", type->name,
-      type->name);
+    type->name);
 }
 
 static void type_genDrop(Type* type) {
@@ -290,10 +295,10 @@ static void type_emit(Type* type, int level) {
 
   printf("  FIELDS_%s\n};\n\n", name);
   printf("static const char* %s_name_ = \"%s\";\n\n", name, name);
-  printf("static %s %s_alloc_() {\n"
+  printf("static %s %s_alloc_(void) {\n"
          "  return Pool_alloc(gPool, sizeof(struct %s));\n"
          "}\n\n",
-      name, name, name);
+    name, name, name);
   printf("static void %s_free_(%s self) {}\n", name, name);
 
   printf("static %s %s_init_(%s self) {\n", name, name, name);
@@ -316,12 +321,12 @@ static void type_emit(Type* type, int level) {
   printf("#define DEFAULT_VALUE NULL\n"
          "monostatic %s %s_new_(IFDEBUG(const char* callsite_)) {\n"
          "IFDEBUG(static const char* sig_ = \"%s()\");\n",
-      name, name, name);
+    name, name, name);
   puts(functionEntryStuff_UNESCAPED);
   printf("  %s ret = %s_alloc_(); %s_init_(ret);\n"
          "  TRACE_IF_ERROR;\n"
          "  _err_ = NULL; STACKDEPTH_DOWN; return ret;\n",
-      name, name, name);
+    name, name, name);
   puts(functionExitStuff_UNESCAPED);
   outln("}\n#undef DEFAULT_VALUE\n");
 
@@ -329,12 +334,12 @@ static void type_emit(Type* type, int level) {
   printf("monostatic void %s_print__(%s self, const char* name) {\n    "
          "printf(\"<%s '%%s' at %%p size %%luB>\\n\","
          "  name, self, sizeof(struct %s));\n}\n",
-      name, name, name, name);
+    name, name, name, name);
   outln("");
 
   foreach (Var*, var, type->body->locals)
     printf("%s* %s_addrof_%s(%s selfp) {return &(selfp->%s);}\n",
-        spec_name(var->spec), name, var->name, name, var->name);
+      spec_name(var->spec), name, var->name, name, var->name);
 
   type_genJson(type);
   type_genDrop(type);
@@ -364,20 +369,22 @@ static void type_genh(Type* type, int level) {
   // printf("typedef const struct %s* restrict %s_const;\n", name, name);
   // printf("typedef const struct %s* const restrict const_%s_const;\n",
   // name, name);
-  printf("static %s %s_alloc_(); \n", name, name);
-  printf("static %s %s_init_(%s self);\n", name, name, name);
-  printf("static void %s_drop_(%s self);\n", name, name);
-  printf("static void %s_free_(%s self);\n", name, name);
-  printf("%s %s_new_(IFDEBUG(const char* callsite_)); \n", name, name);
+  printf("monostatic %s %s_alloc_(void); \n", name, name);
+  printf("monostatic %s %s_init_(%s self);\n", name, name, name);
+  printf("monostatic void %s_drop_(%s self);\n", name, name);
+  printf("monostatic void %s_free_(%s self);\n", name, name);
+  printf("monostatic %s %s_new_(IFDEBUG(const char* callsite_)); \n", name,
+    name);
   printf("\nDECL_json_wrap_(%s)\n//DECL_json_file(%s)\n", name, name);
   printf("#define %s_json(x) { printf(\"\\\"%%s\\\": \",#x); "
          "%s_json_wrap_(x); }\n\n",
-      name, name);
-  printf("static void %s_json_(const %s self, int nspc);\n", name, name);
+    name, name);
+  printf(
+    "monostatic void %s_json_(const %s self, int nspc);\n", name, name);
 
   foreach (Var*, var, type->body->locals)
-    printf("%s* %s_addrof_%s(%s selfp);\n", spec_name(var->spec), name,
-        var->name, name);
+    printf("monostatic %s* %s_addrof_%s(%s selfp);\n", spec_name(var->spec),
+      name, var->name, name);
   //^ note that for objects the accessor func returns T**. genc for the .
   // oper
   // adds a leading * in any case.
@@ -394,26 +401,26 @@ void type_genNameAccessors(Type* type) {
   // type_genMemberRecognizer( type, "Int64 value",  )
 
   printf("static void* %s__memberNamed(%s self, char* name) {\n",
-      type->name, type->name);
+    type->name, type->name);
 
   // TODO: skip bitfield members in this loop or it wont compile
   foreach (Var*, var, type->body->locals) /*if (var->used) */ //
     printf("  if (cstr_eq(name, \"%s\")) return "
            "&(self->%s);\n",
-        var->name, var->name);
+      var->name, var->name);
   outln("  return NULL;\n}");
 
   // this func sets bools or ints that may be part of bitfields
   printf("static void %s__setMemberNamed(%s self, char* name, "
          "Int64 value) {\n",
-      type->name, type->name);
+    type->name, type->name);
   foreach (Var*, var, type->body->locals)
     if (var->changed) //
       if (var->spec->typeType >= TYBool && var->spec->typeType <= TYReal64)
         printf("  if (cstr_eq(name, \"%s\")) {\n"
                "    self->%s = *(%s*) &value; return;\n"
                "  }\n",
-            var->name, var->name, spec_cname(var->spec));
+          var->name, var->name, spec_cname(var->spec));
   outln("}");
 }
 
@@ -423,7 +430,7 @@ void type_genTypeInfoDecls(Type* type) {
   if (!type->analysed || type->isDeclare) return;
 
   printf(
-      "static const char* const %s__memberNames[] = {\n    ", type->name);
+    "static const char* const %s__memberNames[] = {\n    ", type->name);
   if (type->body) //
     foreach (Var*, var, type->body->locals) {
       if (var) printf("\"%s\", ", var->name);
@@ -456,10 +463,10 @@ static void enum_genh(Type* type, int level) {
   printf("} %s;\n", name);
   Expr* ex1 = type->body->stmts->item;
   const char* datType
-      = ex1->kind == tkAssign ? expr_typeName(ex1->right) : NULL;
+    = ex1->kind == tkAssign ? expr_typeName(ex1->right) : NULL;
   if (datType)
     printf("monostatic %s %s__data[%d];\n", datType, name,
-        li_count(type->body->locals));
+      li_count(type->body->locals));
   printf("monostatic const char* %s__fullnames[] ={\n", name);
   foreach (Var*, var, type->body->locals)
     printf("  \"%s.%s\",\n", name, var->name);
@@ -469,12 +476,12 @@ static void enum_genh(Type* type, int level) {
     printf("  \".%s\",\n", var->name);
   outln("};");
 
-  printf("monostatic void %s__init() {\n", name);
+  printf("monostatic void %s__init(void) {\n", name);
 
   foreach (Expr*, stmt, type->body->stmts) {
     if (!stmt || stmt->kind != tkAssign) continue;
     printf("%.*s%s__data[%s_%s] = ", level + STEP, spaces, name, name,
-        stmt->left->str);
+      stmt->left->str);
     expr_emit(stmt->right, 0);
     outln(";");
     if (stmt->right->throws) outln("  TRACE_IF_ERROR;");
@@ -486,7 +493,7 @@ static void test_emit(Test* test, Module* mod, int idx)
 // TODO: should tests not return BOOL?
 {
   if (!test->body) return;
-  printf("\nstatic int test_%s_%d() {\n", mod->cname, idx);
+  printf("\nstatic int test_%s_%d(void) {\n", mod->cname, idx);
   scope_emit(test->body, STEP);
   outln("  return 0;");
   outln("  backtrace: return 1;");
@@ -531,8 +538,8 @@ static void expr_genPrintVars(Expr* expr, int level) {
     if (!strcasecmp("no", expr->var->name)) break;
     if (!strcasecmp("nil", expr->var->name)) break;
     printf("%.*sprintf(\"  %s = %s\\n\", %s);\n", level, spaces,
-        expr->var->name, Typetype_format(expr->typeType, true),
-        expr->var->name);
+      expr->var->name, Typetype_format(expr->typeType, true),
+      expr->var->name);
     expr->var->visited = true;
     break;
 
@@ -567,13 +574,13 @@ static void expr_emit_tkSubscriptR(Expr* expr, int level) {
   switch (index->kind) {
   case tkNumber: // indexing with a single number, can be a -ve number
     printf("Array_get_%s(%s, %s)", spec_cname(expr->var->spec), name,
-        index->str);
+      index->str);
     break;
 
   case tkString:
   case tkRawString: // indexing with single string or regex
     printf("Dict_getk_CString_%s(%s, \"%s\")", spec_cname(expr->var->spec),
-        name, index->str + 1);
+      name, index->str + 1);
     break;
 
   case tkComma: // higher dims. validation etc. has been done by this
@@ -581,7 +588,7 @@ static void expr_emit_tkSubscriptR(Expr* expr, int level) {
 
     // this is for cases like arr[2, 3, 4].
     printf("Tensor%dD_get_%s(%s, {", expr->var->spec->dims,
-        spec_cname(expr->var->spec), name);
+      spec_cname(expr->var->spec), name);
     expr_emit(index, 0);
     outl("})");
 
@@ -720,7 +727,7 @@ static void expr_emit_tkFuncCallR(Expr* expr, int level) {
       case TYObject:
         if (!func->spec->type->isEnum) {
           printf("%s_new_(IFDEBUG(THISFILE\":%d:%d: (ans for '%s')\"))",
-              spec_cname(func->spec), expr->line, expr->col, func->psel);
+            spec_cname(func->spec), expr->line, expr->col, func->psel);
         } else {
           outl("0");
         }
@@ -731,7 +738,7 @@ static void expr_emit_tkFuncCallR(Expr* expr, int level) {
     }
     // ------ 8< ------------------------------------------------------
     printf(" IFDEBUG(%c THISFILE \":%d:%d: ",
-        expr->left || hasAns ? ',' : ' ', expr->line, expr->col);
+      expr->left || hasAns ? ',' : ' ', expr->line, expr->col);
     expr_write(expr, 0, false, true);
     printf("\")");
   }
@@ -852,7 +859,7 @@ static void expr_emit_tkCheck(Expr* expr, int level) {
   outln(")) {");
   printf("%.*sprintf(\"\\n%%s:%d:%d: error: check failed:\\n  %%s\\n\", "
          "THISFILE, \"",
-      level + STEP, spaces, expr->line, expr->col + 6);
+    level + STEP, spaces, expr->line, expr->col + 6);
   expr_write(checkExpr, 0, true, true);
   outln("\");");
   printf("#ifndef NDEBUG\n%.*sCHECK_HELP_OPEN;\n", level + STEP, spaces);
@@ -865,8 +872,8 @@ static void expr_emit_tkCheck(Expr* expr, int level) {
   // if (lhsExpr){//!checkExpr->unary) {
   // dont print literals or arrays
   if (lhsExpr && lhsExpr->collType == CTYNone
-      && !ISIN(
-          5, lhsExpr->kind, tkString, tkNumber, tkRawString, tkLE, tkLT)) {
+    && !ISIN(
+      5, lhsExpr->kind, tkString, tkNumber, tkRawString, tkLE, tkLT)) {
     if (lhsExpr->kind != tkIdentR || !lhsExpr->var->visited) {
       printf("%.*s%s", level + STEP, spaces, "printf(\"  %s = ");
       printf("%s", Typetype_format(lhsExpr->typeType, true));
@@ -880,7 +887,7 @@ static void expr_emit_tkCheck(Expr* expr, int level) {
   }
   // }
   if (rhsExpr && rhsExpr->collType == CTYNone //
-      && !ISIN(3, rhsExpr->kind, tkString, tkNumber, tkRawString)) {
+    && !ISIN(3, rhsExpr->kind, tkString, tkNumber, tkRawString)) {
     if (rhsExpr->kind != tkIdentR || !rhsExpr->var->visited) {
       printf("%.*s%s", level + STEP, spaces, "printf(\"  %s = ");
       printf("%s", Typetype_format(rhsExpr->typeType, true));
@@ -898,7 +905,7 @@ static void expr_emit_tkCheck(Expr* expr, int level) {
 }
 
 /// This should be a standard dispatcher that does nothing except the
-/// actual dispatching (via a function pointer table, not a switch).
+/// actual dispatching (via a const function pointer table, not a switch).
 static void expr_emit(Expr* expr, int level) {
   // generally an expr is not split over several lines (but maybe in
   // rare cases). so level is not passed on to recursive calls.
@@ -953,15 +960,15 @@ static void expr_emit(Expr* expr, int level) {
         // TODO: astexpr_typename should return Array_Scalar or
         // Tensor2D_Scalar or Dict_String_Scalar etc.
         printf("%s_set(%s, %s,%s, ", expr_typeName(expr->left),
-            expr->left->var->name, expr->left->left->str,
-            TokenKind_srepr[expr->kind]);
+          expr->left->var->name, expr->left->left->str,
+          TokenKind_srepr[expr->kind]);
         expr_emit(expr->right, 0);
         outl(")");
         break;
 
       case tkColon:
         printf("%s_setSlice(%s, ", expr_typeName(expr->left),
-            expr->left->var->name);
+          expr->left->var->name);
         expr_emit(expr->left->left, 0);
         printf(",%s, ", TokenKind_srepr[expr->kind]);
         expr_emit(expr->right, 0);
@@ -978,7 +985,7 @@ static void expr_emit(Expr* expr, int level) {
       case tkOr:
       case tkNot:
         printf("%s_setFiltered(%s, ", expr_typeName(expr->left),
-            expr->left->var->name);
+          expr->left->var->name);
         expr_emit(expr->left->left, 0);
         printf(",%s, ", TokenKind_srepr[expr->kind]);
         expr_emit(expr->right, 0);
@@ -1020,7 +1027,7 @@ static void expr_emit(Expr* expr, int level) {
       // check for assignments to invalid lvalues and raise an
       // error
       unreachable(
-          "found token kind %s\n", TokenKind_names[expr->left->kind]);
+        "found token kind %s\n", TokenKind_names[expr->left->kind]);
     }
     // if (! inFuncArgs) {
     //     expr_emit(self->left, 0,
@@ -1040,7 +1047,7 @@ static void expr_emit(Expr* expr, int level) {
       printf("Array_init(%s)()", expr_typeName(expr->right));
     } else {
       printf("Array_make(%s)(((%s[]) {", expr_typeName(expr->right),
-          expr_typeName(expr->right)); // FIXME
+        expr_typeName(expr->right)); // FIXME
       expr_emit(expr->right, 0);
       outl("})");
       printf(", %d)", expr_countCommaList(expr->right));
@@ -1055,7 +1062,7 @@ static void expr_emit(Expr* expr, int level) {
     else {
       Vtype = expr_typeName(expr->right);
       printf("Dict_make(%s,%s)(%d, (%s[]){", Ktype, Vtype,
-          expr_countCommaList(expr->right), Ktype);
+        expr_countCommaList(expr->right), Ktype);
       // ^ FIXME
 
       Expr* p = expr->right;
@@ -1102,7 +1109,7 @@ static void expr_emit(Expr* expr, int level) {
       expr_emit(expr->var->init, 0);
     } else {
       printf("/* %s %s at line %d */", expr->var->name,
-          expr->var->used ? "null" : "unused", expr->line);
+        expr->var->used ? "null" : "unused", expr->line);
     }
     break;
 
@@ -1124,8 +1131,8 @@ static void expr_emit(Expr* expr, int level) {
     printf("{%s __match_cond = ", expr_typeName(expr->left));
     expr_emit(expr->left, 0);
     if (expr->left->typeType > TYInt8
-        || (expr->left->typeType == TYObject
-            && expr_getObjectType(expr->left)->isEnum))
+      || (expr->left->typeType == TYObject
+        && expr_getObjectType(expr->left)->isEnum))
       outln("; switch (__match_cond) {");
     else
       outln("; { if (0) {}"); // cases will add else ifs
@@ -1139,7 +1146,7 @@ static void expr_emit(Expr* expr, int level) {
     Expr* cond = expr->left;
     if (cond->kind == tkComma) {
       if (cond->typeType > TYInt8
-          || (cond->typeType == TYObject && expr_getEnumType(cond))) {
+        || (cond->typeType == TYObject && expr_getEnumType(cond))) {
         // match has handled the cond with a 'switch'
         outl("case "), expr_emit(cond->left, 0), outl(": ");
         while (cond->right->kind == tkComma) {
@@ -1182,7 +1189,7 @@ static void expr_emit(Expr* expr, int level) {
 
     } else {
       if (cond->typeType > TYInt8
-          || (cond->typeType == TYObject && expr_getEnumType(cond))) {
+        || (cond->typeType == TYObject && expr_getEnumType(cond))) {
         outl("case "); // match has handled the cond with a 'switch'
         expr_emit(cond, 0);
         outln(": {");
@@ -1203,7 +1210,7 @@ static void expr_emit(Expr* expr, int level) {
     if (expr->body) scope_emit(expr->body, level);
     printf("%.*s}", level, spaces);
     if (cond->typeType > TYInt8
-        || (cond->typeType == TYObject && expr_getEnumType(cond)))
+      || (cond->typeType == TYObject && expr_getEnumType(cond)))
       outl(" break");
     else
       outl("  ");
@@ -1212,14 +1219,14 @@ static void expr_emit(Expr* expr, int level) {
 
   case tkFor: {
     if (expr->left->right->kind == tkFuncCallR
-        && expr->left->right->func->yields) {
+      && expr->left->right->func->yields) {
       // this should just generate a call to the iterator w/ a ptr to a
       // func generated using the loop body
     } else {
       const char* ctypename
-          = Collectiontype_name(expr->left->right->collType);
+        = Collectiontype_name(expr->left->right->collType);
       printf("%s_for(%s, %s, ", ctypename, expr_typeName(expr->left->right),
-          expr->left->var->name);
+        expr->left->var->name);
       expr_emit(expr->left->right, 0);
       outl(") {");
       scope_emit(expr->body, level + STEP);
@@ -1273,13 +1280,13 @@ static void expr_emit(Expr* expr, int level) {
       expr->right->left = args;
 
     } else if (expr->left->typeType == TYObject
-        && expr_getObjectType(expr->left)->isEnum) {
+      && expr_getObjectType(expr->left)->isEnum) {
       expr_emit(expr->left, 0);
       outl("_");
       expr_emit(expr->right, 0);
     } else {
       printf("*%s_addrof_%s(", expr_typeName(expr->left),
-          expr->right->var->name);
+        expr->right->var->name);
       expr_emit(expr->left, 0);
       outl(")");
     }
@@ -1317,8 +1324,8 @@ static void expr_emit(Expr* expr, int level) {
     inRangeOp:
       break;
     default:
-      unreachable("inside in operator: rhs is %s",
-          TokenKind_repr[expr->right->kind]);
+      unreachable(
+        "inside in operator: rhs is %s", TokenKind_repr[expr->right->kind]);
       // for anything else, figure it out.
     }
     break;
@@ -1341,10 +1348,10 @@ static void expr_emit(Expr* expr, int level) {
   case tkGT:
   case tkLT:
     if ((expr->kind == tkLE || expr->kind == tkLT)
-        && (expr->left->kind == tkLE | expr->left->kind == tkLT)) {
+      && (expr->left->kind == tkLE | expr->left->kind == tkLT)) {
       printf("%s_cmp3way_%s_%s(", expr_typeName(expr->left->right),
-          TokenKind_ascrepr(expr->kind, false),
-          TokenKind_ascrepr(expr->left->kind, false));
+        TokenKind_ascrepr(expr->kind, false),
+        TokenKind_ascrepr(expr->left->kind, false));
       expr_emit(expr->left->left, 0);
       outl(", ");
       expr_emit(expr->left->right, 0);
@@ -1365,20 +1372,19 @@ static void expr_emit(Expr* expr, int level) {
     if (!expr->prec) break;
     // not an operator, but this should be error if you reach here
     bool leftBr
-        = expr->left && expr->left->prec && (expr->left->prec < expr->prec);
+      = expr->left && expr->left->prec && (expr->left->prec < expr->prec);
     //            || (expr->left->prec == expr->prec && !expr->rassoc));
     bool rightBr = expr->right && expr->right->prec
-        && expr->right->kind != tkReturn
-        && (expr->right->prec < expr->prec);
+      && expr->right->kind != tkReturn && (expr->right->prec < expr->prec);
     //            || (expr->right->prec == expr->prec && expr->rassoc));
     // found in 'or return'
 
     // special case for (a==b)==(c==d). Don't want to arbitrarily enable
     // brackets for all nested binops since C parsers may be recursive
     // descent.
-    if (expr->kind == tkEQ //
-        && expr->left->kind == tkEQ //
-        && expr->right->kind == tkEQ)
+    if (expr->kind == tkEQ        //
+      && expr->left->kind == tkEQ //
+      && expr->right->kind == tkEQ)
       leftBr = rightBr = true;
 
     static const char* po = "(";
@@ -1428,7 +1434,7 @@ static void mod_genTests(Module* mod) {
     bool skip = *test->name == '-';
     if (skip) test->name++;
     printf("  jet_runTest(test_%s_%d, \"%s\", %d);\n", //
-        mod->cname, ++i, test->name, skip);
+      mod->cname, ++i, test->name, skip);
   }
   outln("double elap = clock_clockSpanMicro(t0);");
   outln("eprintf(\"    %-48s [%7.1f ms]\\n\", \"\", elap / 1e3);");
@@ -1498,7 +1504,7 @@ static int mod_emit(Module* mod) {
     unlink(mod->out_h);
     if (!file_move(mod->out_hh, mod->out_h)) {
       eprintf("%s:1:1-1: error: can't update file: %s\n", mod->out_h,
-          strerror(errno));
+        strerror(errno));
       return 1;
     }
   } else
@@ -1511,8 +1517,8 @@ static int mod_emit(Module* mod) {
     return 1;
   }
 
-  printf("#include \"%s\"\n\n",
-      cstr_base(mod->out_h, '/', strlen(mod->out_h)));
+  printf(
+    "#include \"%s\"\n\n", cstr_base(mod->out_h, '/', strlen(mod->out_h)));
 
   if (genLineNumbers) printf("#line 1 \"%s\"\n", mod->filename);
   printf("#define THISFILE \"%s\"\n", mod->filename);
@@ -1536,8 +1542,15 @@ static int mod_emit(Module* mod) {
     if (func->body && func->analysed) { func_emit(func, 0); }
   }
 
-  // if (genTests)
   mod_genTests(mod);
+
+  if (mod->isRoot) {
+    // fixme: start should be namespaced
+    printf(
+      "void (*_jet_entry_run_)(IFDEBUGELSE(const char*, void)) = start;\n"
+      "void (*_jet_entry_test_)(int) = jet_runTests_%s;\n\n",
+      mod->cname);
+  }
 
   outln("#undef THISMODULE");
   outln("#undef THISFILE");
@@ -1545,5 +1558,34 @@ static int mod_emit(Module* mod) {
 
   fclose(outfile);
 
+  return 0;
+}
+
+// called only for the root module
+static int mod_emit_mainwrapper(Module* mod) {
+  if (!(outfile = fopen(mod->out_w, "w"))) {
+    eprintf("%s:1:1-1: error: can't open file for writing\n", mod->out_w);
+    return 1;
+  }
+  printf( //
+    "#ifdef JET_MONOBUILD\n"
+    "#include \"%s\"\n"
+    "#ifdef JET_MODE_TEST\n"
+    "#define JET_ENTRY %s_start\n"
+    "#else\n"
+    "#define JET_ENTRY jet_runTests_%s\n"
+    "#endif\n"
+    "#else\n"
+    "#include \"%s\"\n" // entrypoint defined by -D...
+    "#endif\n"
+    "\n"
+    "#ifdef JET_MODE_TEST\n"
+    "#include \"jet/rt_test.c\"\n"
+    "#else\n"
+    "#include \"jet/rt_run.c\"\n"
+    "endif\n"
+    "\n",
+    mod->out_c, mod->cname, mod->cname, mod->out_h);
+  fclose(outfile);
   return 0;
 }

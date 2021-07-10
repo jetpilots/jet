@@ -420,7 +420,7 @@ Date Date_add(Date base, Duration diff) {
   return ret;
 }
 
-Date Date_now() {
+Date Date_now(void) {
   // time_t tmt[] = { time(NULL) };
   // struct tm* tmnow = gmtime(tmt);
   // int s = sizeof(struct tm);

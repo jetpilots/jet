@@ -22,7 +22,7 @@ extern void start();
 
 @implementation JetUIAppController
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:
-    (NSApplication*)sender {
+  (NSApplication*)sender {
   return autoQuit;
 }
 - (void)applicationDidFinishLaunching:(NSNotification*)notification {
@@ -72,7 +72,7 @@ extern void start();
 }
 @end
 
-void App_start() {
+void App_start(void) {
   @autoreleasepool {
     [NSApplication sharedApplication];
     [NSApp setDelegate:[[JetUIAppController alloc] init]];

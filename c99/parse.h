@@ -6,7 +6,7 @@ static Expr* exprFromCurrentToken(Parser* parser) {
 }
 
 static Expr* next_token_node(
-    Parser* parser, TokenKind expected, const bool ignore_error) {
+  Parser* parser, TokenKind expected, const bool ignore_error) {
   if (parser->token.kind == expected) {
     return exprFromCurrentToken(parser);
   } else {
@@ -70,21 +70,20 @@ static Expr* parseExpr(Parser* parser) {
   // ******* STEP 1 CONVERT TOKENS INTO RPN
 
   while (parser->token.kind != tkEOF //
-      && parser->token.kind != tkEOL
-      && parser->token.kind != tkComment) { // build RPN
+    && parser->token.kind != tkEOL
+    && parser->token.kind != tkComment) { // build RPN
 
     // you have to ensure that ops have a space around them, etc.
     // so don't just skip the one spaces like you do now.
     if (parser->token.kind == tkOneSpace) tok_advance(&parser->token);
     if (parser->token.kind == tkIdent
-        && memchr(parser->token.pos, '_', parser->token.matchlen))
+      && memchr(parser->token.pos, '_', parser->token.matchlen))
       err_invalidIdent(parser); // but continue parsing
 
     Expr* expr = par_matches(parser, tkParenOpen) //
-        ? lparen
-        : par_matches(parser, tkParenClose)
-            ? rparen
-            : expr_fromToken(&parser->token);
+      ? lparen
+      : par_matches(parser, tkParenClose) ? rparen
+                                          : expr_fromToken(&parser->token);
     // dont advance yet
 
     int prec = expr->prec;
@@ -171,12 +170,11 @@ static Expr* parseExpr(Parser* parser) {
       // tkArrayOpen is a unary op.
       if ((p && p->kind == tkArrayOpen))
         if ((arr_empty(&ops)
-                || (arr_top(&rpn)
-                    && arr_topAs(Expr*, &ops)->kind != tkSubscript))
-            // don't do this if its part of a subscript
-            || (arr_empty(&rpn)
-                || (arr_top(&rpn)
-                    && arr_topAs(Expr*, &rpn)->kind != tkColon)))
+              || (arr_top(&rpn)
+                && arr_topAs(Expr*, &ops)->kind != tkSubscript))
+          // don't do this if its part of a subscript
+          || (arr_empty(&rpn)
+            || (arr_top(&rpn) && arr_topAs(Expr*, &rpn)->kind != tkColon)))
           // or aa range. range exprs are handled separately. by
           // themselves they don't need a surrounding [], but for
           // grouping like 2+[8:66] they do.
@@ -184,9 +182,8 @@ static Expr* parseExpr(Parser* parser) {
 
       // a dict literal (another unary op).
       if ((p && p->kind == tkBraceOpen)
-          && (arr_empty(&ops)
-              || (arr_top(&rpn)
-                  && arr_topAs(Expr*, &ops)->kind != tkObjInit)))
+        && (arr_empty(&ops)
+          || (arr_top(&rpn) && arr_topAs(Expr*, &ops)->kind != tkObjInit)))
         // again, not if it is an object init
         arr_push(&rpn, p);
       // Object { member1 = 3, member3 = "train" }
@@ -239,12 +236,11 @@ static Expr* parseExpr(Parser* parser) {
       if (prec) {
         if (expr->kind == tkColon) {
           if (arr_empty(&rpn)
-              || (!arr_top(&rpn) && !arr_empty(&ops)
-                  && arr_topAs(Expr*, &ops)->kind != tkColon)
-              || (arr_topAs(Expr*, &rpn)->kind == tkColon
-                  && !arr_empty(&ops)
-                  && (arr_topAs(Expr*, &ops)->kind == tkComma
-                      || arr_topAs(Expr*, &ops)->kind == tkArrayOpen)))
+            || (!arr_top(&rpn) && !arr_empty(&ops)
+              && arr_topAs(Expr*, &ops)->kind != tkColon)
+            || (arr_topAs(Expr*, &rpn)->kind == tkColon && !arr_empty(&ops)
+              && (arr_topAs(Expr*, &ops)->kind == tkComma
+                || arr_topAs(Expr*, &ops)->kind == tkArrayOpen)))
             // TODO: better way to parse :, 1:, :-1, etc.
             // while passing tokens to RPN, if you see a :
             // with nothing on the RPN or comma or [, push a
@@ -262,17 +258,17 @@ static Expr* parseExpr(Parser* parser) {
           p = arr_pop(&ops);
 
           if (p->kind != tkComma && p->kind != tkSemiColon
-              && p->kind != tkFuncCall && p->kind != tkSubscript
-              && arr_topAs(Expr*, &rpn)
-              && arr_topAs(Expr*, &rpn)->kind == tkComma) {
+            && p->kind != tkFuncCall && p->kind != tkSubscript
+            && arr_topAs(Expr*, &rpn)
+            && arr_topAs(Expr*, &rpn)->kind == tkComma) {
             err_unexpectedToken(parser, "unsupported use of comma");
             // TODO: make this an error of unexpected expr instead
             goto error;
           }
 
           if (!(p->prec || p->unary) && p->kind != tkFuncCall
-              && p->kind != tkColon && p->kind != tkSubscript
-              && rpn.used < 2) {
+            && p->kind != tkColon && p->kind != tkSubscript
+            && rpn.used < 2) {
             err_unexpectedToken(parser, "need 2 operands to binary op");
             // TODO: make this errorUnexpectedExpr
             goto error;
@@ -287,8 +283,8 @@ static Expr* parseExpr(Parser* parser) {
           goto error;
         }
         if (expr->kind == tkColon
-            && (lookAheadChar == ',' || lookAheadChar == ':'
-                || lookAheadChar == ']' || lookAheadChar == ')'))
+          && (lookAheadChar == ',' || lookAheadChar == ':'
+            || lookAheadChar == ']' || lookAheadChar == ')'))
           arr_push(&rpn, &expr_const_0);
 
         arr_push(&ops, expr);
@@ -305,16 +301,16 @@ exitloop:
     p = arr_pop(&ops);
 
     if (p->kind != tkComma && p->kind != tkFuncCall
-        && p->kind != tkSubscript && p->kind != tkArrayOpen
-        && arr_topAs(Expr*, &rpn)
-        && arr_topAs(Expr*, &rpn)->kind == tkComma) {
+      && p->kind != tkSubscript && p->kind != tkArrayOpen
+      && arr_topAs(Expr*, &rpn)
+      && arr_topAs(Expr*, &rpn)->kind == tkComma) {
       err_unexpectedExpr(parser, arr_topAs(Expr*, &rpn));
       goto error;
     }
 
     if (!(p->prec || p->unary)
-        && (p->kind != tkFuncCall && p->kind != tkSubscript)
-        && rpn.used < 2) {
+      && (p->kind != tkFuncCall && p->kind != tkSubscript)
+      && rpn.used < 2) {
       err_syntax(parser, p, "invalid use of comma");
       goto error;
       // TODO: even if you have more than two, neither of the top
@@ -408,8 +404,8 @@ exitloop:
 error:
 
   while (parser->token.pos < parser->end
-      && (parser->token.kind != tkEOL && parser->token.kind != tkComment
-          && parser->token.kind != tkEOF))
+    && (parser->token.kind != tkEOL && parser->token.kind != tkComment
+      && parser->token.kind != tkEOF))
     tok_advance(&parser->token);
 
   if (ops.used) {
@@ -479,7 +475,7 @@ static TypeSpec* parseTypeSpec(Parser* parser) {
       // Dict
     } else {
       for_to_where(i, parser->token.matchlen, parser->token.pos[i] == ':')
-          spec->dims++;
+        spec->dims++;
       if (!spec->dims) spec->dims = 1;
       spec->collType = spec->dims == 1 ? CTYArray : CTYTensor;
     }
@@ -491,7 +487,7 @@ static TypeSpec* parseTypeSpec(Parser* parser) {
     spec->collType = Collectiontype_byName(cty);
     if (!spec->collType) {
       unreachable(
-          "unknown collection type at %d:%d\n", parser->token.line, c);
+        "unknown collection type at %d:%d\n", parser->token.line, c);
     } else {
       spec->dims = 1;
       // want higher dims? you should use [:,:,:] not a named coll type
@@ -580,7 +576,7 @@ static List(Var) * parseArgs(Parser* parser) {
 }
 
 static Scope* parseScope(
-    Parser* parser, Scope* parent, bool isTypeBody, bool isLoop);
+  Parser* parser, Scope* parent, bool isTypeBody, bool isLoop);
 
 static Scope* parseScopeCases(Parser* parser, Scope* parent) {
 
@@ -626,7 +622,7 @@ exitloop:
 
 // --------------------------------------------------------------------- //
 static Scope* parseScope(
-    Parser* parser, Scope* parent, bool isTypeBody, bool isLoop) {
+  Parser* parser, Scope* parent, bool isTypeBody, bool isLoop) {
   Scope* scope = NEW(Scope);
 
   Var *var = NULL, *orig = NULL;
@@ -725,12 +721,12 @@ static Scope* parseScope(
         // TODO: new par_error
         Var* fvar = NULL;
         if (!expr->left)
-          unreachable("Missing for-loop condition at %d:%d\n", expr->line,
-              expr->col);
+          unreachable(
+            "Missing for-loop condition at %d:%d\n", expr->line, expr->col);
         else {
           if (expr->left->kind != tkAssign)
             unreachable("Invalid for-loop condition: %s\n",
-                TokenKind_repr[expr->left->kind]);
+              TokenKind_repr[expr->left->kind]);
 
           resolveVars(parser, expr->left->right, scope, false);
 
@@ -762,7 +758,7 @@ static Scope* parseScope(
       }
 
       if (par_matches(parser, tkElse) || //
-          par_matches(parser, tkElif)) {
+        par_matches(parser, tkElif)) {
         startedElse = true;
       } else {
         par_consume(parser, tkEnd);
@@ -887,7 +883,7 @@ static List(TypeSpec) * parseParams(Parser* parser) {
 
 // --------------------------------------------------------------------- //
 static Func* parseFunc(
-    Parser* parser, Scope* globScope, bool shouldParseBody) {
+  Parser* parser, Scope* globScope, bool shouldParseBody) {
   par_consume(parser, tkFunc);
   par_consume(parser, tkOneSpace);
   Func* func = NEW(Func);
@@ -923,21 +919,21 @@ static Func* parseFunc(
     func->spec = parseTypeSpec(parser);
   }
   if (!func->spec) {
-    func->spec = NEWW(TypeSpec, //
-        .name = "", //
-        .line = parser->token.line, //
-        .col = parser->token.col //
+    func->spec = NEWW(TypeSpec,   //
+      .name = "",                 //
+      .line = parser->token.line, //
+      .col = parser->token.col    //
     );
   }
 
-  Var* ans = NEWW(Var, //
-      .name = "ans", //
-      .line = func->spec->line, //
-      .col = func->spec->col, //
-      .isVar = true, //
-      // .isMutableArg = true, // NOPE, not needed since it will be returned
-      .init = NULL, // FIXME
-      .spec = func->spec // NEW(TypeSpec);
+  Var* ans = NEWW(Var,        //
+    .name = "ans",            //
+    .line = func->spec->line, //
+    .col = func->spec->col,   //
+    .isVar = true,            //
+    // .isMutableArg = true, // NOPE, not needed since it will be returned
+    .init = NULL,      // FIXME
+    .spec = func->spec // NEW(TypeSpec);
   );
 
   if (shouldParseBody) {
@@ -1061,7 +1057,7 @@ static Test* parseTest(Parser* parser, Scope* globScope) {
 
 // --------------------------------------------------------------------- //
 static Type* parseType(
-    Parser* parser, Scope* globScope, bool shouldParseBody) {
+  Parser* parser, Scope* globScope, bool shouldParseBody) {
   Type* type = NEW(Type);
 
   par_consume(parser, tkType);
@@ -1161,8 +1157,8 @@ static Import* parseImport(Parser* parser, Module* ownerMod) {
 
   } else {
     imp->aliasOffset
-        = cstr_base(imp->name, '.', parser->token.pos - imp->name)
-        - imp->name;
+      = cstr_base(imp->name, '.', parser->token.pos - imp->name)
+      - imp->name;
   }
 
   if (parser->token.kind == tkEOL) {
@@ -1175,10 +1171,10 @@ static Import* parseImport(Parser* parser, Module* ownerMod) {
   // char endchar = *parser->token.pos;
   // *parser->token.pos = 0;
   if (mod_getImportByAlias(ownerMod, imp->name + imp->aliasOffset)
-      || mod_getFuncByName(ownerMod, imp->name + imp->aliasOffset)
-      || mod_getVar(ownerMod, imp->name + imp->aliasOffset)) {
+    || mod_getFuncByName(ownerMod, imp->name + imp->aliasOffset)
+    || mod_getVar(ownerMod, imp->name + imp->aliasOffset)) {
     unreachable(
-        "import name already used: %s", imp->name + imp->aliasOffset);
+      "import name already used: %s", imp->name + imp->aliasOffset);
     imp = NULL;
   }
   // *parser->token.pos = endchar;
@@ -1246,38 +1242,39 @@ static Module* par_lookupModule(PtrList* existingModules, char* name) {
 }
 
 static Module* parseModule(
-    Parser* parser, PtrList** existingModulesPtr, Module* importer) {
+  Parser* parser, PtrList** existingModulesPtr, Module* importer) {
   // FUNC_ENTRY
   Module* root = NEW(Module); // FIXME RENAME ROOT TO MOD, IT IS NOT ROOT!
   bool isPrivate = false;
 
   // ret->noext = cstr_noext(cstr_clone(filename));
   root->name
-      = cstr_tr_ip(cstr_noext_ip(cstr_clone(parser->filename)), '/', '.');
+    = cstr_tr_ip(cstr_noext_ip(cstr_clone(parser->filename)), '/', '.');
   root->cname = cstr_tr_ip(cstr_clone(root->name), '.', '_');
   root->Cname = cstr_upper_ip(cstr_clone(root->cname));
   root->filename = parser->filename;
+  root->isRoot = (importer == NULL);
 
-  int l = strlen(root->filename);
-  static char buf[512];
-  // TODO: improve this later
-  root->out_h = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.h",
-      cstr_dir_ip(cstr_pclone(root->filename)),
-      cstr_base(root->filename, '/', l)));
-  root->out_hh = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.hh",
-      cstr_dir_ip(cstr_pclone(root->filename)),
-      cstr_base(root->filename, '/', l)));
+  // int l = strlen(root->filename);
+  // static char buf[512];
+  // // TODO: improve this later
+  // root->out_h = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.h",
+  //   cstr_dir_ip(cstr_pclone(root->filename)),
+  //   cstr_base(root->filename, '/', l)));
+  // root->out_hh = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.hh",
+  //   cstr_dir_ip(cstr_pclone(root->filename)),
+  //   cstr_base(root->filename, '/', l)));
 
-  root->out_c = cstr_pclone(root->out_h);
-  root->out_c[strlen(root->out_c) - 1] = 'c';
-  // root->out_c = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.c",
-  //     cstr_dir_ip(cstr_pclone(root->filename)),
-  //     cstr_base(root->filename, '/', l)));
-  root->out_xc = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.x.c",
-      cstr_dir_ip(cstr_clone(root->filename)),
-      cstr_base(root->filename, '/', l)));
-  root->out_o = cstr_pclone(root->out_c);
-  root->out_o[strlen(root->out_o) - 1] = 'o';
+  // root->out_c = cstr_pclone(root->out_h);
+  // root->out_c[strlen(root->out_c) - 1] = 'c';
+  // // root->out_c = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.c",
+  // //     cstr_dir_ip(cstr_pclone(root->filename)),
+  // //     cstr_base(root->filename, '/', l)));
+  // root->out_xc = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.x.c",
+  //   cstr_dir_ip(cstr_clone(root->filename)),
+  //   cstr_base(root->filename, '/', l)));
+  // root->out_o = cstr_pclone(root->out_c);
+  // root->out_o[strlen(root->out_o) - 1] = 'o';
 
   // To break recursion, add the root to the existingModules list right
   // away. The name is all that is required for this module to be found
@@ -1306,7 +1303,7 @@ static Module* parseModule(
   List(Test)** tests = &root->tests;
   List(JetEnum)** enums = &root->enums;
   Scope* gscope = root->scope;
-  List(Var)** gvars = &gscope->locals; // globals
+  List(Var)** gvars = &gscope->locals;  // globals
   List(Expr)** gexprs = &gscope->stmts; // globals
 
   // for_to(i, countof(vnoyes))
@@ -1319,10 +1316,10 @@ static Module* parseModule(
 
     if (parser->mode == PMTokenize) {
       printf("%s %2d %3d %3d %-20s\t%.*s\n", parser->filename,
-          parser->token.line, parser->token.col, parser->token.matchlen,
-          TokenKind_names[parser->token.kind],
-          parser->token.kind == tkEOL ? 0 : parser->token.matchlen,
-          parser->token.pos);
+        parser->token.line, parser->token.col, parser->token.matchlen,
+        TokenKind_names[parser->token.kind],
+        parser->token.kind == tkEOL ? 0 : parser->token.matchlen,
+        parser->token.pos);
       tok_advance(&parser->token);
       continue;
     }
@@ -1377,14 +1374,14 @@ static Module* parseModule(
       // to access members.
       assert(en);
       Var* enumv = NEWW(Var, //
-          .name = en->name, //
-          .line = en->line, //
-          .col = en->col, //
-          .used = 1,
-          .spec = NEWW(TypeSpec, //
-              .typeType = TYObject, //
-              .type = en // doesn't increase en's usage
-              ) //
+        .name = en->name,    //
+        .line = en->line,    //
+        .col = en->col,      //
+        .used = 1,
+        .spec = NEWW(TypeSpec,  //
+          .typeType = TYObject, //
+          .type = en            // doesn't increase en's usage
+          )                     //
       );
       gvars = li_push(gvars, enumv);
     }
@@ -1437,7 +1434,7 @@ static Module* parseModule(
           // FIXME: these parsers will LEAK!
           if (subParser) {
             if ((imp->mod
-                    = parseModule(subParser, existingModulesPtr, NULL)))
+                  = parseModule(subParser, existingModulesPtr, root)))
               li_shift(&imp->mod->importedBy, root);
           } else {
             err_importNotFound(parser, imp);
@@ -1517,7 +1514,7 @@ static Module* parseModule(
   for (int j = 0; j < countof(defTypes); j++)
     for (int i = 0; i < countof(defFuncs); i++) {
       Func* func
-          = func_createDeclWithArg(defFuncs[i], retTypes[i], defTypes[j]);
+        = func_createDeclWithArg(defFuncs[i], retTypes[i], defTypes[j]);
       func->intrinsic = true;
       funcs = li_push(funcs, func);
     }

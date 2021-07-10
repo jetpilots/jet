@@ -198,20 +198,20 @@ monostatic void Process_await(Process* proc) {
   proc->code = WEXITSTATUS(status);
 }
 
-monostatic Process Process_awaitAny() {
+monostatic Process Process_awaitAny(void) {
   int status = 0;
   pid_t pid = wait(&status);
   if (pid == -1) return (Process) {};
   if (!pid) fprintf(stderr, "waitpiderr\n"); // TODO: raise an error here
 
-  return (Process) { //
-    .pid = pid, //
+  return (Process) {             //
+    .pid = pid,                  //
     .exited = WIFEXITED(status), //
     .code = WEXITSTATUS(status)
   };
 }
 
-monostatic void Process_awaitAll() {
+monostatic void Process_awaitAll(void) {
   int status = 0;
   while (wait(&status) > 0) continue;
 }
@@ -225,9 +225,24 @@ monostatic void Process_update(Process* proc) {
 
 #define Process_execIn(dir, ...)                                           \
   Process_execIn_((char*[]) { __VA_ARGS__, NULL }, dir)
+
 monostatic int Process_execIn_(char* args[], char* dir) {
+  int dbg = 1;
+  clock_Time t0;
+  if (dbg) {
+    char** a = args;
+    eputs("*** ");
+    while (*a) {
+      eputs(*a);
+      eputs(" ");
+      a++;
+    }
+    // eputs("\n");
+    t0 = clock_getTime();
+  }
   Process p = Process_launchIn(args, dir);
   Process_await(&p);
+  if (dbg) eprintf("*** %.1f ms\n", clock_clockSpanMicro(t0) / 1e3);
   return p.code;
 }
 

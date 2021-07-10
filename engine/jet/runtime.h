@@ -6,6 +6,7 @@
 #include "jet/os/sys.h"
 
 #include "_rt/errhandler.h"
+#include "_rt/entry.h"
 #include "_rt/check.h"
 #include "_rt/stack.h"
 

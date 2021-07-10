@@ -6,7 +6,7 @@ func start()
     print(x)
 end
 
-func fx(a Number)
+func fx(a Number) Number
     var m = gx(5 - a + 2 / 5)
     ans = m
 end

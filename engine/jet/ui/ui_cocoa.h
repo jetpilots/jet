@@ -13,14 +13,14 @@ extern void start(IFDEBUG(const char* callsite_));
 
 @implementation App_
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:
-    (NSApplication*)sender {
+  (NSApplication*)sender {
   return autoQuit;
 }
 - (void)applicationDidFinishLaunching:(NSNotification*)notification {
   [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
   [NSApp activateIgnoringOtherApps:YES];
   autoQuit = YES;
-  start(IFDEBUG("start\n"));
+  _jet_entry_run_(IFDEBUG("start\n"));
 }
 @end
 void App_start() {
@@ -33,75 +33,79 @@ void App_start() {
 
 /*** VIBRANT VIEW -------------------------------------------------------*/
 
-@interface VibrantView_ : NSVisualEffectView @end
+@interface VibrantView_ : NSVisualEffectView
+@end
 @implementation VibrantView_
-- (BOOL)isFlipped {return YES;}
+- (BOOL)isFlipped {
+  return YES;
+}
 @end
 
 /*** VIEW ---------------------------------------------------------------*/
 
 @interface View_ : NSView {
-@private
-    void (*ondrawrect)(View_* v );
-    void (*ondraw)();
-    void (*ondrop)();
-    void (*onload)();
-    void (*onunload)();
-    void (*onfocus)();
-    void (*onblur)();
-    void (*onmousedown)(NSEvent* event);
-    void (*onmouseup)(NSEvent* event);
-    void (*onkeydown)(NSEvent* event);
-    void (*onkeyup)(NSEvent* event);
-    void (*onmousemove)(NSEvent* event);
-    void (*onmousedrag)(NSEvent* event);
-    void (*onmouseover)(NSEvent* event);
-    void (*onmouseout)(NSEvent* event);
-    NSTrackingArea* trackingArea;
+  @private
+  void (*ondrawrect)(View_* v);
+  void (*ondraw)();
+  void (*ondrop)();
+  void (*onload)();
+  void (*onunload)();
+  void (*onfocus)();
+  void (*onblur)();
+  void (*onmousedown)(NSEvent* event);
+  void (*onmouseup)(NSEvent* event);
+  void (*onkeydown)(NSEvent* event);
+  void (*onkeyup)(NSEvent* event);
+  void (*onmousemove)(NSEvent* event);
+  void (*onmousedrag)(NSEvent* event);
+  void (*onmouseover)(NSEvent* event);
+  void (*onmouseout)(NSEvent* event);
+  NSTrackingArea* trackingArea;
 }
 @end
 @implementation View_
-- (BOOL)isFlipped {return YES;}
-- (void)setDrawFunc:(void(*)(View_* ))func {
-    ondrawrect=func;
+- (BOOL)isFlipped {
+  return YES;
+}
+- (void)setDrawFunc:(void (*)(View_*))func {
+  ondrawrect = func;
 }
 - (id)initWithTrackingInFrame:(NSRect)frame {
-    self = [self initWithFrame:frame];
-    if (self) {
-        trackingArea = [[NSTrackingArea alloc]
-            initWithRect:frame
-                 options: NSTrackingMouseEnteredAndExited
-                        | NSTrackingMouseMoved
-                        | NSTrackingActiveInKeyWindow
-                   owner:self
-                userInfo:nil];
-        [self addTrackingArea:trackingArea];
-    }
-    return self;
+  self = [self initWithFrame:frame];
+  if (self) {
+    trackingArea = [[NSTrackingArea alloc]
+      initWithRect:frame
+           options:NSTrackingMouseEnteredAndExited | NSTrackingMouseMoved
+           | NSTrackingActiveInKeyWindow
+             owner:self
+          userInfo:nil];
+    [self addTrackingArea:trackingArea];
+  }
+  return self;
 }
 - (void)drawRect:(NSRect)dirtyRect {
-    if (ondrawrect) ondrawrect(self );
+  if (ondrawrect) ondrawrect(self);
 }
 - (void)mouseDown:(NSEvent*)event {
-    if (onmousedown) onmousedown(event);
+  if (onmousedown) onmousedown(event);
 }
 - (void)mouseUp:(NSEvent*)event {
-    if (onmouseup) onmouseup(event);
+  if (onmouseup) onmouseup(event);
 }
 - (void)mouseMoved:(NSEvent*)event {
-    if (onmousemove) onmousemove(event);
+  if (onmousemove) onmousemove(event);
 }
 - (void)mouseEntered:(NSEvent*)event {
-    if (onmouseover) onmouseover(event);
+  if (onmouseover) onmouseover(event);
 }
 - (void)mouseExited:(NSEvent*)event {
-    if (onmouseout) onmouseout(event);
+  if (onmouseout) onmouseout(event);
 }
 @end
 
-void View_setDrawFunc(View_* v, void (*ondraw)(View_* )) {
+void View_setDrawFunc(View_* v, void (*ondraw)(View_*)) {
   // if (v->ondrawrect) return; // raise error
-[v setDrawFunc:ondraw];
+  [v setDrawFunc:ondraw];
 }
 
 // typedef void id
@@ -128,13 +132,15 @@ void View_move(id v, int dx, int dy) {
 
 void View_rotate(id v, int deg) {
   double d = [v frameRotation];
-  [v setFrameRotation:d+deg];
+  [v setFrameRotation:d + deg];
 }
 
 void View_reposition(id v, int left, int top) {
   NSRect ref;
-  if ([v superview]) ref = [v superview].frame;
-  else ref = [v window].contentView.frame;
+  if ([v superview])
+    ref = [v superview].frame;
+  else
+    ref = [v window].contentView.frame;
 
   NSRect f = [v frame];
   f.origin.x = left + ref.origin.x;
@@ -156,7 +162,7 @@ void View_wrapInEffect(View_* v) {
 
 double View_height(id v) { return [v frame].size.height; }
 double View_width(id v) { return [v frame].size.width; }
-View_* View_parent(id v) { return (View_*) [v superview]; }
+View_* View_parent(id v) { return (View_*)[v superview]; }
 
 // Returns Window_* */
 id View_window(id v) { return [v window]; }
@@ -167,17 +173,17 @@ View_* View_new() {
 
 /*** WINDOW -------------------------------------------------------------*/
 
-@interface Window_ : NSWindow {} @end
+@interface Window_ : NSWindow {
+}
+@end
 @implementation Window_
 @end
 
-void Window_setDrawFunc(Window_* w, void (*ondraw)( View_* )) {
+void Window_setDrawFunc(Window_* w, void (*ondraw)(View_*)) {
   [w.contentView setDrawFunc:ondraw];
 }
 
-void Window_setTitle(Window_* w, char* s) {
-  [w setTitle:NSStr(s)];
-}
+void Window_setTitle(Window_* w, char* s) { [w setTitle:NSStr(s)]; }
 
 void Window_resize(Window_* w, int width, int height) {
   NSRect f = w.frame;
@@ -192,41 +198,36 @@ void Window_resize(Window_* w, int width, int height) {
 void Window_reposition(Window_* w, int left, int top) {
   NSRect f = w.frame;
   NSRect sf = w.screen.frame;
-    f.origin.x=left + sf.origin.x;
-    // NOPE: you need to know the screen height here.
-    f.origin.y = sf.size.height -f.size.height-top;
+  f.origin.x = left + sf.origin.x;
+  // NOPE: you need to know the screen height here.
+  f.origin.y = sf.size.height - f.size.height - top;
   [w setFrame:f display:NO animate:YES];
 }
 
 void Window_setEffect(Window_* w) {
-  VibrantView_* v =
-      [VibrantView_.alloc initWithFrame:w.contentView.frame];
+  VibrantView_* v = [VibrantView_.alloc initWithFrame:w.contentView.frame];
   [v setAutoresizesSubviews:YES];
   [v setAutoresizingMask:NSViewHeightSizable | NSViewWidthSizable];
   [v addSubview:w.contentView];
   [w setContentView:v];
 }
 
-void Window_addSubview(Window_* w, id v){
-  [w.contentView addSubview:v];
-}
+void Window_addSubview(Window_* w, id v) { [w.contentView addSubview:v]; }
 
 Window_* Window_new() {
   Window_* w = [[Window_ alloc]
-    initWithContentRect: NSMakeRect(0, 0, 500, 400)
-              styleMask: NSWindowStyleMaskTitled
-                       | NSWindowStyleMaskResizable
-                       | NSWindowStyleMaskMiniaturizable
-                       | NSWindowStyleMaskClosable
-                backing: NSBackingStoreBuffered
-                  defer: YES]; // autorelease];
+    initWithContentRect:NSMakeRect(0, 0, 500, 400)
+              styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskResizable
+              | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskClosable
+                backing:NSBackingStoreBuffered
+                  defer:YES]; // autorelease];
   [w setReleasedWhenClosed:YES];
   [w setTitle:@"Untitled"];
 
   [w cascadeTopLeftFromPoint:NSMakePoint(20, 20)];
   [w makeKeyAndOrderFront:nil];
 
-// replace the contentView (NSView) with a View_
+  // replace the contentView (NSView) with a View_
   [w setContentView:[View_.alloc initWithFrame:w.contentView.frame]];
 
   // w.onload = NULL;
@@ -242,27 +243,34 @@ Window_* Window_new() {
 /*** BUTTON -------------------------------------------------------------*/
 
 @interface Button_ : NSButton {
-@public
-void (*onclick)(Button_*);
+  @public
+  void (*onclick)(Button_*);
 }
 @end
 @implementation Button_
-- (void)clicked { if (onclick) onclick(self); }
+- (void)clicked {
+  if (onclick) onclick(self);
+}
 @end
 
-Button_* Button_new(char* s ) {
-Button_* ret= [Button_ buttonWithTitle: NSStr(s)
-                         target:  nil
-                         action: @selector(clicked)];
-                         ret.target=ret;
-                         return ret;
+Button_* Button_new(char* s) {
+  Button_* ret = [Button_ buttonWithTitle:NSStr(s)
+                                   target:nil
+                                   action:@selector(clicked)];
+  ret.target = ret;
+  return ret;
 }
 
-void Button_setOnClick(Button_* b, void (*fn)(Button_*)){b->onclick=fn;}
+void Button_setOnClick(Button_* b, void (*fn)(Button_*)) {
+  b->onclick = fn;
+}
 
-
-// TODO: this should be Control_setTitle & others just call that. Many funcs are like this & would be a pain to repeat wrappers. In Jet you have a parallel hierarchy & Label_ is a Control (as is Button_, Checkbox, etc) & setTitle(c Control) is defined & derived types just use that (via dispatcher -- but that will optimise to the right call).
-// setTitle(c Control) or title!(c Control) or c.title = "..."?
+// TODO: this should be Control_setTitle & others just call that. Many funcs
+// are like this & would be a pain to repeat wrappers. In Jet you have a
+// parallel hierarchy & Label_ is a Control (as is Button_, Checkbox, etc) &
+// setTitle(c Control) is defined & derived types just use that (via
+// dispatcher -- but that will optimise to the right call). setTitle(c
+// Control) or title!(c Control) or c.title = "..."?
 void Button_setTitle(Button_* b, char* s) {
   [b setTitle:NSStr(s)];
   // [b sizeToFit];
@@ -271,44 +279,50 @@ void Button_setTitle(Button_* b, char* s) {
 /*** SLIDER -------------------------------------------------------------*/
 
 @interface Slider_ : NSSlider {
-@public
-void (*onchange)(Slider_*);
+  @public
+  void (*onchange)(Slider_*);
 }
 @end
 @implementation Slider_
-- (void)changed { if (onchange) onchange(self); }
+- (void)changed {
+  if (onchange) onchange(self);
+}
 @end
 
-Slider_* Slider_new( double min, double max, double val) {
-Slider_* ret= [Slider_ sliderWithValue: val
-                       minValue: min
-                       maxValue: max
-                         target: nil
-                         action: @selector(changed)];
-                         ret.target=ret;
-                         return ret;
+Slider_* Slider_new(double min, double max, double val) {
+  Slider_* ret = [Slider_ sliderWithValue:val
+                                 minValue:min
+                                 maxValue:max
+                                   target:nil
+                                   action:@selector(changed)];
+  ret.target = ret;
+  return ret;
 }
 
-double Slider_value(Slider_* s ){ return s.doubleValue;}
-void Slider_setValue(Slider_* s , double v){ s.doubleValue = v;}
+double Slider_value(Slider_* s) { return s.doubleValue; }
+void Slider_setValue(Slider_* s, double v) { s.doubleValue = v; }
 
 /*** TEXTFIELD ----------------------------------------------------------*/
 
 @interface TextField_ : NSTextField {
-@public
-void (*onchange)(TextField_*);
+  @public
+  void (*onchange)(TextField_*);
 }
 @end
 @implementation TextField_
-- (void)changed { if (onchange) onchange(self); }
+- (void)changed {
+  if (onchange) onchange(self);
+}
 @end
 
-TextField_* TextField_new( char* s) {
-TextField_* ret= [TextField_ textFieldWithString:NSStr(s)];
-return ret;
+TextField_* TextField_new(char* s) {
+  TextField_* ret = [TextField_ textFieldWithString:NSStr(s)];
+  return ret;
 }
 
-void TextField_setOnChange(TextField_* b, void (*fn)(TextField_*)){b->onchange=fn;}
+void TextField_setOnChange(TextField_* b, void (*fn)(TextField_*)) {
+  b->onchange = fn;
+}
 
 void TextField_setText(TextField_* f, char* s) {
   f.stringValue = NSStr(s);
@@ -322,10 +336,10 @@ void TextField_setText(TextField_* f, char* s) {
 @implementation Label_
 @end
 
-Label_* Label_new(char*s ) {
-Label_* ret= [Label_ labelWithString: NSStr(s)];
-                        //  ret.target=ret;
-return ret;
+Label_* Label_new(char* s) {
+  Label_* ret = [Label_ labelWithString:NSStr(s)];
+  //  ret.target=ret;
+  return ret;
 }
 
 // void Button_setOnClick(Button_* b, void (*fn)(Button_*)){b->onclick=fn;}
@@ -338,11 +352,11 @@ void Label_setTitle(Label_* l, char* s) {
 /*** GLOBALS ------------------------------------------------------------*/
 
 void msgBox(const char* text, const char* subtext) {
-    NSAlert* alert = [[NSAlert alloc] init];
-    alert.messageText = NSStr(text);
-    alert.alertStyle = NSAlertStyleInformational;
-    alert.informativeText = NSStr(subtext);
-    [alert runModal];
+  NSAlert* alert = [[NSAlert alloc] init];
+  alert.messageText = NSStr(text);
+  alert.alertStyle = NSAlertStyleInformational;
+  alert.informativeText = NSStr(subtext);
+  [alert runModal];
 }
 
 /*** DRAWING ------------------------------------------------------------*/
@@ -352,21 +366,19 @@ void msgBox(const char* text, const char* subtext) {
 //   [s fill];
 // }
 
-//TODO: all funcs must take a dummy Graphics arg
+// TODO: all funcs must take a dummy Graphics arg
 void fillOval(double x, double y, double w, double h) {
-    [[NSBezierPath
-        bezierPathWithOvalInRect:NSMakeRect(x - w / 2, y - h / 2, w, h)]
-        fill];
+  [[NSBezierPath
+    bezierPathWithOvalInRect:NSMakeRect(x - w / 2, y - h / 2, w, h)] fill];
 }
-void fillRect( double x, double y, double w, double h) {
-    [NSBezierPath fillRect:NSMakeRect(x,y,w,h)];
+void fillRect(double x, double y, double w, double h) {
+  [NSBezierPath fillRect:NSMakeRect(x, y, w, h)];
 }
-void drawRect( double x, double y, double w, double h) {
-    [NSBezierPath strokeRect:NSMakeRect(x,y,w,h)];
+void drawRect(double x, double y, double w, double h) {
+  [NSBezierPath strokeRect:NSMakeRect(x, y, w, h)];
 }
 void drawOval(double x, double y, double r1, double r2) {
-    [[NSBezierPath
-        bezierPathWithOvalInRect:NSMakeRect(x - r1 / 2, y - r2 / 2, r1, r2)]
-        stroke];
+  [[NSBezierPath bezierPathWithOvalInRect:NSMakeRect(x - r1 / 2, y - r2 / 2,
+                                            r1, r2)] stroke];
 }
 void drawCircle(double x, double y, double r) { drawOval(x, y, r, r); }

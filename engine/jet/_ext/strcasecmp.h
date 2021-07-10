@@ -325,7 +325,7 @@ static const u_char charmap[] = {
   (u_char)'\377',
 };
 
-int strcasecmp(const char* s1, const char* s2) {
+monostatic int strcasecmp(const char* s1, const char* s2) {
   register const u_char *cm = charmap, *us1 = (const u_char*)s1,
                         *us2 = (const u_char*)s2;
   while (cm[*us1] == cm[*us2++])
@@ -333,7 +333,7 @@ int strcasecmp(const char* s1, const char* s2) {
   return cm[*us1] - cm[*--us2];
 }
 
-int strncasecmp(const char* s1, const char* s2, size_t n) {
+monostatic int strncasecmp(const char* s1, const char* s2, size_t n) {
   if (n) {
     register const u_char *cm = charmap, *us1 = (const u_char*)s1,
                           *us2 = (const u_char*)s2;

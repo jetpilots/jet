@@ -3,6 +3,10 @@
 #ifndef HAVE_JET_BASE_H
 #define HAVE_JET_BASE_H
 
+#define _POSIX_C_SOURCE 200809L
+#include <signal.h>
+#include <errno.h>
+
 #include <assert.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -13,7 +17,16 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+// FIXME: hack to get incremental compilation running: everything is static.
+// so funcs are repeated & o files will be bloated. fix by separating
+// interface/impl of engine code
+#ifndef monostatic
+#define monostatic static
+#endif
+
+// #ifndef __APPLE__
 #include "_ext/strcasecmp.h"
+// #endif
 
 #ifdef SLEEF
 #include "sleef.h"
@@ -45,8 +58,8 @@
 #elif __STDC_VERSION__ >= 201112 && !defined __STDC_NO_THREADS__
 #define thread_local _Thread_local
 #elif defined _WIN32                                                       \
-    && (defined _MSC_VER || defined __ICL || defined __DMC__               \
-        || defined __BORLANDC__)
+  && (defined _MSC_VER || defined __ICL || defined __DMC__                 \
+    || defined __BORLANDC__)
 #define thread_local __declspec(thread)
 /* note that ICC (linux) and Clang are covered by __GNUC__ */
 #elif defined __GNUC__ || defined __SUNPRO_C || defined __xlC__
@@ -54,10 +67,6 @@
 #else
 #error "Cannot define thread_local"
 #endif
-#endif
-
-#ifndef monostatic
-#define monostatic
 #endif
 
 #define DROP(...)
@@ -74,8 +83,8 @@
 #define unreachable(fmt, ...)                                              \
   (eprintf("file:1:1-1: error: unreachable hit at ./%s:%d in %s: " fmt     \
            "\n",                                                           \
-       __FILE__, __LINE__, __func__, __VA_ARGS__),                         \
-      _InternalErrs++)
+     __FILE__, __LINE__, __func__, __VA_ARGS__),                           \
+    _InternalErrs++)
 
 #define countof(x) (sizeof(x) / sizeof(x[0]))
 
@@ -95,7 +104,7 @@ monostatic size_t _called_strlen = 0;
 #define allocstat(T)                                                       \
   if (1 || _allocTotal_##T)                                                \
     eprintf("*** %-24s %4ld B x %5d = %7ld B\n", #T, sizeof(T),            \
-        _allocTotal_##T, _allocTotal_##T * sizeof(T));
+      _allocTotal_##T, _allocTotal_##T * sizeof(T));
 #else
 #define MKSTAT(T)
 #define allocstat(T)
@@ -133,7 +142,7 @@ union Value {
   double d;
 };
 
-char* ask() {
+monostatic char* ask(void) {
   size_t sz = 128;
   char* s = malloc(sz);
   char* buf = s;
@@ -183,7 +192,7 @@ typedef double Real64;
 // round a 32-bit number n upto the next power of 2.
 #define roundUp32(x)                                                       \
   (--(x), (x) |= (x) >> 1, (x) |= (x) >> 2, (x) |= (x) >> 4,               \
-      (x) |= (x) >> 8, (x) |= (x) >> 16, ++(x))
+    (x) |= (x) >> 8, (x) |= (x) >> 16, ++(x))
 
 // dont get smart and try to do Array(Array(Array(whatever)))
 
@@ -195,7 +204,7 @@ typedef double Real64;
 static const double __RRANDFMAX = 1.0 / RAND_MAX;
 /// Return a random double. Note that srand() is called on program start
 /// with the current time.
-Real64 randf() { return rand() * __RRANDFMAX; }
+monostatic Real64 randf(void) { return rand() * __RRANDFMAX; }
 
 // display first "digits" many digits of number plus unit (kilo-exabytes)
 static int human_readable(char* buf, double num) {
@@ -263,7 +272,7 @@ typedef bool Boolean;
 typedef const bool const_Boolean;
 typedef unsigned char Byte;
 #define STR(x) #x
-void Number_drop_(Number f) { }
+monostatic void Number_drop_(Number f) { }
 
 static const char* const _fp_bools_tf_[2] = { "false", "true" };
 static const char* const _fp_bools_yn_[2] = { "no", "yes" };
@@ -280,9 +289,9 @@ static const char* const _fp_bools_yn_[2] = { "no", "yes" };
   printf("\"%s\": \"%s\"\n", #x, x) // should be escape(x)
 
 static const char* _spaces_ = //
-    "                                                                    ";
+  "                                                                    ";
 static const char* _dashes_ = //
-    "---------------------------------------------------------------------";
+  "---------------------------------------------------------------------";
 
 #define DECL_json_wrap_(T) static void T##_json_wrap_(const T this);
 

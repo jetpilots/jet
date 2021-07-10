@@ -1,6 +1,6 @@
 static int _total, _pass, _fail, _skip, _stop, _crash;
-static const char *s_err = "[ERR]", *s_ok = "[OK!]", *s_skp = "[SKP]",
-                  *s_crash = "[XX]";
+static const char *s_err = "✘", *s_ok = "✔︎", *s_skp = "⁃",
+                  *s_crash = "✽";
 
 void jet_runTest(int (*f)(void), char* s, int skip) {
   // Dict_putk(UInt32, VPtr)(&runDict, pid, s);
@@ -38,13 +38,13 @@ void jet_runTest(int (*f)(void), char* s, int skip) {
       // if (!who) who = "(unknown)";
       if (WIFSIGNALED(t)) {
         eprintf(
-            " %s  %-48s\n    -> %s", s_err, who, strsignal(WTERMSIG(t)));
+          " %s  %-48s\n    -> %s", s_err, who, strsignal(WTERMSIG(t)));
         // psignal(WTERMSIG(t), "killed: ");
         ret = WTERMSIG(t);
         _crash++; //, _fail++;
       } else if (WIFSTOPPED(t)) {
         eprintf(
-            " %s  %-48s\n    -> %s", s_err, who, strsignal(WSTOPSIG(t)));
+          " %s  %-48s\n    -> %s", s_err, who, strsignal(WSTOPSIG(t)));
         // psignal(WSTOPSIG(t), "stopped: ");
         ret = WSTOPSIG(t);
         _stop++;
