@@ -59,7 +59,8 @@
             "request": "launch",
             "program": "${workspaceRoot}/c99/cjet-dbg",
             "args": [
-                "tests/bigg.jet"
+                "-t",
+                "test1.jet"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

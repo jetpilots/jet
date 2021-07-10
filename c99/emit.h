@@ -1544,13 +1544,13 @@ static int mod_emit(Module* mod) {
 
   mod_genTests(mod);
 
-  if (mod->isRoot) {
-    // fixme: start should be namespaced
-    printf(
-      "void (*_jet_entry_run_)(IFDEBUGELSE(const char*, void)) = start;\n"
-      "void (*_jet_entry_test_)(int) = jet_runTests_%s;\n\n",
-      mod->cname);
-  }
+  // if (mod->isRoot) {
+  //   // fixme: start should be namespaced
+  //   printf(
+  //     "void (*_jet_entry_run_)(IFDEBUGELSE(const char*, void)) =
+  //     start;\n" "void (*_jet_entry_test_)(int) = jet_runTests_%s;\n\n",
+  //     mod->cname);
+  // }
 
   outln("#undef THISMODULE");
   outln("#undef THISFILE");
@@ -1570,22 +1570,19 @@ static int mod_emit_mainwrapper(Module* mod) {
   printf( //
     "#ifdef JET_MONOBUILD\n"
     "#include \"%s\"\n"
-    "#ifdef JET_MODE_TEST\n"
-    "#define JET_ENTRY %s_start\n"
-    "#else\n"
-    "#define JET_ENTRY jet_runTests_%s\n"
-    "#endif\n"
     "#else\n"
     "#include \"%s\"\n" // entrypoint defined by -D...
     "#endif\n"
     "\n"
     "#ifdef JET_MODE_TEST\n"
+    "#define JET_ENTRY jet_runTests_%s\n"
     "#include \"jet/rt_test.c\"\n"
     "#else\n"
+    "#define JET_ENTRY /*%s_*/ start\n"
     "#include \"jet/rt_run.c\"\n"
     "#endif\n"
     "\n",
-    mod->out_c, mod->cname, mod->cname, mod->out_h);
+    mod->out_c, mod->out_h, mod->cname, mod->cname);
   fclose(outfile);
   return 0;
 }

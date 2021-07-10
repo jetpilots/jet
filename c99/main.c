@@ -412,7 +412,7 @@ int main(int argc, char* argv[]) {
 
   // Monolithic builds don't need the .o for each module.
   foreachn(Module*, mod, mods, modules) {
-    if (cfg.build.mono && mods->next) continue;
+    if (cfg.build.mono /*&& mods->next*/) continue;
 
     bool anyDependencyHModified = false;
     foreach (Import*, imp, mod->imports) {
@@ -440,45 +440,75 @@ int main(int argc, char* argv[]) {
           "-c", mod->out_c, "-o", mod->out_o)) {
       unreachable("cc failed for: %s\n", mod->filename);
     }
+    modifiedMods++;
   }
 
   if (_InternalErrs) goto end; // cc can fail
 
   if (parser->mode == PMRun || parser->mode == PMTest) {
     bool istest = parser->mode == PMTest;
-    if (!file_newer( //
-          istest ? "engine/jet/test0.o" : "engine/jet/rt0.o",
-          istest ? "engine/jet/test0.c" : "engine/jet/rt0.c")
-      || cfg.build.force) {
-      if (Process_exec(cfg.path.cc, cfg.build.dbg, cfg.build.opt,     //
-            "-I", cfg.path.engine,                                    //
-            "-x", cfg.use.cocoa ? "objective-c" : "c",                //
-            "-D", cfg.use.cocoa ? "GUI_COCOA" : "GUI_NONE",           //
-            "-D", cstr_interp_s(256, "TENTRY=%s", root->cname),       //
-            "-c", istest ? "engine/jet/test0.c" : "engine/jet/rt0.c", //
-            "-o", istest ? "engine/jet/test0.o" : "engine/jet/rt0.o")) {
-        unreachable("rt0 or test0 failed%s\n", "");
-        goto end;
-      }
-    }
+    // if (!file_newer( //
+    //       istest ? "engine/jet/test0.o" : "engine/jet/rt0.o",
+    //       istest ? "engine/jet/test0.c" : "engine/jet/rt0.c")
+    //   || cfg.build.force) {
+    //   if (Process_exec(cfg.path.cc, cfg.build.dbg, cfg.build.opt,     //
+    //         "-I", cfg.path.engine,                                    //
+    //         "-x", cfg.use.cocoa ? "objective-c" : "c",                //
+    //         "-D", cfg.use.cocoa ? "GUI_COCOA" : "GUI_NONE",           //
+    //         "-D", cstr_interp_s(256, "TENTRY=%s", root->cname),       //
+    //         "-c", istest ? "engine/jet/test0.c" : "engine/jet/rt0.c", //
+    //         "-o", istest ? "engine/jet/test0.o" : "engine/jet/rt0.o")) {
+    //     unreachable("rt0 or test0 failed%s\n", "");
+    //     goto end;
+    //   }
+    // }
     if (modifiedMods || !file_exists(exeName)) {
       dprintf("linking: %s\n", exeName);
-      PtrArray cmd = {};
-      arr_push(&cmd, cfg.path.cc), arr_push(&cmd, cfg.build.dbg);
-      foreachn(Module*, mod, mods, modules) {
-        if (cfg.build.mono && mods->next) continue;
-        arr_push(&cmd, mod->out_o);
-      }
-      arr_push(&cmd, istest ? "engine/jet/test0.o" : "engine/jet/rt0.o");
-      if (cfg.use.cocoa) {
-        arr_push(&cmd, "-framework"), arr_push(&cmd, "Cocoa");
-      }
-      arr_push(&cmd, "-o"), arr_push(&cmd, exeName);
-      arr_push(&cmd, NULL);
+      if (!cfg.build.mono) {
+        PtrArray cmd = {};
+        arr_push(&cmd, cfg.path.cc);
+        arr_push(&cmd, cfg.build.dbg);
 
-      if (Process_execIn_((char**)cmd.ref, NULL)) {
-        unreachable("ld failed%s\n", "");
-        goto end;
+        arr_push(&cmd, "-I");
+        arr_push(&cmd, cfg.path.engine);
+
+        foreachn(Module*, mod, mods, modules) {
+          // if (cfg.build.mono && mods->next) continue;
+          arr_push(&cmd, mod->out_o);
+        }
+        // arr_push(&cmd, istest ? "engine/jet/test0.o" :
+        // "engine/jet/rt0.o");
+
+        arr_push(&cmd, "-D");
+        arr_push(&cmd, istest ? "JET_MODE_TEST" : "JET_MODE_RUN"); //
+
+        arr_push(&cmd, "-x");
+        arr_push(&cmd, cfg.use.cocoa ? "objective-c" : "c");
+        arr_push(&cmd, root->out_w);
+
+        if (cfg.use.cocoa) {
+          arr_push(&cmd, "-D");
+          arr_push(&cmd, "GUI_COCOA");
+          arr_push(&cmd, "-framework");
+          arr_push(&cmd, "Cocoa");
+        }
+        arr_push(&cmd, "-o");
+        arr_push(&cmd, exeName);
+        arr_push(&cmd, NULL);
+
+        if (Process_execIn_((char**)cmd.ref, NULL)) {
+          unreachable("exe(i) failed%s\n", "");
+        }
+      } else if (!cfg.tccrun) {                                     // mono
+        if (Process_exec(cfg.path.cc, cfg.build.dbg, cfg.build.opt, //
+              "-I", cfg.path.engine,                                //
+              "-D", cfg.build.mono ? "JET_MONOBUILD" : "JET_INCRBUILD", //
+              "-D", cfg.use.cocoa ? "GUI_COCOA" : "GUI_NONE",           //
+              "-D", istest ? "JET_MODE_TEST" : "JET_MODE_RUN",          //
+              "-x", cfg.use.cocoa ? "objective-c" : "c",                //
+              root->out_w, "-o", exeName)) {
+          unreachable("exe(m) failed%s\n", "");
+        }
       }
     } else {
       dprintf(">>> %s is up to date\n", exeName);
