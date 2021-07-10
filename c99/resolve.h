@@ -19,7 +19,7 @@
 // end function
 
 static void resolveTypeSpec(Parser* parser, TypeSpec* spec, Module* mod,
-    List(TypeSpec) * definedParams) {
+  List(TypeSpec) * definedParams) {
   // TODO: disallow a type that derives from itself!
   if (spec->typeType != TYUnknown) return;
   if (!*spec->name) return;
@@ -110,18 +110,18 @@ static void resolveTypeSpec(Parser* parser, TypeSpec* spec, Module* mod,
 // This function is called in one pass, during the line-by-line parsing.
 // (since variables cannot be "forward-declared").
 static void resolveVars(Parser* parser, Expr* expr, Scope* scope,
-    bool inFuncCall) { // TODO: this could be done on rpn in parseExpr,
-                       // making it iterative instead of recursive = behaves
-                       // differently inside a func call: the ->left is not
-                       // resolved to a var, but to an argument label of the
-                       // called func. it would make sense to just skip
-                       // checking it here for now, and let resolveFuncs use
-                       // it to construct the func selector for lookup. At
-                       // some point though it would be nice if the compiler
-                       // could tell the user 'you missed the arg label
-                       // "xyz"' for which the basename of the func could be
-                       // used to get a list of all selectors having that
-                       // basename as a prefix.
+  bool inFuncCall) { // TODO: this could be done on rpn in parseExpr,
+                     // making it iterative instead of recursive = behaves
+                     // differently inside a func call: the ->left is not
+                     // resolved to a var, but to an argument label of the
+                     // called func. it would make sense to just skip
+                     // checking it here for now, and let resolveFuncs use
+                     // it to construct the func selector for lookup. At
+                     // some point though it would be nice if the compiler
+                     // could tell the user 'you missed the arg label
+                     // "xyz"' for which the basename of the func could be
+                     // used to get a list of all selectors having that
+                     // basename as a prefix.
 
   if (!expr) return;
   switch (expr->kind) {
@@ -202,7 +202,7 @@ static void resolveVars(Parser* parser, Expr* expr, Scope* scope,
     // dot, a subscript, or a func call if we allow member funcs
     if (expr->right)
       if (expr->right->kind == tkSubscript
-          || expr->right->kind == tkSubscriptR)
+        || expr->right->kind == tkSubscriptR)
         resolveVars(parser, expr->right->left, scope, false);
 
     break;
@@ -217,9 +217,9 @@ static void resolveVars(Parser* parser, Expr* expr, Scope* scope,
       if (pos[-1] != '\\') {
         if (pos[1] == '(') pos++;
         size_t len = strspn(pos + 1,
-            "abcdefghijklmnopqrstuvwxyz"
-            "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-            "1234567890");
+          "abcdefghijklmnopqrstuvwxyz"
+          "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+          "1234567890");
         if (len) {
           if (len > 31) len = 31;
           char buf[32];
@@ -265,17 +265,17 @@ static void resolveVars(Parser* parser, Expr* expr, Scope* scope,
         }
       }
       resolveVars(
-          parser, expr->right, scope, inFuncCall && expr->kind == tkComma);
+        parser, expr->right, scope, inFuncCall && expr->kind == tkComma);
 
       if (isSelfMutOp(expr)) {
         Var* target = NULL;
         Expr* targetExpr = expr->left;
         if (targetExpr) {
           if (targetExpr->kind == tkIdentR || //
-              targetExpr->kind == tkSubscriptR) {
+            targetExpr->kind == tkSubscriptR) {
             target = targetExpr->var;
           } else if (targetExpr->kind == tkPeriod && //
-              targetExpr->left && targetExpr->left->kind == tkIdentR) {
+            targetExpr->left && targetExpr->left->kind == tkIdentR) {
             targetExpr = targetExpr->left;
             target = targetExpr->var;
           }
@@ -305,7 +305,7 @@ static void resolveVars(Parser* parser, Expr* expr, Scope* scope,
             if (sourceExpr->kind == tkIdentR) {
               source = sourceExpr->var;
             } else if (sourceExpr->kind == tkPeriod && //
-                sourceExpr->left && sourceExpr->left->kind == tkIdentR) {
+              sourceExpr->left && sourceExpr->left->kind == tkIdentR) {
               sourceExpr = sourceExpr->left;
               source = sourceExpr->var;
             }
@@ -320,8 +320,8 @@ static void resolveVars(Parser* parser, Expr* expr, Scope* scope,
             // int promote = scope_reachableNoLoops(sourceScope, target);
             int promote = scope_reachable(sourceScope, target);
             if (promote < 64
-                && promote > source->promote) { // only have 4 bits. -1 wont
-                                                // happen since
+              && promote > source->promote) { // only have 4 bits. -1 wont
+                                              // happen since
               // vars exist.
               source->promote = promote;
               if (!strcmp(target->name, "ans")) source->escapes = true;

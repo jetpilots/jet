@@ -71,8 +71,8 @@ void threads_init(void) {
   {                                                                        \
     clock_Time t0 = clock_getTime();                                       \
     expr;                                                                  \
-    printf(                                                                \
-      "%s:%d: elapsed: %.9g s\n", f, l, clock_clockSpanNano(t0) / 1e9);    \
+    double elap = clock_clockSpanNano(t0) / 1e9;                           \
+    printf("%s:%d: elapsed: %.9g s\n", f, l, elap);                        \
   }
 // static double nums[10000];
 #include <math.h>

@@ -3,7 +3,7 @@ typedef struct IssueMgr {
   char* filename;
   uint16_t errCount, warnCount, errLimit;
   uint8_t lastError /*enum type*/, warnUnusedVar : 1, warnUnusedFunc : 1,
-      warnUnusedType : 1, warnUnusedArg : 1, hasParseErrors : 1;
+    warnUnusedType : 1, warnUnusedArg : 1, hasParseErrors : 1;
 } IssueMgr;
 
 typedef struct Parser {
@@ -26,15 +26,15 @@ typedef struct Parser {
 
   bool generateCommentExprs; // set to false when compiling, set to
                              // true when linting
-  bool godMode; //(only for me) inline C using unaryminus, etc
+  bool godMode;              //(only for me) inline C using unaryminus, etc
 
   // set these whenever use is detected (e.g. during resolveTypes or parsing
   // literals)
   struct {
     bool complex : 1, json : 1, yaml : 1, xml : 1, html : 1, http : 1,
-        ftp : 1, imap : 1, pop3 : 1, smtp : 1, frpc : 1, fml : 1, fbin : 1,
-        rational : 1, polynomial : 1, regex : 1, datetime : 1, colour : 1,
-        range : 1, table : 1, ui : 1;
+      ftp : 1, imap : 1, pop3 : 1, smtp : 1, frpc : 1, fml : 1, fbin : 1,
+      rational : 1, polynomial : 1, regex : 1, datetime : 1, colour : 1,
+      range : 1, table : 1, ui : 1;
   } requires;
 } Parser;
 MKSTAT(Parser)
@@ -83,7 +83,7 @@ long recordNewlines(Parser* parser) {
 }
 
 static Parser* par_fromFile(
-    char* filename, bool skipws, CompilerMode mode) {
+  char* filename, bool skipws, CompilerMode mode) {
   size_t flen = cstr_length(filename);
 
   // Error: the file might not end in .jet
@@ -161,13 +161,13 @@ static Parser* par_fromFile(
 
     if (ret->orig.used > 65535) {
       eprintf("%s: error: too many lines (%u); limit is 65000\n", filename,
-          ret->orig.used);
+        ret->orig.used);
       par_fini(ret);
       ret = NULL;
     }
   } else {
     eprintf("%s: error: file with %zu MB exceeds 16 MB limit\n", filename,
-        (size - 2) / 1024 / 1024);
+      (size - 2) / 1024 / 1024);
   }
   return ret;
 }
@@ -212,7 +212,7 @@ static Parser* par_fromStdin(bool skipws, CompilerMode mode) {
 
   if (ret->orig.used > 65535) {
     eprintf("stdin: error: too many lines (%u); limit is 65000\n",
-        ret->orig.used);
+      ret->orig.used);
     par_fini(ret);
     ret = NULL;
   }

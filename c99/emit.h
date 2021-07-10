@@ -1583,7 +1583,7 @@ static int mod_emit_mainwrapper(Module* mod) {
     "#include \"jet/rt_test.c\"\n"
     "#else\n"
     "#include \"jet/rt_run.c\"\n"
-    "endif\n"
+    "#endif\n"
     "\n",
     mod->out_c, mod->cname, mod->cname, mod->out_h);
   fclose(outfile);

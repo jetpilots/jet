@@ -138,11 +138,11 @@ typedef struct Token {
   uint32_t matchlen : 24;
   struct {
     bool skipWhiteSpace : 1,
-        mergeArrayDims : 1, // merge [:,:,:] into one self->token
-        noKeywosrdDetect : 1, // leave keywords as idents
-        strictSpacing : 1; // missing spacing around operators etc. is a
-                           // compile error YES YOU HEARD IT RIGHT
-                           // but why need this AND skipWhiteSpace?
+      mergeArrayDims : 1,   // merge [:,:,:] into one self->token
+      noKeywosrdDetect : 1, // leave keywords as idents
+      strictSpacing : 1;    // missing spacing around operators etc. is a
+                            // compile error YES YOU HEARD IT RIGHT
+                            // but why need this AND skipWhiteSpace?
   };
   uint16_t line;
   uint8_t col;
@@ -485,7 +485,7 @@ static void tok_detect(Token* token) {
       tt = tok_getType(token, 1);
       token->pos++;
       if (tt != tkAlphabet && tt != tkDigit && tt != tkSlash
-          && tt != tkPeriod)
+        && tt != tkPeriod)
         break;
     }
     tt_ret = tkUnits;
@@ -502,7 +502,7 @@ static void tok_detect(Token* token) {
       token->pos++;
 
       if (*token->pos == 'e' || *token->pos == 'E' || *token->pos == 'd'
-          || *token->pos == 'D') { // will all be changed to e btw
+        || *token->pos == 'D') { // will all be changed to e btw
         found_e = true;
         continue;
       }
@@ -577,8 +577,8 @@ static void tok_advance_notrample(Token* token) {
     token->col = 0; // position of the nl itself is 0
   }
   if (token->skipWhiteSpace
-      && (token->kind == tkSpaces
-          || (token->strictSpacing && token->kind == tkOneSpace)))
+    && (token->kind == tkSpaces
+      || (token->strictSpacing && token->kind == tkOneSpace)))
     tok_advance_notrample(token);
 }
 

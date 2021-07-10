@@ -82,8 +82,8 @@ typedef enum TypeTypes {
   // methods to print,
   // serialise, identify, reflect, etc.
   // TYOpen, // open for inference -> tyunknown is this
-  TYVoid, // void
-  TYNil, // passes type validation with anything. be careful!
+  TYVoid,   // void
+  TYNil,    // passes type validation with anything. be careful!
   TYObject, // resolved to an Type
   // primitives that can be printed or represented with no fuss
   TYFuncPtr,
@@ -95,15 +95,15 @@ typedef enum TypeTypes {
   // something is open for non-local inference. If you instead poison
   // something with TYError it will not be considered for nonlocal
   // inference.
-  TYDateTime, // this should have subtypes TYDateTimeSeconds and
+  TYDateTime,    // this should have subtypes TYDateTimeSeconds and
   TYDateTimeSec, // based on usage patterns the right one
   // is applied (for just > >= etc. seconds from epoch is enough)
-  TYRange, //
+  TYRange,  //
   TYPtrInt, // this is actually uintptr_t, since actual ptrs are
   TYSize2D, // this is actually uintptr_t, since actual ptrs are
   // TYObjects. maybe rename it
   TYPoint2D, // 200x200
-  TYRect, // 0x0:150x150. A range of 2 2D points is a... rect!
+  TYRect,    // 0x0:150x150. A range of 2 2D points is a... rect!
   TYRegex,
   TYString, // need to distinguish String and char*?
   TYBool,
@@ -308,16 +308,16 @@ typedef enum CollectionTypes {
   CTYDict,
   CTYDictU,
   CTYOrderedDictS, // String keys
-  CTYSortedDictS, // UInt/Int/VPtr keys
+  CTYSortedDictS,  // UInt/Int/VPtr keys
   CTYOrderedDictU,
   CTYSortedDictU,
   CTYSet,
   CTYOrderedSet,
   CTYSortedSet,
-  CTYTensor, // will need to store dims. includes vector/matrix/tensor
+  CTYTensor,   // will need to store dims. includes vector/matrix/tensor
   CTYIterator, // funcs that yield
   CTYDataFrame,
-  CTYStackArray, // computed size from init. can get later using countof()
+  CTYStackArray,  // computed size from init. can get later using countof()
   CTYStackArray8, // these are NOT in BYTES, but sizeof(whatever), so
                   // careful with double/int arrays
   CTYStackArray16,

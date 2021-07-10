@@ -96,6 +96,12 @@ typedef struct {
   bool stats, clean, help, vers, langserv, tccrun;
 } Config;
 
+bool dbglog = 0;
+#define dprintf(...)                                                       \
+  if (dbglog) eprintf(__VA_ARGS__)
+#define dputs(...)                                                         \
+  if (dbglog) eputs(__VA_ARGS__)
+
 #define SWITCH(e)                                                          \
   for (char* __sw_c = e; __sw_c; __sw_c = NULL)                            \
     if (0) { }
@@ -112,7 +118,7 @@ static void argparse(Config* cfg, int argc, char* argv[]) {
     .path.engine = "engine",
     .mode = PMEmitC,
     .build.opt = "-O0",
-    .build.dbg = "",
+    .build.dbg = "-g",
     .filename = "",
   };
 
@@ -134,7 +140,7 @@ static void argparse(Config* cfg, int argc, char* argv[]) {
     CASE("-f") cfg->build.force = 1;
 
     CASES(5, "-O0", "-O1", "-O2", "-O3", "-Os") cfg->build.opt = argv[i];
-    CASE("-g") cfg->build.dbg = argv[i];
+    // CASE("-g") cfg->build.dbg = argv[i];
 
     CASE("-l") cfg->mode = PMLint;
     CASE("-t") cfg->mode = PMTest;
@@ -145,6 +151,7 @@ static void argparse(Config* cfg, int argc, char* argv[]) {
     CASE("-ls") cfg->langserv = 1;
 
     CASE("-s") cfg->stats = 1;
+    CASE("-d") dbglog = 1;
     CASE("-x") cfg->clean = 1;
     CASE("-h") cfg->help = 1;
     CASE("-v") cfg->vers = 1;
@@ -286,12 +293,12 @@ int main(int argc, char* argv[]) {
   int modifiedMods = 0;
   if (_InternalErrs) goto end;
 
-  char* exeName = cstr_pclone(cstr_interp_s(512, "%s.%s%s%s%s.%c",
+  char* exeName = cstr_pclone(cstr_interp_s(512, "%s.%s.%s%s%s.%c",
     cstr_dir_ip(cstr_pclone(root->filename)),
     cstr_base(root->filename, '/', strlen(root->filename)), //
-    cfg.build.opt[2],                                       //
+    cfg.build.opt + 2,                                      //
+    cfg.build.mono ? "m" : "i",                             //
     cfg.build.dbg ? "g" : "",                               //
-    cfg.build.mono ? "m" : "",                              //
     cfg.mode == PMTest ? 't' : 'x'));
 
   foreach (Module*, mod, modules) {
@@ -325,12 +332,13 @@ int main(int argc, char* argv[]) {
     // root->out_o = cstr_pclone(root->out_c);
     // root->out_o[strlen(root->out_o) - 1] = 'o';
 
-    mod->out_o = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s%s%s%s.o",
-      cstr_dir_ip(cstr_pclone(mod->filename)),
+    mod->out_o = cstr_pclone(__cstr_interp__s(
+      512, buf, "%s.%s.%s%s%s.o", cstr_dir_ip(cstr_pclone(mod->filename)),
       cstr_base(mod->filename, '/', l), //
-      cfg.build.opt[2],                 //
-      cfg.build.dbg ? "g" : "",         //
-      cfg.build.mono ? "m" : ""));
+      cfg.build.opt + 2,                //
+      cfg.build.mono ? "m" : "i",
+      cfg.build.dbg ? "g" : "" //
+      ));
   }
 
   if (parser->mode == PMLint) {
@@ -379,7 +387,7 @@ int main(int argc, char* argv[]) {
       // #include'd in the root mod.
       foreach (Import*, imp, mod->imports) {
         if (imp->mod /*&& imp->used*/ && imp->mod->emitted) {
-          eprintf(
+          dprintf(
             ">>> dep %s of %s is emitted\n", imp->mod->name, mod->name);
           anyDependencyEmitted = true;
           break;
@@ -393,7 +401,7 @@ int main(int argc, char* argv[]) {
       && file_newer(mod->out_c, mod->filename))
       continue;
 
-    eprintf("emitting: %s (template-modified: %s)\n", mod->filename,
+    dprintf("emitting: %s (template-modified: %s)\n", mod->filename,
       _fp_bools_yn_[!!mod->modified]);
     mod_emit(mod);
     mod->emitted = 1;
@@ -409,7 +417,7 @@ int main(int argc, char* argv[]) {
     bool anyDependencyHModified = false;
     foreach (Import*, imp, mod->imports) {
       if (imp->mod && imp->used && imp->mod->hmodified) {
-        eprintf(
+        dprintf(
           ">>> dep %s of %s is modified\n", imp->mod->name, mod->name);
         anyDependencyHModified = true;
         // public interface of some dep has changed, this mod will need
@@ -423,7 +431,7 @@ int main(int argc, char* argv[]) {
       && file_newer(mod->out_o, mod->out_c))
       continue;
 
-    eprintf("compiling: %s\n", mod->out_c);
+    dprintf("compiling: %s\n", mod->out_c);
     if (Process_exec(cfg.path.cc, cfg.build.dbg, cfg.build.opt,     //
           "-I", cfg.path.engine,                                    //
           "-D", cfg.build.mono ? "JET_MONOBUILD" : "JET_INCRBUILD", //
@@ -454,7 +462,7 @@ int main(int argc, char* argv[]) {
       }
     }
     if (modifiedMods || !file_exists(exeName)) {
-      eprintf("linking: %s\n", exeName);
+      dprintf("linking: %s\n", exeName);
       PtrArray cmd = {};
       arr_push(&cmd, cfg.path.cc), arr_push(&cmd, cfg.build.dbg);
       foreachn(Module*, mod, mods, modules) {
@@ -473,7 +481,7 @@ int main(int argc, char* argv[]) {
         goto end;
       }
     } else {
-      eprintf(">>> %s is up to date\n", exeName);
+      dprintf(">>> %s is up to date\n", exeName);
     }
   }
 
@@ -488,21 +496,21 @@ end:
   if (_InternalErrs)
     eputs("\e[31m*** an internal error has ocurred.\e[0m\n");
 
-  eprintf("\e[90m[ p/c %.2f + e %.1f + cc %.0f ms ] %.0f ms\e[0m\n",
+  dprintf("p/c %.2f + e %.1f + cc %.0f ms ] %.0f ms\n",
     parser->elap, //
     parser->oelap - parser->elap,
     parser->elap_tot - parser->oelap, //
     parser->elap_tot);
-  eprintf("\e[90m%.*s\e[0m\n", 72, _dashes_);
+  dprintf("%.*s\n", 72, _dashes_);
 
   if (parser->issues.errCount | _InternalErrs) return -1;
 
   if (parser->mode == PMRun || parser->mode == PMTest) {
-    eprintf("launching: %s%s\n", cfg.tccrun ? "tcc -run " : "", exeName);
+    dprintf("launching: %s%s\n", cfg.tccrun ? "tcc -run " : "", exeName);
     if (cfg.tccrun) {
       execvp("tcc",
         (char*[]) {                                                    //
-          "tcc", "-run",                                               //
+          "tcc", "-run", "-x", "c", "-I", cfg.path.engine,             //
           "-D", "JET_MONOBUILD",                                       //
           "-D", cfg.mode == PMTest ? "JET_MODE_TEST" : "JET_MODE_RUN", //
           root->out_w, NULL });

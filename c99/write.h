@@ -2,7 +2,7 @@
 static void imp_write(Import* import, int level) {
   char* alias = import->name + import->aliasOffset;
   printf("import %s%s%s\n", import->name, alias ? " as " : "",
-      alias ? alias : "");
+    alias ? alias : "");
 }
 
 static void spec_write(TypeSpec* spec, int level) {
@@ -28,14 +28,14 @@ static void spec_write(TypeSpec* spec, int level) {
 }
 
 static void expr_write(
-    Expr* expr, int level, bool spacing, bool escapeStrings);
+  Expr* expr, int level, bool spacing, bool escapeStrings);
 
 static void var_write(Var* var, int level) {
   printf("%.*s%s%s", level, spaces,
-      var->isVar       ? "var "
-          : var->isLet ? "let "
-                       : "",
-      var->name);
+    var->isVar     ? "var "
+      : var->isLet ? "let "
+                   : "",
+    var->name);
   TokenKind kind = var->init ? var->init->kind : tkUnknown;
 
   bool genType = false; // set it here to override
@@ -45,28 +45,28 @@ static void var_write(Var* var, int level) {
   //                or var->init->kind == tkRegexp or var->init->kind ==
   //                tkString or var->init->kind == tkRawString)) {
   if (kind == tkFuncCall // unresolved constructor
-      && !strcmp(var->init->str, var->spec->name)) {
+    && !strcmp(var->init->str, var->spec->name)) {
   } else if (kind == tkFuncCallR && var->spec->typeType == TYObject
-      && !strcmp(var->init->func->name, var->spec->type->name)) {
+    && !strcmp(var->init->func->name, var->spec->type->name)) {
     // resolved constructor, so type is also resolved
   } else if (ISIN(6, kind, tkNumber, tkRegexp, tkNo, tkYes, tkString,
-                 tkRawString)) { // simple literals
+               tkRawString)) { // simple literals
     // } else if () { // usual ops on numbers
   } else if (kind == tkArrayOpen && var->init->right) {
     Expr* e1 = var->init->right;
     if (e1->kind == tkComma) e1 = e1->left;
     if (!ISIN(6, e1->kind, tkNumber, tkRegexp, tkNo, tkYes, tkString,
-            tkRawString))
+          tkRawString))
       genType = true;
   } else if (var->init
-      && (isBoolOp(var->init) || isCmpOp(var->init)
-          || isArithOp(var->init))) { // simple stuff that gives Boolean
+    && (isBoolOp(var->init) || isCmpOp(var->init)
+      || isArithOp(var->init))) { // simple stuff that gives Boolean
   }
   // else if (var->spec->typeType == TYObject
   //     && var->spec->type->isEnum) {
   // }
   else if (var->spec->typeType == TYError || var->spec->typeType == TYVoid
-      || (var->spec->typeType == TYUnknown && *var->spec->name == '\0')) {
+    || (var->spec->typeType == TYUnknown && *var->spec->name == '\0')) {
     genType = false;
   } else {
     genType = true;
@@ -192,13 +192,13 @@ static void func_write(Func* func, int level) {
 
   foreachn(Var*, arg, args, func->args) {
     var_write(arg, level);
-    printf(args->next ? ", " : "");
+    printf("%s", args->next ? ", " : "");
   }
   printf(")");
 
   if (func->spec && !func->isStmt
-      && !(func->spec->typeType == TYObject
-          && !strcasecmp(func->spec->type->name, func->name))) {
+    && !(func->spec->typeType == TYObject
+      && !strcasecmp(func->spec->type->name, func->name))) {
     printf(" ");
     spec_write(func->spec, level);
   }
@@ -225,7 +225,7 @@ static void JetTest_write(Test* test, int level) {
 }
 
 static void expr_write(
-    Expr* expr, int level, bool spacing, bool escapeStrings) {
+  Expr* expr, int level, bool spacing, bool escapeStrings) {
   // generally an expr is not split over several lines (but maybe in
   // rare cases). so level is not passed on to recursive calls.
   printf("%.*s", level, spaces);
@@ -296,7 +296,7 @@ static void expr_write(
       expr_write(expr->left, 0, spacing, escapeStrings);
     } else {
       if (expr->left->typeType == TYObject
-          && !expr->left->var->spec->type->isEnum)
+        && !expr->left->var->spec->type->isEnum)
         expr_write(expr->left, 0, spacing, escapeStrings);
       printf(".");
       expr_write(expr->right, 0, spacing, escapeStrings);
@@ -315,7 +315,7 @@ static void expr_write(
     printf("%s", TokenKind_repr[expr->kind]);
     if (expr->right)
       expr_write(
-          expr->right, level, expr->kind != tkArrayOpen, escapeStrings);
+        expr->right, level, expr->kind != tkArrayOpen, escapeStrings);
     printf("%s", TokenKind_repr[TokenKind_reverseBracket(expr->kind)]);
     break;
 
@@ -332,10 +332,10 @@ static void expr_write(
     if (!expr->prec) break;
     // not an operator, but this should be error if you reach here
     bool leftBr
-        = expr->left && expr->left->prec && expr->left->prec < expr->prec;
+      = expr->left && expr->left->prec && expr->left->prec < expr->prec;
     bool rightBr = expr->right && expr->right->prec
-        && expr->right->kind != tkReturn // found in 'or return'
-        && expr->right->prec < expr->prec;
+      && expr->right->kind != tkReturn // found in 'or return'
+      && expr->right->prec < expr->prec;
 
     if (expr->kind == tkColon) {
       // expressions like arr[a:x-3:2] should become
@@ -368,18 +368,18 @@ static void expr_write(
     if (leftBr) putc(lpo, stdout);
     if (expr->left)
       expr_write(expr->left, 0, spacing && !leftBr && expr->kind != tkColon,
-          escapeStrings);
+        escapeStrings);
     if (leftBr) putc(lpc, stdout);
 
     printf("%s",
-        spacing ? TokenKind_srepr[expr->kind] : TokenKind_repr[expr->kind]);
+      spacing ? TokenKind_srepr[expr->kind] : TokenKind_repr[expr->kind]);
 
     char rpo = rightBr && expr->right->kind == tkColon ? '[' : '(';
     char rpc = rightBr && expr->right->kind == tkColon ? ']' : ')';
     if (rightBr) putc(rpo, stdout);
     if (expr->right)
       expr_write(expr->right, 0,
-          spacing && !rightBr && expr->kind != tkColon, escapeStrings);
+        spacing && !rightBr && expr->kind != tkColon, escapeStrings);
     if (rightBr) putc(rpc, stdout);
 
     if (expr->kind == tkPower && !spacing) putc(')', stdout);

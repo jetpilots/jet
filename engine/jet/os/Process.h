@@ -227,7 +227,7 @@ monostatic void Process_update(Process* proc) {
   Process_execIn_((char*[]) { __VA_ARGS__, NULL }, dir)
 
 monostatic int Process_execIn_(char* args[], char* dir) {
-  int dbg = 1;
+  int dbg = 0;
   clock_Time t0;
   if (dbg) {
     char** a = args;

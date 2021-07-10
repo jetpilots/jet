@@ -1,6 +1,7 @@
+#ifndef JET_MONOBUILD
 #include <stdio.h>
-
 #include "jet/os/clock.h"
+#endif
 
 #include "runtest.h"
 #include "_rt/globals.h"
@@ -17,7 +18,7 @@
 #error specify the name of the entry function with -DJET_ENTRY=(name)
 #endif
 
-void (*const _jet_entry_test_)(int runDeps) = JET_ENTRY;
+// void (*const _jet_entry_test_)(int runDeps) = JET_ENTRY;
 
 int main(int argc, char* argv[]) {
   // if (isatty(STDERR_FILENO)) {

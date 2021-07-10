@@ -140,7 +140,7 @@ static void scope_lower(Scope* scope) {
 
     Scope* targetScope = scope;
     while (up--
-        && (targetScope = targetScope->isLoop ? NULL : targetScope->parent))
+      && (targetScope = targetScope->isLoop ? NULL : targetScope->parent))
       ;
     if (!targetScope) continue;
 

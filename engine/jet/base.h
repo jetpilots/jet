@@ -199,6 +199,12 @@ typedef double Real64;
 #define for_to(i, n) for (UInt32 i = 0; i < (n); i++)
 #define for_to_where(i, n, cond) for_to(i, n) if (cond)
 
+#define TIMER                                                              \
+  for (clock_Time t0 = clock_getTime(), t1 = 0; t1 == 0;                   \
+       t1 = clock_clockSpanNano(t0),                                       \
+                  printf("%s:%d: timer: %g ms\n", __FILE__, __LINE__,      \
+                    t1 / 1e6))
+
 // Should be using adhoc to generate these.
 
 static const double __RRANDFMAX = 1.0 / RAND_MAX;

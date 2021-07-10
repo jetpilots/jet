@@ -9,7 +9,7 @@ static uint32_t var_hash(Var* var) {
 }
 
 static void expr_dohash(
-    Parser* parser, Expr* expr, Dict(UInt32, VPtr) * cseDict) {
+  Parser* parser, Expr* expr, Dict(UInt32, VPtr) * cseDict) {
   if (!expr) {
     unreachable("%s", "expr is NULL");
     return;
@@ -89,10 +89,10 @@ static void expr_dohash(
     }
   }
   if (!ISIN(6, expr->kind, tkNumber, tkString, tkRawString, tkIdentR,
-          tkVarDefn, tkComment)
-      && !isCtrlExpr(expr)) {
+        tkVarDefn, tkComment)
+    && !isCtrlExpr(expr)) {
     if (expr->kind != tkPeriod
-        || (expr->right && expr->right->kind == tkFuncCallR)) {
+      || (expr->right && expr->right->kind == tkFuncCallR)) {
       // Don't put really simple things like literals into the CSE dict.
       Dict_putk(UInt32, VPtr)(cseDict, expr->hash, expr);
       // int status = 0;
@@ -106,7 +106,7 @@ static void expr_dohash(
 // the hashes have been generated in expr_dohash (which is bottom-up, so
 // checking cannot happen inline).
 static void expr_checkHashes(
-    Parser* parser, Expr* expr, Dict(UInt32, VPtr) * cseDict) {
+  Parser* parser, Expr* expr, Dict(UInt32, VPtr) * cseDict) {
   if (!expr) return;
 
   // UInt32 idx = Dict_get(UInt32, VPtr)(cseDict, expr->hash);

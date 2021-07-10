@@ -1,8 +1,9 @@
+#ifndef JET_MONOBUILD
 #include <stdio.h>
+#include "_rt/errhandler.h"
+#endif
 
 #include "runtest.h"
-// #include "_rt/stack.h"
-#include "_rt/errhandler.h"
 #include "_rt/globals.h"
 
 #ifdef GUI_COCOA
@@ -23,8 +24,8 @@
 #error specify the name of the entry function with -DJET_ENTRY=(name)
 #endif
 
-void (*const _jet_entry_run_)(IFDEBUGELSE(const char* callsite, void))
-  = JET_ENTRY;
+// void (*const _jet_entry_run_)(IFDEBUGELSE(const char* callsite, void))
+// = JET_ENTRY;
 
 int main(int argc, char* argv[]) {
   _stack_boundary = (char*)&argc - sys_stackSize() + 8192;
