@@ -7,12 +7,12 @@
 
 typedef enum CompilerMode {
   PMTokenize, // just tokenize (debug only)
-  PMLint, // format on stdout, ALL errors on stderr
-  PMEmitC, // parse, stop on first error, or emit C
+  PMLint,     // format on stdout, ALL errors on stderr
+  PMEmitC,    // parse, stop on first error, or emit C
   // PMBuildO, // generate the object file
   PMMake, // run make and build the target
-  PMRun, // run the executable in debug mode (build it first)
-  PMTest // generate test code and run it
+  PMRun,  // run the executable in debug mode (build it first)
+  PMTest  // generate test code and run it
 } CompilerMode;
 
 #include "parser.h"
@@ -26,9 +26,9 @@ static void sighandler(int sig, siginfo_t* si, void* unused) {
   write(2, "in function: ", 13);
   write(2, __lastfunc__, __lastfuncl__);
   write(2,
-      ":1:1-1: error: internal error: this file caused a segmentation "
-      "fault (unknown location)\n",
-      88);
+    ":1:1-1: error: internal error: this file caused a segmentation "
+    "fault (unknown location)\n",
+    88);
   _exit(1);
 }
 
@@ -40,7 +40,7 @@ int main(int argc, char* argv[]) {
   sigaction(SIGSEGV, &sa, NULL);
 
   CompilerMode mode = PMLint;
-  List(Module)* modules = NULL;
+  // List(Module)* modules = NULL;
   Parser* parser;
 
   for (int i = 1; i < argc; i++) {
@@ -57,9 +57,9 @@ int main(int argc, char* argv[]) {
     }
     parser->elap = clock_clockSpanMicro(t0) / 1.0e3;
     printf("%7zu B, %5d L, %5d T, %6.2f N/f, %4.1fms, %s\n",
-        parser->end - parser->data, parser->orig.used, ntok,
-        ntok * 32.0 / (parser->end - parser->data), parser->elap,
-        parser->filename);
+      parser->end - parser->data, parser->orig.used, ntok,
+      ntok * 32.0 / (parser->end - parser->data), parser->elap,
+      parser->filename);
     par_fini(parser);
   }
   return 0;

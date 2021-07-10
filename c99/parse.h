@@ -295,7 +295,7 @@ static Expr* parseExpr(Parser* parser) {
     tok_advance(&parser->token);
     if (parser->token.kind == tkOneSpace) tok_advance(&parser->token);
   }
-exitloop:
+  // exitloop:
 
   while (!arr_empty(&ops)) {
     p = arr_pop(&ops);
@@ -323,7 +323,7 @@ exitloop:
   // *** STEP 2 CONVERT RPN INTO EXPR TREE
 
   Expr* arg;
-  for (int i = 0; i < rpn.used; i++) {
+  for (UInt32 i = 0; i < rpn.used; i++) {
     if (!(p = rpn.ref[i])) goto justpush;
     switch (p->kind) {
     case tkFuncCall:
@@ -410,32 +410,28 @@ error:
 
   if (ops.used) {
     eputs("ops: [ ");
-    for (int i = 0; i < ops.used; i++)
+    for_to(i, ops.used)
       eprintf("%s ", TokenKind_repr[((Expr*)ops.ref[i])->kind]);
     eputs("];;");
   }
 
   if (rpn.used) {
     eputs("rpn: [ ");
-    for (int i = 0; i < rpn.used; i++)
-      if (!rpn.ref[i])
-        eputs("NUL ");
-      else {
-        Expr* e = rpn.ref[i];
-        eprintf("%.*s ", 32, e->prec ? TokenKind_repr[e->kind] : e->str);
-      }
+    for_to(i, rpn.used) if (!rpn.ref[i]) eputs("NUL ");
+    else {
+      Expr* e = rpn.ref[i];
+      eprintf("%.*s ", 32, e->prec ? TokenKind_repr[e->kind] : e->str);
+    }
     eputs("];;");
   }
 
   if (result.used) {
     eputs("result: [ ");
-    for (int i = 0; i < result.used; i++)
-      if (!result.ref[i])
-        eputs("NUL ");
-      else {
-        Expr* e = result.ref[i];
-        eprintf("%.*s ", 32, e->prec ? TokenKind_repr[e->kind] : e->str);
-      }
+    for_to(i, result.used) if (!result.ref[i]) eputs("NUL ");
+    else {
+      Expr* e = result.ref[i];
+      eprintf("%.*s ", 32, e->prec ? TokenKind_repr[e->kind] : e->str);
+    }
     eputs("];;");
   }
 
@@ -533,7 +529,7 @@ static Var* parseVar(Parser* parser) {
   //     tok_advance(&parser->token);
   // }
 
-  int dims = 0;
+  // int dims = 0;
   // if (matches(parser, tkArrayDims)) {
   //     for (int i = 0; i < parser->token.matchlen; i++)
   //         if (parser->token.pos[i] == ':') dims++;
@@ -634,7 +630,7 @@ static Scope* parseScope(
   scope->isLoop = isLoop;
 
   bool startedElse = false;
-  bool startedCase = false;
+  // bool startedCase = false;
 
   List(Var)** locals = &scope->locals;
   List(Var)** stmts = &scope->stmts;
@@ -1122,7 +1118,7 @@ static Type* parseEnum(Parser* parser, Scope* globScope) {
 
 static Import* parseImport(Parser* parser, Module* ownerMod) {
   Import* imp = NEW(Import);
-  char* tmp;
+  // char* tmp;
   par_consume(parser, tkImport);
   par_consume(parser, tkOneSpace);
 
@@ -1401,7 +1397,7 @@ static Module* parseModule(
       // create some extra function declares
       char* defFuncs[] = { "json", "print", "describe" };
 
-      for (int i = 0; i < countof(defFuncs); i++) {
+      for_to(i, countof(defFuncs)) {
         Func* func = func_createDeclWithArg(defFuncs[i], NULL, type->name);
         func->line = type->line;
         func->intrinsic = true;
@@ -1511,13 +1507,12 @@ static Module* parseModule(
   char* defFuncs[] = { "json", "print", "describe" };
   char* retTypes[countof(defFuncs)] = {}; // fill these for non-void funcs
 
-  for (int j = 0; j < countof(defTypes); j++)
-    for (int i = 0; i < countof(defFuncs); i++) {
-      Func* func
-        = func_createDeclWithArg(defFuncs[i], retTypes[i], defTypes[j]);
-      func->intrinsic = true;
-      funcs = li_push(funcs, func);
-    }
+  for_to(j, countof(defTypes)) for_to(i, countof(defFuncs)) {
+    Func* func
+      = func_createDeclWithArg(defFuncs[i], retTypes[i], defTypes[j]);
+    func->intrinsic = true;
+    funcs = li_push(funcs, func);
+  }
   root->nlines = parser->token.line;
 
   // do some analysis that happens after the entire module is loaded

@@ -1114,8 +1114,8 @@ monostatic Func* mod_getFunc(Module* module, const char* selector) {
   return NULL;
 }
 
-monostatic Expr* expr_getExpr(Expr* expr, int col) {
-  int l;
+monostatic Expr* expr_getExpr(Expr* expr, UInt32 col) {
+  UInt32 l;
   Expr* ret;
   switch (expr->kind) {
   case tkIdent:

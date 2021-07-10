@@ -19,7 +19,7 @@ monostatic void* Pool_alloc(Pool* self, size_t reqd) {
       Array_push(UInt32)(&self->caps, self->cap);
     }
     self->cap
-        = (self->cap ? (self->cap > 2 MB ? 2 MB : self->cap * 2) : 4 KB);
+      = (self->cap ? (self->cap > 2 MB ? 2 MB : self->cap * 2) : 4 KB);
     self->capTotal += self->cap;
     self->ref = calloc(1, self->cap);
     assert(self->ref != NULL);
@@ -70,7 +70,7 @@ monostatic void* Pool_deref(Pool* self, SmallPtr sptr) {
 monostatic void Pool_free(Pool* self) {
   // TODO: reset used here?
   if (self->cap) free(self->ref);
-  for (int i = 0; i < self->ptrs.used; i++) free(self->ptrs.ref[i]);
+  for_to(i, self->ptrs.used) free(self->ptrs.ref[i]);
 }
 
 monostatic Pool gPool[1] = {};

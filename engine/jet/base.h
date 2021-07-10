@@ -196,7 +196,7 @@ typedef double Real64;
 
 // dont get smart and try to do Array(Array(Array(whatever)))
 
-#define for_to(i, n) for (int i = 0; i < (n); i++)
+#define for_to(i, n) for (UInt32 i = 0; i < (n); i++)
 #define for_to_where(i, n, cond) for_to(i, n) if (cond)
 
 // Should be using adhoc to generate these.

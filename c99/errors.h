@@ -8,24 +8,24 @@
 
 #define noPoison 0
 static void par__errHeaderWithLoc(
-    Parser* parser, int line, int col, int len) {
+  Parser* parser, int line, int col, int len) {
   eprintf("%s%s:%d:%d-%d: error: #%d;;", RELF(parser->filename), line, col,
-      col + len, parser->issues.errCount + 1);
+    col + len, parser->issues.errCount + 1);
 }
 static void par__errHeader(Parser* parser) {
   par__errHeaderWithLoc(parser, parser->token.line, parser->token.col,
-      parser->token.col + parser->token.matchlen);
+    parser->token.col + parser->token.matchlen);
 }
 static void par__warnHeaderWithLoc(
-    Parser* parser, int line, int col, int len) {
+  Parser* parser, int line, int col, int len) {
   eprintf("%s%s:%d:%d-%d: warning: #%d;;", RELF(parser->filename), line,
-      col, col + len, ++parser->issues.warnCount);
+    col, col + len, ++parser->issues.warnCount);
 }
 
 static void par__hintHeaderWithLoc(
-    Parser* parser, int line, int col, int len) {
+  Parser* parser, int line, int col, int len) {
   eprintf("%s%s:%d:%d-%d: hint: #%d;;", RELF(parser->filename), line, col,
-      col + len, ++parser->issues.warnCount);
+    col + len, ++parser->issues.warnCount);
 }
 
 static void par__errHeaderWithExpr(Parser* parser, Expr* expr) {
@@ -83,27 +83,27 @@ static void par__errHeaderWithExpr(Parser* parser, Expr* expr) {
   default: len = strlen(TokenKind_repr[expr->kind]); break;
   }
   par__errHeaderWithLoc(
-      parser, expr->line ? expr->line : parser->token.line, col, len);
+    parser, expr->line ? expr->line : parser->token.line, col, len);
 }
 static void err_increment(Parser* parser) {
   if (++parser->issues.errCount < parser->issues.errLimit) return;
   if (parser->mode == PMLint) {
     fatal(
-        "\n*** too many errors (%d), quitting\n", parser->issues.errLimit);
+      "\n*** too many errors (%d), quitting\n", parser->issues.errLimit);
   } else {
     fatal("\n*** %s has errors, please lint it first.\n", parser->filename);
   }
 }
 static const char* const carets
-    = "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
-      "^^^^"
-      "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^";
+  = "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
+    "^^^^"
+    "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^";
 #define _PRLINE(line)                                                      \
   if (line > 0 && line <= parser->orig.used)                               \
     eprintf("%4d | %s\n", line + offs,                                     \
-        (char*)parser->orig.ref[line + offs - 1]);
+      (char*)parser->orig.ref[line + offs - 1]);
 void _PRREDLINE(
-    Parser* parser, int line, int col, int len, int offs, char* msg) {
+  Parser* parser, int line, int col, int len, int offs, char* msg) {
   char* c = parser->orig.ref[line + offs - 1];
   if (!col) len = strlen(c), col = 1;
   eprintf("%4d | %.*s", line + offs, col - 1, c);
@@ -113,7 +113,7 @@ void _PRREDLINE(
 }
 
 void par__printSourceLinesWithOffset(
-    Parser* parser, int line, int col, int len, int offs, char* msg) {
+  Parser* parser, UInt32 line, int col, int len, int offs, char* msg) {
   _PRLINE(line - 2)
   _PRLINE(line - 1)
   _PRREDLINE(parser, line, col, len, offs, msg);
@@ -124,7 +124,7 @@ void par__printSourceLinesWithOffset(
 }
 
 void par__printSourceLines(
-    Parser* parser, int line, int col, int len, char* msg) {
+  Parser* parser, int line, int col, int len, char* msg) {
   par__printSourceLinesWithOffset(parser, line, col, len, 0, msg);
 }
 
@@ -132,14 +132,14 @@ static void err_expectedToken(Parser* parser, TokenKind expected) {
   par__errHeader(parser);
 
   eprintf("expected '%s' (%s) but found '%s'\n", TokenKind_repr[expected],
-      TokenKind_names[expected] + 2, TokenKind_repr[parser->token.kind]);
+    TokenKind_names[expected] + 2, TokenKind_repr[parser->token.kind]);
 
   char msg[128];
   msg[127] = 0;
   snprintf(msg, 127, "expected '%s' here", TokenKind_repr[expected]);
 
   par__printSourceLines(parser, parser->token.line, parser->token.col,
-      parser->token.matchlen, msg);
+    parser->token.matchlen, msg);
 
   // when you have an unexpected token on one line, the rest are also
   // going to be unexpected. so skip to the next newline.
@@ -193,7 +193,7 @@ static void err_syntax(Parser* parser, Expr* expr, char* what) {
 
   par__errHeaderWithExpr(parser, expr);
   eprintf("invalid syntax at '%s' (%s);;", TokenKind_repr[expr->kind],
-      what); //,
+    what); //,
 
   if (isKeywordKind(expr->kind))
     eputs("info: keywords cannot be used as identifiers;;");
@@ -205,7 +205,7 @@ static void err_syntax(Parser* parser, Expr* expr, char* what) {
 static void err_invalidIdent(Parser* parser) {
   par__errHeader(parser);
   eprintf(
-      "invalid name '%.*s'\n", parser->token.matchlen, parser->token.pos);
+    "invalid name '%.*s'\n", parser->token.matchlen, parser->token.pos);
   err_increment(parser);
 }
 
@@ -213,7 +213,7 @@ static void err_invalidTypeName(Parser* parser, Type* type) {
   par__errHeader(parser);
   eprintf("invalid type name '%s';;"
           "must be capitalized and without underscores\n",
-      type->name);
+    type->name);
   err_increment(parser);
 }
 static void err_invalidTypeMember(Parser* parser) {
@@ -227,7 +227,7 @@ static void err_unrecognizedVar(Parser* parser, Expr* expr) {
   eprintf("unknown variable '%.*s'\n", 64, expr->str);
 
   par__printSourceLines(
-      parser, expr->line, expr->col, strlen(expr->str), "unknown variable");
+    parser, expr->line, expr->col, strlen(expr->str), "unknown variable");
 
   err_increment(parser);
 }
@@ -241,7 +241,7 @@ static void err_importNotFound(Parser* parser, Import* impo) {
 static void err_unrecognizedMember(Parser* parser, Type* type, Expr* expr) {
   par__errHeaderWithExpr(parser, expr);
   eprintf("%s '%s' has no member '%s';;", type->isEnum ? "enum" : "type",
-      type->name, expr->str);
+    type->name, expr->str);
 
   if (type->body) {
     foreach (Var*, var, type->body->locals) {
@@ -253,7 +253,7 @@ static void err_unrecognizedMember(Parser* parser, Type* type, Expr* expr) {
     }
     eputs("members: ");
     foreachn(Var*, var, vi, type->body->locals) if (var->name && *var->name)
-        eprintf("%s%s", var->name, vi->next ? ", " : "");
+      eprintf("%s%s", var->name, vi->next ? ", " : "");
     eputs("\n");
   }
   err_increment(parser);
@@ -287,14 +287,14 @@ static void hint_varPromoteScope(Parser* parser, Var* var) {
   // if (!parser->issues.hints) return;
   par__hintHeaderWithLoc(parser, var->line, var->col, strlen(var->name));
   eprintf("var '%s' escapes scope, will be promoted up %d levels\n",
-      var->name, var->promote);
+    var->name, var->promote);
 }
 
 static void warn_unusedFunc(Parser* parser, Func* func) {
   if (!parser->issues.warnUnusedFunc) return;
   par__warnHeaderWithLoc(parser, func->line, func->col, strlen(func->name));
   eprintf("unused or unnecessary function '%s';;selector: '%s'\n",
-      func->name, func->sel);
+    func->name, func->sel);
 }
 
 static void warn_unusedType(Parser* parser, Type* type) {
@@ -307,17 +307,17 @@ static void warn_sameExpr(Parser* parser, Expr* e1, Expr* e2) {
   if (!parser->issues.warnUnusedType) return;
   par__warnHeaderWithLoc(parser, e1->line, e1->col, 1);
   eprintf("CSE candidate '%s' for %d:%d\n", TokenKind_repr[e1->kind],
-      e2->line, e2->col);
+    e2->line, e2->col);
 
   par__warnHeaderWithLoc(parser, e2->line, e2->col, 1);
   eprintf("CSE candidate '%s' for %d:%d\n", TokenKind_repr[e2->kind],
-      e1->line, e2->col);
+    e1->line, e2->col);
 }
 
 static void err_duplicateVar(Parser* parser, Var* var, int line, int col) {
   par__errHeaderWithLoc(parser, var->line, var->col, strlen(var->name));
   eprintf("duplicate variable '%s' already declared at %s%s:%d:%d\n",
-      var->name, RELF(parser->filename), line, col);
+    var->name, RELF(parser->filename), line, col);
   err_increment(parser);
 }
 
@@ -325,10 +325,10 @@ static void err_duplicateType(Parser* parser, Type* type, Type* orig) {
   par__errHeaderWithLoc(parser, type->line, type->col, strlen(type->name));
   if (orig)
     eprintf("duplicate type '%s' already declared at %s%s:%d:%d\n",
-        type->name, RELF(parser->filename), orig->line, orig->col);
+      type->name, RELF(parser->filename), orig->line, orig->col);
   else
     eprintf(
-        "invalid type name '%s' refers to a built-in type\n", type->name);
+      "invalid type name '%s' refers to a built-in type\n", type->name);
   err_increment(parser);
 }
 
@@ -336,7 +336,7 @@ static void err_duplicateEnum(Parser* parser, Type* en, Type* orig) {
   par__errHeaderWithLoc(parser, en->line, en->col, strlen(en->name));
   if (orig)
     eprintf("duplicate enum '%s' already declared at %s%s:%d:%d\n",
-        en->name, RELF(parser->filename), orig->line, orig->col);
+      en->name, RELF(parser->filename), orig->line, orig->col);
   else
     eprintf("invalid enum name '%s' refers to a built-in type\n", en->name);
   err_increment(parser);
@@ -345,7 +345,7 @@ static void err_duplicateEnum(Parser* parser, Type* en, Type* orig) {
 static void err_typeInheritsSelf(Parser* parser, Type* type) {
   par__errHeader(parser);
   eprintf("type inherits from self %s at %s%s:%d:%d\n", type->name,
-      RELF(parser->filename), type->line, type->col);
+    RELF(parser->filename), type->line, type->col);
   err_increment(parser);
 }
 
@@ -356,8 +356,8 @@ static void err_ctorHasType(Parser* parser, Func* func, Type* orig) {
           "type: %s at %s%s:%d:%d\n"
           "             type declared at %s%s:%d:%d\n"
           "             remove the return type specification\n",
-      func->name, RELF(parser->filename), func->line, 1,
-      RELF(parser->filename), orig->line, orig->col);
+    func->name, RELF(parser->filename), func->line, 1,
+    RELF(parser->filename), orig->line, orig->col);
   err_increment(parser);
 }
 
@@ -369,33 +369,33 @@ static void warn_ctorCase(Parser* parser, Func* func) {
           "             type declared at %s%s:%d:%d\n"
           "             change it to %s or lint the "
           "file\n",
-      ++parser->issues.warnCount, func->name, RELF(parser->filename),
-      func->line, 1, RELF(parser->filename), orig->line, orig->col,
-      orig->name);
+    ++parser->issues.warnCount, func->name, RELF(parser->filename),
+    func->line, 1, RELF(parser->filename), orig->line, orig->col,
+    orig->name);
 }
 
 static void err_duplicateFunc(Parser* parser, Func* func, Func* orig) {
   par__errHeaderWithLoc(parser, func->line, 6, strlen(func->name));
   eprintf("duplicate function "
           "'%s' already declared at %s%s:%d:%d with selector %s\n",
-      func->name, RELF(parser->filename), orig->line, 6, func->psel);
+    func->name, RELF(parser->filename), orig->line, 6, func->psel);
   err_increment(parser);
 }
 
 static void err_duplicateTest(Parser* parser, Test* test, Test* orig) {
   par__errHeaderWithLoc(parser, test->line, 5, strlen(test->name));
   eprintf("duplicate test \"%s\" already declared at %s%s:%d:%d\n",
-      test->name, RELF(parser->filename), orig->line, 1);
+    test->name, RELF(parser->filename), orig->line, 1);
   err_increment(parser);
 }
 
 static void err_unrecognizedFunc(
-    Parser* parser, Expr* expr, char* selector) {
+  Parser* parser, Expr* expr, char* selector) {
   if (noPoison && *selector == '<') return; // invalid type; already error'd
   par__errHeaderWithExpr(parser, expr);
 
   eprintf(
-      "cannot resolve call to '%s' (selector: %s);;", expr->str, selector);
+    "cannot resolve call to '%s' (selector: %s);;", expr->str, selector);
 
   // par__printSourceLines(
   //     parser, expr->line, expr->col, strlen(expr->str), "unknown
@@ -410,17 +410,17 @@ static void err_unrecognizedFunc(
 // take the closest matching func by type. Generally the linter will add
 // labels automatically so this warning will only appear on unlinted files.
 static void warn_unrecognizedSelector(
-    Parser* parser, Expr* expr, char* selector, Func* selected) {
+  Parser* parser, Expr* expr, char* selector, Func* selected) {
   if (noPoison && *selector == '<') return; // invalid type; already error'd
   par__warnHeaderWithLoc(parser, expr->line, expr->col, strlen(expr->str));
 
   eprintf("no exact match for function '%s' with selector '%s', taking "
           "closest match '%s' (at %s%s:%d:%d)\n",
-      expr->str, selector, selected->sel, RELF(parser->filename),
-      expr->line, expr->col);
+    expr->str, selector, selected->sel, RELF(parser->filename), expr->line,
+    expr->col);
 
   par__printSourceLines(
-      parser, expr->line, expr->col, strlen(expr->str), "unknown function");
+    parser, expr->line, expr->col, strlen(expr->str), "unknown function");
 
   // eprintf("info: no function with selector '%s'\n", selector);
 
@@ -428,14 +428,14 @@ static void warn_unrecognizedSelector(
 }
 
 static void warn_templateHit(
-    Parser* parser, Expr* expr, char* selector, Func* selected) {
+  Parser* parser, Expr* expr, char* selector, Func* selected) {
   if (noPoison && *selector == '<') return; // invalid type; already error'd
   par__warnHeaderWithLoc(parser, expr->line, expr->col, strlen(expr->str));
 
   eprintf("no exact match for function '%s' with selector '%s', made "
           "'%s' from template at %s%s:%d:%d\n",
-      expr->str, selector, selected->sel, RELF(parser->filename),
-      selected->line, selected->col);
+    expr->str, selector, selected->sel, RELF(parser->filename),
+    selected->line, selected->col);
 
   // par__printSourceLines(
   //     parser, expr->line, expr->col, strlen(expr->str), "unknown
@@ -460,8 +460,8 @@ static void err_stringInterp(Parser* parser, Expr* expr, char* pos) {
           " string. If you want a literal $ sign in the string, "
           "write it as "
           "\\$.\n",
-      RELF(parser->filename), expr->line,
-      expr->col + (int)(pos - expr->str), expr->str);
+    RELF(parser->filename), expr->line, expr->col + (int)(pos - expr->str),
+    expr->str);
   err_increment(parser);
 }
 
@@ -473,8 +473,8 @@ static void err_callingFuncWithVoid(Parser* parser, Expr* expr, Expr* arg) {
           "%s function does not return a value.\n"
           " You cannot use it as an argument in the call to "
           "%s.\n",
-      RELF(parser->filename), expr->line, expr->col, arg->func->name,
-      expr->str);
+    RELF(parser->filename), expr->line, expr->col, arg->func->name,
+    expr->str);
   err_increment(parser);
 }
 
@@ -484,12 +484,12 @@ static void err_inheritanceCycle(Parser* parser, Type* type) {
           "           "
           "                       \n %s%s:%d:%d:\n Type "
           "%s has a cycle in its inheritance graph.",
-      RELF(parser->filename), type->line, type->col, type->name);
+    RELF(parser->filename), type->line, type->col, type->name);
   Type* super = type->super->type;
   eputs("");
   do {
     eprintf("\n extends %s (defined at %s%s:%d:%d)", super->name,
-        RELF(parser->filename), super->line, super->col);
+      RELF(parser->filename), super->line, super->col);
     if (super == super->super->type || super == type) {
       if (type != super) eprintf("\n extends %s", super->name);
       break;
@@ -507,7 +507,7 @@ static void err_constructorHasCycle(Parser* parser, Type* type) {
           "                       \n %s%s:%d:%d:\n Type "
           "%s has an endless cycle in its "
           "initialization.\n",
-      RELF(parser->filename), type->line, type->col, type->name);
+    RELF(parser->filename), type->line, type->col, type->name);
   err_increment(parser);
 }
 
@@ -518,16 +518,16 @@ static void err_argsCountMismatch(Parser* parser, Expr* expr) {
           "%s at %s%s:%d:%d\n"
           "          have %d args, need %d, func defined at "
           "%s%s:%d\n",
-      expr->func->name, RELF(parser->filename), expr->line, expr->col,
-      expr_countCommaList(expr->left), expr->func->argCount,
-      RELF(parser->filename), expr->func->line);
+    expr->func->name, RELF(parser->filename), expr->line, expr->col,
+    expr_countCommaList(expr->left), expr->func->argCount,
+    RELF(parser->filename), expr->func->line);
   err_increment(parser);
 }
 
 static void err_indexDimsMismatch(Parser* parser, Expr* expr, int nhave) {
   assert(expr->kind == tkSubscriptR);
   if (expr->var->spec->typeType == TYError
-      || expr->var->spec->typeType == TYUnknown)
+    || expr->var->spec->typeType == TYUnknown)
     return;
   // ^ type resolution failed (and must have raised error) so
   // don't process further
@@ -535,13 +535,13 @@ static void err_indexDimsMismatch(Parser* parser, Expr* expr, int nhave) {
   par__errHeaderWithExpr(parser, expr);
   if (!reqdDims)
     eprintf("can't index a scalar '%s' with %d dims (defined at %s%s:%d)\n",
-        expr->var->name, nhave, RELF(parser->filename),
-        expr->var->spec->line);
+      expr->var->name, nhave, RELF(parser->filename),
+      expr->var->spec->line);
   else {
     eprintf("dims mismatch for '%s': have %d indexes, need %d (defined "
             "at %s%s:%d)\n",
-        expr->var->name, nhave, reqdDims, RELF(parser->filename),
-        expr->var->spec->line);
+      expr->var->name, nhave, reqdDims, RELF(parser->filename),
+      expr->var->spec->line);
   }
   err_increment(parser);
 }
@@ -551,7 +551,7 @@ static void err_missingInit(Parser* parser, Expr* expr) {
   par__errHeaderWithExpr(parser, expr);
   eprintf("missing initializer for "
           "%s\n",
-      expr->var->name);
+    expr->var->name);
   parser->issues.hasParseErrors = 1;
   err_increment(parser);
 }
@@ -572,7 +572,7 @@ static void err_invalidTestName(Parser* parser) {
   par__errHeader(parser);
   eprintf("invalid test name "
           "'%.*s'; must be a string\n",
-      parser->token.matchlen, parser->token.pos);
+    parser->token.matchlen, parser->token.pos);
   err_increment(parser);
 }
 
@@ -584,7 +584,7 @@ static void err_typeMismatchBinOp(Parser* parser, Expr* expr) {
   if (noPoison && (*leftTypeName == '<' || *rightTypeName == '<')) return;
   par__errHeaderWithExpr(parser, expr);
   eprintf("type mismatch; can't do '%s %s %s'\n", leftTypeName,
-      TokenKind_repr[expr->kind], rightTypeName);
+    TokenKind_repr[expr->kind], rightTypeName);
   err_increment(parser);
 }
 
@@ -594,8 +594,7 @@ static void err_typeMismatch(Parser* parser, Expr* e1, Expr* e2) {
   if (noPoison && (*leftTypeName == '<' || *rightTypeName == '<')) return;
   par__errHeaderWithExpr(parser, e2);
   eprintf("type mismatch: '%s' here must be '%s' (from %s%s:%d:%d)\n",
-      rightTypeName, leftTypeName, RELF(parser->filename), e1->line,
-      e1->col);
+    rightTypeName, leftTypeName, RELF(parser->filename), e1->line, e1->col);
   err_increment(parser);
 }
 
@@ -605,7 +604,7 @@ static void err_typeWrong(Parser* parser, Expr* e1, TypeTypes correct) {
   if (noPoison && (*leftTypeName == '<' || *rightTypeName == '<')) return;
   par__errHeaderWithExpr(parser, e1);
   eprintf("expected an expression of type '%s', not '%s'\n", rightTypeName,
-      leftTypeName);
+    leftTypeName);
   err_increment(parser);
 }
 
@@ -620,15 +619,15 @@ static void err_initMismatch(Parser* parser, Expr* expr) {
   // course, the LHS must have a type, you cannot have e.g. var
   // arr[:,:,:] = [] that would be an error.
   if ((expr->var->init->kind == tkArrayOpen
-          || expr->var->init->kind == tkBraceOpen)
-      && expr->var->spec->collType != CTYNone && !expr->var->init->right
-      && expr->var->spec->typeType != TYUnknown)
+        || expr->var->init->kind == tkBraceOpen)
+    && expr->var->spec->collType != CTYNone && !expr->var->init->right
+    && expr->var->spec->typeType != TYUnknown)
     return;
   par__errHeaderWithExpr(parser, expr);
 
   eprintf("can't init '%s' with an expression of type '%s' (hint: just "
           "remove the type annotation.)\n",
-      leftTypeName, rightTypeName);
+    leftTypeName, rightTypeName);
   err_increment(parser);
 }
 
@@ -637,7 +636,7 @@ static void err_initDimsMismatch(Parser* parser, Expr* expr, int dims) {
   par__errHeaderWithExpr(parser, expr);
   eprintf("can't init %dD array '%s' with a %dD literal. "
           "(hint: just remove the dimension specification.)\n",
-      expr->var->spec->dims, expr->var->name, dims);
+    expr->var->spec->dims, expr->var->name, dims);
   err_increment(parser);
 }
 
@@ -645,7 +644,7 @@ static void err_binOpDimsMismatch(Parser* parser, Expr* expr) {
   par__errHeaderWithExpr(parser, expr);
 
   eprintf("can't do '%dD array %s %dD array'\n", expr->left->dims,
-      TokenKind_repr[expr->kind], expr->right->dims);
+    TokenKind_repr[expr->kind], expr->right->dims);
   err_increment(parser);
 }
 
@@ -675,8 +674,8 @@ static void err_argTypeMismatch(Parser* parser, Expr* expr, Var* var) {
 
   eprintf("type '%s' for argument '%s' should be '%s' instead (from "
           "%s%s:%d:%d)\n",
-      expr_typeName(expr), var->name, spec_name(var->spec),
-      RELF(parser->filename), var->line, var->col);
+    expr_typeName(expr), var->name, spec_name(var->spec),
+    RELF(parser->filename), var->line, var->col);
   // parser->issues.hasParseErrors = 1;
   err_increment(parser);
 }
@@ -685,7 +684,7 @@ static void err_argLabelMismatch(Parser* parser, Expr* expr, Var* var) {
   par__errHeaderWithExpr(parser, expr);
 
   eprintf("label '%s' should be '%s' instead (from %s%s:%d:%d)\n",
-      expr->str, var->name, RELF(parser->filename), var->line, var->col);
+    expr->str, var->name, RELF(parser->filename), var->line, var->col);
 
   err_increment(parser);
 }
@@ -694,10 +693,10 @@ static void err_unexpectedToken(Parser* parser, char* msg) {
   par__errHeader(parser);
 
   eprintf("unexpected token '%.*s' (%s)\n", parser->token.matchlen,
-      parser->token.pos, TokenKind_names[parser->token.kind]);
+    parser->token.pos, TokenKind_names[parser->token.kind]);
 
   par__printSourceLines(parser, parser->token.line, parser->token.col,
-      parser->token.matchlen, msg);
+    parser->token.matchlen, msg);
 
   // when you have an unexpected token on one line, the rest are also going
   // to be unexpected. so skip to the next newline.
@@ -711,7 +710,7 @@ static void err_unexpectedToken(Parser* parser, char* msg) {
 static void err_unexpectedExpr(Parser* parser, Expr* expr) {
   par__errHeaderWithExpr(parser, expr);
   eprintf("unexpected expr '%s' (%s)\n",
-      expr->prec ? TokenKind_repr[expr->kind] : expr->str,
-      TokenKind_names[expr->kind] + 2);
+    expr->prec ? TokenKind_repr[expr->kind] : expr->str,
+    TokenKind_names[expr->kind] + 2);
   err_increment(parser);
 }

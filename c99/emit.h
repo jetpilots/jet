@@ -4,7 +4,7 @@
 
 static void imp_emit(Import* import, int level, char ext) {
   if (!import->mod) return;
-  char* alias = import->aliasOffset + import->name;
+  // char* alias = import->aliasOffset + import->name;
   if (ext == 'c') {
     printf("#include \"%s\"\n", import->mod->out_c);
   } else {
@@ -776,7 +776,7 @@ static void expr_emit_tkString(Expr* expr, int level) {
     // outl("}");
   } else {
     char *pos = expr->str, *last = pos;
-    Var* v;
+    // Var* v;
     PtrList* p = expr->vars;
     Expr* e = p->item;
     outl("cstr_interp_h(64, ");
@@ -786,7 +786,7 @@ static void expr_emit_tkString(Expr* expr, int level) {
       printf("%s", last);
       pos[-1] = '$';
       last = pos;
-      while (*pos && isalnum(*pos) || *pos == '.') pos++;
+      while (*pos && (isalnum(*pos) || *pos == '.')) pos++;
       if (e) {
         while (e->kind == tkPeriod) e = e->right;
         assert(e->kind == tkIdentR);

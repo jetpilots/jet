@@ -119,8 +119,7 @@ monostatic void Vector_bwddiff(Vector* vec, Vector* out) {
 //
 monostatic void Vector_fwddiff(Vector* vec, Vector* out) {
   Vector_resize(out, vec->used);
-  for (int i = 0; i < vec->used - 1; i++)
-    out->ref[i] = vec->ref[i + 1] - vec->ref[i];
+  for_to(i, vec->used - 1) out->ref[i] = vec->ref[i + 1] - vec->ref[i];
   out->ref[vec->used] = out->ref[vec->used - 1];
 }
 
@@ -131,9 +130,11 @@ monostatic void Vector_fwddiff(Vector* vec, Vector* out) {
 // are parts it doesnt read then they should be carried over yes, thats when
 // cloning is needed. maybe func should mark whether that is the case.
 monostatic void Vector_ctrdiff(Vector* vec, Vector* out) {
+  if (vec->used < 3)
+    return; // this is a prime example of precond to be checked by
   Vector_resize(out, vec->used);
   Real64 prev = vec->ref[0];
-  for (int i = 1; i < vec->used - 1; i++) {
+  for (UInt32 i = 1; i < vec->used - 1; i++) {
     // you need to remove the read-after-write dep. It doesnt go away
     // just by creating temps if you are still reading after write.
     // here since vec is out, you read i-1 after having set i, so the
@@ -153,9 +154,10 @@ monostatic void Vector_ctrdiff(Vector* vec, Vector* out) {
 // second-order central difference
 // this gives d2y, to get d2y/dx2 you should do d2y/(dx^2)
 monostatic void Vector_ctr2diff(Vector* vec, Vector* out) {
+  if (vec->used < 3) return;
   Vector_resize(out, vec->used);
   Real64 prev = vec->ref[0];
-  for (int i = 1; i < vec->used - 1; i++) {
+  for (UInt32 i = 1; i < vec->used - 1; i++) {
     // you need to remove the read-after-write dep. It doesnt go away
     // just by creating temps if you are still reading after write.
     // here since vec is out, you read i-1 after having set i, so the
@@ -173,15 +175,17 @@ monostatic void Vector_ctr2diff(Vector* vec, Vector* out) {
 }
 
 monostatic void Vector_fwd2diff(Vector* vec, Vector* out) {
+  if (vec->used < 2) return;
   Vector_resize(out, vec->used);
-  for (int i = 0; i < vec->used - 2; i++)
+  for (UInt32 i = 0; i < vec->used - 2; i++)
     out->ref[i] = vec->ref[i + 2] - 2 * vec->ref[i + 1] + vec->ref[i];
   out->ref[vec->used] = out->ref[vec->used - 1] = out->ref[vec->used - 2];
 }
 
 monostatic void Vector_bwd2diff(Vector* vec, Vector* out) {
+  if (vec->used < 2) return;
   Vector_resize(out, vec->used);
-  for (int i = vec->used - 1; i > 1; i--)
+  for (UInt32 i = vec->used - 1; i > 1; i--)
     out->ref[i] = vec->ref[i] - 2 * vec->ref[i - 1] + vec->ref[i - 2];
   out->ref[0] = out->ref[1] = out->ref[2];
 }

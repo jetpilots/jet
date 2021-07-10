@@ -27,3 +27,4 @@ doxy/
 .*.h
 *.jetr
 *.app/
+.*.jet.*

@@ -38,10 +38,10 @@ int langserver(int argc, char* argv[]) {
 
       parser = par_fromFile(filename, true, mode);
       if (!parser) continue;
-      parser->issues.warnUnusedArg = //
-          parser->issues.warnUnusedFunc = //
-          parser->issues.warnUnusedType = //
-          parser->issues.warnUnusedVar = 1;
+      parser->issues.warnUnusedArg =    //
+        parser->issues.warnUnusedFunc = //
+        parser->issues.warnUnusedType = //
+        parser->issues.warnUnusedVar = 1;
       root = parseModule(parser, &modules, NULL);
       parser->elap = clock_clockSpanMicro(t0) / 1.0e3;
     }
@@ -72,7 +72,7 @@ int langserver(int argc, char* argv[]) {
       Scope* sco;
       Type* ty;
       char* pos = NULL;
-      int col, lno = strtod(line + 5, &pos);
+      int col = 1, lno = strtod(line + 5, &pos);
       if (pos) col = strtod(pos, NULL);
       ret = mod_getExpr(root, lno, col, &fn, &sco, &ty);
       if (ret) {
@@ -105,7 +105,7 @@ int langserver(int argc, char* argv[]) {
             "    dump <file>\n"
             "    emit <file>\n"
             "    exit\n",
-          stderr);
+        stderr);
     }
   }
 

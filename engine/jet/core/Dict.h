@@ -310,7 +310,7 @@ static const double Dict_HASH_UPPER = 0.77;
     if (i < Dict_end(h)) val = Dict_val(h, i);                             \
     return val;                                                            \
   }                                                                        \
-  Scope Dict(K, V) * Dict_make(K, V)(int size, K keys[], V values[]) {     \
+  Scope Dict(K, V) * Dict_make(K, V)(UInt32 size, K keys[], V values[]) {  \
     Dict(K, V)* ret = Dict_new(K, V)();                                    \
     for_to(i, size) Dict_putk(K, V)(ret, keys[i], values[i]);              \
     return ret;                                                            \

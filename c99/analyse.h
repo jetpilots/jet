@@ -36,7 +36,7 @@ static void analyseDictLiteral(Parser* parser, Expr* expr, Module* mod) {
 // 2. compute a guess for the size
 // 3. keep a stack of vars that are in the string in the right order
 static void expr_prepareInterp(Parser* parser, Expr* expr, Scope* scope) {
-  static Array(VPtr) vars;
+  // static Array(VPtr) vars;
   assert(expr->kind == tkString || expr->kind == tkRawString);
   PtrList** exprvars = &expr->vars;
   // at some point you should make it so that only strings with a
@@ -64,7 +64,7 @@ static void expr_prepareInterp(Parser* parser, Expr* expr, Scope* scope) {
     }
     if (!*dollar) break; // no dollars
     // not using $..., using {...}
-    long lentxt = dollar - pos;
+    // long lentxt = dollar - pos;
     // printf(",\"%.*s\"", lentxt, pos);
     // after the $ is a variable, so look it up etc.
     char *varname = dollar + 1, *varend;
@@ -607,7 +607,7 @@ static void expr_analyse_varAssign(Parser* parser, Expr* expr, Scope* scope,
           break;
         }
       default:
-      errorMissingInit:
+        // errorMissingInit:
         // this is an error, no way to find out what you want
         err_missingInit(parser, expr);
       }

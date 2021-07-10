@@ -29,7 +29,7 @@ monostatic PtrList* li_withNext(void* item, void* next) {
   return li;
 }
 
-monostatic int li_count(PtrList* listPtr) {
+monostatic UInt32 li_count(PtrList* listPtr) {
   int i;
   for (i = 0; listPtr; i++) listPtr = listPtr->next;
   return i;

@@ -394,7 +394,7 @@ int main(int argc, char* argv[]) {
       continue;
 
     eprintf("emitting: %s (template-modified: %s)\n", mod->filename,
-      _fp_bools_yn_[mod->modified]);
+      _fp_bools_yn_[!!mod->modified]);
     mod_emit(mod);
     mod->emitted = 1;
     modifiedMods++;
