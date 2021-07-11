@@ -10,7 +10,7 @@
 static void imp_dumpc(Import* import, int level) {
   printf("&(Import) {.name = \"%s\", .aliasOffset = "
          "%d}",
-      import->name, import->aliasOffset);
+    import->name, import->aliasOffset);
 }
 
 static void spec_dumpc(TypeSpec* spec, int level) {
@@ -21,7 +21,7 @@ static void spec_dumpc(TypeSpec* spec, int level) {
   PRFIELD(spec, nullable, "%d");
   if (spec->typeType == TYObject) {
     printf(".type = &%s_%s ", spec->type->isEnum ? "enum" : "type",
-        spec->type->name);
+      spec->type->name);
   } else {
     printf(".name = \"%s\" ", spec->name);
   }
@@ -29,12 +29,12 @@ static void spec_dumpc(TypeSpec* spec, int level) {
 }
 
 static void expr_dumpc(
-    Expr* expr, int level, bool spacing, bool escStrings);
+  Expr* expr, int level, bool spacing, bool escStrings);
 
 static void var_dumpc(Var* var, int level);
 static void var_dumpc(Var* var, int level) {
   printf("{\n%.*s.name = \"%s\",\n%.*s.spec = ", level, spaces, var->name,
-      level, spaces);
+    level, spaces);
   spec_dumpc(var->spec, 0);
   if (var->init) {
     printf(", .init = ");
@@ -96,18 +96,20 @@ static void type_dumpc(Type* type, int level) {
   printf("static Type type_%s = {\n", type->name);
   printf("    .body = &(Scope) { .locals = ");
   PtrList* vars = type->body->locals;
-  if (vars) do {
+  if (vars) {
+    do {
       printf("&(PtrList) {\n        .item = &(Var)");
       var_dumpc(vars->item, 8);
       if ((vars = vars->next)) { printf(",\n        .next = "); }
     } while (vars);
-  for_to(i, li_count(type->body->locals) - 1) printf("}\n");
+    for_to(i, li_count(type->body->locals) - 1) printf("}\n");
+  }
   printf("}}, .name =\"%s\"};\n", type->name);
 }
 
 static void JetEnum_dumpc(Type* type, int level) {
   printf("static Type enum_%s = { .name =\"%s\" , .isEnum = yes };\n",
-      type->name, type->name);
+    type->name, type->name);
 }
 
 static void func_dumpc(Func* func, int level) {
@@ -174,7 +176,7 @@ static void JetTest_dumpc(Test* test, int level) {
 // generally an expr is not split over several lines (but maybe in
 // rare cases). so level is not passed on to recursive calls.
 static void expr_dumpc(
-    Expr* expr, int level, bool spacing, bool escStrings) {
+  Expr* expr, int level, bool spacing, bool escStrings) {
 
   printf("&(Expr) {\n .kind = %s,\n", TokenKind_names[expr->kind]);
   PRFIELD(expr, line, "%d");
@@ -309,10 +311,10 @@ static void mod_dumpc(Module* mod) {
     eprintf("%p %p:1:1-1: writing\n", mod, mod->filename);
   }
   puts( //
-      "#include \"jet/base.h\"\n"
-      "#include \"token.h\"\n"
-      "#include \"types.h\"\n"
-      "#include \"ast.h\"\n" //
+    "#include \"jet/base.h\"\n"
+    "#include \"token.h\"\n"
+    "#include \"types.h\"\n"
+    "#include \"ast.h\"\n" //
   );
 
   // outfile = fopen("dumpc_out.c", "w");
