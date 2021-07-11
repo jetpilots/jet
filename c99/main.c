@@ -93,7 +93,7 @@ typedef struct {
   } path;
   CompilerMode mode;
   char* filename;
-  bool stats, clean, help, vers, langserv, tccrun;
+  bool stats, clean, help, vers, langserv, tccrun, quicktest;
 } Config;
 
 bool dbglog = 0;
@@ -144,6 +144,10 @@ static void argparse(Config* cfg, int argc, char* argv[]) {
 
     CASE("-l") cfg->mode = PMLint;
     CASE("-t") cfg->mode = PMTest;
+    CASE("-qt") {
+      cfg->mode = PMTest;
+      cfg->quicktest = 1;
+    }
     CASE("-c") cfg->mode = PMEmitC;
     CASE("-r") cfg->mode = PMRun;
 
@@ -543,9 +547,9 @@ end:
           "tcc", "-run", "-x", "c", "-I", cfg.path.engine,             //
           "-D", "JET_MONOBUILD",                                       //
           "-D", cfg.mode == PMTest ? "JET_MODE_TEST" : "JET_MODE_RUN", //
-          root->out_w, NULL });
+          root->out_w, cfg.quicktest ? "q" : "", NULL });
     } else {
-      execv(exeName, (char*[]) { exeName, NULL });
+      execv(exeName, (char*[]) { exeName, cfg.quicktest ? "q" : "", NULL });
     }
   }
   return 0;

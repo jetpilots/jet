@@ -19,8 +19,12 @@
 #endif
 
 void (*const _jet_entry_test_)(int runDeps) = JET_ENTRY;
+int jet_quicktest = 0;
 
 int main(int argc, char* argv[]) {
+
+  jet_quicktest = argc > 1 && argv[1][0] == 'q';
+
   if (isatty(STDERR_FILENO)) {
     s_err = "\e[31m✘\e[0m";
     s_crash = "\e[31m✽\e[0m";
@@ -29,9 +33,30 @@ int main(int argc, char* argv[]) {
   }
 
   int runDeps = !(argc > 1 && argv[1][0] == '-');
+  int ret = 0;
 
   clock_Time t0 = clock_getTime();
-  _jet_entry_test_(runDeps);
+  if (jet_quicktest) {
+    pid_t pid = fork();
+    if (pid) {
+      int t;
+      pid_t w = waitpid(pid, &t, 0);
+      if (WIFSIGNALED(t)) {
+        eprintf("%s", strsignal(WTERMSIG(t)));
+        ret = WTERMSIG(t);
+      } else if (WIFSTOPPED(t)) {
+        eprintf("%s", strsignal(WSTOPSIG(t)));
+        ret = WSTOPSIG(t);
+      }
+      // TODO:  else if (WEXITSTATUS(t)) {}
+      eputs(ret ? "some tests failed\n" : "all tests passed.\n");
+    } else {
+      _jet_entry_test_(runDeps);
+      return 0;
+    }
+  } else {
+    _jet_entry_test_(runDeps);
+  }
   double elap = clock_clockSpanMicro(t0) / 1e3;
 
   char* units = "ms";
@@ -47,6 +72,8 @@ int main(int argc, char* argv[]) {
       }
     }
   }
+  if (jet_quicktest) return ret;
+
   eprintf("%.*s\n", 66, _dashes_);
   eprintf("   Total |  %s Passed |  %s Failed | %s Skipped | Stopped | "
           "%s Crash\n",

@@ -1,7 +1,7 @@
 
-#define CHECK_HELP_OPEN printf("Here's some help:\n");
+#define CHECK_HELP_OPEN eputs("Here's some help:\n");
 #define CHECK_HELP_CLOSE                                                   \
-  printf("\n");                                                            \
+  eputs("\n");                                                             \
   /*printf("Backtrace (innermost first):\n");                              \
   if (_scDepth_ > 2 * _btLimit_)                                           \
     printf("    limited to %d outer and %d inner entries.\n", _btLimit_,   \

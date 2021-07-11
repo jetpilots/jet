@@ -537,7 +537,7 @@ static void expr_genPrintVars(Expr* expr, int level) {
     if (!strcasecmp("yes", expr->var->name)) break;
     if (!strcasecmp("no", expr->var->name)) break;
     if (!strcasecmp("nil", expr->var->name)) break;
-    printf("%.*sprintf(\"  %s = %s\\n\", %s);\n", level, spaces,
+    printf("%.*seprintf(\"  %s = %s\\n\", %s);\n", level, spaces,
       expr->var->name, Typetype_format(expr->typeType, true),
       expr->var->name);
     expr->var->visited = true;
@@ -857,7 +857,7 @@ static void expr_emit_tkCheck(Expr* expr, int level) {
   // }
   // -------------
   outln(")) {");
-  printf("%.*sprintf(\"\\n%%s:%d:%d: error: check failed:\\n  %%s\\n\", "
+  printf("%.*seprintf(\"\\n%%s:%d:%d: error: check failed:\\n  %%s\\n\", "
          "THISFILE, \"",
     level + STEP, spaces, expr->line, expr->col + 6);
   expr_write(checkExpr, 0, true, true);
@@ -875,7 +875,7 @@ static void expr_emit_tkCheck(Expr* expr, int level) {
     && !ISIN(
       5, lhsExpr->kind, tkString, tkNumber, tkRawString, tkLE, tkLT)) {
     if (lhsExpr->kind != tkIdentR || !lhsExpr->var->visited) {
-      printf("%.*s%s", level + STEP, spaces, "printf(\"  %s = ");
+      printf("%.*s%s", level + STEP, spaces, "eprintf(\"  %s = ");
       printf("%s", Typetype_format(lhsExpr->typeType, true));
       printf("%s", "\\n\", \"");
       expr_write(lhsExpr, 0, true, true);

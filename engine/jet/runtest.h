@@ -2,6 +2,8 @@ static int _total, _pass, _fail, _skip, _stop, _crash;
 static const char *s_err = "✘", *s_ok = "✔︎", *s_skp = "⁃",
                   *s_crash = "✽";
 
+extern int jet_quicktest;
+
 void jet_runTest(int (*f)(void), char* s, int skip) {
   // Dict_putk(UInt32, VPtr)(&runDict, pid, s);
   _total++;
@@ -11,7 +13,7 @@ void jet_runTest(int (*f)(void), char* s, int skip) {
     eprintf(" %s  %-48s\n", s_skp, s);
     return;
   }
-  if (0) {
+  if (jet_quicktest) {
     clock_Time t0 = clock_getTime();
     int ret = f();
     double elap = clock_clockSpanMicro(t0) / 1e3;
@@ -20,11 +22,11 @@ void jet_runTest(int (*f)(void), char* s, int skip) {
       eprintf(" %s  %-48s", s_err, who);
       _fail++;
     } else {
-      eprintf(" %s  %-48s", s_ok, who);
+      printf(" %s  %-48s", s_ok, who);
       _pass++;
     }
     char* units = "ms";
-    eprintf(" [%7.1f %s]\n", elap, units);
+    fprintf(ret ? stderr : stdout, " [%7.1f %s]\n", elap, units);
   } else {
     pid_t pid = fork();
     if (pid) { // parent
@@ -54,7 +56,7 @@ void jet_runTest(int (*f)(void), char* s, int skip) {
         ret = WEXITSTATUS(t);
         _fail++;
       } else {
-        eprintf(" %s  %-48s", s_ok, who);
+        printf(" %s  %-48s", s_ok, who);
         ret = 0;
         _pass++;
       }
@@ -71,7 +73,7 @@ void jet_runTest(int (*f)(void), char* s, int skip) {
       //   elap /= 60.0;
       //   units = "hr";
       // }
-      eprintf(" [%7.1f %s]\n", elap, units);
+      fprintf(ret ? stderr : stdout, " [%7.1f %s]\n", elap, units);
       // return ret;
       // PIDs may be reused if spawn too many child processes
       // Dict_delk(UInt32, VPtr)(&runDict, pid);
