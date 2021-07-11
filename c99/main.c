@@ -151,7 +151,7 @@ static void argparse(Config* cfg, int argc, char* argv[]) {
     CASE("-c") cfg->mode = PMEmitC;
     CASE("-r") cfg->mode = PMRun;
 
-    CASE("-") cfg->filename = argv[i];
+    CASE("-") goto file;
     CASE("-ls") cfg->langserv = 1;
 
     CASE("-s") cfg->stats = 1;
@@ -167,9 +167,17 @@ static void argparse(Config* cfg, int argc, char* argv[]) {
 
     DEFAULT {
       if (cstr_endsWith(argv[i], strlen(argv[i]), ".jet", 4)) {
-        cfg->filename = argv[i];
+      file:
+        if (*cfg->filename) {
+          eprintf("jet: one file specified ('%s'), cannot process another: "
+                  "'%s'\n",
+            cfg->filename, argv[i]);
+          exit(2);
+        } else {
+          cfg->filename = argv[i];
+        }
       } else {
-        eprintf("error: unknown option or argument '%s'\n", argv[i]);
+        eprintf("jet: unknown option or argument '%s'\n", argv[i]);
         exit(2);
       }
     }
@@ -212,7 +220,56 @@ void vers() {
   printf("jet v%d.%d.%d built %s %s\n", maj, min, rev, __DATE__, __TIME__);
 }
 
-void help() { printf("jet v built"); }
+static const char* const hstr = //
+  "usage: jet [options] <filename.jet>\n"
+  "\n"
+  "  options:\n"
+  "  -, -stdin\n"
+  "      use standard input as the contents of the source file.\n"
+  "  -c, -compile\n"
+  "      only compile the source file into an object file (.o).\n"
+  "  -C <cmd>, -ccompiler <cmd>\n"
+  "      specify the backend C compiler either by absolute path or by\n"
+  "      executable name (will be looked up in $PATH).\n"
+  "  -d, -debug\n"
+  "      print verbose messages during compilation.\n"
+  "  -E <path>, -engine-path <path>\n"
+  "      specify the path to the standard library installation.\n"
+  "  -f, -force\n"
+  "      rebuild all files regardless of cached status.\n"
+  "  -h, -help\n"
+  "      show this help screen and exit.\n"
+  "  -i, -incremental\n"
+  "      (default) build each file on its own, as opposed to `-m`.\n"
+  "  -l, -lint\n"
+  "      lint the source file.\n"
+  "  -ls, -server\n"
+  "      start a language server instance.\n"
+  "  -m, -mono\n"
+  "      combine all source files into one C file during building.\n"
+  "  -O0, -O1, -O2, -O3, -Os\n"
+  "      specify optimisation level, default is `-O0`.\n"
+  "  -qt, -quick-test\n"
+  "      run tests in the source file, but all in the same process. \n"
+  "      This mode is faster than `-t` but stops on the first crash.\n"
+  "  -r, -run\n"
+  "      build (if required) and run the source file.\n"
+  "  -s, -stats\n"
+  "      show some memory usage statistics at the end of compilation.\n"
+  "  -t, -test\n"
+  "      run tests in the source file, each test in a separate process,\n"
+  "      for crash detection at the individual test level.\n"
+  "  -tc, -tccrun\n"
+  "      use `tcc -run` to run or test the program (implies `-m`).\n"
+  "  -ui\n"
+  "      build as a GUI app, using the native backend on the target OS.\n"
+  "  -v, -version\n"
+  "      print the version and build timestamp and exit.\n"
+  "  -x, -clean\n"
+  "      clean up temporary files and exit.\n"
+  "\n";
+
+void help() { printf(hstr); }
 
 int main(int argc, char* argv[]) {
   FUNC_ENTRY

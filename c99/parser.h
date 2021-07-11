@@ -184,6 +184,7 @@ static Parser* par_fromStdin(bool skipws, CompilerMode mode) {
     bread = fread(data, 1, 64 KB, file);
     String_appendChars(&str, data, bread);
   } while (bread == 64 KB);
+  String_appendChars(&str, "\0\0", 2);
 
   Parser* ret = NEW(Parser);
   ret->filename = "stdin";

@@ -18,13 +18,13 @@ monostatic void String_json_(const String* const str, int level) {
 
 #define roundUp32(x)                                                       \
   (--(x), (x) |= (x) >> 1, (x) |= (x) >> 2, (x) |= (x) >> 4,               \
-      (x) |= (x) >> 8, (x) |= (x) >> 16, ++(x))
+    (x) |= (x) >> 8, (x) |= (x) >> 16, ++(x))
 
 monostatic void String_resize(String* str, int size) {
-  printf("resize %p [%d] -> ", str->ref, str->cap);
+  eprintf("resize %p [%d] -> ", str->ref, str->cap);
   str->cap = size;
   str->ref = realloc(str->ref, str->cap);
-  printf("%p [%d]\n", str->ref, str->cap);
+  eprintf("%p [%d]\n", str->ref, str->cap);
 }
 
 monostatic String String_fromCString(char* str) {

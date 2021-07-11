@@ -47,12 +47,13 @@ int main(int argc, char* argv[]) {
       } else if (WIFSTOPPED(t)) {
         eprintf("%s", strsignal(WSTOPSIG(t)));
         ret = WSTOPSIG(t);
+      } else if (WEXITSTATUS(t)) {
+        ret = WEXITSTATUS(t);
       }
-      // TODO:  else if (WEXITSTATUS(t)) {}
-      eputs(ret ? "some tests failed\n" : "all tests passed.\n");
+      eputs(ret ? "some tests failed.\n" : "all tests passed.\n");
     } else {
       _jet_entry_test_(runDeps);
-      return 0;
+      return !!(_total - _pass);
     }
   } else {
     _jet_entry_test_(runDeps);
