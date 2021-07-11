@@ -714,9 +714,8 @@ static Scope* parseScope(
       tok_advance(&parser->token);
 
       if (tt == tkFor) {
-        // TODO: new par_error
         Var* fvar = NULL;
-        if (!expr->left)
+        if (!expr->left) // TODO: new par_error
           unreachable(
             "Missing for-loop condition at %d:%d\n", expr->line, expr->col);
         else {

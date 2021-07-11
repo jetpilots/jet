@@ -1105,7 +1105,10 @@ monostatic void expr_analyse(Parser* parser, Expr* expr, Scope* scope,
           //     expr->col, expr->left->dims, expr->right->dims);
         }
         // ranges always create a 1D entity (not always array, but 1D)
-        if (expr->kind == tkColon) expr->dims = 1;
+        if (expr->kind == tkColon) {
+          expr->dims = 1;
+          expr->collType = CTYRange;
+        }
       }
       if (!expr->unary && expr->left
         && !(inFuncArgs

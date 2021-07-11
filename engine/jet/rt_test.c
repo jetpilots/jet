@@ -19,7 +19,7 @@
 #endif
 
 void (*const _jet_entry_test_)(int runDeps) = JET_ENTRY;
-int jet_quicktest = 0;
+// int jet_quicktest = 0;
 
 int main(int argc, char* argv[]) {
 

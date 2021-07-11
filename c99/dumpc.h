@@ -307,8 +307,6 @@ static void mod_dumpc(Module* mod) {
   if (!(outfile = fopen(mod->out_xc, "w"))) {
     eprintf("%s:1:1-1: error: can't open file for writing\n", mod->out_xc);
     return;
-  } else {
-    eprintf("%p %p:1:1-1: writing\n", mod, mod->filename);
   }
   puts( //
     "#include \"jet/base.h\"\n"

@@ -180,6 +180,28 @@ typedef double Real64;
 #define ctstrlen(s) (sizeof(s "") - 1)
 
 // #define PtrArray_topAs(T, self) Array_topAs(T, self)
+#define Range(T) IRange
+typedef struct IRange {
+  const Int32 start, end, step;
+} IRange;
+// typedef struct URange {
+//   const UInt32 start, end, step;
+// } URange;
+#define range_to_by(s, e, d) (&(IRange) { s, e + d, d })
+#define range_to(s, e) range_to_by(s, e, 1)
+#define Range_for(T, v, a)                                                 \
+  for (int __f = 0; !__f;)                                                 \
+    for (IRange* const restrict __r = a; !__f; __f = 1)                    \
+      for (Int32 v = __r->start, __i = 0;                                  \
+           __i < (__r->end - __r->start) / __r->step;                      \
+           v += __r->step, __i++)
+
+// #define urange_to_by(s, e, d) (&(URange) { s, e + d, d })
+// #define urange_to(s, e) urange_to_by(s, e, 1)
+// #define URange_for(T, v, a) \
+//   for (int __f = 0; !__f;) \
+//     for (URange* const restrict __r = a; !__f; __f = 1) \
+//       for (UInt32 v = __r->start; v != __r->end; v += __r->step)
 
 #define ispow2(num) (((num)-1) & (num))
 

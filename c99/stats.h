@@ -25,6 +25,7 @@ static void printstats(Parser* const parser) {
   allocstat(Type);
   allocstat(Scope);
   allocstat(TypeSpec);
+  allocstat(Test);
   allocstat(Func);
   allocstat(Module);
   allocstat(PtrList);

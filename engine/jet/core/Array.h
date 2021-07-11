@@ -40,12 +40,12 @@
   monostatic void Array_resize(T)(Array(T) * self, UInt32 size);           \
   monostatic T Array_get(T)(Array(T) * self, UInt32 index);                \
   monostatic void Array_concatCArray(T)(                                   \
-      Array(T) * self, T * cArray, int count);                             \
+    Array(T) * self, T * cArray, int count);                               \
   monostatic void Array_concatArray(T)(Array(T) * self, Array(T) * other); \
   monostatic Array(T) * Array_make(T)(T arr[], int count);                 \
   monostatic void Array_clear(T)(Array(T) * self);                         \
   monostatic void Array_initWithCArray(T)(                                 \
-      Array(T) * self, T * cArray, int count);                             \
+    Array(T) * self, T * cArray, int count);                               \
   monostatic void Array_grow(T)(Array(T) * self);                          \
   monostatic void Array_justPush(T)(Array(T) * self, T node);              \
   monostatic void Array_push(T)(Array(T) * self, T node);                  \
@@ -92,7 +92,7 @@
     UInt32 cap;                                                            \
   }                                                                        \
   Array(T);                                                                \
-  monostatic Array(T) * Array_new(T)(void) {                                   \
+  monostatic Array(T) * Array_new(T)(void) {                               \
     return calloc(1, sizeof(Array(T)));                                    \
   }                                                                        \
   monostatic void Array_free(T)(Array(T) * self) {                         \
@@ -102,7 +102,7 @@
     self->cap = roundUp32(size);                                           \
     self->ref = realloc(self->ref, sizeof(T) * self->cap);                 \
     memset(                                                                \
-        self->ref + self->used, 0, sizeof(T) * (self->cap - self->used));  \
+      self->ref + self->used, 0, sizeof(T) * (self->cap - self->used));    \
   }                                                                        \
   monostatic void Array_resize(T)(Array(T) * self, UInt32 size) {          \
     if (size > self->cap) Array_growTo(T)(self, size);                     \
@@ -112,18 +112,19 @@
     return self->ref[index - 1];                                           \
   }                                                                        \
   monostatic void Array_concatCArray(T)(                                   \
-      Array(T) * self, T * cArray, int count) {                            \
+    Array(T) * self, T * cArray, int count) {                              \
     const UInt32 reqd = self->used + count;                                \
     if (reqd >= self->cap) Array_growTo(T)(self, reqd);                    \
     memcpy(self->ref + self->used, cArray, count * sizeof(T));             \
+    self->used = reqd;                                                     \
   }                                                                        \
   monostatic void Array_concatArray(T)(                                    \
-      Array(T) * self, Array(T) * other) {                                 \
+    Array(T) * self, Array(T) * other) {                                   \
     Array_concatCArray(T)(self, other->ref, other->used);                  \
   }                                                                        \
   monostatic void Array_clear(T)(Array(T) * self) { self->used = 0; }      \
   monostatic void Array_initWithCArray(T)(                                 \
-      Array(T) * self, T * cArray, int count) {                            \
+    Array(T) * self, T * cArray, int count) {                              \
     Array_clear(T)(self);                                                  \
     Array_concatCArray(T)(self, cArray, count);                            \
   } /* maybe this can be merged with growTo */                             \
@@ -136,7 +137,7 @@
     self->cap = self->cap ? 2 * self->cap : 8;                             \
     self->ref = realloc(self->ref, sizeof(T) * self->cap);                 \
     memset(                                                                \
-        self->ref + self->used, 0, sizeof(T) * (self->cap - self->used));  \
+      self->ref + self->used, 0, sizeof(T) * (self->cap - self->used));    \
   }                                                                        \
   monostatic void Array_justPush(T)(Array(T) * self, T node) {             \
     self->ref[self->used++] = node; /* when you know that cap is enough */ \
@@ -155,6 +156,11 @@
   monostatic bool Array_empty(T)(Array(T) * self) {                        \
     return self->used == 0;                                                \
   }
+
+#define Array_for(T, v, a)                                                 \
+  for (Array(T)* __r = a; __r; __r = NULL)                                 \
+    for (UInt32 __v = 0, __f = 0; __v < __r->used; __v++, __f = 0)         \
+      for (T v = __r->ref[__v]; !__f; __f = 1)
 
 MAKE_Array(VPtr);
 MAKE_Array(UInt32);

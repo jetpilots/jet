@@ -302,6 +302,7 @@ static TypeTypes Typetype_byName(const char* spec) {
 // source code, collections' actual kind is abstracted away. 4 bits.
 typedef enum CollectionTypes {
   CTYNone = 0, // Number value
+  CTYRange,
   CTYArray,
   CTYList,
   CTYDList,
@@ -368,6 +369,7 @@ CollectionTypes Collectiontype_byName(char* name) {
 static const char* Collectiontype_name(CollectionTypes coty) {
   switch (coty) {
   case CTYNone: return "";
+  case CTYRange: return "Range";
   case CTYArray: return "Array";
   case CTYList: return "List";
   case CTYDList: return "DList";

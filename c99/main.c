@@ -587,12 +587,12 @@ end:
   if (_InternalErrs)
     eputs("\e[31m*** an internal error has ocurred.\e[0m\n");
 
-  dprintf("p/c %.2f + e %.1f + cc %.0f ms ] %.0f ms\n",
+  dprintf("parse+analyze %.2f + emit %.1f + cc %.0f ms ] %.0f ms\n",
     parser->elap, //
     parser->oelap - parser->elap,
     parser->elap_tot - parser->oelap, //
     parser->elap_tot);
-  dprintf("%.*s\n", 72, _dashes_);
+  // dprintf("%.*s\n", 72, _dashes_);
 
   if (parser->issues.errCount | _InternalErrs) return -1;
 

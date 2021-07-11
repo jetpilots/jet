@@ -35,7 +35,8 @@
             "program": "${workspaceRoot}/c99/cjet-dbg",
             "args": [
                 "-c",
-                "${fileDirname}/${fileBasename}"
+                "${fileDirname}/${fileBasename}",
+                "-f"
             ],
             "cwd": "${fileDirname}",
             "MIMode": "lldb",

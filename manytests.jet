@@ -2974,6 +2974,9 @@ end
 test "take 992"
   check 5 == 5
 end
+func start()
+  check 8 == 9
+end
 test "take 993"
   check 5 == 4
 end

@@ -46,7 +46,8 @@
         "__functional_base_03": "c",
         "__tuple": "c",
         "cstddef": "c",
-        "random": "c"
+        "random": "c",
+        "locale": "c"
     },
     "Lua.diagnostics.globals": [],
     "Lua.diagnostics.disable": [],

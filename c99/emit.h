@@ -494,6 +494,9 @@ static void test_emit(Test* test, Module* mod, int idx)
 {
   if (!test->body) return;
   printf("\nstatic int test_%s_%d(void) {\n", mod->cname, idx);
+  printf("\nstatic const char* sig_ = \"test \\\"");
+  printf(test->name);
+  printf("\\\"\";");
   scope_emit(test->body, STEP);
   outln("  return 0;");
   outln("  backtrace: return 1;");
@@ -857,7 +860,8 @@ static void expr_emit_tkCheck(Expr* expr, int level) {
   // }
   // -------------
   outln(")) {");
-  printf("%.*seprintf(\"\\n%%s:%d:%d: error: check failed:\\n  %%s\\n\", "
+  iprintf(level, "eprintf(\"\\nin %%s:\", sig_);%s\n", "");
+  printf("%.*seprintf(\"\\n%%s:%d:%d: error: check failed\\n  %%s\\n\", "
          "THISFILE, \"",
     level + STEP, spaces, expr->line, expr->col + 6);
   expr_write(checkExpr, 0, true, true);
@@ -1226,9 +1230,10 @@ static void expr_emit(Expr* expr, int level) {
       const char* ctypename
         = Collectiontype_name(expr->left->right->collType);
       printf("%s_for(%s, %s, ", ctypename, expr_typeName(expr->left->right),
-        expr->left->var->name);
+        // expr->left->var->name);
+        expr->left->left->str);
       expr_emit(expr->left->right, 0);
-      outl(") {");
+      outl(") {\n");
       scope_emit(expr->body, level + STEP);
       printf("%.*s}", level, spaces);
     }

@@ -2,7 +2,7 @@ static int _total, _pass, _fail, _skip, _stop, _crash;
 static const char *s_err = "✘", *s_ok = "✔︎", *s_skp = "⁃",
                   *s_crash = "✽";
 
-extern int jet_quicktest;
+int jet_quicktest = 0;
 
 void jet_runTest(int (*f)(void), char* s, int skip) {
   // Dict_putk(UInt32, VPtr)(&runDict, pid, s);
