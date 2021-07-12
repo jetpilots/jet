@@ -1587,7 +1587,9 @@ static int mod_emit_mainwrapper(Module* mod) {
     "#include \"jet/rt_run.c\"\n"
     "#endif\n"
     "\n",
-    mod->out_c, mod->out_h, mod->cname, mod->cname);
+    cstr_base(mod->out_c, '/', strlen(mod->out_c)), //
+    cstr_base(mod->out_h, '/', strlen(mod->out_h)), //
+    mod->cname, mod->cname);
   fclose(outfile);
   return 0;
 }
