@@ -907,8 +907,10 @@ monostatic void expr_analyse(Parser* parser, Expr* expr, Scope* scope,
     if (!(member
           && (base->var->spec->typeType == TYObject
             || ISIN(2, member->kind, tkFuncCall, tkFuncCallR)))) {
-      unreachable("invalid operands for . operator at %d:%d\n", expr->line,
-        expr->col);
+      unreachable("invalid operands for . operator at %d:%d: %s and %s\n",
+        expr->line, expr->col,
+        expr->left ? TokenKind_names[expr->left->kind] : "(null)",
+        expr->right ? TokenKind_names[expr->right->kind] : "(null)");
       expr->typeType = TYError;
       break;
     }

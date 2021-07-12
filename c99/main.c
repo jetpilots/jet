@@ -223,7 +223,8 @@ monostatic bool file_newer(const char* file, const char* than) {
 
 void vers() {
   int maj = 1, min = 0, rev = 0;
-  printf("jet v%d.%d.%d built %s %s\n", maj, min, rev, __DATE__, __TIME__);
+  printf("jet %s (%s)\n", COMMITDATE, COMMITHASH);
+  //, __DATE__, __TIME__);
 }
 
 static const char* const hstr = //
