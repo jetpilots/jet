@@ -37,6 +37,20 @@ static thread_local FILE* outfile = NULL;
 #undef printf
 #undef puts
 
+static const char arch[] =
+#if defined(__aarch64__)
+  "A"
+#elif defined(__ARM__)
+  "a"
+#elif defined(__x86_64__)
+  "X"
+#elif defined(_X86_)
+  "x"
+#else
+  "_"
+#endif
+  ;
+
 typedef enum CompilerMode {
   PMTokenize, // just tokenize (debug only)
   PMLint,     // format on stdout, ALL errors on stderr
@@ -222,7 +236,7 @@ monostatic bool file_newer(const char* file, const char* than) {
 }
 
 void vers() {
-  int maj = 1, min = 0, rev = 0;
+  // int maj = 1, min = 0, rev = 0;
   printf("jet %s (%s)\n", COMMITDATE, COMMITHASH);
   //, __DATE__, __TIME__);
 }
@@ -321,7 +335,10 @@ int main(int argc, char* argv[]) {
     help();
     return 0;
   }
-  if (cfg.clean) { return system("find . -name '.*.jet.*' -delete"); }
+  if (cfg.clean) {
+    return system("find . -name '.*.jet.*' -delete") | //
+      system("find . -name '.*.jet.*.dSYM' -exec rm -r {} \\;");
+  }
 
   // language server mode with no options to jetc
   // TODO: later this should be REPL mode, with "-s" argument for
@@ -361,12 +378,13 @@ int main(int argc, char* argv[]) {
   int modifiedMods = 0;
   if (_InternalErrs) goto end;
 
-  char* exeName = cstr_pclone(cstr_interp_s(512, "%s.%s.%s%s%s.%c",
+  char* exeName = cstr_pclone(cstr_interp_s(512, "%s.%s.%s%s%s%s.%c",
     cstr_dir_ip(cstr_pclone(root->filename)),
     cstr_base(root->filename, '/', strlen(root->filename)), //
+    arch,                                                   //
     cfg.build.opt + 2,                                      //
-    cfg.build.mono ? "m" : "i",                             //
     cfg.build.dbg ? "g" : "",                               //
+    cfg.build.mono ? "m" : "i",                             //
     cfg.mode == PMTest ? 't' : 'x'));
 
   foreach (Module*, mod, modules) {
@@ -403,8 +421,9 @@ int main(int argc, char* argv[]) {
     mod->out_o = cstr_pclone(__cstr_interp__s(
       512, buf, "%s.%s.%s%s%s.o", cstr_dir_ip(cstr_pclone(mod->filename)),
       cstr_base(mod->filename, '/', l), //
+      arch,                             //
       cfg.build.opt + 2,                //
-      cfg.build.mono ? "m" : "i",
+      // cfg.build.mono ? "m" : "i", // mono flag is not reqd for objs
       cfg.build.dbg ? "g" : "" //
       ));
   }
