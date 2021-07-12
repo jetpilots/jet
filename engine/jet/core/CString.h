@@ -16,27 +16,27 @@ monostatic bool cstr_eqi(const CString a, const CString b) {
 
 monostatic CString cstr_pndup(const CString str, size_t len) {
   CString ret = cstr_palloc(len);
-  memcpy(ret, str, len); // sPool uses calloc, so no need to zero last
+  jet_memcpy(ret, str, len); // sPool uses calloc, so no need to zero last
   return ret;
 }
 
 monostatic CString cstr_pclone(const CString str) {
-  return cstr_pndup(str, strlen(str));
+  return cstr_pndup(str, cstr_len(str));
 }
 
 monostatic CString cstr_ndup(const char* str, size_t len) {
   CString ret = cstr_malloc(len);
-  memcpy(ret, str, len); // sPool uses calloc, so no need to zero last
+  jet_memcpy(ret, str, len); // sPool uses calloc, so no need to zero last
   ret[len] = 0;
   return ret;
 }
 
 monostatic CString cstr_clone(const char* str) {
-  return cstr_ndup(str, strlen(str));
+  return cstr_ndup(str, cstr_len(str));
 }
 
 #define CString_len cstr_length
-monostatic size_t cstr_length(const char* str) { return strlen(str); }
+monostatic size_t cstr_length(const char* str) { return cstr_len(str); }
 // monostatic CString cstr_clone(CString str) { return pstrdup(str); }
 // monostatic CString cstr_sysClone(CString str) { return strdup(str); }
 monostatic CString cstr_indexOf(CString str, char c) {
@@ -68,7 +68,7 @@ monostatic unsigned long long cstr_toULongLong(CString str) {
 }
 
 monostatic CString cstr_noext_ip(CString str) {
-  const size_t len = strlen(str);
+  const size_t len = cstr_len(str);
   CString s = str; // pstrndup(str, len);
   CString sc = s + len;
   while (sc > s && *sc != '.') sc--;
@@ -91,7 +91,7 @@ monostatic CString cstr_base(CString str, char sep, size_t slen) {
 }
 
 monostatic CString cstr_dir_ip(CString str) {
-  const size_t len = strlen(str);
+  const size_t len = cstr_len(str);
   CString s = str; // pstrndup(str, len);
   CString sc = s + len;
   while (sc > s && *sc != '/') sc--;
@@ -110,7 +110,7 @@ monostatic CString cstr_upper_ip(CString str) {
 
 // in place
 monostatic void cstr_tr_ip_len(
-    CString str, const char oldc, const char newc, const size_t length) {
+  CString str, const char oldc, const char newc, const size_t length) {
   CString sc = str - 1;
   CString end = length ? str + length : (CString)0xFFFFFFFFFFFFFFFF;
   while (*++sc && sc < end)
@@ -118,8 +118,8 @@ monostatic void cstr_tr_ip_len(
 }
 
 monostatic CString cstr_tr_ip(
-    CString str, const char oldc, const char newc) {
-  size_t len = strlen(str);
+  CString str, const char oldc, const char newc) {
+  size_t len = cstr_len(str);
   CString s = str; // pstrndup(str, len);
   cstr_tr_ip_len(s, oldc, newc, len);
   return s;
@@ -135,13 +135,13 @@ monostatic int cstr_countFields(CString str, int len, char sep) {
 
 // caller sends target as stack array or NULL
 monostatic CString* cstr_getAllOccurences(
-    CString str, int len, char sep, int* count) {
+  CString str, int len, char sep, int* count) {
   // result will be malloced & realloced
   return 0;
 }
 
 monostatic int cstr_getSomeOccurences(
-    CString str, int len, char sep, CString* result, int limit) {
+  CString str, int len, char sep, CString* result, int limit) {
   // result buf is expected from caller
   return 0;
 }
@@ -167,7 +167,7 @@ monostatic ulong leven(char* s1, char* s2, ulong s1len, ulong s2len) {
     for (y = 1, lastdiag = x - 1; y <= s1len; y++) {
       olddiag = column[y];
       column[y] = min3ul(column[y] + 1, column[y - 1] + 1,
-          lastdiag + (s1[y - 1] == s2[x - 1] ? 0 : 1));
+        lastdiag + (s1[y - 1] == s2[x - 1] ? 0 : 1));
       lastdiag = olddiag;
     }
   }
@@ -241,7 +241,7 @@ monostatic CString cstr_interp_h(int size, const CString fmt, ...) {
   __cstr_interp__s(size, (char[size]) {}, fmt, __VA_ARGS__)
 
 monostatic CString __cstr_interp__s(
-    int size, CString buf, const CString fmt, ...) {
+  int size, CString buf, const CString fmt, ...) {
   va_list args;
   va_start(args, fmt);
   int l = vsnprintf(buf, size - 2, fmt, args);

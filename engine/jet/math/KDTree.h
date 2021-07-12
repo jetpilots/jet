@@ -108,7 +108,8 @@ static void addPoint(KDTreeNode* node, KDTreePoint* point) {
     // in the tree at the right spots.
     // KDTreePointsHolder* tmpPoints = child;
     KDTreePoint* points[POINTS_PER_LEAF];
-    memcpy(points, child->points, sizeof(KDTreePoint*) * POINTS_PER_LEAF);
+    jet_memcpy(
+      points, child->points, sizeof(KDTreePoint*) * POINTS_PER_LEAF);
 
     //        child->isleaf = 0; // no longer a leaf.
     //        child->npoints = 0; // don't need it here, its not a leaf

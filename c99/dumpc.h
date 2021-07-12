@@ -302,7 +302,7 @@ static void expr_dumpc(
 }
 
 static void mod_dumpc(Module* mod) {
-  // int l = strlen(mod->filename);
+  // int l = cstr_len(mod->filename);
   // static thread_local char buf[512];
   // TODO: improve this later
 

@@ -20,10 +20,10 @@ static void hex(const void* in, char* out, size_t inlen) {
 
 // by default all strings should be generated as CString, but when you need
 // a String you can make one by wrapping the CString
-#define STRST(s) ((String) { .ref = s, .size = strlen(s) }) // maybe
+#define STRST(s) ((String) { .ref = s, .size = cstr_len(s) }) // maybe
 // or else just let funcs have 2 args for a string, a len arg following each
 // str then pass the len
-#define STRARG(s) (s), strlen(s)
+#define STRARG(s) (s), cstr_len(s)
 
 // `outbuf` must have `inlen/2 + 1` chars, `inlen` must be even
 // inp and out can alias, then it works in place. (function canInplace)
@@ -62,7 +62,7 @@ static void unhex(const char* inp, char* out, size_t inlen) {
 }
 
 // trying out gcc computed gotos
-size_t strlen(const char* str) {
+size_t cstr_len(const char* str) {
   const char* orig = str;
   while (*str) str++;
   return str - orig;
@@ -84,7 +84,7 @@ int main() {
   char f[] = "what"; // a nice day? yeah. this is on the stack, mutable";
   static char sf[] = "this is in .bss, mutable! fixed size still";
   const char* x
-      = "this string goes in .data, and its a bad idea to mutate it";
+    = "this string goes in .data, and its a bad idea to mutate it";
   char buf[256];
   hex(f, buf, sizeof(f) - 1);
   // can work in place!

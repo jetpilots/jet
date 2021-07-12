@@ -333,7 +333,7 @@ typedef enum CollectionTypes {
 } CollectionTypes;
 
 #define TRYMATCH(s)                                                        \
-  if (!strncasecmp(#s, name, strlen(#s))) return CTY##s;
+  if (!strncasecmp(#s, name, cstr_len(#s))) return CTY##s;
 
 CollectionTypes Collectiontype_byName(char* name) {
   TRYMATCH(None) // N

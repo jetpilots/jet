@@ -36,16 +36,16 @@ static void par__errHeaderWithExpr(Parser* parser, Expr* expr) {
   case tkFuncCall:
   case tkSubscript:
   case tkObjInit:
-  case tkNumber: len = strlen(expr->str); break;
+  case tkNumber: len = cstr_len(expr->str); break;
   case tkString:
   case tkRawString:
-  case tkRegexp: len = strlen(expr->str) + 1; break;
+  case tkRegexp: len = cstr_len(expr->str) + 1; break;
 
   case tkIdentR:
-  case tkSubscriptR: len = strlen(expr->var->name); break;
-  case tkFuncCallR: len = strlen(expr->func->name); break;
+  case tkSubscriptR: len = cstr_len(expr->var->name); break;
+  case tkFuncCallR: len = cstr_len(expr->func->name); break;
   case tkVarDefn:
-    len = 4 + strlen(expr->var->name);
+    len = 4 + cstr_len(expr->var->name);
     col -= 3;
     break;
 
@@ -80,7 +80,7 @@ static void par__errHeaderWithExpr(Parser* parser, Expr* expr) {
   // case tkVar:
   // case tkLet:
   // case tkImport:
-  default: len = strlen(TokenKind_repr[expr->kind]); break;
+  default: len = cstr_len(TokenKind_repr[expr->kind]); break;
   }
   par__errHeaderWithLoc(
     parser, expr->line ? expr->line : parser->token.line, col, len);
@@ -105,7 +105,7 @@ static const char* const carets
 void _PRREDLINE(
   Parser* parser, int line, int col, int len, int offs, char* msg) {
   char* c = parser->orig.ref[line + offs - 1];
-  if (!col) len = strlen(c), col = 1;
+  if (!col) len = cstr_len(c), col = 1;
   eprintf("%4d | %.*s", line + offs, col - 1, c);
   eprintf("%.*s", len, c + col - 1);
   eprintf("%s\n", c + col + len - 1);
@@ -227,13 +227,14 @@ static void err_unrecognizedVar(Parser* parser, Expr* expr) {
   eprintf("unknown variable '%.*s'\n", 64, expr->str);
 
   par__printSourceLines(
-    parser, expr->line, expr->col, strlen(expr->str), "unknown variable");
+    parser, expr->line, expr->col, cstr_len(expr->str), "unknown variable");
 
   err_increment(parser);
 }
 
 static void err_importNotFound(Parser* parser, Import* impo) {
-  par__errHeaderWithLoc(parser, impo->line, impo->col, strlen(impo->name));
+  par__errHeaderWithLoc(
+    parser, impo->line, impo->col, cstr_len(impo->name));
   eprintf("cannot load module '%.*s'\n", 64, impo->name);
   err_increment(parser);
 }
@@ -245,8 +246,8 @@ static void err_unrecognizedMember(Parser* parser, Type* type, Expr* expr) {
 
   if (type->body) {
     foreach (Var*, var, type->body->locals) {
-      unsigned l1 = strlen(var->name);
-      unsigned l2 = strlen(expr->str);
+      unsigned l1 = cstr_len(var->name);
+      unsigned l2 = cstr_len(expr->str);
 
       if (leven(var->name, expr->str, l1, l2) <= 3)
         eprintf("did you mean: '%s'?;;", var->name);
@@ -261,45 +262,47 @@ static void err_unrecognizedMember(Parser* parser, Type* type, Expr* expr) {
 
 static void warn_unusedArg(Parser* parser, Var* var) {
   if (!parser->issues.warnUnusedArg) return;
-  par__warnHeaderWithLoc(parser, var->line, var->col, strlen(var->name));
+  par__warnHeaderWithLoc(parser, var->line, var->col, cstr_len(var->name));
   eprintf("unused or unnecessary argument '%s'\n", var->name);
 }
 
 static void warn_unusedVar(Parser* parser, Var* var) {
   if (!parser->issues.warnUnusedVar) return;
-  par__warnHeaderWithLoc(parser, var->line, var->col, strlen(var->name));
+  par__warnHeaderWithLoc(parser, var->line, var->col, cstr_len(var->name));
   eprintf("unused or unnecessary variable '%s'\n", var->name);
 }
 
 static void hint_varRefineScope(Parser* parser, Var* var) {
   if (!parser->issues.warnUnusedVar) return;
-  par__hintHeaderWithLoc(parser, var->line, var->col, strlen(var->name));
+  par__hintHeaderWithLoc(parser, var->line, var->col, cstr_len(var->name));
   eprintf("variable '%s' can be moved to an inner scope\n", var->name);
 }
 
 static void hint_varEscapes(Parser* parser, Var* var) {
   // if (!parser->issues.hints) return;
-  par__hintHeaderWithLoc(parser, var->line, var->col, strlen(var->name));
+  par__hintHeaderWithLoc(parser, var->line, var->col, cstr_len(var->name));
   eprintf("var '%s' escapes func\n", var->name);
 }
 
 static void hint_varPromoteScope(Parser* parser, Var* var) {
   // if (!parser->issues.hints) return;
-  par__hintHeaderWithLoc(parser, var->line, var->col, strlen(var->name));
+  par__hintHeaderWithLoc(parser, var->line, var->col, cstr_len(var->name));
   eprintf("var '%s' escapes scope, will be promoted up %d levels\n",
     var->name, var->promote);
 }
 
 static void warn_unusedFunc(Parser* parser, Func* func) {
   if (!parser->issues.warnUnusedFunc) return;
-  par__warnHeaderWithLoc(parser, func->line, func->col, strlen(func->name));
+  par__warnHeaderWithLoc(
+    parser, func->line, func->col, cstr_len(func->name));
   eprintf("unused or unnecessary function '%s';;selector: '%s'\n",
     func->name, func->sel);
 }
 
 static void warn_unusedType(Parser* parser, Type* type) {
   if (!parser->issues.warnUnusedType) return;
-  par__warnHeaderWithLoc(parser, type->line, type->col, strlen(type->name));
+  par__warnHeaderWithLoc(
+    parser, type->line, type->col, cstr_len(type->name));
   eprintf("unused or unnecessary type '%s'\n", type->name);
 }
 
@@ -315,14 +318,15 @@ static void warn_sameExpr(Parser* parser, Expr* e1, Expr* e2) {
 }
 
 static void err_duplicateVar(Parser* parser, Var* var, int line, int col) {
-  par__errHeaderWithLoc(parser, var->line, var->col, strlen(var->name));
+  par__errHeaderWithLoc(parser, var->line, var->col, cstr_len(var->name));
   eprintf("duplicate variable '%s' already declared at %s%s:%d:%d\n",
     var->name, RELF(parser->filename), line, col);
   err_increment(parser);
 }
 
 static void err_duplicateType(Parser* parser, Type* type, Type* orig) {
-  par__errHeaderWithLoc(parser, type->line, type->col, strlen(type->name));
+  par__errHeaderWithLoc(
+    parser, type->line, type->col, cstr_len(type->name));
   if (orig)
     eprintf("duplicate type '%s' already declared at %s%s:%d:%d\n",
       type->name, RELF(parser->filename), orig->line, orig->col);
@@ -333,7 +337,7 @@ static void err_duplicateType(Parser* parser, Type* type, Type* orig) {
 }
 
 static void err_duplicateEnum(Parser* parser, Type* en, Type* orig) {
-  par__errHeaderWithLoc(parser, en->line, en->col, strlen(en->name));
+  par__errHeaderWithLoc(parser, en->line, en->col, cstr_len(en->name));
   if (orig)
     eprintf("duplicate enum '%s' already declared at %s%s:%d:%d\n",
       en->name, RELF(parser->filename), orig->line, orig->col);
@@ -375,7 +379,7 @@ static void warn_ctorCase(Parser* parser, Func* func) {
 }
 
 static void err_duplicateFunc(Parser* parser, Func* func, Func* orig) {
-  par__errHeaderWithLoc(parser, func->line, 6, strlen(func->name));
+  par__errHeaderWithLoc(parser, func->line, 6, cstr_len(func->name));
   eprintf("duplicate function "
           "'%s' already declared at %s%s:%d:%d with selector %s\n",
     func->name, RELF(parser->filename), orig->line, 6, func->psel);
@@ -383,7 +387,7 @@ static void err_duplicateFunc(Parser* parser, Func* func, Func* orig) {
 }
 
 static void err_duplicateTest(Parser* parser, Test* test, Test* orig) {
-  par__errHeaderWithLoc(parser, test->line, 5, strlen(test->name));
+  par__errHeaderWithLoc(parser, test->line, 5, cstr_len(test->name));
   eprintf("duplicate test \"%s\" already declared at %s%s:%d:%d\n",
     test->name, RELF(parser->filename), orig->line, 1);
   err_increment(parser);
@@ -398,7 +402,7 @@ static void err_unrecognizedFunc(
     "cannot resolve call to '%s' (selector: %s);;", expr->str, selector);
 
   // par__printSourceLines(
-  //     parser, expr->line, expr->col, strlen(expr->str), "unknown
+  //     parser, expr->line, expr->col, cstr_len(expr->str), "unknown
   //     function");
 
   // eprintf("info: no function with selector '%s'\n", selector);
@@ -412,7 +416,8 @@ static void err_unrecognizedFunc(
 static void warn_unrecognizedSelector(
   Parser* parser, Expr* expr, char* selector, Func* selected) {
   if (noPoison && *selector == '<') return; // invalid type; already error'd
-  par__warnHeaderWithLoc(parser, expr->line, expr->col, strlen(expr->str));
+  par__warnHeaderWithLoc(
+    parser, expr->line, expr->col, cstr_len(expr->str));
 
   eprintf("no exact match for function '%s' with selector '%s', taking "
           "closest match '%s' (at %s%s:%d:%d)\n",
@@ -420,7 +425,7 @@ static void warn_unrecognizedSelector(
     expr->col);
 
   par__printSourceLines(
-    parser, expr->line, expr->col, strlen(expr->str), "unknown function");
+    parser, expr->line, expr->col, cstr_len(expr->str), "unknown function");
 
   // eprintf("info: no function with selector '%s'\n", selector);
 
@@ -430,7 +435,8 @@ static void warn_unrecognizedSelector(
 static void warn_templateHit(
   Parser* parser, Expr* expr, char* selector, Func* selected) {
   if (noPoison && *selector == '<') return; // invalid type; already error'd
-  par__warnHeaderWithLoc(parser, expr->line, expr->col, strlen(expr->str));
+  par__warnHeaderWithLoc(
+    parser, expr->line, expr->col, cstr_len(expr->str));
 
   eprintf("no exact match for function '%s' with selector '%s', made "
           "'%s' from template at %s%s:%d:%d\n",
@@ -438,7 +444,7 @@ static void warn_templateHit(
     selected->line, selected->col);
 
   // par__printSourceLines(
-  //     parser, expr->line, expr->col, strlen(expr->str), "unknown
+  //     parser, expr->line, expr->col, cstr_len(expr->str), "unknown
   //     function");
 
   // eprintf("info: no function with selector '%s'\n", selector);
@@ -557,13 +563,14 @@ static void err_missingInit(Parser* parser, Expr* expr) {
 }
 
 static void err_unrecognizedType(Parser* parser, TypeSpec* spec) {
-  par__errHeaderWithLoc(parser, spec->line, spec->col, strlen(spec->name));
+  par__errHeaderWithLoc(
+    parser, spec->line, spec->col, cstr_len(spec->name));
   eprintf("unknown typespec '%s'\n", spec->name);
   err_increment(parser);
 }
 
 static void err_unrecognizedCtor(Parser* parser, Func* func) {
-  par__errHeaderWithLoc(parser, func->line, 5, strlen(func->name));
+  par__errHeaderWithLoc(parser, func->line, 5, cstr_len(func->name));
   eprintf("unknown type '%s' for constructor\n", func->name);
   err_increment(parser);
 }

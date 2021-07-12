@@ -56,15 +56,14 @@ struct Compiler {
   typedef struct {
     CompilerMode mode;
     bool stats, coverage, profiling, buildobj, inplace, strictSpacing,
-        disableGC, forceBuild;
+      disableGC, forceBuild;
     const char *srcfile, *makeMode;
     long nprocs, nthreads;
   } JetOpts;
 
   static void getDefaultOpts(JetOpts* out) {
-    *out = (JetOpts) {
-      .mode = PMRun, .makeMode = "debug", .buildobj = true
-    };
+    *out
+      = (JetOpts) { .mode = PMRun, .makeMode = "debug", .buildobj = true };
   }
   void printOpts(JetOpts* opts) {
     static const char* _fp_yn[] = { "no", "yes" };
@@ -137,8 +136,8 @@ struct Compiler {
             break;
           default:
           defaultCase:
-            eprintf("jetc: unrecognized option #%d: %s [%s]\n", i, argv[i],
-                arg);
+            eprintf(
+              "jetc: unrecognized option #%d: %s [%s]\n", i, argv[i], arg);
             ok = false;
           }
         }
@@ -157,7 +156,7 @@ struct Compiler {
       size_t flen = CString_length(out->srcfile);
       if (!CString_endsWith(out->srcfile, flen, ".jet", 4)) {
         eprintf("%s: error: filename invalid, must end in '.jet'\n",
-            out->srcfile);
+          out->srcfile);
         ok = false;
       }
 
@@ -189,13 +188,13 @@ struct Compiler {
     int ret = stat(file, &sb);
     if (ret) return false; // unreachable
     size_t filetime
-        = sb.st_mtimespec.tv_sec * ONE_NANO + sb.st_mtimespec.tv_nsec;
+      = sb.st_mtimespec.tv_sec * ONE_NANO + sb.st_mtimespec.tv_nsec;
 
     static char cfile[4096] = {}; //, *cend = cfile + 4095;
-    size_t n = strlen(file);
+    size_t n = cstr_len(file);
     assert(n < 4095);
     strncpy(
-        cfile, file, 4094); // one for NULL, one for a dot to hide the file
+      cfile, file, 4094); // one for NULL, one for a dot to hide the file
 
     // char* lastSlash = cfile + n;
     // while (lastSlash > cfile && lastSlash[-1] != '/') lastSlash--;
@@ -210,7 +209,7 @@ struct Compiler {
     cfile[n - 2] = newext; // change file.jet to .file.c
     cfile[n - 1] = 0;
 
-    // size_t alen = strlen(altext);
+    // size_t alen = cstr_len(altext);
     // assert(alen < cend - lastDot);
     // strncpy(lastDot, altext, alen);
 
@@ -220,7 +219,7 @@ struct Compiler {
       return true; // yes it needs a build if it doesn't exist
 
     size_t cfiletime
-        = sbc.st_mtimespec.tv_sec * ONE_NANO + sbc.st_mtimespec.tv_nsec;
+      = sbc.st_mtimespec.tv_sec * ONE_NANO + sbc.st_mtimespec.tv_nsec;
 
     return cfiletime < filetime;
   }

@@ -50,17 +50,17 @@ typedef struct {
 const char* blake3_version(void);
 void blake3_hasher_init(blake3_hasher* self);
 void blake3_hasher_init_keyed(
-    blake3_hasher* self, const uint8_t key[BLAKE3_KEY_LEN]);
+  blake3_hasher* self, const uint8_t key[BLAKE3_KEY_LEN]);
 void blake3_hasher_init_derive_key(
-    blake3_hasher* self, const char* context);
+  blake3_hasher* self, const char* context);
 void blake3_hasher_init_derive_key_raw(
-    blake3_hasher* self, const void* context, size_t context_len);
+  blake3_hasher* self, const void* context, size_t context_len);
 void blake3_hasher_update(
-    blake3_hasher* self, const void* input, size_t input_len);
+  blake3_hasher* self, const void* input, size_t input_len);
 void blake3_hasher_finalize(
-    const blake3_hasher* self, uint8_t* out, size_t out_len);
+  const blake3_hasher* self, uint8_t* out, size_t out_len);
 void blake3_hasher_finalize_seek(
-    const blake3_hasher* self, uint64_t seek, uint8_t* out, size_t out_len);
+  const blake3_hasher* self, uint64_t seek, uint8_t* out, size_t out_len);
 
 #ifdef __cplusplus
 }
@@ -213,11 +213,11 @@ INLINE uint32_t counter_high(uint64_t counter) {
 INLINE uint32_t load32(const void* src) {
   const uint8_t* p = (const uint8_t*)src;
   return ((uint32_t)(p[0]) << 0) | ((uint32_t)(p[1]) << 8)
-      | ((uint32_t)(p[2]) << 16) | ((uint32_t)(p[3]) << 24);
+    | ((uint32_t)(p[2]) << 16) | ((uint32_t)(p[3]) << 24);
 }
 
 INLINE void load_key_words(
-    const uint8_t key[BLAKE3_KEY_LEN], uint32_t key_words[8]) {
+  const uint8_t key[BLAKE3_KEY_LEN], uint32_t key_words[8]) {
   key_words[0] = load32(&key[0 * 4]);
   key_words[1] = load32(&key[1 * 4]);
   key_words[2] = load32(&key[2 * 4]);
@@ -248,86 +248,86 @@ INLINE void store_cv_words(uint8_t bytes_out[32], uint32_t cv_words[8]) {
 }
 
 void blake3_compress_in_place(uint32_t cv[8],
-    const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
-    uint64_t counter, uint8_t flags);
+  const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
+  uint64_t counter, uint8_t flags);
 
 void blake3_compress_xof(const uint32_t cv[8],
-    const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
-    uint64_t counter, uint8_t flags, uint8_t out[64]);
+  const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
+  uint64_t counter, uint8_t flags, uint8_t out[64]);
 
 void blake3_hash_many(const uint8_t* const* inputs, size_t num_inputs,
-    size_t blocks, const uint32_t key[8], uint64_t counter,
-    bool increment_counter, uint8_t flags, uint8_t flags_start,
-    uint8_t flags_end, uint8_t* out);
+  size_t blocks, const uint32_t key[8], uint64_t counter,
+  bool increment_counter, uint8_t flags, uint8_t flags_start,
+  uint8_t flags_end, uint8_t* out);
 
 size_t blake3_simd_degree(void);
 
 // Declarations for implementation-specific functions.
 void blake3_compress_in_place_portable(uint32_t cv[8],
-    const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
-    uint64_t counter, uint8_t flags);
+  const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
+  uint64_t counter, uint8_t flags);
 
 void blake3_compress_xof_portable(const uint32_t cv[8],
-    const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
-    uint64_t counter, uint8_t flags, uint8_t out[64]);
+  const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
+  uint64_t counter, uint8_t flags, uint8_t out[64]);
 
 void blake3_hash_many_portable(const uint8_t* const* inputs,
-    size_t num_inputs, size_t blocks, const uint32_t key[8],
-    uint64_t counter, bool increment_counter, uint8_t flags,
-    uint8_t flags_start, uint8_t flags_end, uint8_t* out);
+  size_t num_inputs, size_t blocks, const uint32_t key[8], uint64_t counter,
+  bool increment_counter, uint8_t flags, uint8_t flags_start,
+  uint8_t flags_end, uint8_t* out);
 
 #if defined(IS_X86)
 #if !defined(BLAKE3_NO_SSE2)
 void blake3_compress_in_place_sse2(uint32_t cv[8],
-    const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
-    uint64_t counter, uint8_t flags);
+  const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
+  uint64_t counter, uint8_t flags);
 void blake3_compress_xof_sse2(const uint32_t cv[8],
-    const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
-    uint64_t counter, uint8_t flags, uint8_t out[64]);
+  const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
+  uint64_t counter, uint8_t flags, uint8_t out[64]);
 void blake3_hash_many_sse2(const uint8_t* const* inputs, size_t num_inputs,
-    size_t blocks, const uint32_t key[8], uint64_t counter,
-    bool increment_counter, uint8_t flags, uint8_t flags_start,
-    uint8_t flags_end, uint8_t* out);
+  size_t blocks, const uint32_t key[8], uint64_t counter,
+  bool increment_counter, uint8_t flags, uint8_t flags_start,
+  uint8_t flags_end, uint8_t* out);
 #endif
 #if !defined(BLAKE3_NO_SSE41)
 void blake3_compress_in_place_sse41(uint32_t cv[8],
-    const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
-    uint64_t counter, uint8_t flags);
+  const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
+  uint64_t counter, uint8_t flags);
 void blake3_compress_xof_sse41(const uint32_t cv[8],
-    const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
-    uint64_t counter, uint8_t flags, uint8_t out[64]);
+  const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
+  uint64_t counter, uint8_t flags, uint8_t out[64]);
 void blake3_hash_many_sse41(const uint8_t* const* inputs, size_t num_inputs,
-    size_t blocks, const uint32_t key[8], uint64_t counter,
-    bool increment_counter, uint8_t flags, uint8_t flags_start,
-    uint8_t flags_end, uint8_t* out);
+  size_t blocks, const uint32_t key[8], uint64_t counter,
+  bool increment_counter, uint8_t flags, uint8_t flags_start,
+  uint8_t flags_end, uint8_t* out);
 #endif
 #if !defined(BLAKE3_NO_AVX2)
 void blake3_hash_many_avx2(const uint8_t* const* inputs, size_t num_inputs,
-    size_t blocks, const uint32_t key[8], uint64_t counter,
-    bool increment_counter, uint8_t flags, uint8_t flags_start,
-    uint8_t flags_end, uint8_t* out);
+  size_t blocks, const uint32_t key[8], uint64_t counter,
+  bool increment_counter, uint8_t flags, uint8_t flags_start,
+  uint8_t flags_end, uint8_t* out);
 #endif
 #if !defined(BLAKE3_NO_AVX512)
 void blake3_compress_in_place_avx512(uint32_t cv[8],
-    const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
-    uint64_t counter, uint8_t flags);
+  const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
+  uint64_t counter, uint8_t flags);
 
 void blake3_compress_xof_avx512(const uint32_t cv[8],
-    const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
-    uint64_t counter, uint8_t flags, uint8_t out[64]);
+  const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
+  uint64_t counter, uint8_t flags, uint8_t out[64]);
 
 void blake3_hash_many_avx512(const uint8_t* const* inputs,
-    size_t num_inputs, size_t blocks, const uint32_t key[8],
-    uint64_t counter, bool increment_counter, uint8_t flags,
-    uint8_t flags_start, uint8_t flags_end, uint8_t* out);
+  size_t num_inputs, size_t blocks, const uint32_t key[8], uint64_t counter,
+  bool increment_counter, uint8_t flags, uint8_t flags_start,
+  uint8_t flags_end, uint8_t* out);
 #endif
 #endif
 
 #if defined(BLAKE3_USE_NEON)
 void blake3_hash_many_neon(const uint8_t* const* inputs, size_t num_inputs,
-    size_t blocks, const uint32_t key[8], uint64_t counter,
-    bool increment_counter, uint8_t flags, uint8_t flags_start,
-    uint8_t flags_end, uint8_t* out);
+  size_t blocks, const uint32_t key[8], uint64_t counter,
+  bool increment_counter, uint8_t flags, uint8_t flags_start,
+  uint8_t flags_end, uint8_t* out);
 #endif
 
 #endif /* BLAKE3_IMPL_H */
@@ -335,8 +335,8 @@ void blake3_hash_many_neon(const uint8_t* const* inputs, size_t num_inputs,
 const char* blake3_version(void) { return BLAKE3_VERSION_STRING; }
 
 INLINE void chunk_state_init(
-    blake3_chunk_state* self, const uint32_t key[8], uint8_t flags) {
-  memcpy(self->cv, key, BLAKE3_KEY_LEN);
+  blake3_chunk_state* self, const uint32_t key[8], uint8_t flags) {
+  jet_memcpy(self->cv, key, BLAKE3_KEY_LEN);
   self->chunk_counter = 0;
   memset(self->buf, 0, BLAKE3_BLOCK_LEN);
   self->buf_len = 0;
@@ -344,9 +344,9 @@ INLINE void chunk_state_init(
   self->flags = flags;
 }
 
-INLINE void chunk_state_reset(blake3_chunk_state* self,
-    const uint32_t key[8], uint64_t chunk_counter) {
-  memcpy(self->cv, key, BLAKE3_KEY_LEN);
+INLINE void chunk_state_reset(
+  blake3_chunk_state* self, const uint32_t key[8], uint64_t chunk_counter) {
+  jet_memcpy(self->cv, key, BLAKE3_KEY_LEN);
   self->chunk_counter = chunk_counter;
   self->blocks_compressed = 0;
   memset(self->buf, 0, BLAKE3_BLOCK_LEN);
@@ -355,21 +355,21 @@ INLINE void chunk_state_reset(blake3_chunk_state* self,
 
 INLINE size_t chunk_state_len(const blake3_chunk_state* self) {
   return (BLAKE3_BLOCK_LEN * (size_t)self->blocks_compressed)
-      + ((size_t)self->buf_len);
+    + ((size_t)self->buf_len);
 }
 
 INLINE size_t chunk_state_fill_buf(
-    blake3_chunk_state* self, const uint8_t* input, size_t input_len) {
+  blake3_chunk_state* self, const uint8_t* input, size_t input_len) {
   size_t take = BLAKE3_BLOCK_LEN - ((size_t)self->buf_len);
   if (take > input_len) { take = input_len; }
   uint8_t* dest = self->buf + ((size_t)self->buf_len);
-  memcpy(dest, input, take);
+  jet_memcpy(dest, input, take);
   self->buf_len += (uint8_t)take;
   return take;
 }
 
 INLINE uint8_t chunk_state_maybe_start_flag(
-    const blake3_chunk_state* self) {
+  const blake3_chunk_state* self) {
   if (self->blocks_compressed == 0) {
     return CHUNK_START;
   } else {
@@ -386,11 +386,11 @@ typedef struct {
 } output_t;
 
 INLINE output_t make_output(const uint32_t input_cv[8],
-    const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
-    uint64_t counter, uint8_t flags) {
+  const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
+  uint64_t counter, uint8_t flags) {
   output_t ret;
-  memcpy(ret.input_cv, input_cv, 32);
-  memcpy(ret.block, block, BLAKE3_BLOCK_LEN);
+  jet_memcpy(ret.input_cv, input_cv, 32);
+  jet_memcpy(ret.block, block, BLAKE3_BLOCK_LEN);
   ret.block_len = block_len;
   ret.counter = counter;
   ret.flags = flags;
@@ -405,20 +405,20 @@ INLINE output_t make_output(const uint32_t input_cv[8],
 // stack are represented as bytes.
 INLINE void output_chaining_value(const output_t* self, uint8_t cv[32]) {
   uint32_t cv_words[8];
-  memcpy(cv_words, self->input_cv, 32);
+  jet_memcpy(cv_words, self->input_cv, 32);
   blake3_compress_in_place(
-      cv_words, self->block, self->block_len, self->counter, self->flags);
+    cv_words, self->block, self->block_len, self->counter, self->flags);
   store_cv_words(cv, cv_words);
 }
 
 INLINE void output_root_bytes(
-    const output_t* self, uint64_t seek, uint8_t* out, size_t out_len) {
+  const output_t* self, uint64_t seek, uint8_t* out, size_t out_len) {
   uint64_t output_block_counter = seek / 64;
   size_t offset_within_block = seek % 64;
   uint8_t wide_buf[64];
   while (out_len > 0) {
     blake3_compress_xof(self->input_cv, self->block, self->block_len,
-        output_block_counter, self->flags | ROOT, wide_buf);
+      output_block_counter, self->flags | ROOT, wide_buf);
     size_t available_bytes = 64 - offset_within_block;
     size_t memcpy_len;
     if (out_len > available_bytes) {
@@ -426,7 +426,7 @@ INLINE void output_root_bytes(
     } else {
       memcpy_len = out_len;
     }
-    memcpy(out, wide_buf + offset_within_block, memcpy_len);
+    jet_memcpy(out, wide_buf + offset_within_block, memcpy_len);
     out += memcpy_len;
     out_len -= memcpy_len;
     output_block_counter += 1;
@@ -435,15 +435,15 @@ INLINE void output_root_bytes(
 }
 
 INLINE void chunk_state_update(
-    blake3_chunk_state* self, const uint8_t* input, size_t input_len) {
+  blake3_chunk_state* self, const uint8_t* input, size_t input_len) {
   if (self->buf_len > 0) {
     size_t take = chunk_state_fill_buf(self, input, input_len);
     input += take;
     input_len -= take;
     if (input_len > 0) {
       blake3_compress_in_place(self->cv, self->buf, BLAKE3_BLOCK_LEN,
-          self->chunk_counter,
-          self->flags | chunk_state_maybe_start_flag(self));
+        self->chunk_counter,
+        self->flags | chunk_state_maybe_start_flag(self));
       self->blocks_compressed += 1;
       self->buf_len = 0;
       memset(self->buf, 0, BLAKE3_BLOCK_LEN);
@@ -452,8 +452,8 @@ INLINE void chunk_state_update(
 
   while (input_len > BLAKE3_BLOCK_LEN) {
     blake3_compress_in_place(self->cv, input, BLAKE3_BLOCK_LEN,
-        self->chunk_counter,
-        self->flags | chunk_state_maybe_start_flag(self));
+      self->chunk_counter,
+      self->flags | chunk_state_maybe_start_flag(self));
     self->blocks_compressed += 1;
     input += BLAKE3_BLOCK_LEN;
     input_len -= BLAKE3_BLOCK_LEN;
@@ -466,13 +466,13 @@ INLINE void chunk_state_update(
 
 INLINE output_t chunk_state_output(const blake3_chunk_state* self) {
   uint8_t block_flags
-      = self->flags | chunk_state_maybe_start_flag(self) | CHUNK_END;
+    = self->flags | chunk_state_maybe_start_flag(self) | CHUNK_END;
   return make_output(
-      self->cv, self->buf, self->buf_len, self->chunk_counter, block_flags);
+    self->cv, self->buf, self->buf_len, self->chunk_counter, block_flags);
 }
 
 INLINE output_t parent_output(const uint8_t block[BLAKE3_BLOCK_LEN],
-    const uint32_t key[8], uint8_t flags) {
+  const uint32_t key[8], uint8_t flags) {
   return make_output(key, block, BLAKE3_BLOCK_LEN, 0, flags | PARENT);
 }
 
@@ -491,8 +491,8 @@ INLINE size_t left_len(size_t content_len) {
 // the number of chunks hashed. These chunks are never the root and never
 // empty; those cases use a different codepath.
 INLINE size_t compress_chunks_parallel(const uint8_t* input,
-    size_t input_len, const uint32_t key[8], uint64_t chunk_counter,
-    uint8_t flags, uint8_t* out) {
+  size_t input_len, const uint32_t key[8], uint64_t chunk_counter,
+  uint8_t flags, uint8_t* out) {
 #if defined(BLAKE3_TESTING)
   assert(0 < input_len);
   assert(input_len <= MAX_SIMD_DEGREE * BLAKE3_CHUNK_LEN);
@@ -508,8 +508,8 @@ INLINE size_t compress_chunks_parallel(const uint8_t* input,
   }
 
   blake3_hash_many(chunks_array, chunks_array_len,
-      BLAKE3_CHUNK_LEN / BLAKE3_BLOCK_LEN, key, chunk_counter, true, flags,
-      CHUNK_START, CHUNK_END, out);
+    BLAKE3_CHUNK_LEN / BLAKE3_BLOCK_LEN, key, chunk_counter, true, flags,
+    CHUNK_START, CHUNK_END, out);
 
   // Hash the remaining partial chunk, if there is one. Note that the empty
   // chunk (meaning the empty message) is a different codepath.
@@ -519,7 +519,7 @@ INLINE size_t compress_chunks_parallel(const uint8_t* input,
     chunk_state_init(&chunk_state, key, flags);
     chunk_state.chunk_counter = counter;
     chunk_state_update(
-        &chunk_state, &input[input_position], input_len - input_position);
+      &chunk_state, &input[input_position], input_len - input_position);
     output_t output = chunk_state_output(&chunk_state);
     output_chaining_value(&output, &out[chunks_array_len * BLAKE3_OUT_LEN]);
     return chunks_array_len + 1;
@@ -534,8 +534,8 @@ INLINE size_t compress_chunks_parallel(const uint8_t* input,
 // left over, return it as an additional output.) These parents are never
 // the root and never empty; those cases use a different codepath.
 INLINE size_t compress_parents_parallel(
-    const uint8_t* child_chaining_values, size_t num_chaining_values,
-    const uint32_t key[8], uint8_t flags, uint8_t* out) {
+  const uint8_t* child_chaining_values, size_t num_chaining_values,
+  const uint32_t key[8], uint8_t flags, uint8_t* out) {
 #if defined(BLAKE3_TESTING)
   assert(2 <= num_chaining_values);
   assert(num_chaining_values <= 2 * MAX_SIMD_DEGREE_OR_2);
@@ -545,22 +545,22 @@ INLINE size_t compress_parents_parallel(
   size_t parents_array_len = 0;
   while (num_chaining_values - (2 * parents_array_len) >= 2) {
     parents_array[parents_array_len]
-        = &child_chaining_values[2 * parents_array_len * BLAKE3_OUT_LEN];
+      = &child_chaining_values[2 * parents_array_len * BLAKE3_OUT_LEN];
     parents_array_len += 1;
   }
 
   blake3_hash_many(parents_array, parents_array_len, 1, key,
-      0, // Parents always use counter 0.
-      false, flags | PARENT,
-      0, // Parents have no start flags.
-      0, // Parents have no end flags.
-      out);
+    0, // Parents always use counter 0.
+    false, flags | PARENT,
+    0, // Parents have no start flags.
+    0, // Parents have no end flags.
+    out);
 
   // If there's an odd child left over, it becomes an output.
   if (num_chaining_values > 2 * parents_array_len) {
-    memcpy(&out[parents_array_len * BLAKE3_OUT_LEN],
-        &child_chaining_values[2 * parents_array_len * BLAKE3_OUT_LEN],
-        BLAKE3_OUT_LEN);
+    jet_memcpy(&out[parents_array_len * BLAKE3_OUT_LEN],
+      &child_chaining_values[2 * parents_array_len * BLAKE3_OUT_LEN],
+      BLAKE3_OUT_LEN);
     return parents_array_len + 1;
   } else {
     return parents_array_len;
@@ -586,15 +586,15 @@ INLINE size_t compress_parents_parallel(
 // instead of implementing this special rule? Because we don't want to limit
 // SIMD or multi-threading parallelism for that update().
 static size_t blake3_compress_subtree_wide(const uint8_t* input,
-    size_t input_len, const uint32_t key[8], uint64_t chunk_counter,
-    uint8_t flags, uint8_t* out) {
+  size_t input_len, const uint32_t key[8], uint64_t chunk_counter,
+  uint8_t flags, uint8_t* out) {
   // Note that the single chunk case does *not* bump the SIMD degree up to 2
   // when it is 1. If this implementation adds multi-threading in the
   // future, this gives us the option of multi-threading even the 2-chunk
   // case, which can help performance on smaller platforms.
   if (input_len <= blake3_simd_degree() * BLAKE3_CHUNK_LEN) {
     return compress_chunks_parallel(
-        input, input_len, key, chunk_counter, flags, out);
+      input, input_len, key, chunk_counter, flags, out);
   }
 
   // With more than simd_degree chunks, we need to recurse. Start by
@@ -606,7 +606,7 @@ static size_t blake3_compress_subtree_wide(const uint8_t* input,
   size_t right_input_len = input_len - left_input_len;
   const uint8_t* right_input = &input[left_input_len];
   uint64_t right_chunk_counter
-      = chunk_counter + (uint64_t)(left_input_len / BLAKE3_CHUNK_LEN);
+    = chunk_counter + (uint64_t)(left_input_len / BLAKE3_CHUNK_LEN);
 
   // Make space for the child outputs. Here we use MAX_SIMD_DEGREE_OR_2 to
   // account for the special case of returning 2 outputs when the SIMD
@@ -625,22 +625,22 @@ static size_t blake3_compress_subtree_wide(const uint8_t* input,
   // Recurse! If this implementation adds multi-threading support in the
   // future, this is where it will go.
   size_t left_n = blake3_compress_subtree_wide(
-      input, left_input_len, key, chunk_counter, flags, cv_array);
+    input, left_input_len, key, chunk_counter, flags, cv_array);
   size_t right_n = blake3_compress_subtree_wide(right_input,
-      right_input_len, key, right_chunk_counter, flags, right_cvs);
+    right_input_len, key, right_chunk_counter, flags, right_cvs);
 
   // The special case again. If simd_degree=1, then we'll have left_n=1 and
   // right_n=1. Rather than compressing them into a single output, return
   // them directly, to make sure we always have at least two outputs.
   if (left_n == 1) {
-    memcpy(out, cv_array, 2 * BLAKE3_OUT_LEN);
+    jet_memcpy(out, cv_array, 2 * BLAKE3_OUT_LEN);
     return 2;
   }
 
   // Otherwise, do one layer of parent node compression.
   size_t num_chaining_values = left_n + right_n;
   return compress_parents_parallel(
-      cv_array, num_chaining_values, key, flags, out);
+    cv_array, num_chaining_values, key, flags, out);
 }
 
 // Hash a subtree with compress_subtree_wide(), and then condense the
@@ -654,31 +654,31 @@ static size_t blake3_compress_subtree_wide(const uint8_t* input,
 // As with compress_subtree_wide(), this function is not used on inputs of 1
 // chunk or less. That's a different codepath.
 INLINE void compress_subtree_to_parent_node(const uint8_t* input,
-    size_t input_len, const uint32_t key[8], uint64_t chunk_counter,
-    uint8_t flags, uint8_t out[2 * BLAKE3_OUT_LEN]) {
+  size_t input_len, const uint32_t key[8], uint64_t chunk_counter,
+  uint8_t flags, uint8_t out[2 * BLAKE3_OUT_LEN]) {
 #if defined(BLAKE3_TESTING)
   assert(input_len > BLAKE3_CHUNK_LEN);
 #endif
 
   uint8_t cv_array[MAX_SIMD_DEGREE_OR_2 * BLAKE3_OUT_LEN];
   size_t num_cvs = blake3_compress_subtree_wide(
-      input, input_len, key, chunk_counter, flags, cv_array);
+    input, input_len, key, chunk_counter, flags, cv_array);
 
   // If MAX_SIMD_DEGREE is greater than 2 and there's enough input,
   // compress_subtree_wide() returns more than 2 chaining values. Condense
   // them into 2 by forming parent nodes repeatedly.
   uint8_t out_array[MAX_SIMD_DEGREE_OR_2 * BLAKE3_OUT_LEN / 2];
   while (num_cvs > 2) {
-    num_cvs = compress_parents_parallel(
-        cv_array, num_cvs, key, flags, out_array);
-    memcpy(cv_array, out_array, num_cvs * BLAKE3_OUT_LEN);
+    num_cvs
+      = compress_parents_parallel(cv_array, num_cvs, key, flags, out_array);
+    jet_memcpy(cv_array, out_array, num_cvs * BLAKE3_OUT_LEN);
   }
-  memcpy(out, cv_array, 2 * BLAKE3_OUT_LEN);
+  jet_memcpy(out, cv_array, 2 * BLAKE3_OUT_LEN);
 }
 
 INLINE void hasher_init_base(
-    blake3_hasher* self, const uint32_t key[8], uint8_t flags) {
-  memcpy(self->key, key, BLAKE3_KEY_LEN);
+  blake3_hasher* self, const uint32_t key[8], uint8_t flags) {
+  jet_memcpy(self->key, key, BLAKE3_KEY_LEN);
   chunk_state_init(&self->chunk, key, flags);
   self->cv_stack_len = 0;
 }
@@ -688,14 +688,14 @@ void blake3_hasher_init(blake3_hasher* self) {
 }
 
 void blake3_hasher_init_keyed(
-    blake3_hasher* self, const uint8_t key[BLAKE3_KEY_LEN]) {
+  blake3_hasher* self, const uint8_t key[BLAKE3_KEY_LEN]) {
   uint32_t key_words[8];
   load_key_words(key, key_words);
   hasher_init_base(self, key_words, KEYED_HASH);
 }
 
 void blake3_hasher_init_derive_key_raw(
-    blake3_hasher* self, const void* context, size_t context_len) {
+  blake3_hasher* self, const void* context, size_t context_len) {
   blake3_hasher context_hasher;
   hasher_init_base(&context_hasher, IV, DERIVE_KEY_CONTEXT);
   blake3_hasher_update(&context_hasher, context, context_len);
@@ -707,8 +707,8 @@ void blake3_hasher_init_derive_key_raw(
 }
 
 void blake3_hasher_init_derive_key(
-    blake3_hasher* self, const char* context) {
-  blake3_hasher_init_derive_key_raw(self, context, strlen(context));
+  blake3_hasher* self, const char* context) {
+  blake3_hasher_init_derive_key_raw(self, context, cstr_len(context));
 }
 
 // As described in hasher_push_cv() below, we do "lazy merging", delaying
@@ -726,9 +726,9 @@ INLINE void hasher_merge_cv_stack(blake3_hasher* self, uint64_t total_len) {
   size_t post_merge_stack_len = (size_t)popcnt(total_len);
   while (self->cv_stack_len > post_merge_stack_len) {
     uint8_t* parent_node
-        = &self->cv_stack[(self->cv_stack_len - 2) * BLAKE3_OUT_LEN];
+      = &self->cv_stack[(self->cv_stack_len - 2) * BLAKE3_OUT_LEN];
     output_t output
-        = parent_output(parent_node, self->key, self->chunk.flags);
+      = parent_output(parent_node, self->key, self->chunk.flags);
     output_chaining_value(&output, parent_node);
     self->cv_stack_len -= 1;
   }
@@ -769,15 +769,15 @@ INLINE void hasher_merge_cv_stack(blake3_hasher* self, uint64_t total_len) {
 // remain unmerged. (That also helps us support extendable output when we're
 // hashing an input all-at-once.)
 INLINE void hasher_push_cv(blake3_hasher* self,
-    uint8_t new_cv[BLAKE3_OUT_LEN], uint64_t chunk_counter) {
+  uint8_t new_cv[BLAKE3_OUT_LEN], uint64_t chunk_counter) {
   hasher_merge_cv_stack(self, chunk_counter);
-  memcpy(&self->cv_stack[self->cv_stack_len * BLAKE3_OUT_LEN], new_cv,
-      BLAKE3_OUT_LEN);
+  jet_memcpy(&self->cv_stack[self->cv_stack_len * BLAKE3_OUT_LEN], new_cv,
+    BLAKE3_OUT_LEN);
   self->cv_stack_len += 1;
 }
 
 void blake3_hasher_update(
-    blake3_hasher* self, const void* input, size_t input_len) {
+  blake3_hasher* self, const void* input, size_t input_len) {
   // Explicitly checking for zero avoids causing UB by passing a null
   // pointer to memcpy. This comes up in practice with things like:
   //   std::vector<uint8_t> v;
@@ -802,7 +802,7 @@ void blake3_hasher_update(
       output_chaining_value(&output, chunk_cv);
       hasher_push_cv(self, chunk_cv, self->chunk.chunk_counter);
       chunk_state_reset(
-          &self->chunk, self->key, self->chunk.chunk_counter + 1);
+        &self->chunk, self->key, self->chunk.chunk_counter + 1);
     } else {
       return;
     }
@@ -862,10 +862,10 @@ void blake3_hasher_update(
       // depends on the caller giving us a long enough input.
       uint8_t cv_pair[2 * BLAKE3_OUT_LEN];
       compress_subtree_to_parent_node(input_bytes, subtree_len, self->key,
-          self->chunk.chunk_counter, self->chunk.flags, cv_pair);
+        self->chunk.chunk_counter, self->chunk.flags, cv_pair);
       hasher_push_cv(self, cv_pair, self->chunk.chunk_counter);
       hasher_push_cv(self, &cv_pair[BLAKE3_OUT_LEN],
-          self->chunk.chunk_counter + (subtree_chunks / 2));
+        self->chunk.chunk_counter + (subtree_chunks / 2));
     }
     self->chunk.chunk_counter += subtree_chunks;
     input_bytes += subtree_len;
@@ -885,12 +885,12 @@ void blake3_hasher_update(
 }
 
 void blake3_hasher_finalize(
-    const blake3_hasher* self, uint8_t* out, size_t out_len) {
+  const blake3_hasher* self, uint8_t* out, size_t out_len) {
   blake3_hasher_finalize_seek(self, 0, out, out_len);
 }
 
-void blake3_hasher_finalize_seek(const blake3_hasher* self, uint64_t seek,
-    uint8_t* out, size_t out_len) {
+void blake3_hasher_finalize_seek(
+  const blake3_hasher* self, uint64_t seek, uint8_t* out, size_t out_len) {
   // Explicitly checking for zero avoids causing UB by passing a null
   // pointer to memcpy. This comes up in practice with things like:
   //   std::vector<uint8_t> v;
@@ -919,12 +919,12 @@ void blake3_hasher_finalize_seek(const blake3_hasher* self, uint64_t seek,
     // There are always at least 2 CVs in the stack in this case.
     cvs_remaining = self->cv_stack_len - 2;
     output = parent_output(
-        &self->cv_stack[cvs_remaining * 32], self->key, self->chunk.flags);
+      &self->cv_stack[cvs_remaining * 32], self->key, self->chunk.flags);
   }
   while (cvs_remaining > 0) {
     cvs_remaining -= 1;
     uint8_t parent_block[BLAKE3_BLOCK_LEN];
-    memcpy(parent_block, &self->cv_stack[cvs_remaining * 32], 32);
+    jet_memcpy(parent_block, &self->cv_stack[cvs_remaining * 32], 32);
     output_chaining_value(&output, &parent_block[32]);
     output = parent_output(parent_block, self->key, self->chunk.flags);
   }
@@ -962,16 +962,16 @@ static void cpuid(uint32_t out[4], uint32_t id) {
   __cpuid((int*)out, id);
 #elif defined(__i386__) || defined(_M_IX86)
   __asm__ __volatile__(
-      "movl %%ebx, %1\n"
-      "cpuid\n"
-      "xchgl %1, %%ebx\n"
-      : "=a"(out[0]), "=r"(out[1]), "=c"(out[2]), "=d"(out[3])
-      : "a"(id));
+    "movl %%ebx, %1\n"
+    "cpuid\n"
+    "xchgl %1, %%ebx\n"
+    : "=a"(out[0]), "=r"(out[1]), "=c"(out[2]), "=d"(out[3])
+    : "a"(id));
 #else
   __asm__ __volatile__(
-      "cpuid\n"
-      : "=a"(out[0]), "=b"(out[1]), "=c"(out[2]), "=d"(out[3])
-      : "a"(id));
+    "cpuid\n"
+    : "=a"(out[0]), "=b"(out[1]), "=c"(out[2]), "=d"(out[3])
+    : "a"(id));
 #endif
 }
 
@@ -980,16 +980,16 @@ static void cpuidex(uint32_t out[4], uint32_t id, uint32_t sid) {
   __cpuidex((int*)out, id, sid);
 #elif defined(__i386__) || defined(_M_IX86)
   __asm__ __volatile__(
-      "movl %%ebx, %1\n"
-      "cpuid\n"
-      "xchgl %1, %%ebx\n"
-      : "=a"(out[0]), "=r"(out[1]), "=c"(out[2]), "=d"(out[3])
-      : "a"(id), "c"(sid));
+    "movl %%ebx, %1\n"
+    "cpuid\n"
+    "xchgl %1, %%ebx\n"
+    : "=a"(out[0]), "=r"(out[1]), "=c"(out[2]), "=d"(out[3])
+    : "a"(id), "c"(sid));
 #else
   __asm__ __volatile__(
-      "cpuid\n"
-      : "=a"(out[0]), "=b"(out[1]), "=c"(out[2]), "=d"(out[3])
-      : "a"(id), "c"(sid));
+    "cpuid\n"
+    : "=a"(out[0]), "=b"(out[1]), "=c"(out[2]), "=d"(out[3])
+    : "a"(id), "c"(sid));
 #endif
 }
 
@@ -1010,14 +1010,14 @@ enum cpu_feature {
 #if !defined(BLAKE3_TESTING)
 static /* Allow the variable to be controlled manually for testing */
 #endif
-    enum cpu_feature g_cpu_features
-    = UNDEFINED;
+  enum cpu_feature g_cpu_features
+  = UNDEFINED;
 
 #if !defined(BLAKE3_TESTING)
 static
 #endif
-    enum cpu_feature
-    get_cpu_features() {
+  enum cpu_feature
+  get_cpu_features() {
 
   if (g_cpu_features != UNDEFINED) {
     return g_cpu_features;
@@ -1063,8 +1063,8 @@ static
 }
 
 void blake3_compress_in_place(uint32_t cv[8],
-    const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
-    uint64_t counter, uint8_t flags) {
+  const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
+  uint64_t counter, uint8_t flags) {
 #if defined(IS_X86)
   const enum cpu_feature features = get_cpu_features();
   MAYBE_UNUSED(features);
@@ -1091,8 +1091,8 @@ void blake3_compress_in_place(uint32_t cv[8],
 }
 
 void blake3_compress_xof(const uint32_t cv[8],
-    const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
-    uint64_t counter, uint8_t flags, uint8_t out[64]) {
+  const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
+  uint64_t counter, uint8_t flags, uint8_t out[64]) {
 #if defined(IS_X86)
   const enum cpu_feature features = get_cpu_features();
   MAYBE_UNUSED(features);
@@ -1119,37 +1119,37 @@ void blake3_compress_xof(const uint32_t cv[8],
 }
 
 void blake3_hash_many(const uint8_t* const* inputs, size_t num_inputs,
-    size_t blocks, const uint32_t key[8], uint64_t counter,
-    bool increment_counter, uint8_t flags, uint8_t flags_start,
-    uint8_t flags_end, uint8_t* out) {
+  size_t blocks, const uint32_t key[8], uint64_t counter,
+  bool increment_counter, uint8_t flags, uint8_t flags_start,
+  uint8_t flags_end, uint8_t* out) {
 #if defined(IS_X86)
   const enum cpu_feature features = get_cpu_features();
   MAYBE_UNUSED(features);
 #if !defined(BLAKE3_NO_AVX512)
   if ((features & (AVX512F | AVX512VL)) == (AVX512F | AVX512VL)) {
     blake3_hash_many_avx512(inputs, num_inputs, blocks, key, counter,
-        increment_counter, flags, flags_start, flags_end, out);
+      increment_counter, flags, flags_start, flags_end, out);
     return;
   }
 #endif
 #if !defined(BLAKE3_NO_AVX2)
   if (features & AVX2) {
     blake3_hash_many_avx2(inputs, num_inputs, blocks, key, counter,
-        increment_counter, flags, flags_start, flags_end, out);
+      increment_counter, flags, flags_start, flags_end, out);
     return;
   }
 #endif
 #if !defined(BLAKE3_NO_SSE41)
   if (features & SSE41) {
     blake3_hash_many_sse41(inputs, num_inputs, blocks, key, counter,
-        increment_counter, flags, flags_start, flags_end, out);
+      increment_counter, flags, flags_start, flags_end, out);
     return;
   }
 #endif
 #if !defined(BLAKE3_NO_SSE2)
   if (features & SSE2) {
     blake3_hash_many_sse2(inputs, num_inputs, blocks, key, counter,
-        increment_counter, flags, flags_start, flags_end, out);
+      increment_counter, flags, flags_start, flags_end, out);
     return;
   }
 #endif
@@ -1157,12 +1157,12 @@ void blake3_hash_many(const uint8_t* const* inputs, size_t num_inputs,
 
 #if defined(BLAKE3_USE_NEON)
   blake3_hash_many_neon(inputs, num_inputs, blocks, key, counter,
-      increment_counter, flags, flags_start, flags_end, out);
+    increment_counter, flags, flags_start, flags_end, out);
   return;
 #endif
 
   blake3_hash_many_portable(inputs, num_inputs, blocks, key, counter,
-      increment_counter, flags, flags_start, flags_end, out);
+    increment_counter, flags, flags_start, flags_end, out);
 }
 
 // The dynamically detected SIMD degree of the current platform.
@@ -1198,7 +1198,7 @@ INLINE uint32_t rotr32(uint32_t w, uint32_t c) {
 }
 
 INLINE void g(uint32_t* state, size_t a, size_t b, size_t c, size_t d,
-    uint32_t x, uint32_t y) {
+  uint32_t x, uint32_t y) {
   state[a] = state[a] + state[b] + x;
   state[d] = rotr32(state[d] ^ state[a], 16);
   state[c] = state[c] + state[d];
@@ -1210,7 +1210,7 @@ INLINE void g(uint32_t* state, size_t a, size_t b, size_t c, size_t d,
 }
 
 INLINE void round_fn(
-    uint32_t state[16], const uint32_t* msg, size_t round) {
+  uint32_t state[16], const uint32_t* msg, size_t round) {
   // Select the message schedule based on the round.
   const uint8_t* schedule = MSG_SCHEDULE[round];
 
@@ -1228,8 +1228,8 @@ INLINE void round_fn(
 }
 
 INLINE void compress_pre(uint32_t state[16], const uint32_t cv[8],
-    const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
-    uint64_t counter, uint8_t flags) {
+  const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
+  uint64_t counter, uint8_t flags) {
   uint32_t block_words[16];
   block_words[0] = load32(block + 4 * 0);
   block_words[1] = load32(block + 4 * 1);
@@ -1275,8 +1275,8 @@ INLINE void compress_pre(uint32_t state[16], const uint32_t cv[8],
 }
 
 void blake3_compress_in_place_portable(uint32_t cv[8],
-    const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
-    uint64_t counter, uint8_t flags) {
+  const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
+  uint64_t counter, uint8_t flags) {
   uint32_t state[16];
   compress_pre(state, cv, block, block_len, counter, flags);
   cv[0] = state[0] ^ state[8];
@@ -1290,8 +1290,8 @@ void blake3_compress_in_place_portable(uint32_t cv[8],
 }
 
 void blake3_compress_xof_portable(const uint32_t cv[8],
-    const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
-    uint64_t counter, uint8_t flags, uint8_t out[64]) {
+  const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
+  uint64_t counter, uint8_t flags, uint8_t out[64]) {
   uint32_t state[16];
   compress_pre(state, cv, block, block_len, counter, flags);
 
@@ -1314,15 +1314,15 @@ void blake3_compress_xof_portable(const uint32_t cv[8],
 }
 
 INLINE void hash_one_portable(const uint8_t* input, size_t blocks,
-    const uint32_t key[8], uint64_t counter, uint8_t flags,
-    uint8_t flags_start, uint8_t flags_end, uint8_t out[BLAKE3_OUT_LEN]) {
+  const uint32_t key[8], uint64_t counter, uint8_t flags,
+  uint8_t flags_start, uint8_t flags_end, uint8_t out[BLAKE3_OUT_LEN]) {
   uint32_t cv[8];
-  memcpy(cv, key, BLAKE3_KEY_LEN);
+  jet_memcpy(cv, key, BLAKE3_KEY_LEN);
   uint8_t block_flags = flags | flags_start;
   while (blocks > 0) {
     if (blocks == 1) { block_flags |= flags_end; }
     blake3_compress_in_place_portable(
-        cv, input, BLAKE3_BLOCK_LEN, counter, block_flags);
+      cv, input, BLAKE3_BLOCK_LEN, counter, block_flags);
     input = &input[BLAKE3_BLOCK_LEN];
     blocks -= 1;
     block_flags = flags;
@@ -1331,12 +1331,12 @@ INLINE void hash_one_portable(const uint8_t* input, size_t blocks,
 }
 
 void blake3_hash_many_portable(const uint8_t* const* inputs,
-    size_t num_inputs, size_t blocks, const uint32_t key[8],
-    uint64_t counter, bool increment_counter, uint8_t flags,
-    uint8_t flags_start, uint8_t flags_end, uint8_t* out) {
+  size_t num_inputs, size_t blocks, const uint32_t key[8], uint64_t counter,
+  bool increment_counter, uint8_t flags, uint8_t flags_start,
+  uint8_t flags_end, uint8_t* out) {
   while (num_inputs > 0) {
-    hash_one_portable(inputs[0], blocks, key, counter, flags, flags_start,
-        flags_end, out);
+    hash_one_portable(
+      inputs[0], blocks, key, counter, flags, flags_start, flags_end, out);
     if (increment_counter) { counter += 1; }
     inputs += 1;
     num_inputs -= 1;

@@ -730,7 +730,7 @@ static Func* func_createDeclWithArg(
   char* name, char* retType, char* arg1Type) {
   Func* func = NEW(Func);
   func->name = name;
-  func->nameLen = strlen(name);
+  func->nameLen = cstr_len(name);
   func->isDeclare = true;
   if (retType) {
     func->spec = NEW(TypeSpec);
@@ -779,7 +779,7 @@ static void getSelector(Func* func) {
     remain -= wrote;
 
     int l = func->nameLen;
-    if (!l) l = strlen(func->name);
+    if (!l) l = cstr_len(func->name);
     wrote = snprintf(bufp, remain, "%.*s", func->nameLen, func->name);
     selLen += wrote;
     bufp += wrote;
@@ -794,7 +794,7 @@ static void getSelector(Func* func) {
     // TODO: why not use pstrndup here?
     func->sel = cstr_pndup(buf, selLen + 1);
     // func->sel = PoolB_alloc(strPool, selLen + 1);
-    // memcpy(func->sel, buf, selLen + 1);
+    // jet_memcpy(func->sel, buf, selLen + 1);
 
     bufp = buf;
 
@@ -1125,13 +1125,13 @@ monostatic Expr* expr_getExpr(Expr* expr, UInt32 col) {
   case tkString:
   case tkRawString:
   case tkRegexp:
-    l = strlen(expr->str);
+    l = cstr_len(expr->str);
     if (expr->col <= col && col <= expr->col + l) return expr;
     break;
   case tkIdentR:
   case tkSubscriptR:
   case tkFuncCallR:
-    l = strlen(expr->var->name);
+    l = cstr_len(expr->var->name);
     if (expr->col <= col && col <= expr->col + l) return expr;
     break;
   case tkIf:
@@ -1148,7 +1148,7 @@ monostatic Expr* expr_getExpr(Expr* expr, UInt32 col) {
     ret = expr_getExpr(expr->right, col);
     if (ret) return ret;
     if (expr->col <= col
-      && col <= expr->col + strlen(TokenKind_repr[expr->kind]))
+      && col <= expr->col + cstr_len(TokenKind_repr[expr->kind]))
       return expr;
   }
   return NULL;

@@ -370,7 +370,7 @@ static void expr_analyse_functionCall(Parser* parser, Expr* expr,
       = cstr_interp_s(256, "_%s", Collectiontype_name(arg1->collType));
   if (arg1) *bufp++ = '_'; // += sprintf(bufp, "_", typeName);
 
-  int l = strlen(expr->str);
+  int l = cstr_len(expr->str);
   if (expr->str[l - 1] == '!') l--;
   bufp += sprintf(bufp, "%.*s", l, expr->str);
   if (expr->left)

@@ -55,11 +55,11 @@ int main() {
   // heap
 #define _N_HEAP_VAR_(T, C) malloc(sizeof(T))
 #define _N_HEAP_ARR_(T, C, n, ...)                                         \
-  memcpy(malloc(sizeof(T) * n), _N_STACK_ARR_(T, C, n, __VA_ARGS__),       \
-      sizeof(T) * n)
+  jet_memcpy(malloc(sizeof(T) * n), _N_STACK_ARR_(T, C, n, __VA_ARGS__),   \
+    sizeof(T) * n)
 #define _N_HEAP_ARR0_(T, C, n, ...)                                        \
-  memcpy(calloc(sizeof(T), n), _N_STACK_ARR_(T, C, n, __VA_ARGS__),        \
-      sizeof(T) * n)
+  jet_memcpy(calloc(sizeof(T), n), _N_STACK_ARR_(T, C, n, __VA_ARGS__),    \
+    sizeof(T) * n)
   // static
 #define _N_STAT_VAR_(T, C)                                                 \
   (&T) { } // not possible

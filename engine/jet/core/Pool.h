@@ -82,7 +82,7 @@ monostatic Pool sPool[1] = {};
 // Use nNEW for contiguous alloc of n objects of type T (for small n!)
 // #define nNEW(T, n) (_allocTotal_##T += n, Pool_alloc(gPool, n *
 // sizeof(T)))
-#define NEWW(T, ...) memcpy(NEW(T), &(T) { __VA_ARGS__ }, sizeof(T))
+#define NEWW(T, ...) jet_memcpy(NEW(T), &(T) { __VA_ARGS__ }, sizeof(T))
 
 // #else
 // #define NEW(T) Pool_alloc(gPool, sizeof(T))

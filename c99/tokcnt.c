@@ -45,7 +45,7 @@ int main(int argc, char* argv[]) {
 
   for (int i = 1; i < argc; i++) {
     lastFile = argv[i];
-    lastFileL = strlen(lastFile);
+    lastFileL = cstr_len(lastFile);
     clock_Time t0 = clock_getTime();
     parser = par_fromFile(argv[i], true, mode);
     if (!parser) return 2;

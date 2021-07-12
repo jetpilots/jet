@@ -97,7 +97,7 @@ monostatic size_t _called_strlen = 0;
 #define calloc(n, s) (++_called_calloc, calloc(n, s))
 #define realloc(ptr, s) (++_called_realloc, realloc(ptr, s))
 #define strdup(s) (++_called_strdup, strdup(s))
-#define strlen(s) (++_called_strlen, strlen(s))
+#define cstr_len(s) (++_called_strlen, cstr_len(s))
 // This macro should be invoked on each struct defined.
 #define MKSTAT(T) monostatic int _allocTotal_##T = 0;
 #define allocstat(T)                                                       \
@@ -226,8 +226,9 @@ typedef struct IRange {
                   printf("%s:%d: timer: %g ms\n", __FILE__, __LINE__,      \
                     t1 / 1e6))
 
-// Should be using adhoc to generate these.
+extern bool __jet_dbglog; // jet-wide debug print incl everything in base
 
+// Should be using adhoc to generate these.
 static const double __RRANDFMAX = 1.0 / RAND_MAX;
 /// Return a random double. Note that srand() is called on program start
 /// with the current time.

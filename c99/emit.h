@@ -162,6 +162,7 @@ static void func_emit(Func* func, int level) {
 
   printf("#define DEFAULT_VALUE %s\n", getDefaultValueForType(func->spec));
 
+  // outl("monostatic "); // TODO: if func is private, this will be static
   spec_emit(func->spec, level, false, false);
   printf(" %s(", func->sel);
   foreachn(Var*, arg, args, func->args) {
@@ -180,9 +181,7 @@ static void func_emit(Func* func, int level) {
     outl(")");
   }
 
-  printf(" IFDEBUG("
-         "  %c const char* callsite_ "
-         ")",
+  printf(" IFDEBUG(%c const char* callsite_)",
     ((func->args || func->spec->typeType != TYVoid ? ',' : ' ')));
 
   outln(") {");
@@ -212,6 +211,9 @@ static void func_emit(Func* func, int level) {
 static void func_genh(Func* func, int level) {
   if (!func->body || !func->analysed || func->isDeclare) return;
   // if (!func->isExported) outl("static ");
+  // outl("monostatic "); // TODO: if func is private, this will be static
+  // should be monostatic but start is also monostatic and then incremental
+  // linking fails because at the moment monostatic is defined as static
   spec_emit(func->spec, level, false, false);
   printf(" %s(", func->sel);
   foreachn(Var*, arg, args, func->args) {
@@ -494,9 +496,7 @@ static void test_emit(Test* test, Module* mod, int idx)
 {
   if (!test->body) return;
   printf("\nstatic int test_%s_%d(void) {\n", mod->cname, idx);
-  printf("\nstatic const char* sig_ = \"test \\\"");
-  printf(test->name);
-  printf("\\\"\";");
+  printf("  static const char* sig_ = \"test \\\"%s\\\"\";", test->name);
   scope_emit(test->body, STEP);
   outln("  return 0;");
   outln("  backtrace: return 1;");
@@ -1522,8 +1522,8 @@ static int mod_emit(Module* mod) {
     return 1;
   }
 
-  printf(
-    "#include \"%s\"\n\n", cstr_base(mod->out_h, '/', strlen(mod->out_h)));
+  printf("#include \"%s\"\n\n",
+    cstr_base(mod->out_h, '/', cstr_len(mod->out_h)));
 
   if (genLineNumbers) printf("#line 1 \"%s\"\n", mod->filename);
   printf("#define THISFILE \"%s\"\n", mod->filename);
@@ -1587,8 +1587,8 @@ static int mod_emit_mainwrapper(Module* mod) {
     "#include \"jet/rt_run.c\"\n"
     "#endif\n"
     "\n",
-    cstr_base(mod->out_c, '/', strlen(mod->out_c)), //
-    cstr_base(mod->out_h, '/', strlen(mod->out_h)), //
+    cstr_base(mod->out_c, '/', cstr_len(mod->out_c)), //
+    cstr_base(mod->out_h, '/', cstr_len(mod->out_h)), //
     mod->cname, mod->cname);
   fclose(outfile);
   return 0;

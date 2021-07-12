@@ -83,7 +83,7 @@ static void addEntry(KDDict* dict, void* keys[DIMS], void* value) {
 
   if (child->npoints == POINTS_PER_LEAF) {
     KDDictLeaf tmp = *child;
-    // memcpy(points, child->points, sizeof(KDTreePoint*) *
+    // jet_memcpy(points, child->points, sizeof(KDTreePoint*) *
     // POINTS_PER_LEAF);
 
     KDDictNode* newChild = NEW(KDDictNode);
@@ -128,9 +128,9 @@ static void addEntry(KDDict* dict, void* keys[DIMS], void* value) {
 
   for_to(i, child->npoints) {
     for_to(j, DIMS) //
-        if (child->hash[i][j] != hash[j]) goto skip;
+      if (child->hash[i][j] != hash[j]) goto skip;
     for_to(j, DIMS) //
-        if (!dict->equal(child->keys[i][j], keys[j])) goto skip;
+      if (!dict->equal(child->keys[i][j], keys[j])) goto skip;
 
     child->value[i] = value;
     return;
@@ -167,7 +167,7 @@ static void* lookup(KDDict* dict, void* keys[DIMS]) {
   for_to(i, holder->npoints) {
     for_to(j, DIMS) if (holder->hash[i][j] != hash[j]) goto skip;
     for_to(j, DIMS) //
-        if (!dict->equal(holder->keys[i][j], keys[j])) goto skip;
+      if (!dict->equal(holder->keys[i][j], keys[j])) goto skip;
 
     return holder->value[i];
   skip:;
@@ -177,7 +177,7 @@ static void* lookup(KDDict* dict, void* keys[DIMS]) {
 
 #define countof(x) (sizeof(x) / sizeof(x[0]))
 static const char* const spc
-    = "                                            ";
+  = "                                            ";
 static const int levStep = 2;
 
 static void printDotRec(FILE* f, KDDictNode* node) {
@@ -190,10 +190,10 @@ static void printDotRec(FILE* f, KDDictNode* node) {
         KDDictLeaf* holder = node->child[i];
 
         fprintf(f,
-            "\"Node\\n<%llu, %llu, %llu>\" -> "
-            "\"Points[%d]\\n____________\\n",
-            node->threshold[0], node->threshold[1], node->threshold[2],
-            holder->npoints);
+          "\"Node\\n<%llu, %llu, %llu>\" -> "
+          "\"Points[%d]\\n____________\\n",
+          node->threshold[0], node->threshold[1], node->threshold[2],
+          holder->npoints);
         for_to(j, holder->npoints) {
           fprintf(f, "keys: ");
           for_to(k, DIMS) fprintf(f, "'%s' ", holder->keys[j][k]);
@@ -206,12 +206,12 @@ static void printDotRec(FILE* f, KDDictNode* node) {
         fprintf(f, "\"]\n");
       } else {
         fprintf(f,
-            "\"Node\\n<%llu, %llu, %llu>\" -> \"Node\\n<%llu, %llu, "
-            "%llu>\" "
-            "[label=\"[%d]\\n",
-            node->threshold[0], node->threshold[1], node->threshold[2],
-            node->child[i]->threshold[0], node->child[i]->threshold[1],
-            node->child[i]->threshold[2], i);
+          "\"Node\\n<%llu, %llu, %llu>\" -> \"Node\\n<%llu, %llu, "
+          "%llu>\" "
+          "[label=\"[%d]\\n",
+          node->threshold[0], node->threshold[1], node->threshold[2],
+          node->child[i]->threshold[0], node->child[i]->threshold[1],
+          node->child[i]->threshold[2], i);
         for_to(j, DIMS) fprintf(f, "%c", dirInDim[j] ? '>' : '<');
         fprintf(f, "\"]\n");
 
@@ -227,7 +227,7 @@ static void printDot(KDDict* dict) {
   fputs("digraph {\nnode [fontname=\"Miriam Libre\"]; edge "
         "[fontname=\"Miriam "
         "Libre\"];\n",
-      f);
+    f);
   printDotRec(f, node);
   fputs("}\n", f);
   fclose(f);
@@ -239,8 +239,8 @@ static void printDot(KDDict* dict) {
 // function for ints is a no-op. By the way in that case you don't need to
 // compare keys at all -- lookup should succeed as soon as hashes match.
 static KDDict* initDictWithLimits(uint64_t hashfn(void*),
-    uint64_t equalfn(void*, void*), uint64_t lowLim[DIMS],
-    uint64_t highLim[DIMS]) {
+  uint64_t equalfn(void*, void*), uint64_t lowLim[DIMS],
+  uint64_t highLim[DIMS]) {
   KDDict* dict = NEW(KDDict);
   for_to(j, DIMS) {
     dict->root[0].threshold[j] = lowLim[j];
@@ -254,7 +254,7 @@ static KDDict* initDictWithLimits(uint64_t hashfn(void*),
   return dict;
 }
 static KDDict* initDict(
-    uint64_t hashfn(void*), uint64_t equalfn(void*, void*)) {
+  uint64_t hashfn(void*), uint64_t equalfn(void*, void*)) {
   uint64_t lowl[DIMS] = {};
   uint64_t highl[DIMS] = { UINT64_MAX, UINT64_MAX, UINT64_MAX };
   return initDictWithLimits(hashfn, equalfn, lowl, highl);
@@ -349,10 +349,10 @@ int main(int argc, char* argv[]) {
   double dx[][1] = { 0.1234567, 9.345345, 2.123123, 6.3452395, 7.39486 };
   // printNode(root, 0);
   // if (NPTS < 1000)
-  const char* keys[][3] = { //
-    { "asdjhakj", "", "" }, //
-    { "fgsdbd", "", "" }, //
-    { "esrtcert", "", "" }, //
+  const char* keys[][3] = {  //
+    { "asdjhakj", "", "" },  //
+    { "fgsdbd", "", "" },    //
+    { "esrtcert", "", "" },  //
     { "tytuhbfyy", "", "" }, //
     { "xgdvrg", "", "" }
   };
@@ -373,6 +373,5 @@ int main(int argc, char* argv[]) {
     // printPoint(ptest, 0);
   }
   printf("total calloc %zu B (%d), malloc %zu B (%d), pool %u B\n",
-      __totCallocB, __totCalloc, __totMallocB, __totMalloc,
-      gPool->usedTotal);
+    __totCallocB, __totCalloc, __totMallocB, __totMalloc, gPool->usedTotal);
 }

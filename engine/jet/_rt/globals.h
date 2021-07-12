@@ -4,3 +4,5 @@ thread_local char* _stack_boundary;
 thread_local const char* _err_ = NULL;
 
 thread_local uint64_t __randstate;
+
+bool __jet_dbglog = 0;

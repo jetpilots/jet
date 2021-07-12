@@ -25,7 +25,7 @@ int langserver(int argc, char* argv[]) {
     // fgets(linebuf, LINESIZE, stdin);
     // line = linenoise("jet> ");//linebuf;
     while (*line == ' ') line++;
-    len = strlen(line);
+    len = cstr_len(line);
     if (line[len - 1] == '\n') line[len - 1] = 0;
     if (len > 2 && line[len - 2] == '\r') line[len - 2] = 0;
 

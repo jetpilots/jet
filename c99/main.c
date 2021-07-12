@@ -3,8 +3,9 @@
 
 static const char* _lastFunc;
 static int _lastFuncLen;
+bool __jet_dbglog = 0;
 
-#define FUNC_ENTRY _lastFunc = __func__, _lastFuncLen = strlen(_lastFunc);
+#define FUNC_ENTRY _lastFunc = __func__, _lastFuncLen = cstr_len(_lastFunc);
 
 #define STEP 4
 #define JOIN(x, y) x##y
@@ -110,11 +111,10 @@ typedef struct {
   bool stats, clean, help, vers, langserv, tccrun, quicktest;
 } Config;
 
-bool dbglog = 0;
 #define dprintf(...)                                                       \
-  if (dbglog) eprintf(__VA_ARGS__)
+  if (__jet_dbglog) eprintf(__VA_ARGS__)
 #define dputs(...)                                                         \
-  if (dbglog) eputs(__VA_ARGS__)
+  if (__jet_dbglog) eputs(__VA_ARGS__)
 
 #define SWITCH(e)                                                          \
   for (char* __sw_c = e; __sw_c; __sw_c = NULL)                            \
@@ -169,7 +169,7 @@ static void argparse(Config* cfg, int argc, char* argv[]) {
     CASE("-ls") cfg->langserv = 1;
 
     CASE("-s") cfg->stats = 1;
-    CASE("-d") dbglog = 1;
+    CASE("-d") __jet_dbglog = 1;
     CASE("-x") cfg->clean = 1;
     CASE("-h") cfg->help = 1;
     CASE("-v") cfg->vers = 1;
@@ -180,7 +180,7 @@ static void argparse(Config* cfg, int argc, char* argv[]) {
     }
 
     DEFAULT {
-      if (cstr_endsWith(argv[i], strlen(argv[i]), ".jet", 4)) {
+      if (cstr_endsWith(argv[i], cstr_len(argv[i]), ".jet", 4)) {
       file:
         if (*cfg->filename) {
           eprintf("jet: one file specified ('%s'), cannot process another: "
@@ -380,21 +380,21 @@ int main(int argc, char* argv[]) {
 
   char* exeName = cstr_pclone(cstr_interp_s(512, "%s.%s.%s%s%s%s.%c",
     cstr_dir_ip(cstr_pclone(root->filename)),
-    cstr_base(root->filename, '/', strlen(root->filename)), //
-    arch,                                                   //
-    cfg.build.opt + 2,                                      //
-    cfg.build.dbg ? "g" : "",                               //
-    cfg.build.mono ? "m" : "i",                             //
+    cstr_base(root->filename, '/', cstr_len(root->filename)), //
+    arch,                                                     //
+    cfg.build.opt + 2,                                        //
+    cfg.build.dbg ? "g" : "",                                 //
+    cfg.build.mono ? "m" : "i",                               //
     cfg.mode == PMTest ? 't' : 'x'));
 
   foreach (Module*, mod, modules) {
-    int l = strlen(mod->filename);
+    int l = cstr_len(mod->filename);
     static char buf[512];
     // TODO: improve this later
     mod->out_h = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.h",
       cstr_dir_ip(cstr_pclone(mod->filename)),
       cstr_base(mod->filename, '/', l)));
-    int lh = strlen(mod->out_h);
+    int lh = cstr_len(mod->out_h);
     // root->out_hh = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.hh",
     //   cstr_dir_ip(cstr_pclone(root->filename)),
     //   cstr_base(root->filename, '/', l)));
@@ -416,7 +416,7 @@ int main(int argc, char* argv[]) {
     //   cstr_base(root->filename, '/', l)));
 
     // root->out_o = cstr_pclone(root->out_c);
-    // root->out_o[strlen(root->out_o) - 1] = 'o';
+    // root->out_o[cstr_len(root->out_o) - 1] = 'o';
 
     mod->out_o = cstr_pclone(__cstr_interp__s(
       512, buf, "%s.%s.%s%s%s.o", cstr_dir_ip(cstr_pclone(mod->filename)),

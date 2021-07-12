@@ -25,7 +25,7 @@
 ~ void _PRREDLINE(
 ~     parser Parser, Number line, Number col, Number len, Number offs, msg char) {
 ~     c char = parser.orig.ref[line + offs - 1]
-~     if (!col) len = strlen(c), col = 1
+~     if (!col) len = cstr_len(c), col = 1
 ~     eprintf("\e[311m%4d |\e[0m %.*s", line + offs, col - 1, c)
 ~     eprintf("\e[31m%.*s\e[0m", len, c + col - 1)
 ~     eprintf("%s\n", c + col + len - 1)

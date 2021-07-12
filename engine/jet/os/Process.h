@@ -227,9 +227,8 @@ monostatic void Process_update(Process* proc) {
   Process_execIn_((char*[]) { __VA_ARGS__, NULL }, dir)
 
 monostatic int Process_execIn_(char* args[], char* dir) {
-  int dbg = 0;
   clock_Time t0;
-  if (dbg) {
+  if (__jet_dbglog) {
     char** a = args;
     eputs("*** ");
     while (*a) {
@@ -242,7 +241,8 @@ monostatic int Process_execIn_(char* args[], char* dir) {
   }
   Process p = Process_launchIn(args, dir);
   Process_await(&p);
-  if (dbg) eprintf("*** %.1f ms\n", clock_clockSpanMicro(t0) / 1e3);
+  if (__jet_dbglog)
+    eprintf("*** %.1f ms\n", clock_clockSpanMicro(t0) / 1e3);
   return p.code;
 }
 

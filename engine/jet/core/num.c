@@ -112,7 +112,7 @@ typedef struct value128 {
 #endif
 #endif
 #if defined(JET_SYS_REGULAR_VISUAL_STUDIO) && !defined(_M_X64)             \
-    && !defined(_M_ARM64)
+  && !defined(_M_ARM64)
 static uint64_t __emulu(uint32_t x, uint32_t y) { return x * (uint64_t)y; }
 static uint64_t _umul128(uint64_t ab, uint64_t cd, uint64_t* hi) {
   uint64_t ad = __emulu((uint32_t)(ab >> 32), (uint32_t)cd);
@@ -121,12 +121,12 @@ static uint64_t _umul128(uint64_t ab, uint64_t cd, uint64_t* hi) {
   uint64_t adbc_carry = !!(adbc < ad);
   uint64_t lo = bd + (adbc << 32);
   *hi = __emulu((uint32_t)(ab >> 32), (uint32_t)(cd >> 32)) + (adbc >> 32)
-      + (adbc_carry << 32) + !!(lo < bd);
+    + (adbc_carry << 32) + !!(lo < bd);
   return lo;
 }
 #endif
 static really_inline uint64_t Emulate64x64to128(
-    uint64_t* r_hi, const uint64_t x, const uint64_t y) {
+  uint64_t* r_hi, const uint64_t x, const uint64_t y) {
   const uint64_t x0 = (uint32_t)x, x1 = x >> 32;
   const uint64_t y0 = (uint32_t)y, y1 = y >> 32;
   const uint64_t p11 = x1 * y1, p01 = x0 * y1;
@@ -136,7 +136,7 @@ static really_inline uint64_t Emulate64x64to128(
   return (middle << 32) | (uint32_t)p00;
 }
 static really_inline value128 full_multiplication(
-    uint64_t value1, uint64_t value2) {
+  uint64_t value1, uint64_t value2) {
   value128 answer;
 #ifdef JET_SYS_REGULAR_VISUAL_STUDIO
 #ifdef _M_ARM64
@@ -169,8 +169,8 @@ static int leading_zeroes(uint64_t input_num) {
 #endif
 }
 static const double power_of_ten[]
-    = { 1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12,
-        1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22 };
+  = { 1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12,
+      1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22 };
 static bool is_integer(char c) { return (c >= '0' && c <= '9'); }
 /**
  * When mapping numbers from decimal to binary,
@@ -1031,7 +1031,7 @@ static const uint64_t mantissa_128[] = {
   0x570f09eaa7ea7648,
 };
 static double compute_float_64(
-    int64_t power, uint64_t i, bool negative, bool* success) {
+  int64_t power, uint64_t i, bool negative, bool* success) {
 #if (FLT_EVAL_METHOD != 1) && (FLT_EVAL_METHOD != 0)
   if (0 <= power && power <= 22 && i <= 9007199254740991) {
 #else
@@ -1057,7 +1057,7 @@ static double compute_float_64(
   uint64_t upper = product.high;
   if (unlikely((upper & 0x1FF) == 0x1FF) && (lower + i < lower)) {
     uint64_t factor_mantissa_low
-        = mantissa_128[power - FASTFLOAT_SMALLEST_POWER];
+      = mantissa_128[power - FASTFLOAT_SMALLEST_POWER];
     product = full_multiplication(i, factor_mantissa_low);
     uint64_t product_low = product.low;
     uint64_t product_middle2 = product.high;
@@ -1066,7 +1066,7 @@ static double compute_float_64(
     uint64_t product_middle = product_middle1 + product_middle2;
     if (product_middle < product_middle1) { product_high++; }
     if (((product_middle + 1 == 0) && ((product_high & 0x1FF) == 0x1FF)
-            && (product_low + i < product_low))) {
+          && (product_low + i < product_low))) {
       *success = false;
       return 0;
     }
@@ -1076,8 +1076,8 @@ static double compute_float_64(
   uint64_t upperbit = upper >> 63;
   uint64_t mantissa = upper >> (upperbit + 9);
   lz += (int)(1 ^ upperbit);
-  if (unlikely((lower == 0) && ((upper & 0x1FF) == 0)
-          && ((mantissa & 3) == 1))) {
+  if (unlikely(
+        (lower == 0) && ((upper & 0x1FF) == 0) && ((mantissa & 3) == 1))) {
     *success = false;
     return 0;
   }
@@ -1096,13 +1096,13 @@ static double compute_float_64(
   mantissa |= real_exponent << 52;
   mantissa |= (((uint64_t)negative) << 63);
   double d;
-  memcpy(&d, &mantissa, sizeof(d));
+  jet_memcpy(&d, &mantissa, sizeof(d));
   *success = true;
   return d;
 }
 
 static const char* fdp_parse_float_strtod(
-    const char* ptr, double* outDouble) {
+  const char* ptr, double* outDouble) {
   char* endptr;
 #if defined(JET_SYS_SOLARIS) || defined(JET_SYS_CYGWIN)
   *outDouble = cygwin_strtod_l(ptr, &endptr);
@@ -1209,7 +1209,7 @@ static const char* fdp_parse_number(const char* p, double* outDouble) {
     }
   }
   if (unlikely(exponent < FASTFLOAT_SMALLEST_POWER)
-      || (exponent > FASTFLOAT_LARGEST_POWER)) {
+    || (exponent > FASTFLOAT_LARGEST_POWER)) {
     return fdp_parse_float_strtod(pinit, outDouble);
   }
   bool success = true;

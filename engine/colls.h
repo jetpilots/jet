@@ -63,7 +63,7 @@
 
 void* memdup(const void* const buf, unsigned nbytes) {
   void* ret = malloc(nbytes);
-  memcpy(ret, buf, nbytes);
+  jet_memcpy(ret, buf, nbytes);
   return ret;
 }
 

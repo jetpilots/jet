@@ -210,7 +210,7 @@ end
             = sb.st_mtimespec.tv_sec * ONE_NANO + sb.st_mtimespec.tv_nsec
 
         static char cfile[4096] = {} //, *cend = cfile + 4095
-        size_t n = strlen(file)
+        size_t n = cstr_len(file)
         assert(n < 4095)
         strncpy(
             cfile, file, 4094) // one for NULL, one for a dot to hide the file
@@ -228,7 +228,7 @@ end
         cfile[n - 2] = newext // change file.jet to .file.c
         cfile[n - 1] = 0
 
-        // size_t alen = strlen(altext)
+        // size_t alen = cstr_len(altext)
         // assert(alen < cend - lastDot)
         // strncpy(lastDot, altext, alen)
 

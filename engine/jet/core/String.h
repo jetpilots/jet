@@ -28,7 +28,7 @@ monostatic void String_resize(String* str, int size) {
 }
 
 monostatic String String_fromCString(char* str) {
-  return (String) { .ref = str, .len = strlen(str) };
+  return (String) { .ref = str, .len = cstr_len(str) };
 }
 
 monostatic void String_growTo(String* str, int size) {
@@ -41,7 +41,7 @@ monostatic void String_growBy(String* str, int size) {
 
 monostatic void String_appendChars(String* str, char* data, int size) {
   String_growBy(str, size);
-  memcpy(str->ref + str->len, data, size);
+  jet_memcpy(str->ref + str->len, data, size);
   str->len += size;
 }
 
@@ -50,7 +50,7 @@ monostatic void String_append(String* str, String* str2) {
 }
 
 monostatic int String_len(String* str) {
-  if (!str->len && str->ref && *str->ref) str->len = strlen(str->ref);
+  if (!str->len && str->ref && *str->ref) str->len = cstr_len(str->ref);
   return str->len;
 }
 

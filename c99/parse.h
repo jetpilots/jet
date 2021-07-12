@@ -1250,7 +1250,7 @@ static Module* parseModule(
   root->filename = parser->filename;
   root->isRoot = (importer == NULL);
 
-  // int l = strlen(root->filename);
+  // int l = cstr_len(root->filename);
   // static char buf[512];
   // // TODO: improve this later
   // root->out_h = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.h",
@@ -1261,7 +1261,7 @@ static Module* parseModule(
   //   cstr_base(root->filename, '/', l)));
 
   // root->out_c = cstr_pclone(root->out_h);
-  // root->out_c[strlen(root->out_c) - 1] = 'c';
+  // root->out_c[cstr_len(root->out_c) - 1] = 'c';
   // // root->out_c = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.c",
   // //     cstr_dir_ip(cstr_pclone(root->filename)),
   // //     cstr_base(root->filename, '/', l)));
@@ -1269,7 +1269,7 @@ static Module* parseModule(
   //   cstr_dir_ip(cstr_clone(root->filename)),
   //   cstr_base(root->filename, '/', l)));
   // root->out_o = cstr_pclone(root->out_c);
-  // root->out_o[strlen(root->out_o) - 1] = 'o';
+  // root->out_o[cstr_len(root->out_o) - 1] = 'o';
 
   // To break recursion, add the root to the existingModules list right
   // away. The name is all that is required for this module to be found
@@ -1413,7 +1413,7 @@ static Module* parseModule(
 
         imp->mod = par_lookupModule(*existingModulesPtr, imp->name);
         if (!imp->mod) {
-          size_t len = strlen(imp->name) + 5;
+          size_t len = cstr_len(imp->name) + 5;
           char* filename = malloc(len);
           filename[len - 1] = 0;
           strcpy(filename, imp->name);

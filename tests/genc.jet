@@ -755,7 +755,7 @@ func generate(
     print("%.*s", level, spaces)
     switch (expr.kind) {
     case .number: {
-        ls as Integer = strlen(expr.string)
+        ls as Integer = cstr_len(expr.string)
         if expr.string[ls - 1] == 'i') {
             print("ComplexI*")
             expr.string[ls - 1] = 0
