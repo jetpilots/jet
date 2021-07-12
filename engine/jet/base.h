@@ -1,4 +1,3 @@
-/* Jet | jetpilots.dev | github.com/jetpilots/jet | GPLv3 (see LICENSE) */
 
 #ifndef HAVE_JET_BASE_H
 #define HAVE_JET_BASE_H

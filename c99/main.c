@@ -209,8 +209,14 @@ monostatic bool file_newer(const char* file, const char* than) {
   }
   // ^ one or both file(s) not found or other error
   if (sb1.st_mtime > sb2.st_mtime) return true;
+
+#if defined(__APPLE__) && defined(__MACH__)
   size_t time1 = sb1.st_mtime * ONE_NANO + sb1.st_mtimensec;
   size_t time2 = sb2.st_mtime * ONE_NANO + sb2.st_mtimensec;
+#else
+  size_t time1 = sb1.st_mtime * ONE_NANO + sb1.st_mtim.tv_nsec;
+  size_t time2 = sb2.st_mtime * ONE_NANO + sb2.st_mtim.tv_nsec;
+#endif
   // eprintf("%zu %s\n%zu %s\n", time1, file, time2, than);
   return time1 > time2;
 }

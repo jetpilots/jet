@@ -119,12 +119,14 @@ static void func_dumpc(Func* func, int level) {
   if (func->argCount) {
     printf(".args = ");
     PtrList* args = func->args;
-    do {
-      printf("&(PtrList) {\n .item = &(Var)");
-      var_dumpc(args->item, 0);
-      if ((args = args->next)) { printf(", .next = "); }
-    } while (args);
-    for_to(i, func->argCount - 1) printf("} ");
+    if (args) {
+      do {
+        printf("&(PtrList) {\n .item = &(Var)");
+        var_dumpc(args->item, 0);
+        if ((args = args->next)) { printf(", .next = "); }
+      } while (args);
+      for_to(i, func->argCount - 1) printf("} ");
+    }
     printf("}, ");
   }
   printf(".intrinsic = %d };\n", func->intrinsic);
