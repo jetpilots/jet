@@ -561,6 +561,7 @@ int main(int argc, char* argv[]) {
         }
         arr_push(&cmd, "-o");
         arr_push(&cmd, exeName);
+        arr_push(&cmd, "-lm");
         arr_push(&cmd, NULL);
 
         if (Process_execIn_((char**)cmd.ref, NULL)) {
@@ -573,7 +574,7 @@ int main(int argc, char* argv[]) {
               "-D", cfg.use.cocoa ? "GUI_COCOA" : "GUI_NONE",           //
               "-D", istest ? "JET_MODE_TEST" : "JET_MODE_RUN",          //
               "-x", cfg.use.cocoa ? "objective-c" : "c",                //
-              root->out_w, "-o", exeName)) {
+              root->out_w, "-o", exeName, "-lm")) {
           unreachable("exe(m) failed%s\n", "");
         }
       }
