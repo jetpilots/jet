@@ -16,7 +16,8 @@ class CString {
 
   CString pndup(const CString str, size_t len) {
     CString ret = palloc(len);
-    jet_memcpy(ret, str, len); // sPool uses calloc, so no need to zero last
+    jet_mem_copy(
+      ret, str, len); // sPool uses calloc, so no need to zero last
     return ret;
   }
 
@@ -24,7 +25,8 @@ class CString {
 
   CString ndup(const CString str, size_t len) {
     CString ret = malloc(len);
-    jet_memcpy(ret, str, len); // sPool uses calloc, so no need to zero last
+    jet_mem_copy(
+      ret, str, len); // sPool uses calloc, so no need to zero last
     ret[len] = 0;
     return ret;
   }

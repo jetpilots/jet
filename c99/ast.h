@@ -794,7 +794,7 @@ static void getSelector(Func* func) {
     // TODO: why not use pstrndup here?
     func->sel = cstr_pndup(buf, selLen + 1);
     // func->sel = PoolB_alloc(strPool, selLen + 1);
-    // jet_memcpy(func->sel, buf, selLen + 1);
+    // jet_mem_copy(func->sel, buf, selLen + 1);
 
     bufp = buf;
 

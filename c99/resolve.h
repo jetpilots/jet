@@ -239,7 +239,7 @@ static void resolveVars(Parser* parser, Expr* expr, Scope* scope,
             // we're not going to actually "resolve" the embedded
             // var, just lint the name here so it is in the correct
             // case
-            jet_memcpy(pos + 1, var->name, len);
+            jet_mem_copy(pos + 1, var->name, len);
             var->used++;
           }
 

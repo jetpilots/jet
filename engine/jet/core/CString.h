@@ -7,6 +7,10 @@ monostatic CString cstr_malloc(size_t len) {
   return malloc(roundm8(len + 1));
 }
 
+#define CString_len cstr_len
+monostatic size_t cstr_len(const char* str) { return strlen(str); }
+#define cstr_len(s) (++_called_strlen, cstr_len(s))
+
 monostatic bool cstr_eq(const CString a, const CString b) {
   return a == b || !strcmp(a, b);
 }
@@ -16,7 +20,7 @@ monostatic bool cstr_eqi(const CString a, const CString b) {
 
 monostatic CString cstr_pndup(const CString str, size_t len) {
   CString ret = cstr_palloc(len);
-  jet_memcpy(ret, str, len); // sPool uses calloc, so no need to zero last
+  jet_mem_copy(ret, str, len); // sPool uses calloc, so no need to zero last
   return ret;
 }
 
@@ -26,7 +30,7 @@ monostatic CString cstr_pclone(const CString str) {
 
 monostatic CString cstr_ndup(const char* str, size_t len) {
   CString ret = cstr_malloc(len);
-  jet_memcpy(ret, str, len); // sPool uses calloc, so no need to zero last
+  jet_mem_copy(ret, str, len); // sPool uses calloc, so no need to zero last
   ret[len] = 0;
   return ret;
 }
@@ -35,8 +39,6 @@ monostatic CString cstr_clone(const char* str) {
   return cstr_ndup(str, cstr_len(str));
 }
 
-#define CString_len cstr_length
-monostatic size_t cstr_length(const char* str) { return cstr_len(str); }
 // monostatic CString cstr_clone(CString str) { return pstrdup(str); }
 // monostatic CString cstr_sysClone(CString str) { return strdup(str); }
 monostatic CString cstr_indexOf(CString str, char c) {

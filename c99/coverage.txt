@@ -100,7 +100,7 @@ func completeLine                               39         0%         0%        
 func cstr_base                                   1        89%                   62%
 func cstr_clone
 func cstr_dir_ip                                                                67%
-func cstr_length
+func cstr_len
 func cstr_malloc
 func cstr_ndup
 func cstr_noext_ip                                                              67%

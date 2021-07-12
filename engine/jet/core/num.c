@@ -1096,7 +1096,7 @@ static double compute_float_64(
   mantissa |= real_exponent << 52;
   mantissa |= (((uint64_t)negative) << 63);
   double d;
-  jet_memcpy(&d, &mantissa, sizeof(d));
+  jet_mem_copy(&d, &mantissa, sizeof(d));
   *success = true;
   return d;
 }

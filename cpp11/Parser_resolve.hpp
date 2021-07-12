@@ -89,7 +89,7 @@ void resolve(Expr& expr, Expr* parent, Scope& scope, Module& mod) {
             // the correct case.
             // TODO: resolve the var and add it to the vars list
             // in the expr
-            jet_memcpy(pos + 1, var->name, len);
+            jet_mem_copy(pos + 1, var->name, len);
             // expr.vars.push()
           }
 

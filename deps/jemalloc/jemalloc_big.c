@@ -5313,7 +5313,7 @@ void* arena_ralloc(tsdn_t* tsdn, arena_t* arena, void* ptr, size_t oldsize,
    * ipalloc()/arena_malloc().
    */
   size_t copysize = (usize < oldsize) ? usize : oldsize;
-  jet_memcpy(ret, ptr, copysize);
+  jet_mem_copy(ret, ptr, copysize);
   isdalloct(tsdn, ptr, oldsize, tcache, NULL, true);
   return ret;
 }
@@ -9044,7 +9044,7 @@ void ctl_postfork_child(tsdn_t* tsdn) {
     if (oldp != NULL && oldlenp != NULL) {                                 \
       if (*oldlenp != sizeof(t)) {                                         \
         size_t copylen = (sizeof(t) <= *oldlenp) ? sizeof(t) : *oldlenp;   \
-        jet_memcpy(oldp, (void*)&(v), copylen);                            \
+        jet_mem_copy(oldp, (void*)&(v), copylen);                          \
         ret = EINVAL;                                                      \
         goto label_return;                                                 \
       }                                                                    \
@@ -10783,7 +10783,8 @@ label_return:
  *...) (5) (optional) decide if it's worthwhile to defragment; otherwise
  *stop here (6) disable tcache: mallctl("thread.tcache.enabled", ...) (7)
  *defragment allocations with significant fragmentation, e.g.: for each
- *allocation { if it's fragmented { malloc(...); jet_memcpy(...); free(...);
+ *allocation { if it's fragmented { malloc(...); jet_mem_copy(...);
+ *free(...);
  *             }
  *         }
  * (8) enable tcache: mallctl("thread.tcache.enabled", ...)
@@ -13864,7 +13865,7 @@ void* large_ralloc(tsdn_t* tsdn, arena_t* arena, void* ptr, size_t usize,
     hook_args->args);
 
   size_t copysize = (usize < oldusize) ? usize : oldusize;
-  jet_memcpy(ret, extent_addr_get(extent), copysize);
+  jet_mem_copy(ret, extent_addr_get(extent), copysize);
   isdalloct(tsdn, extent_addr_get(extent), oldusize, tcache, NULL, true);
   return ret;
 }
@@ -14331,7 +14332,7 @@ static char* x2s(
   if (alt_form) {
     s -= 2;
     (*slen_p) += 2;
-    jet_memcpy(s, uppercase ? "0X" : "0x", 2);
+    jet_mem_copy(s, uppercase ? "0X" : "0x", 2);
   }
   return s;
 }
@@ -14350,7 +14351,7 @@ size_t malloc_vsnprintf(
   do {                                                                     \
     if (i < size) {                                                        \
       size_t cpylen = (slen <= size - i) ? slen : size - i;                \
-      jet_memcpy(&str[i], s, cpylen);                                      \
+      jet_mem_copy(&str[i], s, cpylen);                                    \
     }                                                                      \
     i += slen;                                                             \
   } while (0)
@@ -15986,7 +15987,7 @@ static size_t prof_log_bt_index(tsd_t* tsd, prof_bt_t* bt) {
      * might die before prof_log_stop is called.
      */
     new_node->bt.len = bt->len;
-    jet_memcpy(new_node->vec, bt->vec, bt->len * sizeof(void*));
+    jet_mem_copy(new_node->vec, bt->vec, bt->len * sizeof(void*));
     new_node->bt.vec = new_node->vec;
 
     log_bt_index++;
@@ -16399,7 +16400,7 @@ static prof_gctx_t* prof_gctx_create(tsdn_t* tsdn, prof_bt_t* bt) {
   gctx->nlimbo = 1;
   tctx_tree_new(&gctx->tctxs);
   /* Duplicate bt. */
-  jet_memcpy(gctx->vec, bt->vec, bt->len * sizeof(void*));
+  jet_mem_copy(gctx->vec, bt->vec, bt->len * sizeof(void*));
   gctx->bt.vec = gctx->vec;
   gctx->bt.len = bt->len;
   return gctx;
@@ -16808,7 +16809,7 @@ static bool prof_dump_write(bool propagate_err, const char* s) {
       /* Write as much of s as will fit. */
       n = PROF_DUMP_BUFSIZE - prof_dump_buf_end;
     }
-    jet_memcpy(&prof_dump_buf[prof_dump_buf_end], &s[i], n);
+    jet_mem_copy(&prof_dump_buf[prof_dump_buf_end], &s[i], n);
     prof_dump_buf_end += n;
     i += n;
   }
@@ -16845,7 +16846,7 @@ static void prof_tctx_merge_tdata(
     tctx->state = prof_tctx_state_dumping;
     malloc_mutex_unlock(tsdn, tctx->gctx->lock);
 
-    jet_memcpy(&tctx->dump_cnts, &tctx->cnts, sizeof(prof_cnt_t));
+    jet_mem_copy(&tctx->dump_cnts, &tctx->cnts, sizeof(prof_cnt_t));
 
     tdata->cnt_summed.curobjs += tctx->dump_cnts.curobjs;
     tdata->cnt_summed.curbytes += tctx->dump_cnts.curbytes;
@@ -18151,7 +18152,7 @@ static char* prof_thread_name_alloc(tsdn_t* tsdn, const char* thread_name) {
   ret = iallocztm(tsdn, size, sz_size2index(size), false, NULL, true,
     arena_get(TSDN_NULL, 0, true), true);
   if (ret == NULL) { return NULL; }
-  jet_memcpy(ret, thread_name, size);
+  jet_mem_copy(ret, thread_name, size);
   return ret;
 }
 
@@ -18239,7 +18240,7 @@ bool prof_gdump_set(tsdn_t* tsdn, bool gdump) {
 void prof_boot0(void) {
   cassert(config_prof);
 
-  jet_memcpy(
+  jet_mem_copy(
     opt_prof_prefix, PROF_PREFIX_DEFAULT, sizeof(PROF_PREFIX_DEFAULT));
 }
 

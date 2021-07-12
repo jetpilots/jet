@@ -367,7 +367,7 @@ class ConstCharsArray : public Collection {
     for (auto c : *this) size += (sizes[i++] = cstr_len(c));
     char *buf = new char[size + 1], *pos = buf;
     i = 0;
-    for (auto c : *this) jet_memcpy(pos, c, sizes[i]), pos += sizes[i++];
+    for (auto c : *this) jet_mem_copy(pos, c, sizes[i]), pos += sizes[i++];
     *pos = 0;
     delete[] sizes;
     return buf;

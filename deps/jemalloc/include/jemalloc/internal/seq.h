@@ -22,7 +22,7 @@
     seq_##short_type##_t* dst, type* src) {                                \
     size_t buf[sizeof(dst->data) / sizeof(size_t)];                        \
     buf[sizeof(buf) / sizeof(size_t) - 1] = 0;                             \
-    jet_memcpy(buf, src, sizeof(type));                                    \
+    jet_mem_copy(buf, src, sizeof(type));                                  \
     size_t old_seq = atomic_load_zu(&dst->seq, ATOMIC_RELAXED);            \
     atomic_store_zu(&dst->seq, old_seq + 1, ATOMIC_RELAXED);               \
     atomic_fence(ATOMIC_RELEASE);                                          \
@@ -44,7 +44,7 @@
     atomic_fence(ATOMIC_ACQUIRE);                                          \
     size_t seq2 = atomic_load_zu(&src->seq, ATOMIC_RELAXED);               \
     if (seq1 != seq2) { return false; }                                    \
-    jet_memcpy(dst, buf, sizeof(type));                                    \
+    jet_mem_copy(dst, buf, sizeof(type));                                  \
     return true;                                                           \
   }
 

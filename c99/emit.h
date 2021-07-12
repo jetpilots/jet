@@ -813,7 +813,7 @@ static void expr_emit_tkString(Expr* expr, int level) {
 /// Complex numbers follow C99 literal syntax, e.g. 1i generates
 /// `_Complex_I * 1`.
 static void expr_emit_tkNumber(Expr* expr, int level) {
-  size_t ls = cstr_length(expr->str);
+  size_t ls = cstr_len(expr->str);
   if (expr->str[ls - 1] == 'i') {
     outl("_Complex_I*");
     expr->str[ls - 1] = 0;

@@ -83,7 +83,7 @@ static void addEntry(KDDict* dict, void* keys[DIMS], void* value) {
 
   if (child->npoints == POINTS_PER_LEAF) {
     KDDictLeaf tmp = *child;
-    // jet_memcpy(points, child->points, sizeof(KDTreePoint*) *
+    // jet_mem_copy(points, child->points, sizeof(KDTreePoint*) *
     // POINTS_PER_LEAF);
 
     KDDictNode* newChild = NEW(KDDictNode);

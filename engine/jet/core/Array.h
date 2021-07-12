@@ -115,7 +115,7 @@
     Array(T) * self, T * cArray, int count) {                              \
     const UInt32 reqd = self->used + count;                                \
     if (reqd >= self->cap) Array_growTo(T)(self, reqd);                    \
-    jet_memcpy(self->ref + self->used, cArray, count * sizeof(T));         \
+    jet_mem_copy(self->ref + self->used, cArray, count * sizeof(T));       \
     self->used = reqd;                                                     \
   }                                                                        \
   monostatic void Array_concatArray(T)(                                    \

@@ -444,7 +444,7 @@ monostatic void linenoiseAddCompletion(
 
   copy = malloc(len + 1);
   if (copy == NULL) return;
-  jet_memcpy(copy, str, len + 1);
+  jet_mem_copy(copy, str, len + 1);
   cvec = realloc(lc->cvec, sizeof(char*) * (lc->len + 1));
   if (cvec == NULL) {
     free(copy);
@@ -475,7 +475,7 @@ static void abAppend(struct abuf* ab, const char* s, int len) {
   char* new = realloc(ab->b, ab->len + len);
 
   if (new == NULL) return;
-  jet_memcpy(new + ab->len, s, len);
+  jet_mem_copy(new + ab->len, s, len);
   ab->b = new;
   ab->len += len;
 }
@@ -1148,7 +1148,7 @@ monostatic int linenoiseHistorySetMaxLen(int len) {
       tocopy = len;
     }
     memset(new, 0, sizeof(char*) * len);
-    jet_memcpy(
+    jet_mem_copy(
       new, history + (history_len - tocopy), sizeof(char*) * tocopy);
     free(history);
     history = new;

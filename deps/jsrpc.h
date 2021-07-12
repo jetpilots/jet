@@ -109,7 +109,7 @@ static ssize_t rio_read(rio_t* rp, char* usrbuf, size_t n) {
   /* Copy min(n, rp->rio_cnt) bytes from internal buf to user buf */
   cnt = n;
   if (rp->rio_cnt < n) cnt = rp->rio_cnt;
-  jet_memcpy(usrbuf, rp->rio_bufptr, cnt);
+  jet_mem_copy(usrbuf, rp->rio_bufptr, cnt);
   rp->rio_bufptr += cnt;
   rp->rio_cnt -= cnt;
   return cnt;
@@ -240,7 +240,7 @@ void url_decode(char* src, char* dest, int max) {
   char code[3] = { 0 };
   while (*p && --max) {
     if (*p == '%') {
-      jet_memcpy(code, ++p, 2);
+      jet_mem_copy(code, ++p, 2);
       *dest++ = (char)strtoul(code, NULL, 16);
       p += 2;
     } else {

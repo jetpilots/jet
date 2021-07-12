@@ -97,7 +97,11 @@ monostatic size_t _called_strlen = 0;
 #define calloc(n, s) (++_called_calloc, calloc(n, s))
 #define realloc(ptr, s) (++_called_realloc, realloc(ptr, s))
 #define strdup(s) (++_called_strdup, strdup(s))
-#define cstr_len(s) (++_called_strlen, cstr_len(s))
+
+void* jet_mem_copy(void* dest, const void* src, size_t len) {
+  return memcpy(dest, src, len);
+}
+
 // This macro should be invoked on each struct defined.
 #define MKSTAT(T) monostatic int _allocTotal_##T = 0;
 #define allocstat(T)                                                       \

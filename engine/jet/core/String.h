@@ -41,7 +41,7 @@ monostatic void String_growBy(String* str, int size) {
 
 monostatic void String_appendChars(String* str, char* data, int size) {
   String_growBy(str, size);
-  jet_memcpy(str->ref + str->len, data, size);
+  jet_mem_copy(str->ref + str->len, data, size);
   str->len += size;
 }
 

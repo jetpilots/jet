@@ -84,7 +84,7 @@ long recordNewlines(Parser* parser) {
 
 static Parser* par_fromFile(
   char* filename, bool skipws, CompilerMode mode) {
-  size_t flen = cstr_length(filename);
+  size_t flen = cstr_len(filename);
 
   // Error: the file might not end in .jet
   if (!cstr_endsWith(filename, flen, ".jet", 4)) {

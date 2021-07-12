@@ -336,7 +336,7 @@ const char* blake3_version(void) { return BLAKE3_VERSION_STRING; }
 
 INLINE void chunk_state_init(
   blake3_chunk_state* self, const uint32_t key[8], uint8_t flags) {
-  jet_memcpy(self->cv, key, BLAKE3_KEY_LEN);
+  jet_mem_copy(self->cv, key, BLAKE3_KEY_LEN);
   self->chunk_counter = 0;
   memset(self->buf, 0, BLAKE3_BLOCK_LEN);
   self->buf_len = 0;
@@ -346,7 +346,7 @@ INLINE void chunk_state_init(
 
 INLINE void chunk_state_reset(
   blake3_chunk_state* self, const uint32_t key[8], uint64_t chunk_counter) {
-  jet_memcpy(self->cv, key, BLAKE3_KEY_LEN);
+  jet_mem_copy(self->cv, key, BLAKE3_KEY_LEN);
   self->chunk_counter = chunk_counter;
   self->blocks_compressed = 0;
   memset(self->buf, 0, BLAKE3_BLOCK_LEN);
@@ -363,7 +363,7 @@ INLINE size_t chunk_state_fill_buf(
   size_t take = BLAKE3_BLOCK_LEN - ((size_t)self->buf_len);
   if (take > input_len) { take = input_len; }
   uint8_t* dest = self->buf + ((size_t)self->buf_len);
-  jet_memcpy(dest, input, take);
+  jet_mem_copy(dest, input, take);
   self->buf_len += (uint8_t)take;
   return take;
 }
@@ -389,8 +389,8 @@ INLINE output_t make_output(const uint32_t input_cv[8],
   const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len,
   uint64_t counter, uint8_t flags) {
   output_t ret;
-  jet_memcpy(ret.input_cv, input_cv, 32);
-  jet_memcpy(ret.block, block, BLAKE3_BLOCK_LEN);
+  jet_mem_copy(ret.input_cv, input_cv, 32);
+  jet_mem_copy(ret.block, block, BLAKE3_BLOCK_LEN);
   ret.block_len = block_len;
   ret.counter = counter;
   ret.flags = flags;
@@ -405,7 +405,7 @@ INLINE output_t make_output(const uint32_t input_cv[8],
 // stack are represented as bytes.
 INLINE void output_chaining_value(const output_t* self, uint8_t cv[32]) {
   uint32_t cv_words[8];
-  jet_memcpy(cv_words, self->input_cv, 32);
+  jet_mem_copy(cv_words, self->input_cv, 32);
   blake3_compress_in_place(
     cv_words, self->block, self->block_len, self->counter, self->flags);
   store_cv_words(cv, cv_words);
@@ -426,7 +426,7 @@ INLINE void output_root_bytes(
     } else {
       memcpy_len = out_len;
     }
-    jet_memcpy(out, wide_buf + offset_within_block, memcpy_len);
+    jet_mem_copy(out, wide_buf + offset_within_block, memcpy_len);
     out += memcpy_len;
     out_len -= memcpy_len;
     output_block_counter += 1;
@@ -558,7 +558,7 @@ INLINE size_t compress_parents_parallel(
 
   // If there's an odd child left over, it becomes an output.
   if (num_chaining_values > 2 * parents_array_len) {
-    jet_memcpy(&out[parents_array_len * BLAKE3_OUT_LEN],
+    jet_mem_copy(&out[parents_array_len * BLAKE3_OUT_LEN],
       &child_chaining_values[2 * parents_array_len * BLAKE3_OUT_LEN],
       BLAKE3_OUT_LEN);
     return parents_array_len + 1;
@@ -633,7 +633,7 @@ static size_t blake3_compress_subtree_wide(const uint8_t* input,
   // right_n=1. Rather than compressing them into a single output, return
   // them directly, to make sure we always have at least two outputs.
   if (left_n == 1) {
-    jet_memcpy(out, cv_array, 2 * BLAKE3_OUT_LEN);
+    jet_mem_copy(out, cv_array, 2 * BLAKE3_OUT_LEN);
     return 2;
   }
 
@@ -671,14 +671,14 @@ INLINE void compress_subtree_to_parent_node(const uint8_t* input,
   while (num_cvs > 2) {
     num_cvs
       = compress_parents_parallel(cv_array, num_cvs, key, flags, out_array);
-    jet_memcpy(cv_array, out_array, num_cvs * BLAKE3_OUT_LEN);
+    jet_mem_copy(cv_array, out_array, num_cvs * BLAKE3_OUT_LEN);
   }
-  jet_memcpy(out, cv_array, 2 * BLAKE3_OUT_LEN);
+  jet_mem_copy(out, cv_array, 2 * BLAKE3_OUT_LEN);
 }
 
 INLINE void hasher_init_base(
   blake3_hasher* self, const uint32_t key[8], uint8_t flags) {
-  jet_memcpy(self->key, key, BLAKE3_KEY_LEN);
+  jet_mem_copy(self->key, key, BLAKE3_KEY_LEN);
   chunk_state_init(&self->chunk, key, flags);
   self->cv_stack_len = 0;
 }
@@ -771,7 +771,7 @@ INLINE void hasher_merge_cv_stack(blake3_hasher* self, uint64_t total_len) {
 INLINE void hasher_push_cv(blake3_hasher* self,
   uint8_t new_cv[BLAKE3_OUT_LEN], uint64_t chunk_counter) {
   hasher_merge_cv_stack(self, chunk_counter);
-  jet_memcpy(&self->cv_stack[self->cv_stack_len * BLAKE3_OUT_LEN], new_cv,
+  jet_mem_copy(&self->cv_stack[self->cv_stack_len * BLAKE3_OUT_LEN], new_cv,
     BLAKE3_OUT_LEN);
   self->cv_stack_len += 1;
 }
@@ -924,7 +924,7 @@ void blake3_hasher_finalize_seek(
   while (cvs_remaining > 0) {
     cvs_remaining -= 1;
     uint8_t parent_block[BLAKE3_BLOCK_LEN];
-    jet_memcpy(parent_block, &self->cv_stack[cvs_remaining * 32], 32);
+    jet_mem_copy(parent_block, &self->cv_stack[cvs_remaining * 32], 32);
     output_chaining_value(&output, &parent_block[32]);
     output = parent_output(parent_block, self->key, self->chunk.flags);
   }
@@ -1317,7 +1317,7 @@ INLINE void hash_one_portable(const uint8_t* input, size_t blocks,
   const uint32_t key[8], uint64_t counter, uint8_t flags,
   uint8_t flags_start, uint8_t flags_end, uint8_t out[BLAKE3_OUT_LEN]) {
   uint32_t cv[8];
-  jet_memcpy(cv, key, BLAKE3_KEY_LEN);
+  jet_mem_copy(cv, key, BLAKE3_KEY_LEN);
   uint8_t block_flags = flags | flags_start;
   while (blocks > 0) {
     if (blocks == 1) { block_flags |= flags_end; }

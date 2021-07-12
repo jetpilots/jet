@@ -142,7 +142,7 @@ JEMALLOC_ALWAYS_INLINE void* iralloct_realign(tsdn_t* tsdn, void* ptr,
    * expectation that the extra bytes will be reliably preserved.
    */
   copysize = (size < oldsize) ? size : oldsize;
-  jet_memcpy(p, ptr, copysize);
+  jet_mem_copy(p, ptr, copysize);
   hook_invoke_alloc(
     hook_args->is_realloc ? hook_alloc_realloc : hook_alloc_rallocx, p,
     (uintptr_t)p, hook_args->args);

@@ -23,7 +23,7 @@ SString sstr_new() {
 }
 void sstr_appendcn(SString* s, char* str, int len) {
   if (sizes[s->cap] <= len + s->len) sstr_reserve(len);
-  jet_memcpy(s->ptr + s->len, str, len + 1);
+  jet_mem_copy(s->ptr + s->len, str, len + 1);
   s->len += len;
 }
 void sstr_appendc(SString* s, char* str, int len) {
@@ -45,7 +45,7 @@ static int fits(int size) {
 SString sstr_cdup(char* str, int len) {
   int idx = fits(len + 1);
   return (SString) { //
-    .ptr = (u64)jet_memcpy(malloc(sizes[idx]), str, len + 1),
+    .ptr = (u64)jet_mem_copy(malloc(sizes[idx]), str, len + 1),
     .len = len,
     .cap = idx
   };
@@ -53,9 +53,8 @@ SString sstr_cdup(char* str, int len) {
 SString sstr_dup(SString s) {
   // if (s.cap)
   //     return (SString) { //
-  //         .ptr = (u64)jet_memcpy(malloc(sizes[s.cap]), s.ptr, s.len + 1),
-  //         .len = s.len,
-  //         .cap = s.cap
+  //         .ptr = (u64)jet_mem_copy(malloc(sizes[s.cap]), s.ptr, s.len +
+  //         1), .len = s.len, .cap = s.cap
   //     };
   // else
   return sstr_cdup(s.ptr, s.len);

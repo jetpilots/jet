@@ -170,7 +170,7 @@ func resolveVars!(parser Parser, expr ASTExpr, scope ASTScope, inFuncCall Bool)
                     ~ we're not going to actually "resolve" the embedded
                     ~ var, just lint the name here so it is in the correct
                     ~ case
-                    jet_memcpy(pos + 1, va.name, len)
+                    jet_mem_copy(pos + 1, va.name, len)
                 end
 
                 catch .syntax do errs.stringInterp!(parser, expr=expr, name=pos)

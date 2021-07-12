@@ -11,7 +11,7 @@ static Expr* Expr_clone(Expr* expr);
 
 MKLIST_CLONE(Expr)
 MKLIST_CLONE(Var)
-#define CLONE(T, v) jet_memcpy(NEW(T), v, sizeof(T))
+#define CLONE(T, v) jet_mem_copy(NEW(T), v, sizeof(T))
 
 static Expr* Expr_clone(Expr* expr) {
   if (!expr) return NULL;
