@@ -8,6 +8,8 @@ int file_hash_equal(char* file1, char* file2) {
 #else
   String data1 = slurp(file1);
   String data2 = slurp(file2);
+  if (!data1.ref || !data2.ref) return 0; // either file read failed
+
   blake3_hasher hasher;
   uint8_t output1[BLAKE3_OUT_LEN], output2[BLAKE3_OUT_LEN];
 
@@ -22,8 +24,8 @@ int file_hash_equal(char* file1, char* file2) {
   uint64_t *u1 = (uint64_t*)output1, *u2 = (uint64_t*)output2;
 
   return !((u1[0] ^ u2[0]) //
-      | (u1[1] ^ u2[1]) //
-      | (u1[2] ^ u2[2]) //
-      | (u1[3] ^ u2[3]));
+    | (u1[1] ^ u2[1])      //
+    | (u1[2] ^ u2[2])      //
+    | (u1[3] ^ u2[3]));
 #endif
 }
