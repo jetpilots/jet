@@ -28,7 +28,7 @@ void (*const _jet_entry_run_)(IFDEBUGELSE(const char* callsite, void))
   = JET_ENTRY;
 
 int main(int argc, char* argv[]) {
-  _stack_boundary = (char*)&argc - sys_stackSize() + 8192;
+  _stack_boundary = (char*)&argc - sys_stackSize() + 32 KB;
 
 #ifdef GUI_COCOA
   App_start(); // must be compiled as ObjC
