@@ -3,7 +3,7 @@
 
 static const char* _lastFunc;
 static int _lastFuncLen;
-bool __jet_dbglog = 0;
+int __jet_dbglog = 0;
 
 #define FUNC_ENTRY _lastFunc = __func__, _lastFuncLen = cstr_len(_lastFunc);
 
@@ -12,6 +12,8 @@ bool __jet_dbglog = 0;
 #define NAME_CLASS(T) const char* JOIN(T, _typeName) = #T;
 static const char* const spaces = //
   "                                                                     ";
+
+thread_local const char* _err_ = 0;
 
 #include "types.h"
 #include "token.h"
@@ -594,6 +596,8 @@ int main(int argc, char* argv[]) {
               "-D", cfg.use.cocoa ? "GUI_COCOA" : "GUI_NONE",           //
               "-D", istest ? "JET_MODE_TEST" : "JET_MODE_RUN",          //
               "-x", cfg.use.cocoa ? "objective-c" : "c",                //
+              cfg.use.cocoa ? "-framework" : "",
+              cfg.use.cocoa ? "Cocoa" : "", //
               root->out_w, "-o", exeName, "-lm")) {
           unreachable("exe(m) failed%s\n", "");
         }

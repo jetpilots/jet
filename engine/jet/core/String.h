@@ -72,16 +72,29 @@ monostatic String* String_iconv(String* str, Charset from, Charset to) {
   return NULL;
 }
 
+extern thread_local const char* _err_;
 monostatic String slurp(const char* const filename) {
+  // TODO: change the error messages to setting _err_ which is the standard
+  // jet way of doing things
   String ret = {};
   FILE* file = fopen(filename, "r");
-  if (!file) return ret;
+  if (!file) {
+    eprintf("slurp: file %s could not be opened\n", filename);
+    return ret;
+  }
+
   fseek(file, 0, SEEK_END);
   const size_t size = ftell(file) + 1;
   char* data = malloc(size);
-  if (!data) return ret;
+  if (!data) {
+    eprintf("slurp: file %s too big to fit in memory\n", filename);
+    return ret;
+  }
   fseek(file, 0, SEEK_SET);
-  if (fread(data, size, 1, file) != 1) return ret;
+  if (fread(data, size, 1, file) != 1) {
+    eprintf("slurp: file %s could not be read fully\n", filename);
+    return ret;
+  }
   ret.ref = data;
   ret.cap = size;
   ret.len = size - 1;

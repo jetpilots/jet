@@ -15,28 +15,24 @@
 // modules in which any UI code is present
 #include <Cocoa/Cocoa.h>
 #define NSStr(s) [NSString stringWithUTF8String:s]
-@interface Window_ : NSWindow
-@end
+@class Window_;
 typedef Window_* Window;
-Window Window_new_(IFDEBUG(char* cs_)) { return nil; }
-@interface Button_ : NSButton
-@end
+static Window Window_new_(IFDEBUG(char* cs_)) { return nil; }
+@class Button_;
 typedef Button_* Button;
-Button Button_new_(IFDEBUG(char* cs_)) { return nil; }
-@interface View_ : NSView
-@end
+static Button Button_new_(IFDEBUG(char* cs_)) { return nil; }
+#define Button_addrof_view(b) &(b)
+
+@class View_;
 typedef View_* View;
-View View_new_(IFDEBUG(char* cs_)) { return nil; }
-@interface Label_ : NSTextField
-@end
+static View View_new_(IFDEBUG(char* cs_)) { return nil; }
+@class Label_;
 typedef Label_* Label;
-Label Label_new_(IFDEBUG(char* cs_)) { return nil; }
-@interface TextField_ : NSTextField
-@end
+static Label Label_new_(IFDEBUG(char* cs_)) { return nil; }
+@class TextField_;
 typedef TextField_* TextField;
-TextField TextField_new_(IFDEBUG(char* cs_)) { return nil; }
-@interface VibrantView_ : NSVisualEffectView
-@end
+static TextField TextField_new_(IFDEBUG(char* cs_)) { return nil; }
+@class VibrantView_;
 typedef VibrantView_* VibrantView;
 #endif
 

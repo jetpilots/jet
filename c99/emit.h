@@ -1500,7 +1500,7 @@ static int mod_emit(Module* mod) {
   // foreach (Type*, type, mod->types) { type_genID(type); }
   // printf("  TypeID__end\n} _TypeID;\n");
   foreach (Type*, type, mod->types) {
-    if (type->body && type->analysed) {
+    if (type->body && type->analysed && !type->isDeclare) {
       printf("typedef struct %s* %s;\n", type->name, type->name);
     }
   }
@@ -1524,16 +1524,19 @@ static int mod_emit(Module* mod) {
     // header has changed, mark it so deps
     // can be recompiled
     // eprintf("%s: header updated\n", mod->out_h);
+    eprintf("%s needs update\n", mod->out_h);
+
     mod->hmodified = true;
-    unlink(mod->out_h);
+    // unlink(mod->out_h);
     if (!file_move(mod->out_hh, mod->out_h)) {
       eprintf("%s:1:1-1: error: can't update file: %s\n", mod->out_h,
         strerror(errno));
       return 1;
     }
-  } else
+  } else {
+    eprintf("%s is up to date\n", mod->out_h);
     unlink(mod->out_hh);
-
+  }
   // C file -------------------------------------------------------------
 
   if (!(outfile = fopen(mod->out_c, "w"))) {

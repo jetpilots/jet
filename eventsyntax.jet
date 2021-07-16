@@ -1,11 +1,120 @@
 
+decl type FuncPtr end
+
+type Window
+  event closing(j Int, b Strin) FuncPtr
+  var title = ""
+end
+
+~ Window
+~   closing = *()
+~   title = ""
+
+~ msgBox(msg String)
+
+~ start()
+~   ~ Begins func processing given the first entry point in the binary.
+~   w = Window()
+~   w.closing = *()
+~     w.title = "88"
+~     msgBox(w.title)
+~   if w.width <= 320
+~     w.width = 320
+~     msgBox("no!")
+~   elif w.width >= 1500
+~     msgBox("whoa!")
+~   else
+~     msgBox("ok")
+~   for f = [7, 8, 9]
+~     print(f)
+~   while y.kind == .dot
+~     y = y.right
+~   match ww
+~   case .tok, .spc, .yui
+~     ...
+~   case .eof
+~     ...
+
+
+~ w = Window
+~   height = 380
+~   width = 350
+~   title = "rabdi"
+~   style = #document
+~   ~ events
+~   closing = *()
+~   opening = *()
+~     self.resize(800x800, animated=yes)
+~   ~ subviews
+~   subviews = View[]
+~     View
+~       size = 400x500
+~       ondraw = *()
+~         self.bgcolor = #aliceBlue
+~         self.fillRect(self.bounds, rounding=4)
+~     View
+~       size = 200x500
+~       pos = 400x0
+~       subviews = View[]
+~         Button
+~           text = "Hello"
+
+
+func msgBox(msg String)
+end
+
+func tpl(i)
+  ans = i
+end
+var f = 9
+
 func start()
   var w = Window()
-
-  ~ events can be defined inline
-  event w closing()
-    msgBox(w.title) ~ w can be accessed directly. It's actually *not* the
-    ~ var w but an implicit parameter from when this open handler will be
-    ~ called.
+  var a = 7
+  when w closing()
+    ~ f = 9
+    ~ w.title = "88"
+    msgBox(w.title)
   end
+  var g = tpl("9")
 end
+
+~ msgBox(msg String)
+~ tpl(i)
+~   ans = i
+~ start()
+~   w = Window()
+~   a = 7
+~   w.closing = *()
+~     msgBox(w.title)
+~   g = tpl(9)
+
+~ func start()
+~   var w = Window()
+~   w.closing = func !()
+~     w.title = "88"
+~     msgBox(w.title)
+~   end
+~ end
+
+~ var w = Window(
+~   height = 380,
+~   width = 350,
+~   title = "rabdi",
+~   style = #document,
+~   closing = func (w Window)
+~     end,
+~   opening = func (w Window)
+~     end
+~ )
+
+~ var w = Window {
+~   .height = 380
+~   .width = 350
+~   .title = "rabdi"
+~   .style = #document
+~   .closing = func ()
+~   end
+~   .opening = func ()
+~   end
+~ }

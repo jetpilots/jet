@@ -236,7 +236,7 @@ typedef struct IRange {
                   printf("%s:%d: timer: %g ms\n", __FILE__, __LINE__,      \
                     t1 / 1e6))
 
-extern bool __jet_dbglog; // jet-wide debug print incl everything in base
+extern int __jet_dbglog; // jet-wide debug print incl everything in base
 
 // Should be using adhoc to generate these.
 static const double __RRANDFMAX = 1.0 / RAND_MAX;

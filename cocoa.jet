@@ -19,7 +19,7 @@ func Window(width Number, height Number) Window
   [w makeKeyAndOrderFront:nil];
 
   // replace the contentView (NSView) with a View_
-  [w setContentView:[View_.alloc initWithFrame:w.contentView.frame]];
+  [w setContentView:[[View_ alloc] initWithFrame:[[w contentView] frame]]];
 
   return w;
   '
@@ -28,7 +28,7 @@ end
 decl type View end
 func View(w Number, h Number) View
   -'
-  View v = [View_.alloc initWithFrame:NSMakeRect(0, 0, 500, 400)];
+  View v = [[View_ alloc] initWithFrame:NSMakeRect(0, 0, 500, 400)];
   View_resize_w_h(v, w, h IFDEBUG(,""));
   return v;
   '
@@ -51,13 +51,15 @@ func move(v View, dx Number, dy Number)
 end
 
 decl type App end
-decl type Button extends View end
+decl type Button ~extends View
+var view View
+end
 func Button(title String) Button
   - '
   Button ret= [Button_ buttonWithTitle: NSStr(title)
                           target: nil
                           action: @selector(clicked)];
-  ret.target=ret;
+  [ret setTarget:ret];
   return ret;
   '
 end
@@ -83,22 +85,22 @@ func add(v View, subview View)
   -'[v addSubview:subview]'
 end
 func add(w Window, subview View)
-  -'[w.contentView addSubview:subview]'
+  -'[[w contentView] addSubview:subview]'
 end
 
 func effect(w Window)
   -'
   VibrantView v =
-    [VibrantView_.alloc initWithFrame:w.contentView.frame];
+    [[VibrantView_ alloc] initWithFrame:[[w contentView] frame]];
   [v setAutoresizesSubviews:YES];
   [v setAutoresizingMask:NSViewHeightSizable | NSViewWidthSizable];
-  [v addSubview:w.contentView];
+  [v addSubview:[w contentView]];
   [w setContentView:v];
   '
 end
 func resize(w Window, width Number, height Number)
   -'
-  NSRect f = w.frame;
+  NSRect f = [w frame];
   if (width) { f.size.width = width; }
   if (height) {
     f.origin.y += f.size.height - height;
@@ -121,13 +123,13 @@ func msgBox(text String, subtext String)
 end
 
 func start()
-  var w = Window(640,480)
+  var w = Window(640,height=480)
   set(w, title="My App RBCK")
   effect(w)
   ~ show(w)
   resize(w,width=800,height=600)
 
-  var v = View(320,240)
+  var v = View(320,h=240)
   ~ resize(v,400,300)
   ~ move(v,100,100)
   ~ setDrawFunc(v, drawFunc)
@@ -140,7 +142,7 @@ func start()
   set(b, title="Jackdaws")
   ~ setOnClick(b, bclick)
   add(w, subview=b)
-  move(b, dx=200, dy=150)
+  move(b.view, dx=200, dy=150)
 
   var l = Label("Dingbats:")
   add(w, subview=l)

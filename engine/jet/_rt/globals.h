@@ -5,4 +5,4 @@ thread_local const char* _err_ = NULL;
 
 thread_local uint64_t __randstate;
 
-bool __jet_dbglog = 0;
+int __jet_dbglog = 0;

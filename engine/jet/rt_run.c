@@ -6,10 +6,6 @@
 #include "runtest.h"
 #include "_rt/globals.h"
 
-#ifdef GUI_COCOA
-#include "ui/ui_cocoa.h"
-#endif
-
 #ifndef IFDEBUG
 #ifdef NDEBUG
 #define IFDEBUG(s)
@@ -26,6 +22,10 @@
 
 void (*const _jet_entry_run_)(IFDEBUGELSE(const char* callsite, void))
   = JET_ENTRY;
+
+#ifdef GUI_COCOA
+#include "ui/ui_cocoa.h"
+#endif
 
 int main(int argc, char* argv[]) {
   _stack_boundary = (char*)&argc - sys_stackSize() + 32 KB;
