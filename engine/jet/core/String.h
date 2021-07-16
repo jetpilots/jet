@@ -81,7 +81,7 @@ monostatic String slurp(const char* const filename) {
   char* data = malloc(size);
   if (!data) return ret;
   fseek(file, 0, SEEK_SET);
-  fread(data, size, 1, file);
+  if (fread(data, size, 1, file) != 1) return ret;
   ret.ref = data;
   ret.cap = size;
   ret.len = size - 1;

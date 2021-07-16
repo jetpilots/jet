@@ -572,9 +572,9 @@ static List(Var) * parseArgs(Parser* parser) {
 }
 
 static Scope* parseScope(
-  Parser* parser, Scope* parent, bool isTypeBody, bool isLoop);
+  Parser* parser, Scope* parent, Module* mod, bool isTypeBody, bool isLoop);
 
-static Scope* parseScopeCases(Parser* parser, Scope* parent) {
+static Scope* parseScopeCases(Parser* parser, Scope* parent, Module* mod) {
 
   Scope* scope = NEW(Scope);
   scope->parent = parent;
@@ -590,7 +590,7 @@ static Scope* parseScopeCases(Parser* parser, Scope* parent) {
       tok_advance(&parser->token); // trample null
       if (expr->left) resolveVars(parser, expr->left, scope, false);
 
-      expr->body = parseScope(parser, scope, false, false);
+      expr->body = parseScope(parser, scope, mod, false, false);
       // match's body is a scope full of cases
       // case's body is a scope
 
@@ -615,10 +615,11 @@ static Scope* parseScopeCases(Parser* parser, Scope* parent) {
 exitloop:
   return scope;
 }
-
+static Func* parseFunc(Parser* parser, Scope* globScope, Module* mod,
+  bool shouldParseBody, Var* selfVar);
 // --------------------------------------------------------------------- //
-static Scope* parseScope(
-  Parser* parser, Scope* parent, bool isTypeBody, bool isLoop) {
+static Scope* parseScope(Parser* parser, Scope* parent, Module* mod,
+  bool isTypeBody, bool isLoop) {
   Scope* scope = NEW(Scope);
 
   Var *var = NULL, *orig = NULL;
@@ -634,6 +635,7 @@ static Scope* parseScope(
 
   List(Var)** locals = &scope->locals;
   List(Var)** stmts = &scope->stmts;
+  List(Func)** modFuncs = &mod->funcs;
 
   while (parser->token.kind != tkEnd) {
 
@@ -676,14 +678,14 @@ static Scope* parseScope(
 
     case tkCase: goto exitloop;
 
-    case tkMatch:
+    case tkMatch: {
       if (isTypeBody) err_invalidTypeMember(parser);
       expr = par_match(parser, tkMatch);
       expr->left = parseExpr(parser);
       tok_advance(&parser->token);
       if (expr->left) resolveVars(parser, expr->left, scope, false);
 
-      expr->body = parseScopeCases(parser, scope);
+      expr->body = parseScopeCases(parser, scope, mod);
       // match's body is a scope full of cases
       // case's body is a scope
 
@@ -696,14 +698,14 @@ static Scope* parseScope(
       // }
       stmts = li_push(stmts, expr);
 
-      break;
+    } break;
 
     case tkElse:
     case tkElif:
       if (!startedElse) goto exitloop;
     case tkIf:
     case tkFor:
-    case tkWhile:
+    case tkWhile: {
       if (isTypeBody) err_invalidTypeMember(parser);
       tt = parser->token.kind;
       expr = par_match(parser, tt);
@@ -747,9 +749,9 @@ static Scope* parseScope(
       // Mark the scope as a loop scope if it is a 'for' or 'while'.
       bool isLoop = tt == tkFor || tt == tkWhile;
       if (tt == tkFor) {
-        expr->body = parseScope(parser, forScope, isTypeBody, isLoop);
+        expr->body = parseScope(parser, forScope, mod, isTypeBody, isLoop);
       } else {
-        expr->body = parseScope(parser, scope, isTypeBody, isLoop);
+        expr->body = parseScope(parser, scope, mod, isTypeBody, isLoop);
       }
 
       if (par_matches(parser, tkElse) || //
@@ -761,7 +763,7 @@ static Scope* parseScope(
         par_ignore(parser, tt == tkElse || tt == tkElif ? tkIf : tt);
       }
       stmts = li_push(stmts, expr);
-      break;
+    } break;
 
     case tkEOL:
     case tkOneSpace: tok_advance(&parser->token); break;
@@ -770,10 +772,59 @@ static Scope* parseScope(
     case tkType:
     case tkEnum:
     case tkTest:
-      // in this case, it is probably an error propagating all through the
-      // file because an early func or type missed an end. How about we
-      // stop parsing the scope here.
-      goto exitloop;
+      goto exitloop; // in this case, it is probably an error propagating
+                     // all through the file because an early func or type
+                     // missed an end. How about we stop parsing the scope
+                     // here.
+
+    case tkEvent: {
+      par_ignore(parser, tkEvent), par_ignore(parser, tkOneSpace);
+      // char* who = parseIdent(parser);
+      // Var* self = NEWW(Var, .name="self", .spec = NEWW(TypeSpec,
+      // .typeType=TYObject, .type = ))
+      // ^ TODO: this is why you should have a separate parseModScope,
+      // parseFuncScope & parseTypeScope so the parent can be passed in &
+      // known
+      Func* event = parseFunc(parser, scope, mod, false, NULL /*FIXME*/);
+      // only need the declaration
+      if (!isTypeBody) {
+        // err_invalidNonTypeMember...
+      }
+
+      if ((orig = scope_getVar(scope, event->name)))
+        err_duplicateVar(parser, (Var*)event, orig->line, orig->col);
+      else // func & var overlapping struct layout is the same
+        locals = li_push(locals, event);
+    } break;
+
+    case tkWhen: {
+      par_ignore(parser, tkWhen), par_ignore(parser, tkOneSpace);
+      // char* name = parseIdent(parser);
+      // if (!who) err_unrecognizedVar(parser, &(Expr){.kind=tkIdent,.str})
+      Expr* tgt = expr_fromToken(&parser->token);
+      par_ignore(parser, tkIdent);
+      par_ignore(parser, tkOneSpace);
+      resolveVars(parser, tgt, scope, false);
+
+      Var* var = tgt->kind == tkIdentR ? tgt->var : NULL;
+      // if (!var) { unreachable("unknown var\n%s", ""); }
+      if (var) {
+        var = NEWW(Var, .name = var->name, .spec = var->spec,
+          .line = tgt->line, .col = tgt->col);
+      }
+      Func* handler = parseFunc(parser, mod->scope, mod, true, var);
+      // if (var) {
+      //   handler->name = cstr_pclone(cstr_interp_s(128, //
+      //     "%s_%s_%d", var->name, handler->name, handler->line));
+      // }
+      handler->used = 1; // by defn the handler is used
+      handler->intrinsic = true;
+      Expr* expr = NEWW(Expr, .kind = tkWhen, .func = handler);
+      stmts = li_push(stmts, expr);
+
+      // li_shift(&handler->args, var), handler->argCount++;
+      // modFuncs = li_push(modFuncs, handler);
+    } break;
 
     case tkComment:
       if (parser->generateCommentExprs) {
@@ -877,10 +928,9 @@ static List(TypeSpec) * parseParams(Parser* parser) {
 }
 
 // --------------------------------------------------------------------- //
-static Func* parseFunc(
-  Parser* parser, Scope* globScope, bool shouldParseBody) {
-  par_consume(parser, tkFunc);
-  par_consume(parser, tkOneSpace);
+static Func* parseFunc(Parser* parser, Scope* globScope, Module* mod,
+  bool shouldParseBody, Var* selfVar) {
+  if (par_ignore(parser, tkFunc)) par_ignore(parser, tkOneSpace);
   Func* func = NEW(Func);
 
   func->line = func->endline = parser->token.line;
@@ -900,6 +950,7 @@ static Func* parseFunc(
   if (par_matches(parser, tkLT)) func->params = parseParams(parser);
 
   func->args = parseArgs(parser);
+  if (selfVar) li_shift(&func->args, selfVar);
   func->argCount = li_count(func->args);
 
   if (mutator && func->argCount) {
@@ -939,7 +990,7 @@ static Func* parseFunc(
     funcScope->parent = globScope;
     funcScope->locals = func->args;
     li_shift(&funcScope->locals, ans);
-    func->body = parseScope(parser, funcScope, false, false);
+    func->body = parseScope(parser, funcScope, mod, false, false);
 
     func->endline = parser->token.line;
     par_consume(parser, tkEnd);
@@ -950,7 +1001,7 @@ static Func* parseFunc(
   return func;
 }
 
-static Func* parseStmtFunc(Parser* parser, Scope* globScope) {
+static Func* parseStmtFunc(Parser* parser, Scope* globScope, Module* mod) {
   Func* func = NEW(Func);
 
   func->line = parser->token.line;
@@ -1007,7 +1058,7 @@ static Func* parseStmtFunc(Parser* parser, Scope* globScope) {
 }
 
 // --------------------------------------------------------------------- //
-static Test* parseTest(Parser* parser, Scope* globScope) {
+static Test* parseTest(Parser* parser, Scope* globScope, Module* mod) {
   par_consume(parser, tkTest);
   par_consume(parser, tkOneSpace);
   Test* test = NEW(Test);
@@ -1021,7 +1072,7 @@ static Test* parseTest(Parser* parser, Scope* globScope) {
 
   par_consume(parser, tkEOL);
 
-  test->body = parseScope(parser, globScope, false, false);
+  test->body = parseScope(parser, globScope, mod, false, false);
 
   par_consume(parser, tkEnd);
   par_ignore(parser, tkOneSpace);
@@ -1052,7 +1103,7 @@ static Test* parseTest(Parser* parser, Scope* globScope) {
 
 // --------------------------------------------------------------------- //
 static Type* parseType(
-  Parser* parser, Scope* globScope, bool shouldParseBody) {
+  Parser* parser, Scope* globScope, Module* mod, bool shouldParseBody) {
   Type* type = NEW(Type);
 
   par_consume(parser, tkType);
@@ -1072,7 +1123,7 @@ static Type* parseType(
   }
   par_ignore(parser, tkEOL);
 
-  type->body = parseScope(parser, globScope, true, false);
+  type->body = parseScope(parser, globScope, mod, true, false);
 
   type->endline = parser->token.line;
   par_consume(parser, tkEnd);
@@ -1239,44 +1290,44 @@ static Module* par_lookupModule(PtrList* existingModules, char* name) {
 static Module* parseModule(
   Parser* parser, PtrList** existingModulesPtr, Module* importer) {
   // FUNC_ENTRY
-  Module* root = NEW(Module); // FIXME RENAME ROOT TO MOD, IT IS NOT ROOT!
+  Module* mod = NEW(Module); // FIXME RENAME ROOT TO MOD, IT IS NOT ROOT!
   bool isPrivate = false;
 
   // ret->noext = cstr_noext(cstr_clone(filename));
-  root->name
+  mod->name
     = cstr_tr_ip(cstr_noext_ip(cstr_clone(parser->filename)), '/', '.');
-  root->cname = cstr_tr_ip(cstr_clone(root->name), '.', '_');
-  root->Cname = cstr_upper_ip(cstr_clone(root->cname));
-  root->filename = parser->filename;
-  root->isRoot = (importer == NULL);
+  mod->cname = cstr_tr_ip(cstr_clone(mod->name), '.', '_');
+  mod->Cname = cstr_upper_ip(cstr_clone(mod->cname));
+  mod->filename = parser->filename;
+  mod->isRoot = (importer == NULL);
 
-  // int l = cstr_len(root->filename);
+  // int l = cstr_len(mod->filename);
   // static char buf[512];
   // // TODO: improve this later
-  // root->out_h = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.h",
-  //   cstr_dir_ip(cstr_pclone(root->filename)),
-  //   cstr_base(root->filename, '/', l)));
-  // root->out_hh = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.hh",
-  //   cstr_dir_ip(cstr_pclone(root->filename)),
-  //   cstr_base(root->filename, '/', l)));
+  // mod->out_h = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.h",
+  //   cstr_dir_ip(cstr_pclone(mod->filename)),
+  //   cstr_base(mod->filename, '/', l)));
+  // mod->out_hh = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.hh",
+  //   cstr_dir_ip(cstr_pclone(mod->filename)),
+  //   cstr_base(mod->filename, '/', l)));
 
-  // root->out_c = cstr_pclone(root->out_h);
-  // root->out_c[cstr_len(root->out_c) - 1] = 'c';
-  // // root->out_c = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.c",
-  // //     cstr_dir_ip(cstr_pclone(root->filename)),
-  // //     cstr_base(root->filename, '/', l)));
-  // root->out_xc = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.x.c",
-  //   cstr_dir_ip(cstr_clone(root->filename)),
-  //   cstr_base(root->filename, '/', l)));
-  // root->out_o = cstr_pclone(root->out_c);
-  // root->out_o[cstr_len(root->out_o) - 1] = 'o';
+  // mod->out_c = cstr_pclone(mod->out_h);
+  // mod->out_c[cstr_len(mod->out_c) - 1] = 'c';
+  // // mod->out_c = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.c",
+  // //     cstr_dir_ip(cstr_pclone(mod->filename)),
+  // //     cstr_base(mod->filename, '/', l)));
+  // mod->out_xc = cstr_pclone(__cstr_interp__s(512, buf, "%s.%s.x.c",
+  //   cstr_dir_ip(cstr_clone(mod->filename)),
+  //   cstr_base(mod->filename, '/', l)));
+  // mod->out_o = cstr_pclone(mod->out_c);
+  // mod->out_o[cstr_len(mod->out_o) - 1] = 'o';
 
-  // To break recursion, add the root to the existingModules list right
+  // To break recursion, add the mod to the existingModules list right
   // away. The name is all that is required for this module to be found
   // later.
-  li_shift(existingModulesPtr, root);
-  // eprintf("Parsing %s\n", root->name);
-  // root->scope = NEW(Scope);
+  li_shift(existingModulesPtr, mod);
+  // eprintf("Parsing %s\n", mod->name);
+  // mod->scope = NEW(Scope);
 
   // Token parser->token = { .pos = data.ref, .end = data.ref + data.len };
   tok_advance(&parser->token); // maybe put this in parser ctor
@@ -1290,14 +1341,14 @@ static Module* parseModule(
   // the first. (it will work but seek through the whole list every
   // time).
 
-  List(Func)** funcs = &root->funcs;
-  List(Func)** tfuncs = &root->tfuncs;
-  List(Import)** imports = &root->imports;
-  List(Type)** types = &root->types;
-  List(Type)** ttypes = &root->ttypes;
-  List(Test)** tests = &root->tests;
-  List(JetEnum)** enums = &root->enums;
-  Scope* gscope = root->scope;
+  List(Func)** funcs = &mod->funcs;
+  List(Func)** tfuncs = &mod->tfuncs;
+  List(Import)** imports = &mod->imports;
+  List(Type)** types = &mod->types;
+  List(Type)** ttypes = &mod->ttypes;
+  List(Test)** tests = &mod->tests;
+  List(JetEnum)** enums = &mod->enums;
+  Scope* gscope = mod->scope;
   List(Var)** gvars = &gscope->locals;  // globals
   List(Expr)** gexprs = &gscope->stmts; // globals
 
@@ -1330,13 +1381,13 @@ static Module* parseModule(
       tok_advance(&parser->token);
       par_consume(parser, tkOneSpace);
       if (parser->token.kind == tkFunc) {
-        Func* func = parseFunc(parser, gscope, false);
+        Func* func = parseFunc(parser, gscope, mod, false, NULL);
         func->isDeclare = true;
         func->private = isPrivate;
         funcs = li_push(funcs, func);
       }
       if (parser->token.kind == tkType) {
-        Type* type = parseType(parser, gscope, false);
+        Type* type = parseType(parser, gscope, mod, false);
         type->isDeclare = true;
         type->private = isPrivate;
         types = li_push(types, type);
@@ -1345,11 +1396,10 @@ static Module* parseModule(
 
     case tkFunc: {
       bool istpl = false;
-      Func* fn = parseFunc(parser, gscope, true);
+      Func* fn = parseFunc(parser, gscope, mod, true, NULL);
       fn->private = isPrivate;
 
-      foreach (Var*, arg, fn->args) {
-        // template if any arg has no spec
+      foreach (Var*, arg, fn->args) { // template if any arg has no spec
         if (arg->spec->typeType == TYUnknown && !*arg->spec->name)
           istpl = true;
         break;
@@ -1384,7 +1434,7 @@ static Module* parseModule(
     break;
 
     case tkType: {
-      Type* type = parseType(parser, gscope, true);
+      Type* type = parseType(parser, gscope, mod, true);
       type->private = isPrivate;
       types = li_push(types, type);
 
@@ -1406,7 +1456,7 @@ static Module* parseModule(
     } break;
 
     case tkImport:
-      imp = parseImport(parser, root);
+      imp = parseImport(parser, mod);
       if (imp) {
 
         imports = li_push(imports, imp);
@@ -1419,7 +1469,7 @@ static Module* parseModule(
           strcpy(filename, imp->name);
           cstr_tr_ip_len(filename, '.', '/', len - 5);
           strcpy(filename + len - 5, ".jet");
-          // eprintf("%s needs %s, parsing\n", root->filename, filename);
+          // eprintf("%s needs %s, parsing\n", mod->filename, filename);
           // later you can have a fancier routine that figures out
           // the file name from a module name
           Parser* subParser = par_fromFile(filename, true, parser->mode);
@@ -1429,8 +1479,8 @@ static Module* parseModule(
           // FIXME: these parsers will LEAK!
           if (subParser) {
             if ((imp->mod
-                  = parseModule(subParser, existingModulesPtr, root)))
-              li_shift(&imp->mod->importedBy, root);
+                  = parseModule(subParser, existingModulesPtr, mod)))
+              li_shift(&imp->mod->importedBy, mod);
           } else {
             err_importNotFound(parser, imp);
           }
@@ -1438,7 +1488,9 @@ static Module* parseModule(
       }
       break;
 
-    case tkTest: tests = li_push(tests, parseTest(parser, gscope)); break;
+    case tkTest:
+      tests = li_push(tests, parseTest(parser, gscope, mod));
+      break;
 
     case tkVar:
     case tkLet:
@@ -1453,8 +1505,8 @@ static Module* parseModule(
         }
         if ((orig = scope_getVar(gscope, var->name)))
           err_duplicateVar(parser, var, orig->line, orig->col);
-        Import* imp = mod_getImportByAlias(root, var->name);
-        Func* fnc = mod_getFuncByName(root, var->name);
+        Import* imp = mod_getImportByAlias(mod, var->name);
+        Func* fnc = mod_getFuncByName(mod, var->name);
         if (imp) err_duplicateVar(parser, var, imp->line, imp->col);
         if (fnc) err_duplicateVar(parser, var, fnc->line, 5);
 
@@ -1489,7 +1541,7 @@ static Module* parseModule(
     case tkOneSpace: tok_advance(&parser->token); break;
     case tkIdent: // stmt funcs: f(x) := f(y, w = 4) etc.
       if (tok_peekCharAfter(&parser->token) == '(') {
-        Func* sfn = parseStmtFunc(parser, gscope);
+        Func* sfn = parseStmtFunc(parser, gscope, mod);
         if (sfn) funcs = li_push(funcs, sfn);
         break;
       }
@@ -1512,10 +1564,10 @@ static Module* parseModule(
     func->intrinsic = true;
     funcs = li_push(funcs, func);
   }
-  root->nlines = parser->token.line;
+  mod->nlines = parser->token.line;
 
   // do some analysis that happens after the entire module is loaded
-  mod_analyse(parser, root);
-  // if (importer) li_shift(&importer->importedBy, root);
-  return root;
+  mod_analyse(parser, mod);
+  // if (importer) li_shift(&importer->importedBy, mod);
+  return mod;
 }

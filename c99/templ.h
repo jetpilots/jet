@@ -27,9 +27,9 @@ monostatic Func* mod_makeFunc(Module* module, Expr* funcCallExpr) {
       arg->spec->collType = cArg->collType;
       if (arg->spec->typeType == TYObject)
         arg->spec->type = expr_getTypeOrEnum(cArg);
-      getSelector(ret);
     }
-
+    getSelector(ret);
+    ret->intrinsic = true;
     li_shift(&module->funcs, ret);
     // module->modified = true;
     // FIXME: it must be recompiled if in non-monolithic mode!!

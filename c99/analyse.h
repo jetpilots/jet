@@ -288,6 +288,8 @@ static bool func_calls(Func* func, Func* target) {
   if (!func->visited) {
     func->visited = true;
     foreach (Func*, fn, func->callees) {
+      // FIXME: what if intrinsics are recursive? json is. also template
+      // instantiations may be (they are also marked intrinsic)
       if (!fn->intrinsic && (fn == target || func_calls(fn, target))) {
         ret = true;
         break;
@@ -861,37 +863,73 @@ monostatic void expr_analyse(Parser* parser, Expr* expr, Scope* scope,
     }
     break;
 
-  case tkPeriod: {
+  case tkWhen: {
+    // the var that was passed in has an init and maybe marked isVar.
+    if (expr->func->argCount) {
+      Var *event, *selfv = expr->func->args->item; // its the first arg.
+      if (!(event = type_getVar(selfv->spec->type, expr->func->name)))
+        err_unrecognizedMember(parser, selfv->spec->type,
+          &(Expr) { .kind = tkIdent,
+            .str = expr->func->name,
+            .line = expr->func->line,
+            .col = expr->func->col });
+      else
+        event->used++;
+      // selfv = NEWW(
+      //   Var, .name = selfv->name, .spec = selfv->spec, .isVar = false);
+      // ^ the var's type will have been inferred by now.
+      expr->func->args->item = selfv;
+      expr->func->sel = expr->func->psel = cstr_pclone(cstr_interp_s(128, //
+        "%s_%s_%d", selfv->name, expr->func->name, expr->func->line));
+      // ^ selectors are not important (these are not callable funcs) but
+      // thing is getSelectors() wont have been called on the handler since
+      // it wasnt in the list when analyse started.
+    } else {
+      expr->func->sel = expr->func->psel = expr->func->name;
+    }
 
-    if (!expr->left && !inFuncArgs) {
-      err_noEnumInferred(parser, expr->right);
+    li_shift(&mod->funcs, expr->func);
+    // ^ it can't be added to the module during parsing, because it would
+    // precede its containing function in the list. Before the containing
+    // func is analysed the type of the target var may not be known & usages
+    // of it in the handler cannot be analysed (will find type invalid).
+
+    func_analyse(parser, expr->func, mod);
+    // TODO: need a func->isGenerated flag so that it doesnt show up in
+    // linter output.
+  } break;
+
+  case tkPeriod: {
+    Expr *member = expr->right, *base = expr->left;
+
+    if (!base && !inFuncArgs) {
+      err_noEnumInferred(parser, member);
       break;
     }
-    if (!expr->left) break;
+    if (!base) break;
 
-    if (expr->left->kind == tkPeriod)
-      expr_analyse(parser, expr->left, scope, mod, ownerFunc, false);
+    // if (expr->left->kind == tkPeriod)
+    //   expr_analyse(parser, expr->left, scope, mod, ownerFunc, false);
 
-    assert(expr->left->kind == tkPeriod || expr->left->kind == tkIdentR
-      || expr->left->kind == tkIdent);
-    if (expr->left->kind == tkIdentR || expr->left->kind == tkIdent)
-      expr_analyse(parser, expr->left, scope, mod, ownerFunc, false);
+    assert(base->kind == tkPeriod //
+      || base->kind == tkIdentR   //
+      || base->kind == tkIdent);
+    // if (expr->left->kind == tkIdentR || expr->left->kind == tkIdent)
+    expr_analyse(parser, base, scope, mod, ownerFunc, false);
 
     // The name/type resolution of expr->left may have failed.
-    if (!expr->left->typeType) break;
+    if (!base->typeType) break;
 
-    Expr* member = expr->right;
-    Expr* base = expr->left;
     if (base->kind == tkPeriod) { base = base->right; }
 
-    if (member
-      && !ISIN(3, member->kind, tkIdent, tkSubscript, tkFuncCall)) {
+    if (!member) break; // fixme: is this possible?
+
+    if (!ISIN(3, member->kind, tkIdent, tkSubscript, tkFuncCall)) {
       err_unexpectedExpr(parser, member);
       break;
     }
 
-    if (member && ISIN(2, member->kind, tkSubscript, tkFuncCall)
-      && member->left)
+    if (ISIN(2, member->kind, tkSubscript, tkFuncCall) && member->left)
       expr_analyse(parser, member->left, scope, mod, ownerFunc, false);
 
     if (base->kind != tkIdentR) { break; }
@@ -1346,6 +1384,7 @@ static void func_analyse(Parser* parser, Func* func, Module* mod) {
 
 static void test_analyse(Parser* parser, Test* test, Module* mod) {
   if (!test->body) return;
+  if (*test->name == '-') return;
 
   // Check for duplicate test names and report errors.
   // TODO: this should be replaced by a dict query
@@ -1404,7 +1443,7 @@ static int expr_markTypesVisited(Parser* parser, Expr* expr);
 static int type_checkCycles(Parser* parser, Type* type);
 
 void mod_analyse(Parser* parser, Module* mod) {
-  FUNC_ENTRY
+  // FUNC_ENTRY
   // If function calls are going to be resolved based on the type of
   // first arg, then ALL functions must be visited in order to
   // generate their selectors and resolve their typespecs. (this does
@@ -1437,16 +1476,16 @@ void mod_analyse(Parser* parser, Module* mod) {
   foreach (Func*, func, mod->funcs) { func_checkRecursion(func); }
 
   foreach (Func*, func, mod->funcs)
-    if (!func->intrinsic
-      && (!func->used || !func->analysed
+    if (/*!func->intrinsic
+      &&*/
+      (!func->used || !func->analysed
         // || (func->recursivity > 1 && func->used == 1)
         // TODO: setting unused is tricky when there is a cycle. just
         // like refcounting GC!
         )) {
       func_reduceUsage(func);
       Type* t = mod_getType(mod, func->name);
-      if (t)
-        if (!--t->used) type_reduceUsage(t);
+      if (t && !--t->used) type_reduceUsage(t);
     }
 
   foreach (Func*, func, mod->funcs)

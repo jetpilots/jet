@@ -9,12 +9,15 @@ PREFIX=/usr/local/bin
 
 COMMITINFO="-DCOMMITHASH=\"$(COMMITHASH)\"" "-DCOMMITDATE=\"$(COMMITDATE)\""
 
-install: cjet tokcnt
+install: cjet-arm64 cjet-x86_64 tokcnt
 
 # mv cjet $(PREFIX) 2> /dev/null || sudo mv cjet $(PREFIX)
 
+cjet-arm64: cjet
+cjet-x86_64: cjet
+
 cjet: main.c *.h TokenKind.h
-	$(CC)  $(CCFLAGS) $(COMMITINFO) main.c $(CCLIBS) -o $@
+	$(CC)  $(CCFLAGS) $(COMMITINFO) main.c $(CCLIBS) -o $@-`uname -m`
 
 cjetd: serv.c *.h TokenKind.h
 	$(CC)  $(CCFLAGS) $(COMMITINFO) serv.c $(CCLIBS) -o $@

@@ -98,7 +98,7 @@ monostatic size_t _called_strlen = 0;
 #define realloc(ptr, s) (++_called_realloc, realloc(ptr, s))
 #define strdup(s) (++_called_strdup, strdup(s))
 
-void* jet_mem_copy(void* dest, const void* src, size_t len) {
+monostatic void* jet_mem_copy(void* dest, const void* src, size_t len) {
   return memcpy(dest, src, len);
 }
 
@@ -133,7 +133,13 @@ monostatic ulong min3ul(ulong a, ulong b, ulong c) {
   return a < b ? (a < c ? a : c) : (b < c ? b : c);
 }
 
-#define fallthrough
+#if __has_attribute(__fallthrough__)
+#define fallthrough __attribute__((__fallthrough__))
+#else
+#define fallthrough                                                        \
+  do {                                                                     \
+  } while (0) /* fallthrough */
+#endif
 
 #pragma mark - Variant
 

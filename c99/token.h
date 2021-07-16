@@ -182,6 +182,7 @@ static void tok_tryKeywordMatch(Token* token) {
   TOK_COMPAREKEYWORD(Decl)
   // TOK_COMPAREKEYWORD(Do)
   TOK_COMPAREKEYWORD(End)
+  TOK_COMPAREKEYWORD(Event)
   TOK_COMPAREKEYWORD(Enum)
   TOK_COMPAREKEYWORD(Extends)
   TOK_COMPAREKEYWORD(For)
@@ -205,6 +206,7 @@ static void tok_tryKeywordMatch(Token* token) {
   TOK_COMPAREKEYWORD(Type)
   TOK_COMPAREKEYWORD(Var)
   TOK_COMPAREKEYWORD(While)
+  TOK_COMPAREKEYWORD(When)
   TOK_COMPAREKEYWORD(Yes)
 
   if (!strncasecmp("else if ", s, 8)) {
@@ -337,7 +339,7 @@ static void tok_detect(Token* token) {
 
   TokenKind tmp;
   char* start = token->pos;
-  bool found_e = false, found_dot = false;
+  bool found_e = false; //, found_dot = false;
 
   switch (tt) {
   case tkStringBoundary:
@@ -510,10 +512,10 @@ static void tok_detect(Token* token) {
         found_e = false;
         continue;
       }
-      if (tt == tkPeriod) {
-        found_dot = true;
-        continue;
-      }
+      // if (tt == tkPeriod) {
+      //   found_dot = true;
+      //   continue;
+      // }
       // if (found_dot && tt == tkPeriod) tt_ret = tkMultiDotNumber;
 
       if (tt != tkDigit && tt != tkPeriod && *token->pos != 'i') break;

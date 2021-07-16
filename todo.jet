@@ -146,7 +146,7 @@ test "array filtering"
   print(sf)
 end
 
-test "scalarization"
+test "-scalarization"
   var nx = num(ask()) or 350
   var other = 1:695
   var arr = 1:nx
@@ -162,7 +162,7 @@ end
 
 
 ~ Complex numbers
-test "complex numbers"
+test "-complex numbers"
   var c = 1 + 2i
   var sc = conj(c)
   print(sc)
@@ -261,21 +261,21 @@ test "for loop over zip"
   end
 end
 
-test "for loop over numbered (default)"
+test "- for loop over numbered (default)"
   var arr = ["a", "b", "c"]
   for (i, e) = arr
     print("$i $e")
   end
 end
 
-test "for loop over Dict"
+test "- for loop over Dict"
   var dict = {"a" = 2, "b" = 3, "c" = 1}
   for (k, v) = dict
     print(k)
   end
 end
 
-test "for loop over type's fields (compile time)"
+test "- for loop over type's fields (compile time)"
   var t = MyType()
   for (k, v) = fields(t)
     print(k)
@@ -288,7 +288,7 @@ test "for loop over array"
   end
 end
 
-test "for loop over list"
+test "- for loop over list"
   var l = [1, 2, 4, 5]
   ~ at user level there is no way to specify array vs. list. But an
   ~ insert call marks the variable as list.

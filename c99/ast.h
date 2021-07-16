@@ -127,10 +127,8 @@ struct Var {
   // if/for/while as the lastref, not the actual lastref) WHY NOT JUST SAVE
   // THE LINE NUMBER OF THE LJet USE?
   // JetLocation loc[0];
-  uint32_t line : 24, col : 8; //
-  uint16_t lastUsage,
-    // firstUsage,
-    used, changed;
+  uint32_t line : 16, col : 8;       //
+  uint16_t used, changed, lastUsage; // firstUsage,
   // ^ YOu canot use the last used line no to decide drops etc. because code
   // motion can rearrange statements and leave the line numbers stale.
   // --- YES YOU CAN if you use == to compare when dropping and not >=. Also
@@ -336,16 +334,12 @@ struct Type {
 
 struct Func {
   char* name;
-  Scope* body;
-  List(Var) * args;
-  List(TypeSpec) * params;
-  List(Func) * callers, *callees;
   TypeSpec* spec;
-  char *sel, *psel;
+  Scope* body;
   struct {
-    uint16_t line, endline, used, col;
+    uint16_t line, col : 8, argCount : 8, used, endline;
     struct {
-      uint16_t throws : 1,
+      uint32_t throws : 1,
         recursivity : 2, // 0:unchecked,1:no,2:direct,3:indirect
         visited : 1,     // used while checking cycles
 
@@ -379,8 +373,13 @@ struct Func {
       // return paths and not all of them may call the constructor; in
       // this case set returnsNewObjectAlways accordingly.
     };
-    uint8_t argCount, nameLen;
+    uint8_t nameLen;
   };
+
+  List(Var) * args;
+  List(TypeSpec) * params;
+  List(Func) * callers, *callees;
+  char *sel, *psel;
 };
 static const size_t szFunc = sizeof(Func);
 

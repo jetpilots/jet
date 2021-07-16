@@ -227,18 +227,12 @@ monostatic void Process_update(Process* proc) {
   Process_execIn_((char*[]) { __VA_ARGS__, NULL }, dir)
 
 monostatic int Process_execIn_(char* args[], char* dir) {
-  clock_Time t0;
   if (__jet_dbglog) {
     char** a = args;
     eputs("*** ");
-    while (*a) {
-      eputs(*a);
-      eputs(" ");
-      a++;
-    }
-    // eputs("\n");
-    t0 = clock_getTime();
+    while (*a) { eputs(*a), eputs(" "), ++a; }
   }
+  clock_Time t0 = clock_getTime();
   Process p = Process_launchIn(args, dir);
   Process_await(&p);
   if (__jet_dbglog)

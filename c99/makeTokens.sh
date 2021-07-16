@@ -54,6 +54,8 @@ add __tk__keywords__begin
     add tkEnd "end"
     add tkEnum "enum " "enum"
     add tkFunc "func"
+    add tkEvent "event"
+    add tkWhen "when"
     add tkDecl "decl"
     add tkTest "test "  "test"
     add tkCheck "check "  "check"

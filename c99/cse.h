@@ -88,8 +88,8 @@ static void expr_dohash(
       // the typeinfo as well
     }
   }
-  if (!ISIN(6, expr->kind, tkNumber, tkString, tkRawString, tkIdentR,
-        tkVarDefn, tkComment)
+  if (!ISIN(7, expr->kind, tkNumber, tkString, tkRawString, tkIdent,
+        tkIdentR, tkVarDefn, tkComment)
     && !isCtrlExpr(expr)) {
     if (expr->kind != tkPeriod
       || (expr->right && expr->right->kind == tkFuncCallR)) {

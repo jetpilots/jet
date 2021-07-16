@@ -14,8 +14,8 @@ int langserver(int argc, char* argv[]) {
 
   CompilerMode mode = PMLint;
   List(Module)* modules = NULL;
-  Parser* parser;
-  Module* root;
+  Parser* parser = NULL;
+  Module* root = NULL;
 
   // static char linebuf[LINESIZE];
   char* line; //= linebuf;
@@ -50,8 +50,11 @@ int langserver(int argc, char* argv[]) {
       foreach (Module*, mod, modules)
         printf("%s %s\n", mod->name, mod->filename);
     }
-    cmd("stat") { printstats(parser); }
+    cmd("stat") {
+      if (parser) printstats(parser);
+    }
     cmd("syms") {
+      if (!root) continue;
       foreach (Type*, type, root->types) {
         printf("%d:%d: %s\n", type->line, type->col, type->name);
         foreach (Var*, var, type->body->locals)

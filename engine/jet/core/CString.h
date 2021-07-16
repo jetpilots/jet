@@ -8,8 +8,12 @@ monostatic CString cstr_malloc(size_t len) {
 }
 
 #define CString_len cstr_len
-monostatic size_t cstr_len(const char* str) { return strlen(str); }
-#define cstr_len(s) (++_called_strlen, cstr_len(s))
+// ALWAYS use this instead of calling strlen directly.
+monostatic size_t cstr_len(const char* str) {
+  IFDEBUG(++_called_strlen);
+  return strlen(str);
+}
+// #define cstr_len(s) (, cstr_len(s))
 
 monostatic bool cstr_eq(const CString a, const CString b) {
   return a == b || !strcmp(a, b);

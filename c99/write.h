@@ -279,6 +279,13 @@ static void expr_write(
     printf(")");
     break;
 
+  case tkWhen:
+    printf("when ");
+    expr->func->intrinsic = false; // guess why
+    func_write(expr->func, level);
+    expr->func->intrinsic = true;
+    break;
+
   case tkSubscript:
   case tkSubscriptR: {
     char* tmp = (expr->kind == tkSubscriptR) ? expr->var->name : expr->str;

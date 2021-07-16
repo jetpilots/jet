@@ -305,18 +305,24 @@ static void type_emit(Type* type, int level) {
 
   printf("static %s %s_init_(%s self) {\n", name, name, name);
 
-  foreach (Var*, var, type->body->locals)
-    printf("#define %s self->%s\n", var->name, var->name);
+  // foreach (Var*, var, type->body->locals)
+  //   printf("#define %s self->%s\n", var->name, var->name);
 
   foreach (Expr*, stmt, type->body->stmts) {
     if (!stmt || stmt->kind != tkVarDefn || !stmt->var->init) continue;
+    spec_emit(stmt->var->spec, 0, false, false);
     printf("%.*s%s = ", level + STEP, spaces, stmt->var->name);
     expr_emit(stmt->var->init, 0);
     outln(";");
     if (stmt->var->init->throws) outln("  TRACE_IF_ERROR;");
   }
+  // foreach (Var*, var, type->body->locals)
+  //   printf("#undef %s \n", var->name);
+
+  printf("*self = (struct %s) {\n", name);
   foreach (Var*, var, type->body->locals)
-    printf("#undef %s \n", var->name);
+    printf(".%s = %s,\n", var->name, var->name);
+  outln("};");
 
   outln("  return self;\n}\n");
 
@@ -332,10 +338,10 @@ static void type_emit(Type* type, int level) {
   puts(functionExitStuff_UNESCAPED);
   outln("}\n#undef DEFAULT_VALUE\n");
 
-  printf("#define %s_print(p) %s_print__(p, STR(p))\n", name, name);
-  printf("monostatic void %s_print__(%s self, const char* name) {\n    "
-         "printf(\"<%s '%%s' at %%p size %%luB>\\n\","
-         "  name, self, sizeof(struct %s));\n}\n",
+  // printf("#define %s_print(p) %s_print__(p, STR(p))\n", name, name);
+  printf("monostatic void %s_print(%s self) {\n    "
+         "printf(\"<%s object of %%luB at %%p>\\n\","
+         "sizeof(struct %s), self);\n}\n",
     name, name, name, name);
   outln("");
 
@@ -366,7 +372,7 @@ static void type_genh(Type* type, int level) {
 
   const char* const name = type->name;
   // printf("struct %s;\n", name);
-  printf("typedef struct %s* %s;\n", name, name);
+  // printf("typedef struct %s* %s;\n", name, name);
   // printf("typedef const struct %s* restrict const_%s;\n", name, name);
   // printf("typedef const struct %s* restrict %s_const;\n", name, name);
   // printf("typedef const struct %s* const restrict const_%s_const;\n",
@@ -494,7 +500,7 @@ static void enum_genh(Type* type, int level) {
 static void test_emit(Test* test, Module* mod, int idx)
 // TODO: should tests not return BOOL?
 {
-  if (!test->body) return;
+  if (!test->body || *test->name == '-') return;
   printf("\nstatic int test_%s_%d(void) {\n", mod->cname, idx);
   printf("  static const char* sig_ = \"test \\\"%s\\\"\";", test->name);
   scope_emit(test->body, STEP);
@@ -947,6 +953,14 @@ static void expr_emit(Expr* expr, int level) {
 
   case tkSubscriptR: expr_emit_tkSubscriptR(expr, level); break;
 
+  case tkWhen: {
+    Func* func = expr->func;
+    Var* var = func->args->item;
+    printf("*%s_addrof_%s(%s) = %s", spec_name(var->spec), func->name,
+      var->name, func->sel);
+    break;
+  }
+
   case tkAssign:
   case tkPlusEq:
   case tkMinusEq:
@@ -1352,8 +1366,8 @@ static void expr_emit(Expr* expr, int level) {
   case tkLE:
   case tkGT:
   case tkLT:
-    if ((expr->kind == tkLE || expr->kind == tkLT)
-      && (expr->left->kind == tkLE | expr->left->kind == tkLT)) {
+    if (((expr->kind == tkLE) | (expr->kind == tkLT))
+      & ((expr->left->kind == tkLE) | (expr->left->kind == tkLT))) {
       printf("%s_cmp3way_%s_%s(", expr_typeName(expr->left->right),
         TokenKind_ascrepr(expr->kind, false),
         TokenKind_ascrepr(expr->left->kind, false));
@@ -1485,6 +1499,11 @@ static int mod_emit(Module* mod) {
   // // FIXME: add basic types here
   // foreach (Type*, type, mod->types) { type_genID(type); }
   // printf("  TypeID__end\n} _TypeID;\n");
+  foreach (Type*, type, mod->types) {
+    if (type->body && type->analysed) {
+      printf("typedef struct %s* %s;\n", type->name, type->name);
+    }
+  }
 
   foreach (Type*, type, mod->types) {
     if (type->body && type->analysed) {

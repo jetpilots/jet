@@ -1,0 +1,32 @@
+type Gi
+  var w = Wq()
+end
+
+type Wq
+  var e = Mk()
+end
+
+type Mk
+  var i = 8
+end
+
+test "dot funcs"
+var v = 6
+v.print()
+~ check v.ret()==12
+end
+
+test "dot dot funcs"
+var g = Gi()
+var m = Wq()
+var k = Mk()
+k.i.print()
+g.w.e.i = 9
+g.w.e.i.print()
+m.e.print()
+~ check g.w.ret()==16
+end
+
+func ret(v Number)
+  ans = v*2
+end
