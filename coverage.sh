@@ -7,14 +7,14 @@ NERR=0
 for f in `find tests -name '*.jet'`
 do
     RET=0
-    ./c99/cjet-cov "$f" d > /dev/null  2>&1
+    ./c99/cjet-cov -c "$f" -m > /dev/null  2>&1
     RET=$((RET+$?))
-    ./c99/cjet-cov "$f" > /dev/null  2>&1
+    # ./c99/cjet-cov -r "$f" -f #> /dev/null  2>&1
+    # RET=$((RET+$?))
+    ./c99/cjet-cov -l "$f" > /dev/null  2>&1
     RET=$((RET+$?))
-    ./c99/cjet-cov "$f" l > /dev/null  2>&1
-    RET=$((RET+$?))
-    ./c99/cjet-cov "$f" t > /dev/null  2>&1
-    RET=$((RET+$?))
+    # ./c99/cjet-cov -t "$f" -f #> /dev/null  2>&1
+    # RET=$((RET+$?))
     [ $RET == 0 ] && ST="\e[32mOK\e[0m" || ST="\e[31mERR\e[0m:$RET"
     [ $RET == 0 ] || NERR=$((NERR+1))
     printf "[$ST] $f\n" 1>&2

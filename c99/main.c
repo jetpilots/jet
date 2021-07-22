@@ -22,6 +22,8 @@ thread_local const char* _err_ = 0;
 #include "templ.h"
 #include "lower.h"
 
+thread_local uint64_t __randstate;
+
 #define outl(s) fwrite(s "", sizeof(s "") - 1, 1, outfile)
 #define outln(s) outl(s "\n") // fwrite(s "\n", sizeof(s ""), 1, outfile)
 #define iprintf(nspc, fmt, ...)                                            \
@@ -200,6 +202,7 @@ static void argparse(Config* cfg, int argc, char* argv[]) {
   }
 }
 
+#ifndef _WIN64
 static void sighandler(int sig, siginfo_t* si, void* unused) {
   write(2, _lastFunc, _lastFuncLen);
   write(2,
@@ -208,6 +211,7 @@ static void sighandler(int sig, siginfo_t* si, void* unused) {
     88);
   _exit(1);
 }
+#endif
 
 monostatic bool file_exists(const char* file) {
   struct stat sb = {};
@@ -296,12 +300,14 @@ void help() { printf(hstr); }
 
 int main(int argc, char* argv[]) {
   FUNC_ENTRY
+
+#ifndef _WIN32
   struct sigaction sa;
   sa.sa_flags = SA_SIGINFO;
   sigemptyset(&sa.sa_mask);
   sa.sa_sigaction = sighandler;
   sigaction(SIGSEGV, &sa, NULL);
-
+#endif
   // if (argc == 1) {
   //   eputs("cjet: no input file specified. What are you trying to do?\n"
   //         "      if you want language-server mode, it's `cjet -s`.\n");
@@ -459,7 +465,7 @@ int main(int argc, char* argv[]) {
     if (!fstart) { // TODO: new error, unless you want to get rid of start
       eputs("\n\e[31m*** error:\e[0m cannot find function "
             "\e[33mstart\e[0m.\n");
-      parser->issues.errCount++;
+      _InternalErrs++;
     }
   }
 

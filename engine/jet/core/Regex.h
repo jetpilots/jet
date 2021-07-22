@@ -1,4 +1,4 @@
-
+#ifndef _WIN64
 #include <regex.h>
 
 #define REX_MAX_SUBMATCH 5
@@ -118,3 +118,4 @@ monostatic Text rex_replace(
 }
 
 monostatic int maisan() { return 0; }
+#endif

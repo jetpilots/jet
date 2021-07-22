@@ -1,0 +1,54 @@
+decl type Byte end
+decl func slurp(file String) String
+
+type Parser
+  var file = ""
+  var data = ""
+  var kind TokenKind = .unknown
+  var line = 1
+  var col = 1
+  var pos = 1
+  var len = 0
+end
+
+func Parser(file String)
+  ans = Parser()
+  ans.file = file
+  ans.data = slurp(file)
+end
+
+enum TokenKind
+  unknown
+  ident
+  identR
+  number
+  string
+  regex
+  cmpop
+  mutop
+  call
+  callR
+  eof
+end
+
+func detect(par Parser) TokenKind
+  match par.data[par.pos:]
+  case '==', '!=', '>=', '<=', '<', '>'
+    ans = .cmpop
+  case '+=', '-=', '*=', '/=', '%=', '='
+    ans = .mutop
+  case `^[a-zA-Z][a-zA-Z0-9_]*`
+    ans = .ident
+  case `^[0-9]+(\.[0-9]*)?([eEdD][+-]?[0-9]+)?`
+    ans = .number
+  end
+end
+
+func start()
+  var p = Parser("tokcnt.jet")
+  var k = p.detect()
+  while k != .eof
+    var curr = p.data[p.pos:p.pos+p.len]
+    print("$p.line:$p.col: $k $curr")
+  end
+end

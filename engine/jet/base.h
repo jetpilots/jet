@@ -14,7 +14,10 @@
 #include <ctype.h>
 #include <string.h>
 #include <sys/stat.h>
+
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 
 // FIXME: hack to get incremental compilation running: everything is static.
 // so funcs are repeated & o files will be bloated. fix by separating
@@ -133,12 +136,16 @@ monostatic ulong min3ul(ulong a, ulong b, ulong c) {
   return a < b ? (a < c ? a : c) : (b < c ? b : c);
 }
 
+#ifdef _WIN64
+#define fallthrough
+#else
 #if __has_attribute(__fallthrough__)
 #define fallthrough __attribute__((__fallthrough__))
 #else
 #define fallthrough                                                        \
   do {                                                                     \
   } while (0) /* fallthrough */
+#endif
 #endif
 
 #pragma mark - Variant
